@@ -9,10 +9,14 @@ package huawei.proto;
 service Consumer {
 	// get the journal marker of specified volume and comsumer
 	rpc GetJournalMarker(GetJournalMarkerRequest) returns(GetJournalMarkerResponse) {}
-	
 	rpc GetJournalList(GetJournalListRequest) returns(GetJournalListResponse) {}
 	// update consumer maker when time out or comsumed a batch of logs
 	rpc UpdateConsumerMarker(UpdateConsumerMarkerRequest) returns(UpdateConsumerMarkerResponse) {}
+}
+
+enum CONSUMER_TYPE {
+    REPLAYER = 0;
+    REPLICATER = 1;
 }
 
 // journal replayer messages
@@ -42,8 +46,8 @@ message GetJournalListRequest {
 }
 message GetJournalListResponse {
 	RESULT result = 1;
-	int32 count = 2;
-	repeated Journal journals = 3;
+	// the journal paths
+	repeated string journals = 2;
 }
 
 message UpdateConsumerMarkerRequest {

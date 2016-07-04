@@ -43,6 +43,7 @@ const ::google::protobuf::internal::GeneratedMessageReflection*
 const ::google::protobuf::Descriptor* UpdateConsumerMarkerResponse_descriptor_ = NULL;
 const ::google::protobuf::internal::GeneratedMessageReflection*
   UpdateConsumerMarkerResponse_reflection_ = NULL;
+const ::google::protobuf::EnumDescriptor* CONSUMER_TYPE_descriptor_ = NULL;
 
 }  // namespace
 
@@ -122,9 +123,8 @@ void protobuf_AssignDesc_consumer_2eproto() {
       GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(GetJournalListRequest, _internal_metadata_),
       GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(GetJournalListRequest, _is_default_instance_));
   GetJournalListResponse_descriptor_ = file->message_type(4);
-  static const int GetJournalListResponse_offsets_[3] = {
+  static const int GetJournalListResponse_offsets_[2] = {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(GetJournalListResponse, result_),
-    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(GetJournalListResponse, count_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(GetJournalListResponse, journals_),
   };
   GetJournalListResponse_reflection_ =
@@ -171,6 +171,7 @@ void protobuf_AssignDesc_consumer_2eproto() {
       sizeof(UpdateConsumerMarkerResponse),
       GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(UpdateConsumerMarkerResponse, _internal_metadata_),
       GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(UpdateConsumerMarkerResponse, _is_default_instance_));
+  CONSUMER_TYPE_descriptor_ = file->enum_type(0);
 }
 
 namespace {
@@ -237,24 +238,24 @@ void protobuf_AddDesc_consumer_2eproto() {
     "lListRequest\022\014\n\004uuid\030\001 \001(\t\022\016\n\006vol_id\030\002 \001"
     "(\t\022)\n\004type\030\003 \001(\0162\033.huawei.proto.CONSUMER"
     "_TYPE\022+\n\006marker\030\004 \001(\0132\033.huawei.proto.Jou"
-    "rnalMarker\022\r\n\005limit\030\005 \001(\005\"v\n\026GetJournalL"
+    "rnalMarker\022\r\n\005limit\030\005 \001(\005\"P\n\026GetJournalL"
     "istResponse\022$\n\006result\030\001 \001(\0162\024.huawei.pro"
-    "to.RESULT\022\r\n\005count\030\002 \001(\005\022\'\n\010journals\030\003 \003"
-    "(\0132\025.huawei.proto.Journal\"\223\001\n\033UpdateCons"
-    "umerMarkerRequest\022\014\n\004uuid\030\001 \001(\t\022\016\n\006vol_i"
-    "d\030\002 \001(\t\022)\n\004type\030\003 \001(\0162\033.huawei.proto.CON"
-    "SUMER_TYPE\022+\n\006marker\030\004 \001(\0132\033.huawei.prot"
-    "o.JournalMarker\"D\n\034UpdateConsumerMarkerR"
-    "esponse\022$\n\006result\030\001 \001(\0162\024.huawei.proto.R"
-    "ESULT2\277\002\n\010Consumer\022c\n\020GetJournalMarker\022%"
-    ".huawei.proto.GetJournalMarkerRequest\032&."
-    "huawei.proto.GetJournalMarkerResponse\"\000\022"
-    "]\n\016GetJournalList\022#.huawei.proto.GetJour"
-    "nalListRequest\032$.huawei.proto.GetJournal"
-    "ListResponse\"\000\022o\n\024UpdateConsumerMarker\022)"
-    ".huawei.proto.UpdateConsumerMarkerReques"
-    "t\032*.huawei.proto.UpdateConsumerMarkerRes"
-    "ponse\"\000B\006\242\002\003DRSb\006proto3", 1143);
+    "to.RESULT\022\020\n\010journals\030\002 \003(\t\"\223\001\n\033UpdateCo"
+    "nsumerMarkerRequest\022\014\n\004uuid\030\001 \001(\t\022\016\n\006vol"
+    "_id\030\002 \001(\t\022)\n\004type\030\003 \001(\0162\033.huawei.proto.C"
+    "ONSUMER_TYPE\022+\n\006marker\030\004 \001(\0132\033.huawei.pr"
+    "oto.JournalMarker\"D\n\034UpdateConsumerMarke"
+    "rResponse\022$\n\006result\030\001 \001(\0162\024.huawei.proto"
+    ".RESULT*-\n\rCONSUMER_TYPE\022\014\n\010REPLAYER\020\000\022\016"
+    "\n\nREPLICATER\020\0012\277\002\n\010Consumer\022c\n\020GetJourna"
+    "lMarker\022%.huawei.proto.GetJournalMarkerR"
+    "equest\032&.huawei.proto.GetJournalMarkerRe"
+    "sponse\"\000\022]\n\016GetJournalList\022#.huawei.prot"
+    "o.GetJournalListRequest\032$.huawei.proto.G"
+    "etJournalListResponse\"\000\022o\n\024UpdateConsume"
+    "rMarker\022).huawei.proto.UpdateConsumerMar"
+    "kerRequest\032*.huawei.proto.UpdateConsumer"
+    "MarkerResponse\"\000B\006\242\002\003DRSb\006proto3", 1152);
   ::google::protobuf::MessageFactory::InternalRegisterGeneratedFile(
     "consumer.proto", &protobuf_RegisterTypes);
   JournalMarker::default_instance_ = new JournalMarker();
@@ -280,6 +281,20 @@ struct StaticDescriptorInitializer_consumer_2eproto {
     protobuf_AddDesc_consumer_2eproto();
   }
 } static_descriptor_initializer_consumer_2eproto_;
+const ::google::protobuf::EnumDescriptor* CONSUMER_TYPE_descriptor() {
+  protobuf_AssignDescriptorsOnce();
+  return CONSUMER_TYPE_descriptor_;
+}
+bool CONSUMER_TYPE_IsValid(int value) {
+  switch(value) {
+    case 0:
+    case 1:
+      return true;
+    default:
+      return false;
+  }
+}
+
 
 namespace {
 
@@ -1964,7 +1979,6 @@ void GetJournalListRequest::clear_limit() {
 
 #if !defined(_MSC_VER) || _MSC_VER >= 1900
 const int GetJournalListResponse::kResultFieldNumber;
-const int GetJournalListResponse::kCountFieldNumber;
 const int GetJournalListResponse::kJournalsFieldNumber;
 #endif  // !defined(_MSC_VER) || _MSC_VER >= 1900
 
@@ -1988,9 +2002,9 @@ GetJournalListResponse::GetJournalListResponse(const GetJournalListResponse& fro
 
 void GetJournalListResponse::SharedCtor() {
     _is_default_instance_ = false;
+  ::google::protobuf::internal::GetEmptyString();
   _cached_size_ = 0;
   result_ = 0;
-  count_ = 0;
 }
 
 GetJournalListResponse::~GetJournalListResponse() {
@@ -2030,27 +2044,7 @@ GetJournalListResponse* GetJournalListResponse::New(::google::protobuf::Arena* a
 
 void GetJournalListResponse::Clear() {
 // @@protoc_insertion_point(message_clear_start:huawei.proto.GetJournalListResponse)
-#if defined(__clang__)
-#define ZR_HELPER_(f) \
-  _Pragma("clang diagnostic push") \
-  _Pragma("clang diagnostic ignored \"-Winvalid-offsetof\"") \
-  __builtin_offsetof(GetJournalListResponse, f) \
-  _Pragma("clang diagnostic pop")
-#else
-#define ZR_HELPER_(f) reinterpret_cast<char*>(\
-  &reinterpret_cast<GetJournalListResponse*>(16)->f)
-#endif
-
-#define ZR_(first, last) do {\
-  ::memset(&first, 0,\
-           ZR_HELPER_(last) - ZR_HELPER_(first) + sizeof(last));\
-} while (0)
-
-  ZR_(result_, count_);
-
-#undef ZR_HELPER_
-#undef ZR_
-
+  result_ = 0;
   journals_.Clear();
 }
 
@@ -2075,38 +2069,25 @@ bool GetJournalListResponse::MergePartialFromCodedStream(
         } else {
           goto handle_unusual;
         }
-        if (input->ExpectTag(16)) goto parse_count;
+        if (input->ExpectTag(18)) goto parse_journals;
         break;
       }
 
-      // optional int32 count = 2;
+      // repeated string journals = 2;
       case 2: {
-        if (tag == 16) {
-         parse_count:
-          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
-                   ::google::protobuf::int32, ::google::protobuf::internal::WireFormatLite::TYPE_INT32>(
-                 input, &count_)));
-
-        } else {
-          goto handle_unusual;
-        }
-        if (input->ExpectTag(26)) goto parse_journals;
-        break;
-      }
-
-      // repeated .huawei.proto.Journal journals = 3;
-      case 3: {
-        if (tag == 26) {
+        if (tag == 18) {
          parse_journals:
-          DO_(input->IncrementRecursionDepth());
-         parse_loop_journals:
-          DO_(::google::protobuf::internal::WireFormatLite::ReadMessageNoVirtualNoRecursionDepth(
-                input, add_journals()));
+          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
+                input, this->add_journals()));
+          DO_(::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+            this->journals(this->journals_size() - 1).data(),
+            this->journals(this->journals_size() - 1).length(),
+            ::google::protobuf::internal::WireFormatLite::PARSE,
+            "huawei.proto.GetJournalListResponse.journals"));
         } else {
           goto handle_unusual;
         }
-        if (input->ExpectTag(26)) goto parse_loop_journals;
-        input->UnsafeDecrementRecursionDepth();
+        if (input->ExpectTag(18)) goto parse_journals;
         if (input->ExpectAtEnd()) goto success;
         break;
       }
@@ -2141,15 +2122,14 @@ void GetJournalListResponse::SerializeWithCachedSizes(
       1, this->result(), output);
   }
 
-  // optional int32 count = 2;
-  if (this->count() != 0) {
-    ::google::protobuf::internal::WireFormatLite::WriteInt32(2, this->count(), output);
-  }
-
-  // repeated .huawei.proto.Journal journals = 3;
-  for (unsigned int i = 0, n = this->journals_size(); i < n; i++) {
-    ::google::protobuf::internal::WireFormatLite::WriteMessageMaybeToArray(
-      3, this->journals(i), output);
+  // repeated string journals = 2;
+  for (int i = 0; i < this->journals_size(); i++) {
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+      this->journals(i).data(), this->journals(i).length(),
+      ::google::protobuf::internal::WireFormatLite::SERIALIZE,
+      "huawei.proto.GetJournalListResponse.journals");
+    ::google::protobuf::internal::WireFormatLite::WriteString(
+      2, this->journals(i), output);
   }
 
   // @@protoc_insertion_point(serialize_end:huawei.proto.GetJournalListResponse)
@@ -2164,16 +2144,14 @@ void GetJournalListResponse::SerializeWithCachedSizes(
       1, this->result(), target);
   }
 
-  // optional int32 count = 2;
-  if (this->count() != 0) {
-    target = ::google::protobuf::internal::WireFormatLite::WriteInt32ToArray(2, this->count(), target);
-  }
-
-  // repeated .huawei.proto.Journal journals = 3;
-  for (unsigned int i = 0, n = this->journals_size(); i < n; i++) {
+  // repeated string journals = 2;
+  for (int i = 0; i < this->journals_size(); i++) {
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+      this->journals(i).data(), this->journals(i).length(),
+      ::google::protobuf::internal::WireFormatLite::SERIALIZE,
+      "huawei.proto.GetJournalListResponse.journals");
     target = ::google::protobuf::internal::WireFormatLite::
-      WriteMessageNoVirtualToArray(
-        3, this->journals(i), target);
+      WriteStringToArray(2, this->journals(i), target);
   }
 
   // @@protoc_insertion_point(serialize_to_array_end:huawei.proto.GetJournalListResponse)
@@ -2190,19 +2168,11 @@ int GetJournalListResponse::ByteSize() const {
       ::google::protobuf::internal::WireFormatLite::EnumSize(this->result());
   }
 
-  // optional int32 count = 2;
-  if (this->count() != 0) {
-    total_size += 1 +
-      ::google::protobuf::internal::WireFormatLite::Int32Size(
-        this->count());
-  }
-
-  // repeated .huawei.proto.Journal journals = 3;
+  // repeated string journals = 2;
   total_size += 1 * this->journals_size();
   for (int i = 0; i < this->journals_size(); i++) {
-    total_size +=
-      ::google::protobuf::internal::WireFormatLite::MessageSizeNoVirtual(
-        this->journals(i));
+    total_size += ::google::protobuf::internal::WireFormatLite::StringSize(
+      this->journals(i));
   }
 
   GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
@@ -2233,9 +2203,6 @@ void GetJournalListResponse::MergeFrom(const GetJournalListResponse& from) {
   if (from.result() != 0) {
     set_result(from.result());
   }
-  if (from.count() != 0) {
-    set_count(from.count());
-  }
 }
 
 void GetJournalListResponse::CopyFrom(const ::google::protobuf::Message& from) {
@@ -2263,7 +2230,6 @@ void GetJournalListResponse::Swap(GetJournalListResponse* other) {
 }
 void GetJournalListResponse::InternalSwap(GetJournalListResponse* other) {
   std::swap(result_, other->result_);
-  std::swap(count_, other->count_);
   journals_.UnsafeArenaSwap(&other->journals_);
   _internal_metadata_.Swap(&other->_internal_metadata_);
   std::swap(_cached_size_, other->_cached_size_);
@@ -2294,48 +2260,59 @@ void GetJournalListResponse::clear_result() {
   // @@protoc_insertion_point(field_set:huawei.proto.GetJournalListResponse.result)
 }
 
-// optional int32 count = 2;
-void GetJournalListResponse::clear_count() {
-  count_ = 0;
-}
- ::google::protobuf::int32 GetJournalListResponse::count() const {
-  // @@protoc_insertion_point(field_get:huawei.proto.GetJournalListResponse.count)
-  return count_;
-}
- void GetJournalListResponse::set_count(::google::protobuf::int32 value) {
-  
-  count_ = value;
-  // @@protoc_insertion_point(field_set:huawei.proto.GetJournalListResponse.count)
-}
-
-// repeated .huawei.proto.Journal journals = 3;
+// repeated string journals = 2;
 int GetJournalListResponse::journals_size() const {
   return journals_.size();
 }
 void GetJournalListResponse::clear_journals() {
   journals_.Clear();
 }
-const ::huawei::proto::Journal& GetJournalListResponse::journals(int index) const {
+ const ::std::string& GetJournalListResponse::journals(int index) const {
   // @@protoc_insertion_point(field_get:huawei.proto.GetJournalListResponse.journals)
   return journals_.Get(index);
 }
-::huawei::proto::Journal* GetJournalListResponse::mutable_journals(int index) {
+ ::std::string* GetJournalListResponse::mutable_journals(int index) {
   // @@protoc_insertion_point(field_mutable:huawei.proto.GetJournalListResponse.journals)
   return journals_.Mutable(index);
 }
-::huawei::proto::Journal* GetJournalListResponse::add_journals() {
-  // @@protoc_insertion_point(field_add:huawei.proto.GetJournalListResponse.journals)
+ void GetJournalListResponse::set_journals(int index, const ::std::string& value) {
+  // @@protoc_insertion_point(field_set:huawei.proto.GetJournalListResponse.journals)
+  journals_.Mutable(index)->assign(value);
+}
+ void GetJournalListResponse::set_journals(int index, const char* value) {
+  journals_.Mutable(index)->assign(value);
+  // @@protoc_insertion_point(field_set_char:huawei.proto.GetJournalListResponse.journals)
+}
+ void GetJournalListResponse::set_journals(int index, const char* value, size_t size) {
+  journals_.Mutable(index)->assign(
+    reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_set_pointer:huawei.proto.GetJournalListResponse.journals)
+}
+ ::std::string* GetJournalListResponse::add_journals() {
+  // @@protoc_insertion_point(field_add_mutable:huawei.proto.GetJournalListResponse.journals)
   return journals_.Add();
 }
-::google::protobuf::RepeatedPtrField< ::huawei::proto::Journal >*
-GetJournalListResponse::mutable_journals() {
-  // @@protoc_insertion_point(field_mutable_list:huawei.proto.GetJournalListResponse.journals)
-  return &journals_;
+ void GetJournalListResponse::add_journals(const ::std::string& value) {
+  journals_.Add()->assign(value);
+  // @@protoc_insertion_point(field_add:huawei.proto.GetJournalListResponse.journals)
 }
-const ::google::protobuf::RepeatedPtrField< ::huawei::proto::Journal >&
+ void GetJournalListResponse::add_journals(const char* value) {
+  journals_.Add()->assign(value);
+  // @@protoc_insertion_point(field_add_char:huawei.proto.GetJournalListResponse.journals)
+}
+ void GetJournalListResponse::add_journals(const char* value, size_t size) {
+  journals_.Add()->assign(reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_add_pointer:huawei.proto.GetJournalListResponse.journals)
+}
+ const ::google::protobuf::RepeatedPtrField< ::std::string>&
 GetJournalListResponse::journals() const {
   // @@protoc_insertion_point(field_list:huawei.proto.GetJournalListResponse.journals)
   return journals_;
+}
+ ::google::protobuf::RepeatedPtrField< ::std::string>*
+GetJournalListResponse::mutable_journals() {
+  // @@protoc_insertion_point(field_mutable_list:huawei.proto.GetJournalListResponse.journals)
+  return &journals_;
 }
 
 #endif  // PROTOBUF_INLINE_NOT_IN_HEADERS

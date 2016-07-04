@@ -24,20 +24,20 @@ message GetWriteableJournalsRequest {
 	// every volume has dedicated journal files,
 	// and the volume id should be unique in the DR Server
 	string vol_id = 2;
+   	// the max journals will returned
+        int32 limits = 3;
 }
 message GetWriteableJournalsResponse {
 	RESULT result = 1 ;
-	// count indicates how many journal files are returned
-	int32 count = 2;
-	repeated Journal journals = 3;
+	// journal file paths are returned
+	repeated string journals = 2;
 }
 
 message SealJournalsRequest {
 	string uuid = 1;
 	string vol_id = 2;	
-	int32 count = 3;
-	// journals is fileName of the journals which will be sealed
-	repeated string journals = 4;
+	// journals is file paths of the journals which will be sealed
+	repeated string journals = 3;
 }
 message SealJournalsResponse {
 	RESULT result = 1 ;
@@ -46,21 +46,22 @@ message SealJournalsResponse {
 message GetMultiWriteableJournalsRequest {	
 	// uuid indicator the helder of journal files
 	string uuid = 1;
-	int32 vol_count = 2;
 	// every volume has dedicated journal files,
 	// and the volume id should be unique in the DR Server
-	repeated string vol_id = 3;
+	repeated string vol_id = 2;
+}
+message JournalArray {
+	repeated string journal = 1;
 }
 message GetMultiWriteableJournalsResponse {
 	RESULT result = 1 ;
-	// the map contains volume id and its journals
+	// the map contains volume id and its journals	
 	map <string, JournalArray > map = 2;
 }
 
 message SealMultiJournalsRequest {
 	string uuid = 1;
-	string vol_id = 2;	
-	map <string, JournalArray > map = 3;
+	map <string, JournalArray > map = 2;
 }
 message SealMultiJournalsResponse {
 	RESULT result = 1 ;

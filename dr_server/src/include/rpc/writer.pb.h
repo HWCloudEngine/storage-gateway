@@ -44,6 +44,7 @@ class GetMultiWriteableJournalsRequest;
 class GetMultiWriteableJournalsResponse;
 class GetWriteableJournalsRequest;
 class GetWriteableJournalsResponse;
+class JournalArray;
 class SealJournalsRequest;
 class SealJournalsResponse;
 class SealMultiJournalsRequest;
@@ -129,6 +130,12 @@ class GetWriteableJournalsRequest : public ::google::protobuf::Message {
   ::std::string* release_vol_id();
   void set_allocated_vol_id(::std::string* vol_id);
 
+  // optional int32 limits = 3;
+  void clear_limits();
+  static const int kLimitsFieldNumber = 3;
+  ::google::protobuf::int32 limits() const;
+  void set_limits(::google::protobuf::int32 value);
+
   // @@protoc_insertion_point(class_scope:huawei.proto.GetWriteableJournalsRequest)
  private:
 
@@ -136,6 +143,7 @@ class GetWriteableJournalsRequest : public ::google::protobuf::Message {
   bool _is_default_instance_;
   ::google::protobuf::internal::ArenaStringPtr uuid_;
   ::google::protobuf::internal::ArenaStringPtr vol_id_;
+  ::google::protobuf::int32 limits_;
   mutable int _cached_size_;
   friend void  protobuf_AddDesc_writer_2eproto();
   friend void protobuf_AssignDesc_writer_2eproto();
@@ -208,32 +216,29 @@ class GetWriteableJournalsResponse : public ::google::protobuf::Message {
   ::huawei::proto::RESULT result() const;
   void set_result(::huawei::proto::RESULT value);
 
-  // optional int32 count = 2;
-  void clear_count();
-  static const int kCountFieldNumber = 2;
-  ::google::protobuf::int32 count() const;
-  void set_count(::google::protobuf::int32 value);
-
-  // repeated .huawei.proto.Journal journals = 3;
+  // repeated string journals = 2;
   int journals_size() const;
   void clear_journals();
-  static const int kJournalsFieldNumber = 3;
-  const ::huawei::proto::Journal& journals(int index) const;
-  ::huawei::proto::Journal* mutable_journals(int index);
-  ::huawei::proto::Journal* add_journals();
-  ::google::protobuf::RepeatedPtrField< ::huawei::proto::Journal >*
-      mutable_journals();
-  const ::google::protobuf::RepeatedPtrField< ::huawei::proto::Journal >&
-      journals() const;
+  static const int kJournalsFieldNumber = 2;
+  const ::std::string& journals(int index) const;
+  ::std::string* mutable_journals(int index);
+  void set_journals(int index, const ::std::string& value);
+  void set_journals(int index, const char* value);
+  void set_journals(int index, const char* value, size_t size);
+  ::std::string* add_journals();
+  void add_journals(const ::std::string& value);
+  void add_journals(const char* value);
+  void add_journals(const char* value, size_t size);
+  const ::google::protobuf::RepeatedPtrField< ::std::string>& journals() const;
+  ::google::protobuf::RepeatedPtrField< ::std::string>* mutable_journals();
 
   // @@protoc_insertion_point(class_scope:huawei.proto.GetWriteableJournalsResponse)
  private:
 
   ::google::protobuf::internal::InternalMetadataWithArena _internal_metadata_;
   bool _is_default_instance_;
+  ::google::protobuf::RepeatedPtrField< ::std::string> journals_;
   int result_;
-  ::google::protobuf::int32 count_;
-  ::google::protobuf::RepeatedPtrField< ::huawei::proto::Journal > journals_;
   mutable int _cached_size_;
   friend void  protobuf_AddDesc_writer_2eproto();
   friend void protobuf_AssignDesc_writer_2eproto();
@@ -322,16 +327,10 @@ class SealJournalsRequest : public ::google::protobuf::Message {
   ::std::string* release_vol_id();
   void set_allocated_vol_id(::std::string* vol_id);
 
-  // optional int32 count = 3;
-  void clear_count();
-  static const int kCountFieldNumber = 3;
-  ::google::protobuf::int32 count() const;
-  void set_count(::google::protobuf::int32 value);
-
-  // repeated string journals = 4;
+  // repeated string journals = 3;
   int journals_size() const;
   void clear_journals();
-  static const int kJournalsFieldNumber = 4;
+  static const int kJournalsFieldNumber = 3;
   const ::std::string& journals(int index) const;
   ::std::string* mutable_journals(int index);
   void set_journals(int index, const ::std::string& value);
@@ -352,7 +351,6 @@ class SealJournalsRequest : public ::google::protobuf::Message {
   ::google::protobuf::internal::ArenaStringPtr uuid_;
   ::google::protobuf::internal::ArenaStringPtr vol_id_;
   ::google::protobuf::RepeatedPtrField< ::std::string> journals_;
-  ::google::protobuf::int32 count_;
   mutable int _cached_size_;
   friend void  protobuf_AddDesc_writer_2eproto();
   friend void protobuf_AssignDesc_writer_2eproto();
@@ -508,16 +506,10 @@ class GetMultiWriteableJournalsRequest : public ::google::protobuf::Message {
   ::std::string* release_uuid();
   void set_allocated_uuid(::std::string* uuid);
 
-  // optional int32 vol_count = 2;
-  void clear_vol_count();
-  static const int kVolCountFieldNumber = 2;
-  ::google::protobuf::int32 vol_count() const;
-  void set_vol_count(::google::protobuf::int32 value);
-
-  // repeated string vol_id = 3;
+  // repeated string vol_id = 2;
   int vol_id_size() const;
   void clear_vol_id();
-  static const int kVolIdFieldNumber = 3;
+  static const int kVolIdFieldNumber = 2;
   const ::std::string& vol_id(int index) const;
   ::std::string* mutable_vol_id(int index);
   void set_vol_id(int index, const ::std::string& value);
@@ -537,7 +529,6 @@ class GetMultiWriteableJournalsRequest : public ::google::protobuf::Message {
   bool _is_default_instance_;
   ::google::protobuf::internal::ArenaStringPtr uuid_;
   ::google::protobuf::RepeatedPtrField< ::std::string> vol_id_;
-  ::google::protobuf::int32 vol_count_;
   mutable int _cached_size_;
   friend void  protobuf_AddDesc_writer_2eproto();
   friend void protobuf_AssignDesc_writer_2eproto();
@@ -545,6 +536,94 @@ class GetMultiWriteableJournalsRequest : public ::google::protobuf::Message {
 
   void InitAsDefaultInstance();
   static GetMultiWriteableJournalsRequest* default_instance_;
+};
+// -------------------------------------------------------------------
+
+class JournalArray : public ::google::protobuf::Message {
+ public:
+  JournalArray();
+  virtual ~JournalArray();
+
+  JournalArray(const JournalArray& from);
+
+  inline JournalArray& operator=(const JournalArray& from) {
+    CopyFrom(from);
+    return *this;
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor();
+  static const JournalArray& default_instance();
+
+  void Swap(JournalArray* other);
+
+  // implements Message ----------------------------------------------
+
+  inline JournalArray* New() const { return New(NULL); }
+
+  JournalArray* New(::google::protobuf::Arena* arena) const;
+  void CopyFrom(const ::google::protobuf::Message& from);
+  void MergeFrom(const ::google::protobuf::Message& from);
+  void CopyFrom(const JournalArray& from);
+  void MergeFrom(const JournalArray& from);
+  void Clear();
+  bool IsInitialized() const;
+
+  int ByteSize() const;
+  bool MergePartialFromCodedStream(
+      ::google::protobuf::io::CodedInputStream* input);
+  void SerializeWithCachedSizes(
+      ::google::protobuf::io::CodedOutputStream* output) const;
+  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
+  int GetCachedSize() const { return _cached_size_; }
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const;
+  void InternalSwap(JournalArray* other);
+  private:
+  inline ::google::protobuf::Arena* GetArenaNoVirtual() const {
+    return _internal_metadata_.arena();
+  }
+  inline void* MaybeArenaPtr() const {
+    return _internal_metadata_.raw_arena_ptr();
+  }
+  public:
+
+  ::google::protobuf::Metadata GetMetadata() const;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  // repeated string journal = 1;
+  int journal_size() const;
+  void clear_journal();
+  static const int kJournalFieldNumber = 1;
+  const ::std::string& journal(int index) const;
+  ::std::string* mutable_journal(int index);
+  void set_journal(int index, const ::std::string& value);
+  void set_journal(int index, const char* value);
+  void set_journal(int index, const char* value, size_t size);
+  ::std::string* add_journal();
+  void add_journal(const ::std::string& value);
+  void add_journal(const char* value);
+  void add_journal(const char* value, size_t size);
+  const ::google::protobuf::RepeatedPtrField< ::std::string>& journal() const;
+  ::google::protobuf::RepeatedPtrField< ::std::string>* mutable_journal();
+
+  // @@protoc_insertion_point(class_scope:huawei.proto.JournalArray)
+ private:
+
+  ::google::protobuf::internal::InternalMetadataWithArena _internal_metadata_;
+  bool _is_default_instance_;
+  ::google::protobuf::RepeatedPtrField< ::std::string> journal_;
+  mutable int _cached_size_;
+  friend void  protobuf_AddDesc_writer_2eproto();
+  friend void protobuf_AssignDesc_writer_2eproto();
+  friend void protobuf_ShutdownFile_writer_2eproto();
+
+  void InitAsDefaultInstance();
+  static JournalArray* default_instance_;
 };
 // -------------------------------------------------------------------
 
@@ -715,21 +794,10 @@ class SealMultiJournalsRequest : public ::google::protobuf::Message {
   ::std::string* release_uuid();
   void set_allocated_uuid(::std::string* uuid);
 
-  // optional string vol_id = 2;
-  void clear_vol_id();
-  static const int kVolIdFieldNumber = 2;
-  const ::std::string& vol_id() const;
-  void set_vol_id(const ::std::string& value);
-  void set_vol_id(const char* value);
-  void set_vol_id(const char* value, size_t size);
-  ::std::string* mutable_vol_id();
-  ::std::string* release_vol_id();
-  void set_allocated_vol_id(::std::string* vol_id);
-
-  // map<string, .huawei.proto.JournalArray> map = 3;
+  // map<string, .huawei.proto.JournalArray> map = 2;
   int map_size() const;
   void clear_map();
-  static const int kMapFieldNumber = 3;
+  static const int kMapFieldNumber = 2;
   const ::google::protobuf::Map< ::std::string, ::huawei::proto::JournalArray >&
       map() const;
   ::google::protobuf::Map< ::std::string, ::huawei::proto::JournalArray >*
@@ -741,7 +809,6 @@ class SealMultiJournalsRequest : public ::google::protobuf::Message {
   ::google::protobuf::internal::InternalMetadataWithArena _internal_metadata_;
   bool _is_default_instance_;
   ::google::protobuf::internal::ArenaStringPtr uuid_;
-  ::google::protobuf::internal::ArenaStringPtr vol_id_;
   typedef ::google::protobuf::internal::MapEntryLite<
       ::std::string, ::huawei::proto::JournalArray,
       ::google::protobuf::internal::WireFormatLite::TYPE_STRING,
@@ -935,6 +1002,20 @@ inline void GetWriteableJournalsRequest::set_allocated_vol_id(::std::string* vol
   // @@protoc_insertion_point(field_set_allocated:huawei.proto.GetWriteableJournalsRequest.vol_id)
 }
 
+// optional int32 limits = 3;
+inline void GetWriteableJournalsRequest::clear_limits() {
+  limits_ = 0;
+}
+inline ::google::protobuf::int32 GetWriteableJournalsRequest::limits() const {
+  // @@protoc_insertion_point(field_get:huawei.proto.GetWriteableJournalsRequest.limits)
+  return limits_;
+}
+inline void GetWriteableJournalsRequest::set_limits(::google::protobuf::int32 value) {
+  
+  limits_ = value;
+  // @@protoc_insertion_point(field_set:huawei.proto.GetWriteableJournalsRequest.limits)
+}
+
 // -------------------------------------------------------------------
 
 // GetWriteableJournalsResponse
@@ -953,48 +1034,59 @@ inline void GetWriteableJournalsResponse::set_result(::huawei::proto::RESULT val
   // @@protoc_insertion_point(field_set:huawei.proto.GetWriteableJournalsResponse.result)
 }
 
-// optional int32 count = 2;
-inline void GetWriteableJournalsResponse::clear_count() {
-  count_ = 0;
-}
-inline ::google::protobuf::int32 GetWriteableJournalsResponse::count() const {
-  // @@protoc_insertion_point(field_get:huawei.proto.GetWriteableJournalsResponse.count)
-  return count_;
-}
-inline void GetWriteableJournalsResponse::set_count(::google::protobuf::int32 value) {
-  
-  count_ = value;
-  // @@protoc_insertion_point(field_set:huawei.proto.GetWriteableJournalsResponse.count)
-}
-
-// repeated .huawei.proto.Journal journals = 3;
+// repeated string journals = 2;
 inline int GetWriteableJournalsResponse::journals_size() const {
   return journals_.size();
 }
 inline void GetWriteableJournalsResponse::clear_journals() {
   journals_.Clear();
 }
-inline const ::huawei::proto::Journal& GetWriteableJournalsResponse::journals(int index) const {
+inline const ::std::string& GetWriteableJournalsResponse::journals(int index) const {
   // @@protoc_insertion_point(field_get:huawei.proto.GetWriteableJournalsResponse.journals)
   return journals_.Get(index);
 }
-inline ::huawei::proto::Journal* GetWriteableJournalsResponse::mutable_journals(int index) {
+inline ::std::string* GetWriteableJournalsResponse::mutable_journals(int index) {
   // @@protoc_insertion_point(field_mutable:huawei.proto.GetWriteableJournalsResponse.journals)
   return journals_.Mutable(index);
 }
-inline ::huawei::proto::Journal* GetWriteableJournalsResponse::add_journals() {
-  // @@protoc_insertion_point(field_add:huawei.proto.GetWriteableJournalsResponse.journals)
+inline void GetWriteableJournalsResponse::set_journals(int index, const ::std::string& value) {
+  // @@protoc_insertion_point(field_set:huawei.proto.GetWriteableJournalsResponse.journals)
+  journals_.Mutable(index)->assign(value);
+}
+inline void GetWriteableJournalsResponse::set_journals(int index, const char* value) {
+  journals_.Mutable(index)->assign(value);
+  // @@protoc_insertion_point(field_set_char:huawei.proto.GetWriteableJournalsResponse.journals)
+}
+inline void GetWriteableJournalsResponse::set_journals(int index, const char* value, size_t size) {
+  journals_.Mutable(index)->assign(
+    reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_set_pointer:huawei.proto.GetWriteableJournalsResponse.journals)
+}
+inline ::std::string* GetWriteableJournalsResponse::add_journals() {
+  // @@protoc_insertion_point(field_add_mutable:huawei.proto.GetWriteableJournalsResponse.journals)
   return journals_.Add();
 }
-inline ::google::protobuf::RepeatedPtrField< ::huawei::proto::Journal >*
-GetWriteableJournalsResponse::mutable_journals() {
-  // @@protoc_insertion_point(field_mutable_list:huawei.proto.GetWriteableJournalsResponse.journals)
-  return &journals_;
+inline void GetWriteableJournalsResponse::add_journals(const ::std::string& value) {
+  journals_.Add()->assign(value);
+  // @@protoc_insertion_point(field_add:huawei.proto.GetWriteableJournalsResponse.journals)
 }
-inline const ::google::protobuf::RepeatedPtrField< ::huawei::proto::Journal >&
+inline void GetWriteableJournalsResponse::add_journals(const char* value) {
+  journals_.Add()->assign(value);
+  // @@protoc_insertion_point(field_add_char:huawei.proto.GetWriteableJournalsResponse.journals)
+}
+inline void GetWriteableJournalsResponse::add_journals(const char* value, size_t size) {
+  journals_.Add()->assign(reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_add_pointer:huawei.proto.GetWriteableJournalsResponse.journals)
+}
+inline const ::google::protobuf::RepeatedPtrField< ::std::string>&
 GetWriteableJournalsResponse::journals() const {
   // @@protoc_insertion_point(field_list:huawei.proto.GetWriteableJournalsResponse.journals)
   return journals_;
+}
+inline ::google::protobuf::RepeatedPtrField< ::std::string>*
+GetWriteableJournalsResponse::mutable_journals() {
+  // @@protoc_insertion_point(field_mutable_list:huawei.proto.GetWriteableJournalsResponse.journals)
+  return &journals_;
 }
 
 // -------------------------------------------------------------------
@@ -1089,21 +1181,7 @@ inline void SealJournalsRequest::set_allocated_vol_id(::std::string* vol_id) {
   // @@protoc_insertion_point(field_set_allocated:huawei.proto.SealJournalsRequest.vol_id)
 }
 
-// optional int32 count = 3;
-inline void SealJournalsRequest::clear_count() {
-  count_ = 0;
-}
-inline ::google::protobuf::int32 SealJournalsRequest::count() const {
-  // @@protoc_insertion_point(field_get:huawei.proto.SealJournalsRequest.count)
-  return count_;
-}
-inline void SealJournalsRequest::set_count(::google::protobuf::int32 value) {
-  
-  count_ = value;
-  // @@protoc_insertion_point(field_set:huawei.proto.SealJournalsRequest.count)
-}
-
-// repeated string journals = 4;
+// repeated string journals = 3;
 inline int SealJournalsRequest::journals_size() const {
   return journals_.size();
 }
@@ -1224,21 +1302,7 @@ inline void GetMultiWriteableJournalsRequest::set_allocated_uuid(::std::string* 
   // @@protoc_insertion_point(field_set_allocated:huawei.proto.GetMultiWriteableJournalsRequest.uuid)
 }
 
-// optional int32 vol_count = 2;
-inline void GetMultiWriteableJournalsRequest::clear_vol_count() {
-  vol_count_ = 0;
-}
-inline ::google::protobuf::int32 GetMultiWriteableJournalsRequest::vol_count() const {
-  // @@protoc_insertion_point(field_get:huawei.proto.GetMultiWriteableJournalsRequest.vol_count)
-  return vol_count_;
-}
-inline void GetMultiWriteableJournalsRequest::set_vol_count(::google::protobuf::int32 value) {
-  
-  vol_count_ = value;
-  // @@protoc_insertion_point(field_set:huawei.proto.GetMultiWriteableJournalsRequest.vol_count)
-}
-
-// repeated string vol_id = 3;
+// repeated string vol_id = 2;
 inline int GetMultiWriteableJournalsRequest::vol_id_size() const {
   return vol_id_.size();
 }
@@ -1291,6 +1355,65 @@ inline ::google::protobuf::RepeatedPtrField< ::std::string>*
 GetMultiWriteableJournalsRequest::mutable_vol_id() {
   // @@protoc_insertion_point(field_mutable_list:huawei.proto.GetMultiWriteableJournalsRequest.vol_id)
   return &vol_id_;
+}
+
+// -------------------------------------------------------------------
+
+// JournalArray
+
+// repeated string journal = 1;
+inline int JournalArray::journal_size() const {
+  return journal_.size();
+}
+inline void JournalArray::clear_journal() {
+  journal_.Clear();
+}
+inline const ::std::string& JournalArray::journal(int index) const {
+  // @@protoc_insertion_point(field_get:huawei.proto.JournalArray.journal)
+  return journal_.Get(index);
+}
+inline ::std::string* JournalArray::mutable_journal(int index) {
+  // @@protoc_insertion_point(field_mutable:huawei.proto.JournalArray.journal)
+  return journal_.Mutable(index);
+}
+inline void JournalArray::set_journal(int index, const ::std::string& value) {
+  // @@protoc_insertion_point(field_set:huawei.proto.JournalArray.journal)
+  journal_.Mutable(index)->assign(value);
+}
+inline void JournalArray::set_journal(int index, const char* value) {
+  journal_.Mutable(index)->assign(value);
+  // @@protoc_insertion_point(field_set_char:huawei.proto.JournalArray.journal)
+}
+inline void JournalArray::set_journal(int index, const char* value, size_t size) {
+  journal_.Mutable(index)->assign(
+    reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_set_pointer:huawei.proto.JournalArray.journal)
+}
+inline ::std::string* JournalArray::add_journal() {
+  // @@protoc_insertion_point(field_add_mutable:huawei.proto.JournalArray.journal)
+  return journal_.Add();
+}
+inline void JournalArray::add_journal(const ::std::string& value) {
+  journal_.Add()->assign(value);
+  // @@protoc_insertion_point(field_add:huawei.proto.JournalArray.journal)
+}
+inline void JournalArray::add_journal(const char* value) {
+  journal_.Add()->assign(value);
+  // @@protoc_insertion_point(field_add_char:huawei.proto.JournalArray.journal)
+}
+inline void JournalArray::add_journal(const char* value, size_t size) {
+  journal_.Add()->assign(reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_add_pointer:huawei.proto.JournalArray.journal)
+}
+inline const ::google::protobuf::RepeatedPtrField< ::std::string>&
+JournalArray::journal() const {
+  // @@protoc_insertion_point(field_list:huawei.proto.JournalArray.journal)
+  return journal_;
+}
+inline ::google::protobuf::RepeatedPtrField< ::std::string>*
+JournalArray::mutable_journal() {
+  // @@protoc_insertion_point(field_mutable_list:huawei.proto.JournalArray.journal)
+  return &journal_;
 }
 
 // -------------------------------------------------------------------
@@ -1377,51 +1500,7 @@ inline void SealMultiJournalsRequest::set_allocated_uuid(::std::string* uuid) {
   // @@protoc_insertion_point(field_set_allocated:huawei.proto.SealMultiJournalsRequest.uuid)
 }
 
-// optional string vol_id = 2;
-inline void SealMultiJournalsRequest::clear_vol_id() {
-  vol_id_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
-}
-inline const ::std::string& SealMultiJournalsRequest::vol_id() const {
-  // @@protoc_insertion_point(field_get:huawei.proto.SealMultiJournalsRequest.vol_id)
-  return vol_id_.GetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
-}
-inline void SealMultiJournalsRequest::set_vol_id(const ::std::string& value) {
-  
-  vol_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
-  // @@protoc_insertion_point(field_set:huawei.proto.SealMultiJournalsRequest.vol_id)
-}
-inline void SealMultiJournalsRequest::set_vol_id(const char* value) {
-  
-  vol_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
-  // @@protoc_insertion_point(field_set_char:huawei.proto.SealMultiJournalsRequest.vol_id)
-}
-inline void SealMultiJournalsRequest::set_vol_id(const char* value, size_t size) {
-  
-  vol_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
-      ::std::string(reinterpret_cast<const char*>(value), size));
-  // @@protoc_insertion_point(field_set_pointer:huawei.proto.SealMultiJournalsRequest.vol_id)
-}
-inline ::std::string* SealMultiJournalsRequest::mutable_vol_id() {
-  
-  // @@protoc_insertion_point(field_mutable:huawei.proto.SealMultiJournalsRequest.vol_id)
-  return vol_id_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
-}
-inline ::std::string* SealMultiJournalsRequest::release_vol_id() {
-  // @@protoc_insertion_point(field_release:huawei.proto.SealMultiJournalsRequest.vol_id)
-  
-  return vol_id_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
-}
-inline void SealMultiJournalsRequest::set_allocated_vol_id(::std::string* vol_id) {
-  if (vol_id != NULL) {
-    
-  } else {
-    
-  }
-  vol_id_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), vol_id);
-  // @@protoc_insertion_point(field_set_allocated:huawei.proto.SealMultiJournalsRequest.vol_id)
-}
-
-// map<string, .huawei.proto.JournalArray> map = 3;
+// map<string, .huawei.proto.JournalArray> map = 2;
 inline int SealMultiJournalsRequest::map_size() const {
   return map_.size();
 }
@@ -1458,6 +1537,8 @@ inline void SealMultiJournalsResponse::set_result(::huawei::proto::RESULT value)
 }
 
 #endif  // !PROTOBUF_INLINE_NOT_IN_HEADERS
+// -------------------------------------------------------------------
+
 // -------------------------------------------------------------------
 
 // -------------------------------------------------------------------

@@ -26,6 +26,7 @@
 #include <google/protobuf/message.h>
 #include <google/protobuf/repeated_field.h>
 #include <google/protobuf/extension_set.h>
+#include <google/protobuf/generated_enum_reflection.h>
 #include <google/protobuf/unknown_field_set.h>
 #include "common.pb.h"
 // @@protoc_insertion_point(includes)
@@ -46,6 +47,27 @@ class JournalMarker;
 class UpdateConsumerMarkerRequest;
 class UpdateConsumerMarkerResponse;
 
+enum CONSUMER_TYPE {
+  REPLAYER = 0,
+  REPLICATER = 1,
+  CONSUMER_TYPE_INT_MIN_SENTINEL_DO_NOT_USE_ = ::google::protobuf::kint32min,
+  CONSUMER_TYPE_INT_MAX_SENTINEL_DO_NOT_USE_ = ::google::protobuf::kint32max
+};
+bool CONSUMER_TYPE_IsValid(int value);
+const CONSUMER_TYPE CONSUMER_TYPE_MIN = REPLAYER;
+const CONSUMER_TYPE CONSUMER_TYPE_MAX = REPLICATER;
+const int CONSUMER_TYPE_ARRAYSIZE = CONSUMER_TYPE_MAX + 1;
+
+const ::google::protobuf::EnumDescriptor* CONSUMER_TYPE_descriptor();
+inline const ::std::string& CONSUMER_TYPE_Name(CONSUMER_TYPE value) {
+  return ::google::protobuf::internal::NameOfEnum(
+    CONSUMER_TYPE_descriptor(), value);
+}
+inline bool CONSUMER_TYPE_Parse(
+    const ::std::string& name, CONSUMER_TYPE* value) {
+  return ::google::protobuf::internal::ParseNamedEnum<CONSUMER_TYPE>(
+    CONSUMER_TYPE_descriptor(), name, value);
+}
 // ===================================================================
 
 class JournalMarker : public ::google::protobuf::Message {
@@ -509,32 +531,29 @@ class GetJournalListResponse : public ::google::protobuf::Message {
   ::huawei::proto::RESULT result() const;
   void set_result(::huawei::proto::RESULT value);
 
-  // optional int32 count = 2;
-  void clear_count();
-  static const int kCountFieldNumber = 2;
-  ::google::protobuf::int32 count() const;
-  void set_count(::google::protobuf::int32 value);
-
-  // repeated .huawei.proto.Journal journals = 3;
+  // repeated string journals = 2;
   int journals_size() const;
   void clear_journals();
-  static const int kJournalsFieldNumber = 3;
-  const ::huawei::proto::Journal& journals(int index) const;
-  ::huawei::proto::Journal* mutable_journals(int index);
-  ::huawei::proto::Journal* add_journals();
-  ::google::protobuf::RepeatedPtrField< ::huawei::proto::Journal >*
-      mutable_journals();
-  const ::google::protobuf::RepeatedPtrField< ::huawei::proto::Journal >&
-      journals() const;
+  static const int kJournalsFieldNumber = 2;
+  const ::std::string& journals(int index) const;
+  ::std::string* mutable_journals(int index);
+  void set_journals(int index, const ::std::string& value);
+  void set_journals(int index, const char* value);
+  void set_journals(int index, const char* value, size_t size);
+  ::std::string* add_journals();
+  void add_journals(const ::std::string& value);
+  void add_journals(const char* value);
+  void add_journals(const char* value, size_t size);
+  const ::google::protobuf::RepeatedPtrField< ::std::string>& journals() const;
+  ::google::protobuf::RepeatedPtrField< ::std::string>* mutable_journals();
 
   // @@protoc_insertion_point(class_scope:huawei.proto.GetJournalListResponse)
  private:
 
   ::google::protobuf::internal::InternalMetadataWithArena _internal_metadata_;
   bool _is_default_instance_;
+  ::google::protobuf::RepeatedPtrField< ::std::string> journals_;
   int result_;
-  ::google::protobuf::int32 count_;
-  ::google::protobuf::RepeatedPtrField< ::huawei::proto::Journal > journals_;
   mutable int _cached_size_;
   friend void  protobuf_AddDesc_consumer_2eproto();
   friend void protobuf_AssignDesc_consumer_2eproto();
@@ -1137,48 +1156,59 @@ inline void GetJournalListResponse::set_result(::huawei::proto::RESULT value) {
   // @@protoc_insertion_point(field_set:huawei.proto.GetJournalListResponse.result)
 }
 
-// optional int32 count = 2;
-inline void GetJournalListResponse::clear_count() {
-  count_ = 0;
-}
-inline ::google::protobuf::int32 GetJournalListResponse::count() const {
-  // @@protoc_insertion_point(field_get:huawei.proto.GetJournalListResponse.count)
-  return count_;
-}
-inline void GetJournalListResponse::set_count(::google::protobuf::int32 value) {
-  
-  count_ = value;
-  // @@protoc_insertion_point(field_set:huawei.proto.GetJournalListResponse.count)
-}
-
-// repeated .huawei.proto.Journal journals = 3;
+// repeated string journals = 2;
 inline int GetJournalListResponse::journals_size() const {
   return journals_.size();
 }
 inline void GetJournalListResponse::clear_journals() {
   journals_.Clear();
 }
-inline const ::huawei::proto::Journal& GetJournalListResponse::journals(int index) const {
+inline const ::std::string& GetJournalListResponse::journals(int index) const {
   // @@protoc_insertion_point(field_get:huawei.proto.GetJournalListResponse.journals)
   return journals_.Get(index);
 }
-inline ::huawei::proto::Journal* GetJournalListResponse::mutable_journals(int index) {
+inline ::std::string* GetJournalListResponse::mutable_journals(int index) {
   // @@protoc_insertion_point(field_mutable:huawei.proto.GetJournalListResponse.journals)
   return journals_.Mutable(index);
 }
-inline ::huawei::proto::Journal* GetJournalListResponse::add_journals() {
-  // @@protoc_insertion_point(field_add:huawei.proto.GetJournalListResponse.journals)
+inline void GetJournalListResponse::set_journals(int index, const ::std::string& value) {
+  // @@protoc_insertion_point(field_set:huawei.proto.GetJournalListResponse.journals)
+  journals_.Mutable(index)->assign(value);
+}
+inline void GetJournalListResponse::set_journals(int index, const char* value) {
+  journals_.Mutable(index)->assign(value);
+  // @@protoc_insertion_point(field_set_char:huawei.proto.GetJournalListResponse.journals)
+}
+inline void GetJournalListResponse::set_journals(int index, const char* value, size_t size) {
+  journals_.Mutable(index)->assign(
+    reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_set_pointer:huawei.proto.GetJournalListResponse.journals)
+}
+inline ::std::string* GetJournalListResponse::add_journals() {
+  // @@protoc_insertion_point(field_add_mutable:huawei.proto.GetJournalListResponse.journals)
   return journals_.Add();
 }
-inline ::google::protobuf::RepeatedPtrField< ::huawei::proto::Journal >*
-GetJournalListResponse::mutable_journals() {
-  // @@protoc_insertion_point(field_mutable_list:huawei.proto.GetJournalListResponse.journals)
-  return &journals_;
+inline void GetJournalListResponse::add_journals(const ::std::string& value) {
+  journals_.Add()->assign(value);
+  // @@protoc_insertion_point(field_add:huawei.proto.GetJournalListResponse.journals)
 }
-inline const ::google::protobuf::RepeatedPtrField< ::huawei::proto::Journal >&
+inline void GetJournalListResponse::add_journals(const char* value) {
+  journals_.Add()->assign(value);
+  // @@protoc_insertion_point(field_add_char:huawei.proto.GetJournalListResponse.journals)
+}
+inline void GetJournalListResponse::add_journals(const char* value, size_t size) {
+  journals_.Add()->assign(reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_add_pointer:huawei.proto.GetJournalListResponse.journals)
+}
+inline const ::google::protobuf::RepeatedPtrField< ::std::string>&
 GetJournalListResponse::journals() const {
   // @@protoc_insertion_point(field_list:huawei.proto.GetJournalListResponse.journals)
   return journals_;
+}
+inline ::google::protobuf::RepeatedPtrField< ::std::string>*
+GetJournalListResponse::mutable_journals() {
+  // @@protoc_insertion_point(field_mutable_list:huawei.proto.GetJournalListResponse.journals)
+  return &journals_;
 }
 
 // -------------------------------------------------------------------
@@ -1361,6 +1391,20 @@ inline void UpdateConsumerMarkerResponse::set_result(::huawei::proto::RESULT val
 
 }  // namespace proto
 }  // namespace huawei
+
+#ifndef SWIG
+namespace google {
+namespace protobuf {
+
+template <> struct is_proto_enum< ::huawei::proto::CONSUMER_TYPE> : ::google::protobuf::internal::true_type {};
+template <>
+inline const EnumDescriptor* GetEnumDescriptor< ::huawei::proto::CONSUMER_TYPE>() {
+  return ::huawei::proto::CONSUMER_TYPE_descriptor();
+}
+
+}  // namespace protobuf
+}  // namespace google
+#endif  // SWIG
 
 // @@protoc_insertion_point(global_scope)
 

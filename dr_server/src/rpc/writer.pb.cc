@@ -37,6 +37,9 @@ const ::google::protobuf::internal::GeneratedMessageReflection*
 const ::google::protobuf::Descriptor* GetMultiWriteableJournalsRequest_descriptor_ = NULL;
 const ::google::protobuf::internal::GeneratedMessageReflection*
   GetMultiWriteableJournalsRequest_reflection_ = NULL;
+const ::google::protobuf::Descriptor* JournalArray_descriptor_ = NULL;
+const ::google::protobuf::internal::GeneratedMessageReflection*
+  JournalArray_reflection_ = NULL;
 const ::google::protobuf::Descriptor* GetMultiWriteableJournalsResponse_descriptor_ = NULL;
 const ::google::protobuf::internal::GeneratedMessageReflection*
   GetMultiWriteableJournalsResponse_reflection_ = NULL;
@@ -59,9 +62,10 @@ void protobuf_AssignDesc_writer_2eproto() {
       "writer.proto");
   GOOGLE_CHECK(file != NULL);
   GetWriteableJournalsRequest_descriptor_ = file->message_type(0);
-  static const int GetWriteableJournalsRequest_offsets_[2] = {
+  static const int GetWriteableJournalsRequest_offsets_[3] = {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(GetWriteableJournalsRequest, uuid_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(GetWriteableJournalsRequest, vol_id_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(GetWriteableJournalsRequest, limits_),
   };
   GetWriteableJournalsRequest_reflection_ =
     ::google::protobuf::internal::GeneratedMessageReflection::NewGeneratedMessageReflection(
@@ -75,9 +79,8 @@ void protobuf_AssignDesc_writer_2eproto() {
       GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(GetWriteableJournalsRequest, _internal_metadata_),
       GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(GetWriteableJournalsRequest, _is_default_instance_));
   GetWriteableJournalsResponse_descriptor_ = file->message_type(1);
-  static const int GetWriteableJournalsResponse_offsets_[3] = {
+  static const int GetWriteableJournalsResponse_offsets_[2] = {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(GetWriteableJournalsResponse, result_),
-    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(GetWriteableJournalsResponse, count_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(GetWriteableJournalsResponse, journals_),
   };
   GetWriteableJournalsResponse_reflection_ =
@@ -92,10 +95,9 @@ void protobuf_AssignDesc_writer_2eproto() {
       GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(GetWriteableJournalsResponse, _internal_metadata_),
       GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(GetWriteableJournalsResponse, _is_default_instance_));
   SealJournalsRequest_descriptor_ = file->message_type(2);
-  static const int SealJournalsRequest_offsets_[4] = {
+  static const int SealJournalsRequest_offsets_[3] = {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(SealJournalsRequest, uuid_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(SealJournalsRequest, vol_id_),
-    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(SealJournalsRequest, count_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(SealJournalsRequest, journals_),
   };
   SealJournalsRequest_reflection_ =
@@ -125,9 +127,8 @@ void protobuf_AssignDesc_writer_2eproto() {
       GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(SealJournalsResponse, _internal_metadata_),
       GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(SealJournalsResponse, _is_default_instance_));
   GetMultiWriteableJournalsRequest_descriptor_ = file->message_type(4);
-  static const int GetMultiWriteableJournalsRequest_offsets_[3] = {
+  static const int GetMultiWriteableJournalsRequest_offsets_[2] = {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(GetMultiWriteableJournalsRequest, uuid_),
-    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(GetMultiWriteableJournalsRequest, vol_count_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(GetMultiWriteableJournalsRequest, vol_id_),
   };
   GetMultiWriteableJournalsRequest_reflection_ =
@@ -141,7 +142,22 @@ void protobuf_AssignDesc_writer_2eproto() {
       sizeof(GetMultiWriteableJournalsRequest),
       GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(GetMultiWriteableJournalsRequest, _internal_metadata_),
       GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(GetMultiWriteableJournalsRequest, _is_default_instance_));
-  GetMultiWriteableJournalsResponse_descriptor_ = file->message_type(5);
+  JournalArray_descriptor_ = file->message_type(5);
+  static const int JournalArray_offsets_[1] = {
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(JournalArray, journal_),
+  };
+  JournalArray_reflection_ =
+    ::google::protobuf::internal::GeneratedMessageReflection::NewGeneratedMessageReflection(
+      JournalArray_descriptor_,
+      JournalArray::default_instance_,
+      JournalArray_offsets_,
+      -1,
+      -1,
+      -1,
+      sizeof(JournalArray),
+      GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(JournalArray, _internal_metadata_),
+      GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(JournalArray, _is_default_instance_));
+  GetMultiWriteableJournalsResponse_descriptor_ = file->message_type(6);
   static const int GetMultiWriteableJournalsResponse_offsets_[2] = {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(GetMultiWriteableJournalsResponse, result_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(GetMultiWriteableJournalsResponse, map_),
@@ -158,10 +174,9 @@ void protobuf_AssignDesc_writer_2eproto() {
       GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(GetMultiWriteableJournalsResponse, _internal_metadata_),
       GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(GetMultiWriteableJournalsResponse, _is_default_instance_));
   GetMultiWriteableJournalsResponse_MapEntry_descriptor_ = GetMultiWriteableJournalsResponse_descriptor_->nested_type(0);
-  SealMultiJournalsRequest_descriptor_ = file->message_type(6);
-  static const int SealMultiJournalsRequest_offsets_[3] = {
+  SealMultiJournalsRequest_descriptor_ = file->message_type(7);
+  static const int SealMultiJournalsRequest_offsets_[2] = {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(SealMultiJournalsRequest, uuid_),
-    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(SealMultiJournalsRequest, vol_id_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(SealMultiJournalsRequest, map_),
   };
   SealMultiJournalsRequest_reflection_ =
@@ -176,7 +191,7 @@ void protobuf_AssignDesc_writer_2eproto() {
       GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(SealMultiJournalsRequest, _internal_metadata_),
       GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(SealMultiJournalsRequest, _is_default_instance_));
   SealMultiJournalsRequest_MapEntry_descriptor_ = SealMultiJournalsRequest_descriptor_->nested_type(0);
-  SealMultiJournalsResponse_descriptor_ = file->message_type(7);
+  SealMultiJournalsResponse_descriptor_ = file->message_type(8);
   static const int SealMultiJournalsResponse_offsets_[1] = {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(SealMultiJournalsResponse, result_),
   };
@@ -213,6 +228,8 @@ void protobuf_RegisterTypes(const ::std::string&) {
       SealJournalsResponse_descriptor_, &SealJournalsResponse::default_instance());
   ::google::protobuf::MessageFactory::InternalRegisterGeneratedMessage(
       GetMultiWriteableJournalsRequest_descriptor_, &GetMultiWriteableJournalsRequest::default_instance());
+  ::google::protobuf::MessageFactory::InternalRegisterGeneratedMessage(
+      JournalArray_descriptor_, &JournalArray::default_instance());
   ::google::protobuf::MessageFactory::InternalRegisterGeneratedMessage(
       GetMultiWriteableJournalsResponse_descriptor_, &GetMultiWriteableJournalsResponse::default_instance());
   ::google::protobuf::MessageFactory::InternalRegisterGeneratedMessage(
@@ -252,6 +269,8 @@ void protobuf_ShutdownFile_writer_2eproto() {
   delete SealJournalsResponse_reflection_;
   delete GetMultiWriteableJournalsRequest::default_instance_;
   delete GetMultiWriteableJournalsRequest_reflection_;
+  delete JournalArray::default_instance_;
+  delete JournalArray_reflection_;
   delete GetMultiWriteableJournalsResponse::default_instance_;
   delete GetMultiWriteableJournalsResponse_reflection_;
   delete SealMultiJournalsRequest::default_instance_;
@@ -269,41 +288,40 @@ void protobuf_AddDesc_writer_2eproto() {
   ::huawei::proto::protobuf_AddDesc_common_2eproto();
   ::google::protobuf::DescriptorPool::InternalAddGeneratedFile(
     "\n\014writer.proto\022\014huawei.proto\032\014common.pro"
-    "to\";\n\033GetWriteableJournalsRequest\022\014\n\004uui"
-    "d\030\001 \001(\t\022\016\n\006vol_id\030\002 \001(\t\"|\n\034GetWriteableJ"
-    "ournalsResponse\022$\n\006result\030\001 \001(\0162\024.huawei"
-    ".proto.RESULT\022\r\n\005count\030\002 \001(\005\022\'\n\010journals"
-    "\030\003 \003(\0132\025.huawei.proto.Journal\"T\n\023SealJou"
-    "rnalsRequest\022\014\n\004uuid\030\001 \001(\t\022\016\n\006vol_id\030\002 \001"
-    "(\t\022\r\n\005count\030\003 \001(\005\022\020\n\010journals\030\004 \003(\t\"<\n\024S"
-    "ealJournalsResponse\022$\n\006result\030\001 \001(\0162\024.hu"
-    "awei.proto.RESULT\"S\n GetMultiWriteableJo"
-    "urnalsRequest\022\014\n\004uuid\030\001 \001(\t\022\021\n\tvol_count"
-    "\030\002 \001(\005\022\016\n\006vol_id\030\003 \003(\t\"\330\001\n!GetMultiWrite"
-    "ableJournalsResponse\022$\n\006result\030\001 \001(\0162\024.h"
-    "uawei.proto.RESULT\022E\n\003map\030\002 \003(\01328.huawei"
-    ".proto.GetMultiWriteableJournalsResponse"
-    ".MapEntry\032F\n\010MapEntry\022\013\n\003key\030\001 \001(\t\022)\n\005va"
-    "lue\030\002 \001(\0132\032.huawei.proto.JournalArray:\0028"
-    "\001\"\276\001\n\030SealMultiJournalsRequest\022\014\n\004uuid\030\001"
-    " \001(\t\022\016\n\006vol_id\030\002 \001(\t\022<\n\003map\030\003 \003(\0132/.huaw"
-    "ei.proto.SealMultiJournalsRequest.MapEnt"
-    "ry\032F\n\010MapEntry\022\013\n\003key\030\001 \001(\t\022)\n\005value\030\002 \001"
-    "(\0132\032.huawei.proto.JournalArray:\0028\001\"A\n\031Se"
-    "alMultiJournalsResponse\022$\n\006result\030\001 \001(\0162"
-    "\024.huawei.proto.RESULT2\272\003\n\006Writer\022o\n\024GetW"
-    "riteableJournals\022).huawei.proto.GetWrite"
-    "ableJournalsRequest\032*.huawei.proto.GetWr"
-    "iteableJournalsResponse\"\000\022W\n\014SealJournal"
-    "s\022!.huawei.proto.SealJournalsRequest\032\".h"
-    "uawei.proto.SealJournalsResponse\"\000\022~\n\031Ge"
-    "tMultiWriteableJournals\022..huawei.proto.G"
-    "etMultiWriteableJournalsRequest\032/.huawei"
-    ".proto.GetMultiWriteableJournalsResponse"
-    "\"\000\022f\n\021SealMultiJournals\022&.huawei.proto.S"
-    "ealMultiJournalsRequest\032\'.huawei.proto.S"
-    "ealMultiJournalsResponse\"\000B\006\242\002\003DRSb\006prot"
-    "o3", 1402);
+    "to\"K\n\033GetWriteableJournalsRequest\022\014\n\004uui"
+    "d\030\001 \001(\t\022\016\n\006vol_id\030\002 \001(\t\022\016\n\006limits\030\003 \001(\005\""
+    "V\n\034GetWriteableJournalsResponse\022$\n\006resul"
+    "t\030\001 \001(\0162\024.huawei.proto.RESULT\022\020\n\010journal"
+    "s\030\002 \003(\t\"E\n\023SealJournalsRequest\022\014\n\004uuid\030\001"
+    " \001(\t\022\016\n\006vol_id\030\002 \001(\t\022\020\n\010journals\030\003 \003(\t\"<"
+    "\n\024SealJournalsResponse\022$\n\006result\030\001 \001(\0162\024"
+    ".huawei.proto.RESULT\"@\n GetMultiWriteabl"
+    "eJournalsRequest\022\014\n\004uuid\030\001 \001(\t\022\016\n\006vol_id"
+    "\030\002 \003(\t\"\037\n\014JournalArray\022\017\n\007journal\030\001 \003(\t\""
+    "\330\001\n!GetMultiWriteableJournalsResponse\022$\n"
+    "\006result\030\001 \001(\0162\024.huawei.proto.RESULT\022E\n\003m"
+    "ap\030\002 \003(\01328.huawei.proto.GetMultiWriteabl"
+    "eJournalsResponse.MapEntry\032F\n\010MapEntry\022\013"
+    "\n\003key\030\001 \001(\t\022)\n\005value\030\002 \001(\0132\032.huawei.prot"
+    "o.JournalArray:\0028\001\"\256\001\n\030SealMultiJournals"
+    "Request\022\014\n\004uuid\030\001 \001(\t\022<\n\003map\030\002 \003(\0132/.hua"
+    "wei.proto.SealMultiJournalsRequest.MapEn"
+    "try\032F\n\010MapEntry\022\013\n\003key\030\001 \001(\t\022)\n\005value\030\002 "
+    "\001(\0132\032.huawei.proto.JournalArray:\0028\001\"A\n\031S"
+    "ealMultiJournalsResponse\022$\n\006result\030\001 \001(\016"
+    "2\024.huawei.proto.RESULT2\272\003\n\006Writer\022o\n\024Get"
+    "WriteableJournals\022).huawei.proto.GetWrit"
+    "eableJournalsRequest\032*.huawei.proto.GetW"
+    "riteableJournalsResponse\"\000\022W\n\014SealJourna"
+    "ls\022!.huawei.proto.SealJournalsRequest\032\"."
+    "huawei.proto.SealJournalsResponse\"\000\022~\n\031G"
+    "etMultiWriteableJournals\022..huawei.proto."
+    "GetMultiWriteableJournalsRequest\032/.huawe"
+    "i.proto.GetMultiWriteableJournalsRespons"
+    "e\"\000\022f\n\021SealMultiJournals\022&.huawei.proto."
+    "SealMultiJournalsRequest\032\'.huawei.proto."
+    "SealMultiJournalsResponse\"\000B\006\242\002\003DRSb\006pro"
+    "to3", 1363);
   ::google::protobuf::MessageFactory::InternalRegisterGeneratedFile(
     "writer.proto", &protobuf_RegisterTypes);
   GetWriteableJournalsRequest::default_instance_ = new GetWriteableJournalsRequest();
@@ -311,6 +329,7 @@ void protobuf_AddDesc_writer_2eproto() {
   SealJournalsRequest::default_instance_ = new SealJournalsRequest();
   SealJournalsResponse::default_instance_ = new SealJournalsResponse();
   GetMultiWriteableJournalsRequest::default_instance_ = new GetMultiWriteableJournalsRequest();
+  JournalArray::default_instance_ = new JournalArray();
   GetMultiWriteableJournalsResponse::default_instance_ = new GetMultiWriteableJournalsResponse();
   SealMultiJournalsRequest::default_instance_ = new SealMultiJournalsRequest();
   SealMultiJournalsResponse::default_instance_ = new SealMultiJournalsResponse();
@@ -319,6 +338,7 @@ void protobuf_AddDesc_writer_2eproto() {
   SealJournalsRequest::default_instance_->InitAsDefaultInstance();
   SealJournalsResponse::default_instance_->InitAsDefaultInstance();
   GetMultiWriteableJournalsRequest::default_instance_->InitAsDefaultInstance();
+  JournalArray::default_instance_->InitAsDefaultInstance();
   GetMultiWriteableJournalsResponse::default_instance_->InitAsDefaultInstance();
   SealMultiJournalsRequest::default_instance_->InitAsDefaultInstance();
   SealMultiJournalsResponse::default_instance_->InitAsDefaultInstance();
@@ -347,6 +367,7 @@ static void MergeFromFail(int line) {
 #if !defined(_MSC_VER) || _MSC_VER >= 1900
 const int GetWriteableJournalsRequest::kUuidFieldNumber;
 const int GetWriteableJournalsRequest::kVolIdFieldNumber;
+const int GetWriteableJournalsRequest::kLimitsFieldNumber;
 #endif  // !defined(_MSC_VER) || _MSC_VER >= 1900
 
 GetWriteableJournalsRequest::GetWriteableJournalsRequest()
@@ -373,6 +394,7 @@ void GetWriteableJournalsRequest::SharedCtor() {
   _cached_size_ = 0;
   uuid_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   vol_id_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+  limits_ = 0;
 }
 
 GetWriteableJournalsRequest::~GetWriteableJournalsRequest() {
@@ -416,6 +438,7 @@ void GetWriteableJournalsRequest::Clear() {
 // @@protoc_insertion_point(message_clear_start:huawei.proto.GetWriteableJournalsRequest)
   uuid_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   vol_id_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+  limits_ = 0;
 }
 
 bool GetWriteableJournalsRequest::MergePartialFromCodedStream(
@@ -454,6 +477,21 @@ bool GetWriteableJournalsRequest::MergePartialFromCodedStream(
             this->vol_id().data(), this->vol_id().length(),
             ::google::protobuf::internal::WireFormatLite::PARSE,
             "huawei.proto.GetWriteableJournalsRequest.vol_id"));
+        } else {
+          goto handle_unusual;
+        }
+        if (input->ExpectTag(24)) goto parse_limits;
+        break;
+      }
+
+      // optional int32 limits = 3;
+      case 3: {
+        if (tag == 24) {
+         parse_limits:
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int32, ::google::protobuf::internal::WireFormatLite::TYPE_INT32>(
+                 input, &limits_)));
+
         } else {
           goto handle_unusual;
         }
@@ -505,6 +543,11 @@ void GetWriteableJournalsRequest::SerializeWithCachedSizes(
       2, this->vol_id(), output);
   }
 
+  // optional int32 limits = 3;
+  if (this->limits() != 0) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt32(3, this->limits(), output);
+  }
+
   // @@protoc_insertion_point(serialize_end:huawei.proto.GetWriteableJournalsRequest)
 }
 
@@ -533,6 +576,11 @@ void GetWriteableJournalsRequest::SerializeWithCachedSizes(
         2, this->vol_id(), target);
   }
 
+  // optional int32 limits = 3;
+  if (this->limits() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::WriteInt32ToArray(3, this->limits(), target);
+  }
+
   // @@protoc_insertion_point(serialize_to_array_end:huawei.proto.GetWriteableJournalsRequest)
   return target;
 }
@@ -553,6 +601,13 @@ int GetWriteableJournalsRequest::ByteSize() const {
     total_size += 1 +
       ::google::protobuf::internal::WireFormatLite::StringSize(
         this->vol_id());
+  }
+
+  // optional int32 limits = 3;
+  if (this->limits() != 0) {
+    total_size += 1 +
+      ::google::protobuf::internal::WireFormatLite::Int32Size(
+        this->limits());
   }
 
   GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
@@ -587,6 +642,9 @@ void GetWriteableJournalsRequest::MergeFrom(const GetWriteableJournalsRequest& f
 
     vol_id_.AssignWithDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), from.vol_id_);
   }
+  if (from.limits() != 0) {
+    set_limits(from.limits());
+  }
 }
 
 void GetWriteableJournalsRequest::CopyFrom(const ::google::protobuf::Message& from) {
@@ -615,6 +673,7 @@ void GetWriteableJournalsRequest::Swap(GetWriteableJournalsRequest* other) {
 void GetWriteableJournalsRequest::InternalSwap(GetWriteableJournalsRequest* other) {
   uuid_.Swap(&other->uuid_);
   vol_id_.Swap(&other->vol_id_);
+  std::swap(limits_, other->limits_);
   _internal_metadata_.Swap(&other->_internal_metadata_);
   std::swap(_cached_size_, other->_cached_size_);
 }
@@ -718,13 +777,26 @@ void GetWriteableJournalsRequest::clear_vol_id() {
   // @@protoc_insertion_point(field_set_allocated:huawei.proto.GetWriteableJournalsRequest.vol_id)
 }
 
+// optional int32 limits = 3;
+void GetWriteableJournalsRequest::clear_limits() {
+  limits_ = 0;
+}
+ ::google::protobuf::int32 GetWriteableJournalsRequest::limits() const {
+  // @@protoc_insertion_point(field_get:huawei.proto.GetWriteableJournalsRequest.limits)
+  return limits_;
+}
+ void GetWriteableJournalsRequest::set_limits(::google::protobuf::int32 value) {
+  
+  limits_ = value;
+  // @@protoc_insertion_point(field_set:huawei.proto.GetWriteableJournalsRequest.limits)
+}
+
 #endif  // PROTOBUF_INLINE_NOT_IN_HEADERS
 
 // ===================================================================
 
 #if !defined(_MSC_VER) || _MSC_VER >= 1900
 const int GetWriteableJournalsResponse::kResultFieldNumber;
-const int GetWriteableJournalsResponse::kCountFieldNumber;
 const int GetWriteableJournalsResponse::kJournalsFieldNumber;
 #endif  // !defined(_MSC_VER) || _MSC_VER >= 1900
 
@@ -748,9 +820,9 @@ GetWriteableJournalsResponse::GetWriteableJournalsResponse(const GetWriteableJou
 
 void GetWriteableJournalsResponse::SharedCtor() {
     _is_default_instance_ = false;
+  ::google::protobuf::internal::GetEmptyString();
   _cached_size_ = 0;
   result_ = 0;
-  count_ = 0;
 }
 
 GetWriteableJournalsResponse::~GetWriteableJournalsResponse() {
@@ -790,27 +862,7 @@ GetWriteableJournalsResponse* GetWriteableJournalsResponse::New(::google::protob
 
 void GetWriteableJournalsResponse::Clear() {
 // @@protoc_insertion_point(message_clear_start:huawei.proto.GetWriteableJournalsResponse)
-#if defined(__clang__)
-#define ZR_HELPER_(f) \
-  _Pragma("clang diagnostic push") \
-  _Pragma("clang diagnostic ignored \"-Winvalid-offsetof\"") \
-  __builtin_offsetof(GetWriteableJournalsResponse, f) \
-  _Pragma("clang diagnostic pop")
-#else
-#define ZR_HELPER_(f) reinterpret_cast<char*>(\
-  &reinterpret_cast<GetWriteableJournalsResponse*>(16)->f)
-#endif
-
-#define ZR_(first, last) do {\
-  ::memset(&first, 0,\
-           ZR_HELPER_(last) - ZR_HELPER_(first) + sizeof(last));\
-} while (0)
-
-  ZR_(result_, count_);
-
-#undef ZR_HELPER_
-#undef ZR_
-
+  result_ = 0;
   journals_.Clear();
 }
 
@@ -835,38 +887,25 @@ bool GetWriteableJournalsResponse::MergePartialFromCodedStream(
         } else {
           goto handle_unusual;
         }
-        if (input->ExpectTag(16)) goto parse_count;
+        if (input->ExpectTag(18)) goto parse_journals;
         break;
       }
 
-      // optional int32 count = 2;
+      // repeated string journals = 2;
       case 2: {
-        if (tag == 16) {
-         parse_count:
-          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
-                   ::google::protobuf::int32, ::google::protobuf::internal::WireFormatLite::TYPE_INT32>(
-                 input, &count_)));
-
-        } else {
-          goto handle_unusual;
-        }
-        if (input->ExpectTag(26)) goto parse_journals;
-        break;
-      }
-
-      // repeated .huawei.proto.Journal journals = 3;
-      case 3: {
-        if (tag == 26) {
+        if (tag == 18) {
          parse_journals:
-          DO_(input->IncrementRecursionDepth());
-         parse_loop_journals:
-          DO_(::google::protobuf::internal::WireFormatLite::ReadMessageNoVirtualNoRecursionDepth(
-                input, add_journals()));
+          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
+                input, this->add_journals()));
+          DO_(::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+            this->journals(this->journals_size() - 1).data(),
+            this->journals(this->journals_size() - 1).length(),
+            ::google::protobuf::internal::WireFormatLite::PARSE,
+            "huawei.proto.GetWriteableJournalsResponse.journals"));
         } else {
           goto handle_unusual;
         }
-        if (input->ExpectTag(26)) goto parse_loop_journals;
-        input->UnsafeDecrementRecursionDepth();
+        if (input->ExpectTag(18)) goto parse_journals;
         if (input->ExpectAtEnd()) goto success;
         break;
       }
@@ -901,15 +940,14 @@ void GetWriteableJournalsResponse::SerializeWithCachedSizes(
       1, this->result(), output);
   }
 
-  // optional int32 count = 2;
-  if (this->count() != 0) {
-    ::google::protobuf::internal::WireFormatLite::WriteInt32(2, this->count(), output);
-  }
-
-  // repeated .huawei.proto.Journal journals = 3;
-  for (unsigned int i = 0, n = this->journals_size(); i < n; i++) {
-    ::google::protobuf::internal::WireFormatLite::WriteMessageMaybeToArray(
-      3, this->journals(i), output);
+  // repeated string journals = 2;
+  for (int i = 0; i < this->journals_size(); i++) {
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+      this->journals(i).data(), this->journals(i).length(),
+      ::google::protobuf::internal::WireFormatLite::SERIALIZE,
+      "huawei.proto.GetWriteableJournalsResponse.journals");
+    ::google::protobuf::internal::WireFormatLite::WriteString(
+      2, this->journals(i), output);
   }
 
   // @@protoc_insertion_point(serialize_end:huawei.proto.GetWriteableJournalsResponse)
@@ -924,16 +962,14 @@ void GetWriteableJournalsResponse::SerializeWithCachedSizes(
       1, this->result(), target);
   }
 
-  // optional int32 count = 2;
-  if (this->count() != 0) {
-    target = ::google::protobuf::internal::WireFormatLite::WriteInt32ToArray(2, this->count(), target);
-  }
-
-  // repeated .huawei.proto.Journal journals = 3;
-  for (unsigned int i = 0, n = this->journals_size(); i < n; i++) {
+  // repeated string journals = 2;
+  for (int i = 0; i < this->journals_size(); i++) {
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+      this->journals(i).data(), this->journals(i).length(),
+      ::google::protobuf::internal::WireFormatLite::SERIALIZE,
+      "huawei.proto.GetWriteableJournalsResponse.journals");
     target = ::google::protobuf::internal::WireFormatLite::
-      WriteMessageNoVirtualToArray(
-        3, this->journals(i), target);
+      WriteStringToArray(2, this->journals(i), target);
   }
 
   // @@protoc_insertion_point(serialize_to_array_end:huawei.proto.GetWriteableJournalsResponse)
@@ -950,19 +986,11 @@ int GetWriteableJournalsResponse::ByteSize() const {
       ::google::protobuf::internal::WireFormatLite::EnumSize(this->result());
   }
 
-  // optional int32 count = 2;
-  if (this->count() != 0) {
-    total_size += 1 +
-      ::google::protobuf::internal::WireFormatLite::Int32Size(
-        this->count());
-  }
-
-  // repeated .huawei.proto.Journal journals = 3;
+  // repeated string journals = 2;
   total_size += 1 * this->journals_size();
   for (int i = 0; i < this->journals_size(); i++) {
-    total_size +=
-      ::google::protobuf::internal::WireFormatLite::MessageSizeNoVirtual(
-        this->journals(i));
+    total_size += ::google::protobuf::internal::WireFormatLite::StringSize(
+      this->journals(i));
   }
 
   GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
@@ -993,9 +1021,6 @@ void GetWriteableJournalsResponse::MergeFrom(const GetWriteableJournalsResponse&
   if (from.result() != 0) {
     set_result(from.result());
   }
-  if (from.count() != 0) {
-    set_count(from.count());
-  }
 }
 
 void GetWriteableJournalsResponse::CopyFrom(const ::google::protobuf::Message& from) {
@@ -1023,7 +1048,6 @@ void GetWriteableJournalsResponse::Swap(GetWriteableJournalsResponse* other) {
 }
 void GetWriteableJournalsResponse::InternalSwap(GetWriteableJournalsResponse* other) {
   std::swap(result_, other->result_);
-  std::swap(count_, other->count_);
   journals_.UnsafeArenaSwap(&other->journals_);
   _internal_metadata_.Swap(&other->_internal_metadata_);
   std::swap(_cached_size_, other->_cached_size_);
@@ -1054,48 +1078,59 @@ void GetWriteableJournalsResponse::clear_result() {
   // @@protoc_insertion_point(field_set:huawei.proto.GetWriteableJournalsResponse.result)
 }
 
-// optional int32 count = 2;
-void GetWriteableJournalsResponse::clear_count() {
-  count_ = 0;
-}
- ::google::protobuf::int32 GetWriteableJournalsResponse::count() const {
-  // @@protoc_insertion_point(field_get:huawei.proto.GetWriteableJournalsResponse.count)
-  return count_;
-}
- void GetWriteableJournalsResponse::set_count(::google::protobuf::int32 value) {
-  
-  count_ = value;
-  // @@protoc_insertion_point(field_set:huawei.proto.GetWriteableJournalsResponse.count)
-}
-
-// repeated .huawei.proto.Journal journals = 3;
+// repeated string journals = 2;
 int GetWriteableJournalsResponse::journals_size() const {
   return journals_.size();
 }
 void GetWriteableJournalsResponse::clear_journals() {
   journals_.Clear();
 }
-const ::huawei::proto::Journal& GetWriteableJournalsResponse::journals(int index) const {
+ const ::std::string& GetWriteableJournalsResponse::journals(int index) const {
   // @@protoc_insertion_point(field_get:huawei.proto.GetWriteableJournalsResponse.journals)
   return journals_.Get(index);
 }
-::huawei::proto::Journal* GetWriteableJournalsResponse::mutable_journals(int index) {
+ ::std::string* GetWriteableJournalsResponse::mutable_journals(int index) {
   // @@protoc_insertion_point(field_mutable:huawei.proto.GetWriteableJournalsResponse.journals)
   return journals_.Mutable(index);
 }
-::huawei::proto::Journal* GetWriteableJournalsResponse::add_journals() {
-  // @@protoc_insertion_point(field_add:huawei.proto.GetWriteableJournalsResponse.journals)
+ void GetWriteableJournalsResponse::set_journals(int index, const ::std::string& value) {
+  // @@protoc_insertion_point(field_set:huawei.proto.GetWriteableJournalsResponse.journals)
+  journals_.Mutable(index)->assign(value);
+}
+ void GetWriteableJournalsResponse::set_journals(int index, const char* value) {
+  journals_.Mutable(index)->assign(value);
+  // @@protoc_insertion_point(field_set_char:huawei.proto.GetWriteableJournalsResponse.journals)
+}
+ void GetWriteableJournalsResponse::set_journals(int index, const char* value, size_t size) {
+  journals_.Mutable(index)->assign(
+    reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_set_pointer:huawei.proto.GetWriteableJournalsResponse.journals)
+}
+ ::std::string* GetWriteableJournalsResponse::add_journals() {
+  // @@protoc_insertion_point(field_add_mutable:huawei.proto.GetWriteableJournalsResponse.journals)
   return journals_.Add();
 }
-::google::protobuf::RepeatedPtrField< ::huawei::proto::Journal >*
-GetWriteableJournalsResponse::mutable_journals() {
-  // @@protoc_insertion_point(field_mutable_list:huawei.proto.GetWriteableJournalsResponse.journals)
-  return &journals_;
+ void GetWriteableJournalsResponse::add_journals(const ::std::string& value) {
+  journals_.Add()->assign(value);
+  // @@protoc_insertion_point(field_add:huawei.proto.GetWriteableJournalsResponse.journals)
 }
-const ::google::protobuf::RepeatedPtrField< ::huawei::proto::Journal >&
+ void GetWriteableJournalsResponse::add_journals(const char* value) {
+  journals_.Add()->assign(value);
+  // @@protoc_insertion_point(field_add_char:huawei.proto.GetWriteableJournalsResponse.journals)
+}
+ void GetWriteableJournalsResponse::add_journals(const char* value, size_t size) {
+  journals_.Add()->assign(reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_add_pointer:huawei.proto.GetWriteableJournalsResponse.journals)
+}
+ const ::google::protobuf::RepeatedPtrField< ::std::string>&
 GetWriteableJournalsResponse::journals() const {
   // @@protoc_insertion_point(field_list:huawei.proto.GetWriteableJournalsResponse.journals)
   return journals_;
+}
+ ::google::protobuf::RepeatedPtrField< ::std::string>*
+GetWriteableJournalsResponse::mutable_journals() {
+  // @@protoc_insertion_point(field_mutable_list:huawei.proto.GetWriteableJournalsResponse.journals)
+  return &journals_;
 }
 
 #endif  // PROTOBUF_INLINE_NOT_IN_HEADERS
@@ -1105,7 +1140,6 @@ GetWriteableJournalsResponse::journals() const {
 #if !defined(_MSC_VER) || _MSC_VER >= 1900
 const int SealJournalsRequest::kUuidFieldNumber;
 const int SealJournalsRequest::kVolIdFieldNumber;
-const int SealJournalsRequest::kCountFieldNumber;
 const int SealJournalsRequest::kJournalsFieldNumber;
 #endif  // !defined(_MSC_VER) || _MSC_VER >= 1900
 
@@ -1133,7 +1167,6 @@ void SealJournalsRequest::SharedCtor() {
   _cached_size_ = 0;
   uuid_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   vol_id_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
-  count_ = 0;
 }
 
 SealJournalsRequest::~SealJournalsRequest() {
@@ -1177,7 +1210,6 @@ void SealJournalsRequest::Clear() {
 // @@protoc_insertion_point(message_clear_start:huawei.proto.SealJournalsRequest)
   uuid_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   vol_id_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
-  count_ = 0;
   journals_.Clear();
 }
 
@@ -1220,28 +1252,13 @@ bool SealJournalsRequest::MergePartialFromCodedStream(
         } else {
           goto handle_unusual;
         }
-        if (input->ExpectTag(24)) goto parse_count;
+        if (input->ExpectTag(26)) goto parse_journals;
         break;
       }
 
-      // optional int32 count = 3;
+      // repeated string journals = 3;
       case 3: {
-        if (tag == 24) {
-         parse_count:
-          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
-                   ::google::protobuf::int32, ::google::protobuf::internal::WireFormatLite::TYPE_INT32>(
-                 input, &count_)));
-
-        } else {
-          goto handle_unusual;
-        }
-        if (input->ExpectTag(34)) goto parse_journals;
-        break;
-      }
-
-      // repeated string journals = 4;
-      case 4: {
-        if (tag == 34) {
+        if (tag == 26) {
          parse_journals:
           DO_(::google::protobuf::internal::WireFormatLite::ReadString(
                 input, this->add_journals()));
@@ -1253,7 +1270,7 @@ bool SealJournalsRequest::MergePartialFromCodedStream(
         } else {
           goto handle_unusual;
         }
-        if (input->ExpectTag(34)) goto parse_journals;
+        if (input->ExpectTag(26)) goto parse_journals;
         if (input->ExpectAtEnd()) goto success;
         break;
       }
@@ -1302,19 +1319,14 @@ void SealJournalsRequest::SerializeWithCachedSizes(
       2, this->vol_id(), output);
   }
 
-  // optional int32 count = 3;
-  if (this->count() != 0) {
-    ::google::protobuf::internal::WireFormatLite::WriteInt32(3, this->count(), output);
-  }
-
-  // repeated string journals = 4;
+  // repeated string journals = 3;
   for (int i = 0; i < this->journals_size(); i++) {
     ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
       this->journals(i).data(), this->journals(i).length(),
       ::google::protobuf::internal::WireFormatLite::SERIALIZE,
       "huawei.proto.SealJournalsRequest.journals");
     ::google::protobuf::internal::WireFormatLite::WriteString(
-      4, this->journals(i), output);
+      3, this->journals(i), output);
   }
 
   // @@protoc_insertion_point(serialize_end:huawei.proto.SealJournalsRequest)
@@ -1345,19 +1357,14 @@ void SealJournalsRequest::SerializeWithCachedSizes(
         2, this->vol_id(), target);
   }
 
-  // optional int32 count = 3;
-  if (this->count() != 0) {
-    target = ::google::protobuf::internal::WireFormatLite::WriteInt32ToArray(3, this->count(), target);
-  }
-
-  // repeated string journals = 4;
+  // repeated string journals = 3;
   for (int i = 0; i < this->journals_size(); i++) {
     ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
       this->journals(i).data(), this->journals(i).length(),
       ::google::protobuf::internal::WireFormatLite::SERIALIZE,
       "huawei.proto.SealJournalsRequest.journals");
     target = ::google::protobuf::internal::WireFormatLite::
-      WriteStringToArray(4, this->journals(i), target);
+      WriteStringToArray(3, this->journals(i), target);
   }
 
   // @@protoc_insertion_point(serialize_to_array_end:huawei.proto.SealJournalsRequest)
@@ -1382,14 +1389,7 @@ int SealJournalsRequest::ByteSize() const {
         this->vol_id());
   }
 
-  // optional int32 count = 3;
-  if (this->count() != 0) {
-    total_size += 1 +
-      ::google::protobuf::internal::WireFormatLite::Int32Size(
-        this->count());
-  }
-
-  // repeated string journals = 4;
+  // repeated string journals = 3;
   total_size += 1 * this->journals_size();
   for (int i = 0; i < this->journals_size(); i++) {
     total_size += ::google::protobuf::internal::WireFormatLite::StringSize(
@@ -1429,9 +1429,6 @@ void SealJournalsRequest::MergeFrom(const SealJournalsRequest& from) {
 
     vol_id_.AssignWithDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), from.vol_id_);
   }
-  if (from.count() != 0) {
-    set_count(from.count());
-  }
 }
 
 void SealJournalsRequest::CopyFrom(const ::google::protobuf::Message& from) {
@@ -1460,7 +1457,6 @@ void SealJournalsRequest::Swap(SealJournalsRequest* other) {
 void SealJournalsRequest::InternalSwap(SealJournalsRequest* other) {
   uuid_.Swap(&other->uuid_);
   vol_id_.Swap(&other->vol_id_);
-  std::swap(count_, other->count_);
   journals_.UnsafeArenaSwap(&other->journals_);
   _internal_metadata_.Swap(&other->_internal_metadata_);
   std::swap(_cached_size_, other->_cached_size_);
@@ -1565,21 +1561,7 @@ void SealJournalsRequest::clear_vol_id() {
   // @@protoc_insertion_point(field_set_allocated:huawei.proto.SealJournalsRequest.vol_id)
 }
 
-// optional int32 count = 3;
-void SealJournalsRequest::clear_count() {
-  count_ = 0;
-}
- ::google::protobuf::int32 SealJournalsRequest::count() const {
-  // @@protoc_insertion_point(field_get:huawei.proto.SealJournalsRequest.count)
-  return count_;
-}
- void SealJournalsRequest::set_count(::google::protobuf::int32 value) {
-  
-  count_ = value;
-  // @@protoc_insertion_point(field_set:huawei.proto.SealJournalsRequest.count)
-}
-
-// repeated string journals = 4;
+// repeated string journals = 3;
 int SealJournalsRequest::journals_size() const {
   return journals_.size();
 }
@@ -1876,7 +1858,6 @@ void SealJournalsResponse::clear_result() {
 
 #if !defined(_MSC_VER) || _MSC_VER >= 1900
 const int GetMultiWriteableJournalsRequest::kUuidFieldNumber;
-const int GetMultiWriteableJournalsRequest::kVolCountFieldNumber;
 const int GetMultiWriteableJournalsRequest::kVolIdFieldNumber;
 #endif  // !defined(_MSC_VER) || _MSC_VER >= 1900
 
@@ -1903,7 +1884,6 @@ void GetMultiWriteableJournalsRequest::SharedCtor() {
   ::google::protobuf::internal::GetEmptyString();
   _cached_size_ = 0;
   uuid_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
-  vol_count_ = 0;
 }
 
 GetMultiWriteableJournalsRequest::~GetMultiWriteableJournalsRequest() {
@@ -1945,7 +1925,6 @@ GetMultiWriteableJournalsRequest* GetMultiWriteableJournalsRequest::New(::google
 void GetMultiWriteableJournalsRequest::Clear() {
 // @@protoc_insertion_point(message_clear_start:huawei.proto.GetMultiWriteableJournalsRequest)
   uuid_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
-  vol_count_ = 0;
   vol_id_.Clear();
 }
 
@@ -1971,28 +1950,13 @@ bool GetMultiWriteableJournalsRequest::MergePartialFromCodedStream(
         } else {
           goto handle_unusual;
         }
-        if (input->ExpectTag(16)) goto parse_vol_count;
+        if (input->ExpectTag(18)) goto parse_vol_id;
         break;
       }
 
-      // optional int32 vol_count = 2;
+      // repeated string vol_id = 2;
       case 2: {
-        if (tag == 16) {
-         parse_vol_count:
-          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
-                   ::google::protobuf::int32, ::google::protobuf::internal::WireFormatLite::TYPE_INT32>(
-                 input, &vol_count_)));
-
-        } else {
-          goto handle_unusual;
-        }
-        if (input->ExpectTag(26)) goto parse_vol_id;
-        break;
-      }
-
-      // repeated string vol_id = 3;
-      case 3: {
-        if (tag == 26) {
+        if (tag == 18) {
          parse_vol_id:
           DO_(::google::protobuf::internal::WireFormatLite::ReadString(
                 input, this->add_vol_id()));
@@ -2004,7 +1968,7 @@ bool GetMultiWriteableJournalsRequest::MergePartialFromCodedStream(
         } else {
           goto handle_unusual;
         }
-        if (input->ExpectTag(26)) goto parse_vol_id;
+        if (input->ExpectTag(18)) goto parse_vol_id;
         if (input->ExpectAtEnd()) goto success;
         break;
       }
@@ -2043,19 +2007,14 @@ void GetMultiWriteableJournalsRequest::SerializeWithCachedSizes(
       1, this->uuid(), output);
   }
 
-  // optional int32 vol_count = 2;
-  if (this->vol_count() != 0) {
-    ::google::protobuf::internal::WireFormatLite::WriteInt32(2, this->vol_count(), output);
-  }
-
-  // repeated string vol_id = 3;
+  // repeated string vol_id = 2;
   for (int i = 0; i < this->vol_id_size(); i++) {
     ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
       this->vol_id(i).data(), this->vol_id(i).length(),
       ::google::protobuf::internal::WireFormatLite::SERIALIZE,
       "huawei.proto.GetMultiWriteableJournalsRequest.vol_id");
     ::google::protobuf::internal::WireFormatLite::WriteString(
-      3, this->vol_id(i), output);
+      2, this->vol_id(i), output);
   }
 
   // @@protoc_insertion_point(serialize_end:huawei.proto.GetMultiWriteableJournalsRequest)
@@ -2075,19 +2034,14 @@ void GetMultiWriteableJournalsRequest::SerializeWithCachedSizes(
         1, this->uuid(), target);
   }
 
-  // optional int32 vol_count = 2;
-  if (this->vol_count() != 0) {
-    target = ::google::protobuf::internal::WireFormatLite::WriteInt32ToArray(2, this->vol_count(), target);
-  }
-
-  // repeated string vol_id = 3;
+  // repeated string vol_id = 2;
   for (int i = 0; i < this->vol_id_size(); i++) {
     ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
       this->vol_id(i).data(), this->vol_id(i).length(),
       ::google::protobuf::internal::WireFormatLite::SERIALIZE,
       "huawei.proto.GetMultiWriteableJournalsRequest.vol_id");
     target = ::google::protobuf::internal::WireFormatLite::
-      WriteStringToArray(3, this->vol_id(i), target);
+      WriteStringToArray(2, this->vol_id(i), target);
   }
 
   // @@protoc_insertion_point(serialize_to_array_end:huawei.proto.GetMultiWriteableJournalsRequest)
@@ -2105,14 +2059,7 @@ int GetMultiWriteableJournalsRequest::ByteSize() const {
         this->uuid());
   }
 
-  // optional int32 vol_count = 2;
-  if (this->vol_count() != 0) {
-    total_size += 1 +
-      ::google::protobuf::internal::WireFormatLite::Int32Size(
-        this->vol_count());
-  }
-
-  // repeated string vol_id = 3;
+  // repeated string vol_id = 2;
   total_size += 1 * this->vol_id_size();
   for (int i = 0; i < this->vol_id_size(); i++) {
     total_size += ::google::protobuf::internal::WireFormatLite::StringSize(
@@ -2148,9 +2095,6 @@ void GetMultiWriteableJournalsRequest::MergeFrom(const GetMultiWriteableJournals
 
     uuid_.AssignWithDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), from.uuid_);
   }
-  if (from.vol_count() != 0) {
-    set_vol_count(from.vol_count());
-  }
 }
 
 void GetMultiWriteableJournalsRequest::CopyFrom(const ::google::protobuf::Message& from) {
@@ -2178,7 +2122,6 @@ void GetMultiWriteableJournalsRequest::Swap(GetMultiWriteableJournalsRequest* ot
 }
 void GetMultiWriteableJournalsRequest::InternalSwap(GetMultiWriteableJournalsRequest* other) {
   uuid_.Swap(&other->uuid_);
-  std::swap(vol_count_, other->vol_count_);
   vol_id_.UnsafeArenaSwap(&other->vol_id_);
   _internal_metadata_.Swap(&other->_internal_metadata_);
   std::swap(_cached_size_, other->_cached_size_);
@@ -2239,21 +2182,7 @@ void GetMultiWriteableJournalsRequest::clear_uuid() {
   // @@protoc_insertion_point(field_set_allocated:huawei.proto.GetMultiWriteableJournalsRequest.uuid)
 }
 
-// optional int32 vol_count = 2;
-void GetMultiWriteableJournalsRequest::clear_vol_count() {
-  vol_count_ = 0;
-}
- ::google::protobuf::int32 GetMultiWriteableJournalsRequest::vol_count() const {
-  // @@protoc_insertion_point(field_get:huawei.proto.GetMultiWriteableJournalsRequest.vol_count)
-  return vol_count_;
-}
- void GetMultiWriteableJournalsRequest::set_vol_count(::google::protobuf::int32 value) {
-  
-  vol_count_ = value;
-  // @@protoc_insertion_point(field_set:huawei.proto.GetMultiWriteableJournalsRequest.vol_count)
-}
-
-// repeated string vol_id = 3;
+// repeated string vol_id = 2;
 int GetMultiWriteableJournalsRequest::vol_id_size() const {
   return vol_id_.size();
 }
@@ -2306,6 +2235,294 @@ GetMultiWriteableJournalsRequest::vol_id() const {
 GetMultiWriteableJournalsRequest::mutable_vol_id() {
   // @@protoc_insertion_point(field_mutable_list:huawei.proto.GetMultiWriteableJournalsRequest.vol_id)
   return &vol_id_;
+}
+
+#endif  // PROTOBUF_INLINE_NOT_IN_HEADERS
+
+// ===================================================================
+
+#if !defined(_MSC_VER) || _MSC_VER >= 1900
+const int JournalArray::kJournalFieldNumber;
+#endif  // !defined(_MSC_VER) || _MSC_VER >= 1900
+
+JournalArray::JournalArray()
+  : ::google::protobuf::Message(), _internal_metadata_(NULL) {
+  SharedCtor();
+  // @@protoc_insertion_point(constructor:huawei.proto.JournalArray)
+}
+
+void JournalArray::InitAsDefaultInstance() {
+  _is_default_instance_ = true;
+}
+
+JournalArray::JournalArray(const JournalArray& from)
+  : ::google::protobuf::Message(),
+    _internal_metadata_(NULL) {
+  SharedCtor();
+  MergeFrom(from);
+  // @@protoc_insertion_point(copy_constructor:huawei.proto.JournalArray)
+}
+
+void JournalArray::SharedCtor() {
+    _is_default_instance_ = false;
+  ::google::protobuf::internal::GetEmptyString();
+  _cached_size_ = 0;
+}
+
+JournalArray::~JournalArray() {
+  // @@protoc_insertion_point(destructor:huawei.proto.JournalArray)
+  SharedDtor();
+}
+
+void JournalArray::SharedDtor() {
+  if (this != default_instance_) {
+  }
+}
+
+void JournalArray::SetCachedSize(int size) const {
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+}
+const ::google::protobuf::Descriptor* JournalArray::descriptor() {
+  protobuf_AssignDescriptorsOnce();
+  return JournalArray_descriptor_;
+}
+
+const JournalArray& JournalArray::default_instance() {
+  if (default_instance_ == NULL) protobuf_AddDesc_writer_2eproto();
+  return *default_instance_;
+}
+
+JournalArray* JournalArray::default_instance_ = NULL;
+
+JournalArray* JournalArray::New(::google::protobuf::Arena* arena) const {
+  JournalArray* n = new JournalArray;
+  if (arena != NULL) {
+    arena->Own(n);
+  }
+  return n;
+}
+
+void JournalArray::Clear() {
+// @@protoc_insertion_point(message_clear_start:huawei.proto.JournalArray)
+  journal_.Clear();
+}
+
+bool JournalArray::MergePartialFromCodedStream(
+    ::google::protobuf::io::CodedInputStream* input) {
+#define DO_(EXPRESSION) if (!GOOGLE_PREDICT_TRUE(EXPRESSION)) goto failure
+  ::google::protobuf::uint32 tag;
+  // @@protoc_insertion_point(parse_start:huawei.proto.JournalArray)
+  for (;;) {
+    ::std::pair< ::google::protobuf::uint32, bool> p = input->ReadTagWithCutoff(127);
+    tag = p.first;
+    if (!p.second) goto handle_unusual;
+    switch (::google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag)) {
+      // repeated string journal = 1;
+      case 1: {
+        if (tag == 10) {
+         parse_journal:
+          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
+                input, this->add_journal()));
+          DO_(::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+            this->journal(this->journal_size() - 1).data(),
+            this->journal(this->journal_size() - 1).length(),
+            ::google::protobuf::internal::WireFormatLite::PARSE,
+            "huawei.proto.JournalArray.journal"));
+        } else {
+          goto handle_unusual;
+        }
+        if (input->ExpectTag(10)) goto parse_journal;
+        if (input->ExpectAtEnd()) goto success;
+        break;
+      }
+
+      default: {
+      handle_unusual:
+        if (tag == 0 ||
+            ::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_END_GROUP) {
+          goto success;
+        }
+        DO_(::google::protobuf::internal::WireFormatLite::SkipField(input, tag));
+        break;
+      }
+    }
+  }
+success:
+  // @@protoc_insertion_point(parse_success:huawei.proto.JournalArray)
+  return true;
+failure:
+  // @@protoc_insertion_point(parse_failure:huawei.proto.JournalArray)
+  return false;
+#undef DO_
+}
+
+void JournalArray::SerializeWithCachedSizes(
+    ::google::protobuf::io::CodedOutputStream* output) const {
+  // @@protoc_insertion_point(serialize_start:huawei.proto.JournalArray)
+  // repeated string journal = 1;
+  for (int i = 0; i < this->journal_size(); i++) {
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+      this->journal(i).data(), this->journal(i).length(),
+      ::google::protobuf::internal::WireFormatLite::SERIALIZE,
+      "huawei.proto.JournalArray.journal");
+    ::google::protobuf::internal::WireFormatLite::WriteString(
+      1, this->journal(i), output);
+  }
+
+  // @@protoc_insertion_point(serialize_end:huawei.proto.JournalArray)
+}
+
+::google::protobuf::uint8* JournalArray::SerializeWithCachedSizesToArray(
+    ::google::protobuf::uint8* target) const {
+  // @@protoc_insertion_point(serialize_to_array_start:huawei.proto.JournalArray)
+  // repeated string journal = 1;
+  for (int i = 0; i < this->journal_size(); i++) {
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+      this->journal(i).data(), this->journal(i).length(),
+      ::google::protobuf::internal::WireFormatLite::SERIALIZE,
+      "huawei.proto.JournalArray.journal");
+    target = ::google::protobuf::internal::WireFormatLite::
+      WriteStringToArray(1, this->journal(i), target);
+  }
+
+  // @@protoc_insertion_point(serialize_to_array_end:huawei.proto.JournalArray)
+  return target;
+}
+
+int JournalArray::ByteSize() const {
+// @@protoc_insertion_point(message_byte_size_start:huawei.proto.JournalArray)
+  int total_size = 0;
+
+  // repeated string journal = 1;
+  total_size += 1 * this->journal_size();
+  for (int i = 0; i < this->journal_size(); i++) {
+    total_size += ::google::protobuf::internal::WireFormatLite::StringSize(
+      this->journal(i));
+  }
+
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = total_size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+  return total_size;
+}
+
+void JournalArray::MergeFrom(const ::google::protobuf::Message& from) {
+// @@protoc_insertion_point(generalized_merge_from_start:huawei.proto.JournalArray)
+  if (GOOGLE_PREDICT_FALSE(&from == this)) MergeFromFail(__LINE__);
+  const JournalArray* source = 
+      ::google::protobuf::internal::DynamicCastToGenerated<const JournalArray>(
+          &from);
+  if (source == NULL) {
+  // @@protoc_insertion_point(generalized_merge_from_cast_fail:huawei.proto.JournalArray)
+    ::google::protobuf::internal::ReflectionOps::Merge(from, this);
+  } else {
+  // @@protoc_insertion_point(generalized_merge_from_cast_success:huawei.proto.JournalArray)
+    MergeFrom(*source);
+  }
+}
+
+void JournalArray::MergeFrom(const JournalArray& from) {
+// @@protoc_insertion_point(class_specific_merge_from_start:huawei.proto.JournalArray)
+  if (GOOGLE_PREDICT_FALSE(&from == this)) MergeFromFail(__LINE__);
+  journal_.MergeFrom(from.journal_);
+}
+
+void JournalArray::CopyFrom(const ::google::protobuf::Message& from) {
+// @@protoc_insertion_point(generalized_copy_from_start:huawei.proto.JournalArray)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+void JournalArray::CopyFrom(const JournalArray& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:huawei.proto.JournalArray)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+bool JournalArray::IsInitialized() const {
+
+  return true;
+}
+
+void JournalArray::Swap(JournalArray* other) {
+  if (other == this) return;
+  InternalSwap(other);
+}
+void JournalArray::InternalSwap(JournalArray* other) {
+  journal_.UnsafeArenaSwap(&other->journal_);
+  _internal_metadata_.Swap(&other->_internal_metadata_);
+  std::swap(_cached_size_, other->_cached_size_);
+}
+
+::google::protobuf::Metadata JournalArray::GetMetadata() const {
+  protobuf_AssignDescriptorsOnce();
+  ::google::protobuf::Metadata metadata;
+  metadata.descriptor = JournalArray_descriptor_;
+  metadata.reflection = JournalArray_reflection_;
+  return metadata;
+}
+
+#if PROTOBUF_INLINE_NOT_IN_HEADERS
+// JournalArray
+
+// repeated string journal = 1;
+int JournalArray::journal_size() const {
+  return journal_.size();
+}
+void JournalArray::clear_journal() {
+  journal_.Clear();
+}
+ const ::std::string& JournalArray::journal(int index) const {
+  // @@protoc_insertion_point(field_get:huawei.proto.JournalArray.journal)
+  return journal_.Get(index);
+}
+ ::std::string* JournalArray::mutable_journal(int index) {
+  // @@protoc_insertion_point(field_mutable:huawei.proto.JournalArray.journal)
+  return journal_.Mutable(index);
+}
+ void JournalArray::set_journal(int index, const ::std::string& value) {
+  // @@protoc_insertion_point(field_set:huawei.proto.JournalArray.journal)
+  journal_.Mutable(index)->assign(value);
+}
+ void JournalArray::set_journal(int index, const char* value) {
+  journal_.Mutable(index)->assign(value);
+  // @@protoc_insertion_point(field_set_char:huawei.proto.JournalArray.journal)
+}
+ void JournalArray::set_journal(int index, const char* value, size_t size) {
+  journal_.Mutable(index)->assign(
+    reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_set_pointer:huawei.proto.JournalArray.journal)
+}
+ ::std::string* JournalArray::add_journal() {
+  // @@protoc_insertion_point(field_add_mutable:huawei.proto.JournalArray.journal)
+  return journal_.Add();
+}
+ void JournalArray::add_journal(const ::std::string& value) {
+  journal_.Add()->assign(value);
+  // @@protoc_insertion_point(field_add:huawei.proto.JournalArray.journal)
+}
+ void JournalArray::add_journal(const char* value) {
+  journal_.Add()->assign(value);
+  // @@protoc_insertion_point(field_add_char:huawei.proto.JournalArray.journal)
+}
+ void JournalArray::add_journal(const char* value, size_t size) {
+  journal_.Add()->assign(reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_add_pointer:huawei.proto.JournalArray.journal)
+}
+ const ::google::protobuf::RepeatedPtrField< ::std::string>&
+JournalArray::journal() const {
+  // @@protoc_insertion_point(field_list:huawei.proto.JournalArray.journal)
+  return journal_;
+}
+ ::google::protobuf::RepeatedPtrField< ::std::string>*
+JournalArray::mutable_journal() {
+  // @@protoc_insertion_point(field_mutable_list:huawei.proto.JournalArray.journal)
+  return &journal_;
 }
 
 #endif  // PROTOBUF_INLINE_NOT_IN_HEADERS
@@ -2645,7 +2862,6 @@ GetMultiWriteableJournalsResponse::mutable_map() {
 
 #if !defined(_MSC_VER) || _MSC_VER >= 1900
 const int SealMultiJournalsRequest::kUuidFieldNumber;
-const int SealMultiJournalsRequest::kVolIdFieldNumber;
 const int SealMultiJournalsRequest::kMapFieldNumber;
 #endif  // !defined(_MSC_VER) || _MSC_VER >= 1900
 
@@ -2672,7 +2888,6 @@ void SealMultiJournalsRequest::SharedCtor() {
   ::google::protobuf::internal::GetEmptyString();
   _cached_size_ = 0;
   uuid_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
-  vol_id_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   map_.SetAssignDescriptorCallback(
       protobuf_AssignDescriptorsOnce);
   map_.SetEntryDescriptor(
@@ -2686,7 +2901,6 @@ SealMultiJournalsRequest::~SealMultiJournalsRequest() {
 
 void SealMultiJournalsRequest::SharedDtor() {
   uuid_.DestroyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
-  vol_id_.DestroyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   if (this != default_instance_) {
   }
 }
@@ -2719,7 +2933,6 @@ SealMultiJournalsRequest* SealMultiJournalsRequest::New(::google::protobuf::Aren
 void SealMultiJournalsRequest::Clear() {
 // @@protoc_insertion_point(message_clear_start:huawei.proto.SealMultiJournalsRequest)
   uuid_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
-  vol_id_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   map_.Clear();
 }
 
@@ -2745,30 +2958,13 @@ bool SealMultiJournalsRequest::MergePartialFromCodedStream(
         } else {
           goto handle_unusual;
         }
-        if (input->ExpectTag(18)) goto parse_vol_id;
+        if (input->ExpectTag(18)) goto parse_map;
         break;
       }
 
-      // optional string vol_id = 2;
+      // map<string, .huawei.proto.JournalArray> map = 2;
       case 2: {
         if (tag == 18) {
-         parse_vol_id:
-          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
-                input, this->mutable_vol_id()));
-          DO_(::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-            this->vol_id().data(), this->vol_id().length(),
-            ::google::protobuf::internal::WireFormatLite::PARSE,
-            "huawei.proto.SealMultiJournalsRequest.vol_id"));
-        } else {
-          goto handle_unusual;
-        }
-        if (input->ExpectTag(26)) goto parse_map;
-        break;
-      }
-
-      // map<string, .huawei.proto.JournalArray> map = 3;
-      case 3: {
-        if (tag == 26) {
          parse_map:
           DO_(input->IncrementRecursionDepth());
          parse_loop_map:
@@ -2783,7 +2979,7 @@ bool SealMultiJournalsRequest::MergePartialFromCodedStream(
         } else {
           goto handle_unusual;
         }
-        if (input->ExpectTag(26)) goto parse_loop_map;
+        if (input->ExpectTag(18)) goto parse_loop_map;
         input->UnsafeDecrementRecursionDepth();
         if (input->ExpectAtEnd()) goto success;
         break;
@@ -2823,17 +3019,7 @@ void SealMultiJournalsRequest::SerializeWithCachedSizes(
       1, this->uuid(), output);
   }
 
-  // optional string vol_id = 2;
-  if (this->vol_id().size() > 0) {
-    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-      this->vol_id().data(), this->vol_id().length(),
-      ::google::protobuf::internal::WireFormatLite::SERIALIZE,
-      "huawei.proto.SealMultiJournalsRequest.vol_id");
-    ::google::protobuf::internal::WireFormatLite::WriteStringMaybeAliased(
-      2, this->vol_id(), output);
-  }
-
-  // map<string, .huawei.proto.JournalArray> map = 3;
+  // map<string, .huawei.proto.JournalArray> map = 2;
   {
     ::google::protobuf::scoped_ptr<SealMultiJournalsRequest_MapEntry> entry;
     for (::google::protobuf::Map< ::std::string, ::huawei::proto::JournalArray >::const_iterator
@@ -2841,7 +3027,7 @@ void SealMultiJournalsRequest::SerializeWithCachedSizes(
         it != this->map().end(); ++it) {
       entry.reset(map_.NewEntryWrapper(it->first, it->second));
       ::google::protobuf::internal::WireFormatLite::WriteMessageMaybeToArray(
-          3, *entry, output);
+          2, *entry, output);
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
         it->first.data(), it->first.length(),
         ::google::protobuf::internal::WireFormatLite::SERIALIZE,
@@ -2866,18 +3052,7 @@ void SealMultiJournalsRequest::SerializeWithCachedSizes(
         1, this->uuid(), target);
   }
 
-  // optional string vol_id = 2;
-  if (this->vol_id().size() > 0) {
-    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-      this->vol_id().data(), this->vol_id().length(),
-      ::google::protobuf::internal::WireFormatLite::SERIALIZE,
-      "huawei.proto.SealMultiJournalsRequest.vol_id");
-    target =
-      ::google::protobuf::internal::WireFormatLite::WriteStringToArray(
-        2, this->vol_id(), target);
-  }
-
-  // map<string, .huawei.proto.JournalArray> map = 3;
+  // map<string, .huawei.proto.JournalArray> map = 2;
   {
     ::google::protobuf::scoped_ptr<SealMultiJournalsRequest_MapEntry> entry;
     for (::google::protobuf::Map< ::std::string, ::huawei::proto::JournalArray >::const_iterator
@@ -2886,7 +3061,7 @@ void SealMultiJournalsRequest::SerializeWithCachedSizes(
       entry.reset(map_.NewEntryWrapper(it->first, it->second));
       target = ::google::protobuf::internal::WireFormatLite::
           WriteMessageNoVirtualToArray(
-              3, *entry, target);
+              2, *entry, target);
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
         it->first.data(), it->first.length(),
         ::google::protobuf::internal::WireFormatLite::SERIALIZE,
@@ -2909,14 +3084,7 @@ int SealMultiJournalsRequest::ByteSize() const {
         this->uuid());
   }
 
-  // optional string vol_id = 2;
-  if (this->vol_id().size() > 0) {
-    total_size += 1 +
-      ::google::protobuf::internal::WireFormatLite::StringSize(
-        this->vol_id());
-  }
-
-  // map<string, .huawei.proto.JournalArray> map = 3;
+  // map<string, .huawei.proto.JournalArray> map = 2;
   total_size += 1 * this->map_size();
   {
     ::google::protobuf::scoped_ptr<SealMultiJournalsRequest_MapEntry> entry;
@@ -2958,10 +3126,6 @@ void SealMultiJournalsRequest::MergeFrom(const SealMultiJournalsRequest& from) {
 
     uuid_.AssignWithDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), from.uuid_);
   }
-  if (from.vol_id().size() > 0) {
-
-    vol_id_.AssignWithDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), from.vol_id_);
-  }
 }
 
 void SealMultiJournalsRequest::CopyFrom(const ::google::protobuf::Message& from) {
@@ -2989,7 +3153,6 @@ void SealMultiJournalsRequest::Swap(SealMultiJournalsRequest* other) {
 }
 void SealMultiJournalsRequest::InternalSwap(SealMultiJournalsRequest* other) {
   uuid_.Swap(&other->uuid_);
-  vol_id_.Swap(&other->vol_id_);
   map_.Swap(&other->map_);
   _internal_metadata_.Swap(&other->_internal_metadata_);
   std::swap(_cached_size_, other->_cached_size_);
@@ -3050,51 +3213,7 @@ void SealMultiJournalsRequest::clear_uuid() {
   // @@protoc_insertion_point(field_set_allocated:huawei.proto.SealMultiJournalsRequest.uuid)
 }
 
-// optional string vol_id = 2;
-void SealMultiJournalsRequest::clear_vol_id() {
-  vol_id_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
-}
- const ::std::string& SealMultiJournalsRequest::vol_id() const {
-  // @@protoc_insertion_point(field_get:huawei.proto.SealMultiJournalsRequest.vol_id)
-  return vol_id_.GetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
-}
- void SealMultiJournalsRequest::set_vol_id(const ::std::string& value) {
-  
-  vol_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
-  // @@protoc_insertion_point(field_set:huawei.proto.SealMultiJournalsRequest.vol_id)
-}
- void SealMultiJournalsRequest::set_vol_id(const char* value) {
-  
-  vol_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
-  // @@protoc_insertion_point(field_set_char:huawei.proto.SealMultiJournalsRequest.vol_id)
-}
- void SealMultiJournalsRequest::set_vol_id(const char* value, size_t size) {
-  
-  vol_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
-      ::std::string(reinterpret_cast<const char*>(value), size));
-  // @@protoc_insertion_point(field_set_pointer:huawei.proto.SealMultiJournalsRequest.vol_id)
-}
- ::std::string* SealMultiJournalsRequest::mutable_vol_id() {
-  
-  // @@protoc_insertion_point(field_mutable:huawei.proto.SealMultiJournalsRequest.vol_id)
-  return vol_id_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
-}
- ::std::string* SealMultiJournalsRequest::release_vol_id() {
-  // @@protoc_insertion_point(field_release:huawei.proto.SealMultiJournalsRequest.vol_id)
-  
-  return vol_id_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
-}
- void SealMultiJournalsRequest::set_allocated_vol_id(::std::string* vol_id) {
-  if (vol_id != NULL) {
-    
-  } else {
-    
-  }
-  vol_id_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), vol_id);
-  // @@protoc_insertion_point(field_set_allocated:huawei.proto.SealMultiJournalsRequest.vol_id)
-}
-
-// map<string, .huawei.proto.JournalArray> map = 3;
+// map<string, .huawei.proto.JournalArray> map = 2;
 int SealMultiJournalsRequest::map_size() const {
   return map_.size();
 }
