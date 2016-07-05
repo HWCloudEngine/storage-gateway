@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+option objc_class_prefix = "DRS";
+package huawei.proto;
+
+enum RESULT {
+        RPC_UNKNOWN = 0;
+        RPC_OK = 1;
+        INTERNAL_ERROR = 2;
+}

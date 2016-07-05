@@ -1,0 +1,69 @@
+// storage gateway rpc request/response
+
+syntax = "proto3";
+import "common.proto";
+
+option objc_class_prefix = "DRS"; 
+package huawei.proto;
+
+service Writer {
+	// get the writeable journal files of specified volume
+	rpc GetWriteableJournals(GetWriteableJournalsRequest) returns (GetWriteableJournalsResponse) {}
+	// seal the journal when the file is full
+	rpc SealJournals(SealJournalsRequest) returns(SealJournalsResponse) {}
+	// get the writeable journals of multiple volumes
+	rpc GetMultiWriteableJournals(GetMultiWriteableJournalsRequest) returns(GetMultiWriteableJournalsResponse) {}
+	// seal journals of volumes
+	rpc SealMultiJournals(SealMultiJournalsRequest) returns(SealMultiJournalsResponse) {}
+}
+  
+// journal writer messages
+message GetWriteableJournalsRequest {	
+	// uuid indicator the helder of journal files
+	string uuid = 1;
+	// every volume has dedicated journal files,
+	// and the volume id should be unique in the DR Server
+	string vol_id = 2;
+   	// the max journals will returned
+        int32 limits = 3;
+}
+message GetWriteableJournalsResponse {
+	RESULT result = 1 ;
+	// journal file paths are returned
+	repeated string journals = 2;
+}
+
+message SealJournalsRequest {
+	string uuid = 1;
+	string vol_id = 2;	
+	// journals is file paths of the journals which will be sealed
+	repeated string journals = 3;
+}
+message SealJournalsResponse {
+	RESULT result = 1 ;
+}
+
+message GetMultiWriteableJournalsRequest {	
+	// uuid indicator the helder of journal files
+	string uuid = 1;
+	// every volume has dedicated journal files,
+	// and the volume id should be unique in the DR Server
+	repeated string vol_id = 2;
+}
+message JournalArray {
+	repeated string journal = 1;
+}
+message GetMultiWriteableJournalsResponse {
+	RESULT result = 1 ;
+	// the map contains volume id and its journals	
+	map <string, JournalArray > map = 2;
+}
+
+message SealMultiJournalsRequest {
+	string uuid = 1;
+	map <string, JournalArray > map = 2;
+}
+message SealMultiJournalsResponse {
+	RESULT result = 1 ;
+}
+

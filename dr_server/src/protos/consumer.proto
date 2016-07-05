@@ -1,0 +1,61 @@
+// storage gateway rpc request/response
+
+syntax = "proto3";
+import "common.proto";
+
+option objc_class_prefix = "DRS"; 
+package huawei.proto;
+
+service Consumer {
+	// get the journal marker of specified volume and comsumer
+	rpc GetJournalMarker(GetJournalMarkerRequest) returns(GetJournalMarkerResponse) {}
+	rpc GetJournalList(GetJournalListRequest) returns(GetJournalListResponse) {}
+	// update consumer maker when time out or comsumed a batch of logs
+	rpc UpdateConsumerMarker(UpdateConsumerMarkerRequest) returns(UpdateConsumerMarkerResponse) {}
+}
+
+enum CONSUMER_TYPE {
+    REPLAYER = 0;
+    REPLICATER = 1;
+}
+
+// journal replayer messages
+message JournalMarker {
+	// the latest journal file in consumed files
+	string cur_journal = 1;
+	uint64 pos = 2 ;
+}
+
+message GetJournalMarkerRequest {
+	string uuid = 1;
+	string vol_id = 2;
+	CONSUMER_TYPE type = 3;
+}
+message GetJournalMarkerResponse {
+	RESULT result = 1;
+	JournalMarker marker = 2;
+}
+
+message GetJournalListRequest {
+	string uuid = 1;
+	string vol_id = 2;
+	CONSUMER_TYPE type = 3;
+	JournalMarker marker = 4;
+	// limit indicates that the max count of journal files will be returned
+	int32 limit = 5;	
+}
+message GetJournalListResponse {
+	RESULT result = 1;
+	// the journal paths
+	repeated string journals = 2;
+}
+
+message UpdateConsumerMarkerRequest {
+	string uuid = 1;
+	string vol_id = 2;
+	CONSUMER_TYPE type = 3;
+	JournalMarker marker = 4;
+}
+message UpdateConsumerMarkerResponse {
+	RESULT result = 1;
+}
