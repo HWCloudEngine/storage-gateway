@@ -1,0 +1,6 @@
+[gerrit]
+host=202.96.135.238
+port=39418
+project=Hybrid-Cloud/storage-gateway
+defaultbranch=master
+defaultremote=gerrit
