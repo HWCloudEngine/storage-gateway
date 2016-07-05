@@ -1,0 +1,9 @@
+noinst_PROGRAMS=rpc_server
+AM_CPPFLAGS=-I$(top_srcdir)/src/include -I$(top_srcdir)/include/rpc -std=c++11
+#AM_CXXFLAGS=-std=c++11
+rpc_server_SOURCES=rpc_server.cc
+rpc_server_LDADD=$(top_srcdir)/src/rpc/librpc.la
+rpc_server_LDFLAGS=-D_GNU_SOURCE
+DEFS+=-D_GNU_SOURCE
+LIBS=-lpthread -lprotobuf -lpthread -ldl -lgrpc -lgrpc++
+SUBDIRS=./rpc
