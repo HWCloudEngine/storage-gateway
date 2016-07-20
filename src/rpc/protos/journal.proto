@@ -1,0 +1,20 @@
+// storage gateway rpc request/response
+
+syntax = "proto3";
+
+option objc_class_prefix = "DRS"; 
+package huawei.proto;
+
+enum JOURNAL_STATUS {
+    CREATED = 0; // journal file is created but not used yet
+    OPENED = 1;  // journal file is opened for producer to write
+    SEALED = 2;  // read only for cosumers
+}
+// the dr server key each volume's journal keys and their metadatas
+// the key's format is "journals/vol_id/journal_N", where N is a global incremental 
+// sequence number for a volume
+message JournalMeta {
+    // journal file name
+    string path = 1;
+    JOURNAL_STATUS status = 2 ;
+}
