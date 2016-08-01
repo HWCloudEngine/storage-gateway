@@ -36,7 +36,8 @@ make -j8
 elif [ "$1"a = "clean"a ]
 then
 make clean
-rm -rf `ls | grep -E -v "README.md|src|bin|Makefile.am|test|build.sh|configure.ac"`
+#delete temporary building files
+rm -rf `ls | grep -E -v "lib$|test|src|bin|Makefile.am|README.md|build.sh|configure.ac"`
 rm -rf bin/*;
 find . -name Makefile | xargs rm -f
 find . -name Makefile.in | xargs rm -f
