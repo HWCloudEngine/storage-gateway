@@ -60,9 +60,9 @@ void protobuf_AddDesc_common_2eproto() {
   GOOGLE_PROTOBUF_VERIFY_VERSION;
 
   ::google::protobuf::DescriptorPool::InternalAddGeneratedFile(
-    "\n\014common.proto\022\014huawei.proto*9\n\006RESULT\022\017"
+    "\n\014common.proto\022\014huawei.proto*J\n\006RESULT\022\017"
     "\n\013DRS_UNKNOWN\020\000\022\n\n\006DRS_OK\020\001\022\022\n\016INTERNAL_"
-    "ERROR\020\002B\006\242\002\003DRSb\006proto3", 103);
+    "ERROR\020\002\022\017\n\013NO_SUCH_KEY\020\003B\006\242\002\003DRSb\006proto3", 120);
   ::google::protobuf::MessageFactory::InternalRegisterGeneratedFile(
     "common.proto", &protobuf_RegisterTypes);
   ::google::protobuf::internal::OnShutdown(&protobuf_ShutdownFile_common_2eproto);
@@ -83,6 +83,7 @@ bool RESULT_IsValid(int value) {
     case 0:
     case 1:
     case 2:
+    case 3:
       return true;
     default:
       return false;

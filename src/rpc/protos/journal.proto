@@ -18,6 +18,3 @@ message JournalMeta {
     string path = 1;
     JOURNAL_STATUS status = 2 ;
 }
-message JournalIDCounters {
-	map<string,int64> ids = 1;
-}
