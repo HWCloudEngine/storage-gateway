@@ -16,9 +16,8 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/property_tree/exceptions.hpp>
 #include <boost/property_tree/ini_parser.hpp>
-#include "config_parser.h"
 
-ConfigParser::ConfigParser(const char* file) {
+inline ConfigParser::ConfigParser(const char* file) {
     file_ = file;
     try {
         boost::property_tree::ini_parser::read_ini(file, pt_);
@@ -28,7 +27,7 @@ ConfigParser::ConfigParser(const char* file) {
     }
 }
 template<class Type>
-bool ConfigParser::get_array(const char* key,std::vector<Type> &v){
+bool ConfigParser::get_array(const char* key,std::vector<Type> &v) const{
     try{
         string raw = pt_.get<std::string>(key);
         std::vector<string> _v;        

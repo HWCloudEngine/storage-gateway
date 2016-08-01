@@ -10,6 +10,7 @@
 **********************************************/
 #ifndef CONSUMER_SERVICE_H_
 #define CONSUMER_SERVICE_H_
+#include <memory>
 #include <grpc++/grpc++.h>
 #include "rpc/consumer.grpc.pb.h"
 #include "journal_meta_manager.h"
@@ -25,9 +26,9 @@ using huawei::proto::UpdateConsumerMarkerResponse;
 
 class ConsumerServiceImpl final : public Consumer::Service {
 private:
-    JournalMetaManager *_meta;
+    std::shared_ptr<JournalMetaManager> _meta;
 public:
-    ConsumerServiceImpl(JournalMetaManager *meta);
+    ConsumerServiceImpl(std::shared_ptr<JournalMetaManager> meta);
     Status GetJournalMarker(ServerContext* context, const GetJournalMarkerRequest* request,
             GetJournalMarkerResponse* reply) override;
     Status GetJournalList(ServerContext* context, const GetJournalListRequest* request,

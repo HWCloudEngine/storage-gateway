@@ -21,7 +21,7 @@ private:
 public:
     ConfigParser(const char* file);
     template<class Type>
-        bool get_array(const char* key,std::vector<Type> &v);
+        bool get_array(const char* key,std::vector<Type> &v) const;
     template<class Type>
         bool get(const char* path,Type& value) const;
     template<class Type>

@@ -10,6 +10,7 @@
 **********************************************/
 #ifndef WRITER_SERVICE_H_
 #define WRITER_SERVICE_H_
+#include <memory>
 #include <grpc++/grpc++.h>
 #include "rpc/writer.grpc.pb.h"
 #include "journal_meta_manager.h"
@@ -28,9 +29,9 @@ using huawei::proto::SealMultiJournalsResponse;
 
 class WriterServiceImpl final : public Writer::Service {
 private:
-    JournalMetaManager *_meta;
+    std::shared_ptr <JournalMetaManager> _meta;
 public:
-    WriterServiceImpl(JournalMetaManager *meta);
+    WriterServiceImpl(std::shared_ptr<JournalMetaManager> meta);
     Status GetWriteableJournals(ServerContext* context, const GetWriteableJournalsRequest* request,
                   GetWriteableJournalsResponse* reply);
     Status SealJournals(ServerContext* context, const SealJournalsRequest* request,
