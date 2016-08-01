@@ -26,6 +26,8 @@
 #include <google/protobuf/message.h>
 #include <google/protobuf/repeated_field.h>
 #include <google/protobuf/extension_set.h>
+#include <google/protobuf/map.h>
+#include <google/protobuf/map_field_inl.h>
 #include <google/protobuf/generated_enum_reflection.h>
 #include <google/protobuf/unknown_field_set.h>
 // @@protoc_insertion_point(includes)
@@ -38,6 +40,7 @@ void protobuf_AddDesc_journal_2eproto();
 void protobuf_AssignDesc_journal_2eproto();
 void protobuf_ShutdownFile_journal_2eproto();
 
+class JournalIDCounters;
 class JournalMeta;
 
 enum JOURNAL_STATUS {
@@ -152,6 +155,98 @@ class JournalMeta : public ::google::protobuf::Message {
   void InitAsDefaultInstance();
   static JournalMeta* default_instance_;
 };
+// -------------------------------------------------------------------
+
+class JournalIDCounters : public ::google::protobuf::Message {
+ public:
+  JournalIDCounters();
+  virtual ~JournalIDCounters();
+
+  JournalIDCounters(const JournalIDCounters& from);
+
+  inline JournalIDCounters& operator=(const JournalIDCounters& from) {
+    CopyFrom(from);
+    return *this;
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor();
+  static const JournalIDCounters& default_instance();
+
+  void Swap(JournalIDCounters* other);
+
+  // implements Message ----------------------------------------------
+
+  inline JournalIDCounters* New() const { return New(NULL); }
+
+  JournalIDCounters* New(::google::protobuf::Arena* arena) const;
+  void CopyFrom(const ::google::protobuf::Message& from);
+  void MergeFrom(const ::google::protobuf::Message& from);
+  void CopyFrom(const JournalIDCounters& from);
+  void MergeFrom(const JournalIDCounters& from);
+  void Clear();
+  bool IsInitialized() const;
+
+  int ByteSize() const;
+  bool MergePartialFromCodedStream(
+      ::google::protobuf::io::CodedInputStream* input);
+  void SerializeWithCachedSizes(
+      ::google::protobuf::io::CodedOutputStream* output) const;
+  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
+  int GetCachedSize() const { return _cached_size_; }
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const;
+  void InternalSwap(JournalIDCounters* other);
+  private:
+  inline ::google::protobuf::Arena* GetArenaNoVirtual() const {
+    return _internal_metadata_.arena();
+  }
+  inline void* MaybeArenaPtr() const {
+    return _internal_metadata_.raw_arena_ptr();
+  }
+  public:
+
+  ::google::protobuf::Metadata GetMetadata() const;
+
+  // nested types ----------------------------------------------------
+
+
+  // accessors -------------------------------------------------------
+
+  // map<string, int64> ids = 1;
+  int ids_size() const;
+  void clear_ids();
+  static const int kIdsFieldNumber = 1;
+  const ::google::protobuf::Map< ::std::string, ::google::protobuf::int64 >&
+      ids() const;
+  ::google::protobuf::Map< ::std::string, ::google::protobuf::int64 >*
+      mutable_ids();
+
+  // @@protoc_insertion_point(class_scope:huawei.proto.JournalIDCounters)
+ private:
+
+  ::google::protobuf::internal::InternalMetadataWithArena _internal_metadata_;
+  bool _is_default_instance_;
+  typedef ::google::protobuf::internal::MapEntryLite<
+      ::std::string, ::google::protobuf::int64,
+      ::google::protobuf::internal::WireFormatLite::TYPE_STRING,
+      ::google::protobuf::internal::WireFormatLite::TYPE_INT64,
+      0 >
+      JournalIDCounters_IdsEntry;
+  ::google::protobuf::internal::MapField<
+      ::std::string, ::google::protobuf::int64,
+      ::google::protobuf::internal::WireFormatLite::TYPE_STRING,
+      ::google::protobuf::internal::WireFormatLite::TYPE_INT64,
+      0 > ids_;
+  mutable int _cached_size_;
+  friend void  protobuf_AddDesc_journal_2eproto();
+  friend void protobuf_AssignDesc_journal_2eproto();
+  friend void protobuf_ShutdownFile_journal_2eproto();
+
+  void InitAsDefaultInstance();
+  static JournalIDCounters* default_instance_;
+};
 // ===================================================================
 
 
@@ -218,7 +313,31 @@ inline void JournalMeta::set_status(::huawei::proto::JOURNAL_STATUS value) {
   // @@protoc_insertion_point(field_set:huawei.proto.JournalMeta.status)
 }
 
+// -------------------------------------------------------------------
+
+// JournalIDCounters
+
+// map<string, int64> ids = 1;
+inline int JournalIDCounters::ids_size() const {
+  return ids_.size();
+}
+inline void JournalIDCounters::clear_ids() {
+  ids_.Clear();
+}
+inline const ::google::protobuf::Map< ::std::string, ::google::protobuf::int64 >&
+JournalIDCounters::ids() const {
+  // @@protoc_insertion_point(field_map:huawei.proto.JournalIDCounters.ids)
+  return ids_.GetMap();
+}
+inline ::google::protobuf::Map< ::std::string, ::google::protobuf::int64 >*
+JournalIDCounters::mutable_ids() {
+  // @@protoc_insertion_point(field_mutable_map:huawei.proto.JournalIDCounters.ids)
+  return ids_.MutableMap();
+}
+
 #endif  // !PROTOBUF_INLINE_NOT_IN_HEADERS
+// -------------------------------------------------------------------
+
 
 // @@protoc_insertion_point(namespace_scope)
 

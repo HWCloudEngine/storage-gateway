@@ -46,7 +46,11 @@ message GetMultiWriteableJournalsRequest {
     string uuid = 1;
     // every volume has dedicated journal files,
     // and the volume id should be unique in the DR Server
-    repeated string vol_id = 2;
+    message VolumeAndLimits {
+        string vol_id = 1;
+        int32 limits = 2; // limits the max count of journals
+   	}
+    repeated VolumeAndLimits volumes = 2;
 }
 message JournalArray {
     repeated string journal = 1;

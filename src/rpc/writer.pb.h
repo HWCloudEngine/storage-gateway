@@ -41,6 +41,7 @@ void protobuf_AssignDesc_writer_2eproto();
 void protobuf_ShutdownFile_writer_2eproto();
 
 class GetMultiWriteableJournalsRequest;
+class GetMultiWriteableJournalsRequest_VolumeAndLimits;
 class GetMultiWriteableJournalsResponse;
 class GetWriteableJournalsRequest;
 class GetWriteableJournalsResponse;
@@ -439,6 +440,96 @@ class SealJournalsResponse : public ::google::protobuf::Message {
 };
 // -------------------------------------------------------------------
 
+class GetMultiWriteableJournalsRequest_VolumeAndLimits : public ::google::protobuf::Message {
+ public:
+  GetMultiWriteableJournalsRequest_VolumeAndLimits();
+  virtual ~GetMultiWriteableJournalsRequest_VolumeAndLimits();
+
+  GetMultiWriteableJournalsRequest_VolumeAndLimits(const GetMultiWriteableJournalsRequest_VolumeAndLimits& from);
+
+  inline GetMultiWriteableJournalsRequest_VolumeAndLimits& operator=(const GetMultiWriteableJournalsRequest_VolumeAndLimits& from) {
+    CopyFrom(from);
+    return *this;
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor();
+  static const GetMultiWriteableJournalsRequest_VolumeAndLimits& default_instance();
+
+  void Swap(GetMultiWriteableJournalsRequest_VolumeAndLimits* other);
+
+  // implements Message ----------------------------------------------
+
+  inline GetMultiWriteableJournalsRequest_VolumeAndLimits* New() const { return New(NULL); }
+
+  GetMultiWriteableJournalsRequest_VolumeAndLimits* New(::google::protobuf::Arena* arena) const;
+  void CopyFrom(const ::google::protobuf::Message& from);
+  void MergeFrom(const ::google::protobuf::Message& from);
+  void CopyFrom(const GetMultiWriteableJournalsRequest_VolumeAndLimits& from);
+  void MergeFrom(const GetMultiWriteableJournalsRequest_VolumeAndLimits& from);
+  void Clear();
+  bool IsInitialized() const;
+
+  int ByteSize() const;
+  bool MergePartialFromCodedStream(
+      ::google::protobuf::io::CodedInputStream* input);
+  void SerializeWithCachedSizes(
+      ::google::protobuf::io::CodedOutputStream* output) const;
+  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
+  int GetCachedSize() const { return _cached_size_; }
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const;
+  void InternalSwap(GetMultiWriteableJournalsRequest_VolumeAndLimits* other);
+  private:
+  inline ::google::protobuf::Arena* GetArenaNoVirtual() const {
+    return _internal_metadata_.arena();
+  }
+  inline void* MaybeArenaPtr() const {
+    return _internal_metadata_.raw_arena_ptr();
+  }
+  public:
+
+  ::google::protobuf::Metadata GetMetadata() const;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  // optional string vol_id = 1;
+  void clear_vol_id();
+  static const int kVolIdFieldNumber = 1;
+  const ::std::string& vol_id() const;
+  void set_vol_id(const ::std::string& value);
+  void set_vol_id(const char* value);
+  void set_vol_id(const char* value, size_t size);
+  ::std::string* mutable_vol_id();
+  ::std::string* release_vol_id();
+  void set_allocated_vol_id(::std::string* vol_id);
+
+  // optional int32 limits = 2;
+  void clear_limits();
+  static const int kLimitsFieldNumber = 2;
+  ::google::protobuf::int32 limits() const;
+  void set_limits(::google::protobuf::int32 value);
+
+  // @@protoc_insertion_point(class_scope:huawei.proto.GetMultiWriteableJournalsRequest.VolumeAndLimits)
+ private:
+
+  ::google::protobuf::internal::InternalMetadataWithArena _internal_metadata_;
+  bool _is_default_instance_;
+  ::google::protobuf::internal::ArenaStringPtr vol_id_;
+  ::google::protobuf::int32 limits_;
+  mutable int _cached_size_;
+  friend void  protobuf_AddDesc_writer_2eproto();
+  friend void protobuf_AssignDesc_writer_2eproto();
+  friend void protobuf_ShutdownFile_writer_2eproto();
+
+  void InitAsDefaultInstance();
+  static GetMultiWriteableJournalsRequest_VolumeAndLimits* default_instance_;
+};
+// -------------------------------------------------------------------
+
 class GetMultiWriteableJournalsRequest : public ::google::protobuf::Message {
  public:
   GetMultiWriteableJournalsRequest();
@@ -493,6 +584,8 @@ class GetMultiWriteableJournalsRequest : public ::google::protobuf::Message {
 
   // nested types ----------------------------------------------------
 
+  typedef GetMultiWriteableJournalsRequest_VolumeAndLimits VolumeAndLimits;
+
   // accessors -------------------------------------------------------
 
   // optional string uuid = 1;
@@ -506,21 +599,17 @@ class GetMultiWriteableJournalsRequest : public ::google::protobuf::Message {
   ::std::string* release_uuid();
   void set_allocated_uuid(::std::string* uuid);
 
-  // repeated string vol_id = 2;
-  int vol_id_size() const;
-  void clear_vol_id();
-  static const int kVolIdFieldNumber = 2;
-  const ::std::string& vol_id(int index) const;
-  ::std::string* mutable_vol_id(int index);
-  void set_vol_id(int index, const ::std::string& value);
-  void set_vol_id(int index, const char* value);
-  void set_vol_id(int index, const char* value, size_t size);
-  ::std::string* add_vol_id();
-  void add_vol_id(const ::std::string& value);
-  void add_vol_id(const char* value);
-  void add_vol_id(const char* value, size_t size);
-  const ::google::protobuf::RepeatedPtrField< ::std::string>& vol_id() const;
-  ::google::protobuf::RepeatedPtrField< ::std::string>* mutable_vol_id();
+  // repeated .huawei.proto.GetMultiWriteableJournalsRequest.VolumeAndLimits volumes = 2;
+  int volumes_size() const;
+  void clear_volumes();
+  static const int kVolumesFieldNumber = 2;
+  const ::huawei::proto::GetMultiWriteableJournalsRequest_VolumeAndLimits& volumes(int index) const;
+  ::huawei::proto::GetMultiWriteableJournalsRequest_VolumeAndLimits* mutable_volumes(int index);
+  ::huawei::proto::GetMultiWriteableJournalsRequest_VolumeAndLimits* add_volumes();
+  ::google::protobuf::RepeatedPtrField< ::huawei::proto::GetMultiWriteableJournalsRequest_VolumeAndLimits >*
+      mutable_volumes();
+  const ::google::protobuf::RepeatedPtrField< ::huawei::proto::GetMultiWriteableJournalsRequest_VolumeAndLimits >&
+      volumes() const;
 
   // @@protoc_insertion_point(class_scope:huawei.proto.GetMultiWriteableJournalsRequest)
  private:
@@ -528,7 +617,7 @@ class GetMultiWriteableJournalsRequest : public ::google::protobuf::Message {
   ::google::protobuf::internal::InternalMetadataWithArena _internal_metadata_;
   bool _is_default_instance_;
   ::google::protobuf::internal::ArenaStringPtr uuid_;
-  ::google::protobuf::RepeatedPtrField< ::std::string> vol_id_;
+  ::google::protobuf::RepeatedPtrField< ::huawei::proto::GetMultiWriteableJournalsRequest_VolumeAndLimits > volumes_;
   mutable int _cached_size_;
   friend void  protobuf_AddDesc_writer_2eproto();
   friend void protobuf_AssignDesc_writer_2eproto();
@@ -1256,6 +1345,68 @@ inline void SealJournalsResponse::set_result(::huawei::proto::RESULT value) {
 
 // -------------------------------------------------------------------
 
+// GetMultiWriteableJournalsRequest_VolumeAndLimits
+
+// optional string vol_id = 1;
+inline void GetMultiWriteableJournalsRequest_VolumeAndLimits::clear_vol_id() {
+  vol_id_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline const ::std::string& GetMultiWriteableJournalsRequest_VolumeAndLimits::vol_id() const {
+  // @@protoc_insertion_point(field_get:huawei.proto.GetMultiWriteableJournalsRequest.VolumeAndLimits.vol_id)
+  return vol_id_.GetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void GetMultiWriteableJournalsRequest_VolumeAndLimits::set_vol_id(const ::std::string& value) {
+  
+  vol_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:huawei.proto.GetMultiWriteableJournalsRequest.VolumeAndLimits.vol_id)
+}
+inline void GetMultiWriteableJournalsRequest_VolumeAndLimits::set_vol_id(const char* value) {
+  
+  vol_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:huawei.proto.GetMultiWriteableJournalsRequest.VolumeAndLimits.vol_id)
+}
+inline void GetMultiWriteableJournalsRequest_VolumeAndLimits::set_vol_id(const char* value, size_t size) {
+  
+  vol_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:huawei.proto.GetMultiWriteableJournalsRequest.VolumeAndLimits.vol_id)
+}
+inline ::std::string* GetMultiWriteableJournalsRequest_VolumeAndLimits::mutable_vol_id() {
+  
+  // @@protoc_insertion_point(field_mutable:huawei.proto.GetMultiWriteableJournalsRequest.VolumeAndLimits.vol_id)
+  return vol_id_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline ::std::string* GetMultiWriteableJournalsRequest_VolumeAndLimits::release_vol_id() {
+  // @@protoc_insertion_point(field_release:huawei.proto.GetMultiWriteableJournalsRequest.VolumeAndLimits.vol_id)
+  
+  return vol_id_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void GetMultiWriteableJournalsRequest_VolumeAndLimits::set_allocated_vol_id(::std::string* vol_id) {
+  if (vol_id != NULL) {
+    
+  } else {
+    
+  }
+  vol_id_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), vol_id);
+  // @@protoc_insertion_point(field_set_allocated:huawei.proto.GetMultiWriteableJournalsRequest.VolumeAndLimits.vol_id)
+}
+
+// optional int32 limits = 2;
+inline void GetMultiWriteableJournalsRequest_VolumeAndLimits::clear_limits() {
+  limits_ = 0;
+}
+inline ::google::protobuf::int32 GetMultiWriteableJournalsRequest_VolumeAndLimits::limits() const {
+  // @@protoc_insertion_point(field_get:huawei.proto.GetMultiWriteableJournalsRequest.VolumeAndLimits.limits)
+  return limits_;
+}
+inline void GetMultiWriteableJournalsRequest_VolumeAndLimits::set_limits(::google::protobuf::int32 value) {
+  
+  limits_ = value;
+  // @@protoc_insertion_point(field_set:huawei.proto.GetMultiWriteableJournalsRequest.VolumeAndLimits.limits)
+}
+
+// -------------------------------------------------------------------
+
 // GetMultiWriteableJournalsRequest
 
 // optional string uuid = 1;
@@ -1302,59 +1453,34 @@ inline void GetMultiWriteableJournalsRequest::set_allocated_uuid(::std::string* 
   // @@protoc_insertion_point(field_set_allocated:huawei.proto.GetMultiWriteableJournalsRequest.uuid)
 }
 
-// repeated string vol_id = 2;
-inline int GetMultiWriteableJournalsRequest::vol_id_size() const {
-  return vol_id_.size();
+// repeated .huawei.proto.GetMultiWriteableJournalsRequest.VolumeAndLimits volumes = 2;
+inline int GetMultiWriteableJournalsRequest::volumes_size() const {
+  return volumes_.size();
 }
-inline void GetMultiWriteableJournalsRequest::clear_vol_id() {
-  vol_id_.Clear();
+inline void GetMultiWriteableJournalsRequest::clear_volumes() {
+  volumes_.Clear();
 }
-inline const ::std::string& GetMultiWriteableJournalsRequest::vol_id(int index) const {
-  // @@protoc_insertion_point(field_get:huawei.proto.GetMultiWriteableJournalsRequest.vol_id)
-  return vol_id_.Get(index);
+inline const ::huawei::proto::GetMultiWriteableJournalsRequest_VolumeAndLimits& GetMultiWriteableJournalsRequest::volumes(int index) const {
+  // @@protoc_insertion_point(field_get:huawei.proto.GetMultiWriteableJournalsRequest.volumes)
+  return volumes_.Get(index);
 }
-inline ::std::string* GetMultiWriteableJournalsRequest::mutable_vol_id(int index) {
-  // @@protoc_insertion_point(field_mutable:huawei.proto.GetMultiWriteableJournalsRequest.vol_id)
-  return vol_id_.Mutable(index);
+inline ::huawei::proto::GetMultiWriteableJournalsRequest_VolumeAndLimits* GetMultiWriteableJournalsRequest::mutable_volumes(int index) {
+  // @@protoc_insertion_point(field_mutable:huawei.proto.GetMultiWriteableJournalsRequest.volumes)
+  return volumes_.Mutable(index);
 }
-inline void GetMultiWriteableJournalsRequest::set_vol_id(int index, const ::std::string& value) {
-  // @@protoc_insertion_point(field_set:huawei.proto.GetMultiWriteableJournalsRequest.vol_id)
-  vol_id_.Mutable(index)->assign(value);
+inline ::huawei::proto::GetMultiWriteableJournalsRequest_VolumeAndLimits* GetMultiWriteableJournalsRequest::add_volumes() {
+  // @@protoc_insertion_point(field_add:huawei.proto.GetMultiWriteableJournalsRequest.volumes)
+  return volumes_.Add();
 }
-inline void GetMultiWriteableJournalsRequest::set_vol_id(int index, const char* value) {
-  vol_id_.Mutable(index)->assign(value);
-  // @@protoc_insertion_point(field_set_char:huawei.proto.GetMultiWriteableJournalsRequest.vol_id)
+inline ::google::protobuf::RepeatedPtrField< ::huawei::proto::GetMultiWriteableJournalsRequest_VolumeAndLimits >*
+GetMultiWriteableJournalsRequest::mutable_volumes() {
+  // @@protoc_insertion_point(field_mutable_list:huawei.proto.GetMultiWriteableJournalsRequest.volumes)
+  return &volumes_;
 }
-inline void GetMultiWriteableJournalsRequest::set_vol_id(int index, const char* value, size_t size) {
-  vol_id_.Mutable(index)->assign(
-    reinterpret_cast<const char*>(value), size);
-  // @@protoc_insertion_point(field_set_pointer:huawei.proto.GetMultiWriteableJournalsRequest.vol_id)
-}
-inline ::std::string* GetMultiWriteableJournalsRequest::add_vol_id() {
-  // @@protoc_insertion_point(field_add_mutable:huawei.proto.GetMultiWriteableJournalsRequest.vol_id)
-  return vol_id_.Add();
-}
-inline void GetMultiWriteableJournalsRequest::add_vol_id(const ::std::string& value) {
-  vol_id_.Add()->assign(value);
-  // @@protoc_insertion_point(field_add:huawei.proto.GetMultiWriteableJournalsRequest.vol_id)
-}
-inline void GetMultiWriteableJournalsRequest::add_vol_id(const char* value) {
-  vol_id_.Add()->assign(value);
-  // @@protoc_insertion_point(field_add_char:huawei.proto.GetMultiWriteableJournalsRequest.vol_id)
-}
-inline void GetMultiWriteableJournalsRequest::add_vol_id(const char* value, size_t size) {
-  vol_id_.Add()->assign(reinterpret_cast<const char*>(value), size);
-  // @@protoc_insertion_point(field_add_pointer:huawei.proto.GetMultiWriteableJournalsRequest.vol_id)
-}
-inline const ::google::protobuf::RepeatedPtrField< ::std::string>&
-GetMultiWriteableJournalsRequest::vol_id() const {
-  // @@protoc_insertion_point(field_list:huawei.proto.GetMultiWriteableJournalsRequest.vol_id)
-  return vol_id_;
-}
-inline ::google::protobuf::RepeatedPtrField< ::std::string>*
-GetMultiWriteableJournalsRequest::mutable_vol_id() {
-  // @@protoc_insertion_point(field_mutable_list:huawei.proto.GetMultiWriteableJournalsRequest.vol_id)
-  return &vol_id_;
+inline const ::google::protobuf::RepeatedPtrField< ::huawei::proto::GetMultiWriteableJournalsRequest_VolumeAndLimits >&
+GetMultiWriteableJournalsRequest::volumes() const {
+  // @@protoc_insertion_point(field_list:huawei.proto.GetMultiWriteableJournalsRequest.volumes)
+  return volumes_;
 }
 
 // -------------------------------------------------------------------
@@ -1537,6 +1663,8 @@ inline void SealMultiJournalsResponse::set_result(::huawei::proto::RESULT value)
 }
 
 #endif  // !PROTOBUF_INLINE_NOT_IN_HEADERS
+// -------------------------------------------------------------------
+
 // -------------------------------------------------------------------
 
 // -------------------------------------------------------------------
