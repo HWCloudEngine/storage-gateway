@@ -41,12 +41,13 @@ enum RESULT {
   DRS_UNKNOWN = 0,
   DRS_OK = 1,
   INTERNAL_ERROR = 2,
+  NO_SUCH_KEY = 3,
   RESULT_INT_MIN_SENTINEL_DO_NOT_USE_ = ::google::protobuf::kint32min,
   RESULT_INT_MAX_SENTINEL_DO_NOT_USE_ = ::google::protobuf::kint32max
 };
 bool RESULT_IsValid(int value);
 const RESULT RESULT_MIN = DRS_UNKNOWN;
-const RESULT RESULT_MAX = INTERNAL_ERROR;
+const RESULT RESULT_MAX = NO_SUCH_KEY;
 const int RESULT_ARRAYSIZE = RESULT_MAX + 1;
 
 const ::google::protobuf::EnumDescriptor* RESULT_descriptor();

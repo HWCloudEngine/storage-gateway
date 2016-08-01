@@ -25,10 +25,6 @@ namespace {
 const ::google::protobuf::Descriptor* JournalMeta_descriptor_ = NULL;
 const ::google::protobuf::internal::GeneratedMessageReflection*
   JournalMeta_reflection_ = NULL;
-const ::google::protobuf::Descriptor* JournalIDCounters_descriptor_ = NULL;
-const ::google::protobuf::internal::GeneratedMessageReflection*
-  JournalIDCounters_reflection_ = NULL;
-const ::google::protobuf::Descriptor* JournalIDCounters_IdsEntry_descriptor_ = NULL;
 const ::google::protobuf::EnumDescriptor* JOURNAL_STATUS_descriptor_ = NULL;
 
 }  // namespace
@@ -56,22 +52,6 @@ void protobuf_AssignDesc_journal_2eproto() {
       sizeof(JournalMeta),
       GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(JournalMeta, _internal_metadata_),
       GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(JournalMeta, _is_default_instance_));
-  JournalIDCounters_descriptor_ = file->message_type(1);
-  static const int JournalIDCounters_offsets_[1] = {
-    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(JournalIDCounters, ids_),
-  };
-  JournalIDCounters_reflection_ =
-    ::google::protobuf::internal::GeneratedMessageReflection::NewGeneratedMessageReflection(
-      JournalIDCounters_descriptor_,
-      JournalIDCounters::default_instance_,
-      JournalIDCounters_offsets_,
-      -1,
-      -1,
-      -1,
-      sizeof(JournalIDCounters),
-      GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(JournalIDCounters, _internal_metadata_),
-      GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(JournalIDCounters, _is_default_instance_));
-  JournalIDCounters_IdsEntry_descriptor_ = JournalIDCounters_descriptor_->nested_type(0);
   JOURNAL_STATUS_descriptor_ = file->enum_type(0);
 }
 
@@ -87,17 +67,6 @@ void protobuf_RegisterTypes(const ::std::string&) {
   protobuf_AssignDescriptorsOnce();
   ::google::protobuf::MessageFactory::InternalRegisterGeneratedMessage(
       JournalMeta_descriptor_, &JournalMeta::default_instance());
-  ::google::protobuf::MessageFactory::InternalRegisterGeneratedMessage(
-      JournalIDCounters_descriptor_, &JournalIDCounters::default_instance());
-  ::google::protobuf::MessageFactory::InternalRegisterGeneratedMessage(
-        JournalIDCounters_IdsEntry_descriptor_,
-        ::google::protobuf::internal::MapEntry<
-            ::std::string,
-            ::google::protobuf::int64,
-            ::google::protobuf::internal::WireFormatLite::TYPE_STRING,
-            ::google::protobuf::internal::WireFormatLite::TYPE_INT64,
-            0>::CreateDefaultInstance(
-                JournalIDCounters_IdsEntry_descriptor_));
 }
 
 }  // namespace
@@ -105,8 +74,6 @@ void protobuf_RegisterTypes(const ::std::string&) {
 void protobuf_ShutdownFile_journal_2eproto() {
   delete JournalMeta::default_instance_;
   delete JournalMeta_reflection_;
-  delete JournalIDCounters::default_instance_;
-  delete JournalIDCounters_reflection_;
 }
 
 void protobuf_AddDesc_journal_2eproto() {
@@ -118,18 +85,13 @@ void protobuf_AddDesc_journal_2eproto() {
   ::google::protobuf::DescriptorPool::InternalAddGeneratedFile(
     "\n\rjournal.proto\022\014huawei.proto\"I\n\013Journal"
     "Meta\022\014\n\004path\030\001 \001(\t\022,\n\006status\030\002 \001(\0162\034.hua"
-    "wei.proto.JOURNAL_STATUS\"v\n\021JournalIDCou"
-    "nters\0225\n\003ids\030\001 \003(\0132(.huawei.proto.Journa"
-    "lIDCounters.IdsEntry\032*\n\010IdsEntry\022\013\n\003key\030"
-    "\001 \001(\t\022\r\n\005value\030\002 \001(\003:\0028\001*5\n\016JOURNAL_STAT"
+    "wei.proto.JOURNAL_STATUS*5\n\016JOURNAL_STAT"
     "US\022\013\n\007CREATED\020\000\022\n\n\006OPENED\020\001\022\n\n\006SEALED\020\002B"
-    "\006\242\002\003DRSb\006proto3", 295);
+    "\006\242\002\003DRSb\006proto3", 175);
   ::google::protobuf::MessageFactory::InternalRegisterGeneratedFile(
     "journal.proto", &protobuf_RegisterTypes);
   JournalMeta::default_instance_ = new JournalMeta();
-  JournalIDCounters::default_instance_ = new JournalIDCounters();
   JournalMeta::default_instance_->InitAsDefaultInstance();
-  JournalIDCounters::default_instance_->InitAsDefaultInstance();
   ::google::protobuf::internal::OnShutdown(&protobuf_ShutdownFile_journal_2eproto);
 }
 
@@ -496,282 +458,6 @@ void JournalMeta::clear_status() {
   
   status_ = value;
   // @@protoc_insertion_point(field_set:huawei.proto.JournalMeta.status)
-}
-
-#endif  // PROTOBUF_INLINE_NOT_IN_HEADERS
-
-// ===================================================================
-
-#if !defined(_MSC_VER) || _MSC_VER >= 1900
-const int JournalIDCounters::kIdsFieldNumber;
-#endif  // !defined(_MSC_VER) || _MSC_VER >= 1900
-
-JournalIDCounters::JournalIDCounters()
-  : ::google::protobuf::Message(), _internal_metadata_(NULL) {
-  SharedCtor();
-  // @@protoc_insertion_point(constructor:huawei.proto.JournalIDCounters)
-}
-
-void JournalIDCounters::InitAsDefaultInstance() {
-  _is_default_instance_ = true;
-}
-
-JournalIDCounters::JournalIDCounters(const JournalIDCounters& from)
-  : ::google::protobuf::Message(),
-    _internal_metadata_(NULL) {
-  SharedCtor();
-  MergeFrom(from);
-  // @@protoc_insertion_point(copy_constructor:huawei.proto.JournalIDCounters)
-}
-
-void JournalIDCounters::SharedCtor() {
-    _is_default_instance_ = false;
-  _cached_size_ = 0;
-  ids_.SetAssignDescriptorCallback(
-      protobuf_AssignDescriptorsOnce);
-  ids_.SetEntryDescriptor(
-      &::huawei::proto::JournalIDCounters_IdsEntry_descriptor_);
-}
-
-JournalIDCounters::~JournalIDCounters() {
-  // @@protoc_insertion_point(destructor:huawei.proto.JournalIDCounters)
-  SharedDtor();
-}
-
-void JournalIDCounters::SharedDtor() {
-  if (this != default_instance_) {
-  }
-}
-
-void JournalIDCounters::SetCachedSize(int size) const {
-  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
-  _cached_size_ = size;
-  GOOGLE_SAFE_CONCURRENT_WRITES_END();
-}
-const ::google::protobuf::Descriptor* JournalIDCounters::descriptor() {
-  protobuf_AssignDescriptorsOnce();
-  return JournalIDCounters_descriptor_;
-}
-
-const JournalIDCounters& JournalIDCounters::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_journal_2eproto();
-  return *default_instance_;
-}
-
-JournalIDCounters* JournalIDCounters::default_instance_ = NULL;
-
-JournalIDCounters* JournalIDCounters::New(::google::protobuf::Arena* arena) const {
-  JournalIDCounters* n = new JournalIDCounters;
-  if (arena != NULL) {
-    arena->Own(n);
-  }
-  return n;
-}
-
-void JournalIDCounters::Clear() {
-// @@protoc_insertion_point(message_clear_start:huawei.proto.JournalIDCounters)
-  ids_.Clear();
-}
-
-bool JournalIDCounters::MergePartialFromCodedStream(
-    ::google::protobuf::io::CodedInputStream* input) {
-#define DO_(EXPRESSION) if (!GOOGLE_PREDICT_TRUE(EXPRESSION)) goto failure
-  ::google::protobuf::uint32 tag;
-  // @@protoc_insertion_point(parse_start:huawei.proto.JournalIDCounters)
-  for (;;) {
-    ::std::pair< ::google::protobuf::uint32, bool> p = input->ReadTagWithCutoff(127);
-    tag = p.first;
-    if (!p.second) goto handle_unusual;
-    switch (::google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag)) {
-      // map<string, int64> ids = 1;
-      case 1: {
-        if (tag == 10) {
-          DO_(input->IncrementRecursionDepth());
-         parse_loop_ids:
-          ::google::protobuf::scoped_ptr<JournalIDCounters_IdsEntry> entry(ids_.NewEntry());
-          DO_(::google::protobuf::internal::WireFormatLite::ReadMessageNoVirtual(
-              input, entry.get()));
-          (*mutable_ids())[entry->key()] = *entry->mutable_value();
-          DO_(::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-            entry->key().data(), entry->key().length(),
-            ::google::protobuf::internal::WireFormatLite::PARSE,
-            "huawei.proto.JournalIDCounters.IdsEntry.key"));
-        } else {
-          goto handle_unusual;
-        }
-        if (input->ExpectTag(10)) goto parse_loop_ids;
-        input->UnsafeDecrementRecursionDepth();
-        if (input->ExpectAtEnd()) goto success;
-        break;
-      }
-
-      default: {
-      handle_unusual:
-        if (tag == 0 ||
-            ::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
-            ::google::protobuf::internal::WireFormatLite::WIRETYPE_END_GROUP) {
-          goto success;
-        }
-        DO_(::google::protobuf::internal::WireFormatLite::SkipField(input, tag));
-        break;
-      }
-    }
-  }
-success:
-  // @@protoc_insertion_point(parse_success:huawei.proto.JournalIDCounters)
-  return true;
-failure:
-  // @@protoc_insertion_point(parse_failure:huawei.proto.JournalIDCounters)
-  return false;
-#undef DO_
-}
-
-void JournalIDCounters::SerializeWithCachedSizes(
-    ::google::protobuf::io::CodedOutputStream* output) const {
-  // @@protoc_insertion_point(serialize_start:huawei.proto.JournalIDCounters)
-  // map<string, int64> ids = 1;
-  {
-    ::google::protobuf::scoped_ptr<JournalIDCounters_IdsEntry> entry;
-    for (::google::protobuf::Map< ::std::string, ::google::protobuf::int64 >::const_iterator
-        it = this->ids().begin();
-        it != this->ids().end(); ++it) {
-      entry.reset(ids_.NewEntryWrapper(it->first, it->second));
-      ::google::protobuf::internal::WireFormatLite::WriteMessageMaybeToArray(
-          1, *entry, output);
-      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-        it->first.data(), it->first.length(),
-        ::google::protobuf::internal::WireFormatLite::SERIALIZE,
-        "huawei.proto.JournalIDCounters.IdsEntry.key");
-    }
-  }
-
-  // @@protoc_insertion_point(serialize_end:huawei.proto.JournalIDCounters)
-}
-
-::google::protobuf::uint8* JournalIDCounters::SerializeWithCachedSizesToArray(
-    ::google::protobuf::uint8* target) const {
-  // @@protoc_insertion_point(serialize_to_array_start:huawei.proto.JournalIDCounters)
-  // map<string, int64> ids = 1;
-  {
-    ::google::protobuf::scoped_ptr<JournalIDCounters_IdsEntry> entry;
-    for (::google::protobuf::Map< ::std::string, ::google::protobuf::int64 >::const_iterator
-        it = this->ids().begin();
-        it != this->ids().end(); ++it) {
-      entry.reset(ids_.NewEntryWrapper(it->first, it->second));
-      target = ::google::protobuf::internal::WireFormatLite::
-          WriteMessageNoVirtualToArray(
-              1, *entry, target);
-      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-        it->first.data(), it->first.length(),
-        ::google::protobuf::internal::WireFormatLite::SERIALIZE,
-        "huawei.proto.JournalIDCounters.IdsEntry.key");
-    }
-  }
-
-  // @@protoc_insertion_point(serialize_to_array_end:huawei.proto.JournalIDCounters)
-  return target;
-}
-
-int JournalIDCounters::ByteSize() const {
-// @@protoc_insertion_point(message_byte_size_start:huawei.proto.JournalIDCounters)
-  int total_size = 0;
-
-  // map<string, int64> ids = 1;
-  total_size += 1 * this->ids_size();
-  {
-    ::google::protobuf::scoped_ptr<JournalIDCounters_IdsEntry> entry;
-    for (::google::protobuf::Map< ::std::string, ::google::protobuf::int64 >::const_iterator
-        it = this->ids().begin();
-        it != this->ids().end(); ++it) {
-      entry.reset(ids_.NewEntryWrapper(it->first, it->second));
-      total_size += ::google::protobuf::internal::WireFormatLite::
-          MessageSizeNoVirtual(*entry);
-    }
-  }
-
-  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
-  _cached_size_ = total_size;
-  GOOGLE_SAFE_CONCURRENT_WRITES_END();
-  return total_size;
-}
-
-void JournalIDCounters::MergeFrom(const ::google::protobuf::Message& from) {
-// @@protoc_insertion_point(generalized_merge_from_start:huawei.proto.JournalIDCounters)
-  if (GOOGLE_PREDICT_FALSE(&from == this)) MergeFromFail(__LINE__);
-  const JournalIDCounters* source = 
-      ::google::protobuf::internal::DynamicCastToGenerated<const JournalIDCounters>(
-          &from);
-  if (source == NULL) {
-  // @@protoc_insertion_point(generalized_merge_from_cast_fail:huawei.proto.JournalIDCounters)
-    ::google::protobuf::internal::ReflectionOps::Merge(from, this);
-  } else {
-  // @@protoc_insertion_point(generalized_merge_from_cast_success:huawei.proto.JournalIDCounters)
-    MergeFrom(*source);
-  }
-}
-
-void JournalIDCounters::MergeFrom(const JournalIDCounters& from) {
-// @@protoc_insertion_point(class_specific_merge_from_start:huawei.proto.JournalIDCounters)
-  if (GOOGLE_PREDICT_FALSE(&from == this)) MergeFromFail(__LINE__);
-  ids_.MergeFrom(from.ids_);
-}
-
-void JournalIDCounters::CopyFrom(const ::google::protobuf::Message& from) {
-// @@protoc_insertion_point(generalized_copy_from_start:huawei.proto.JournalIDCounters)
-  if (&from == this) return;
-  Clear();
-  MergeFrom(from);
-}
-
-void JournalIDCounters::CopyFrom(const JournalIDCounters& from) {
-// @@protoc_insertion_point(class_specific_copy_from_start:huawei.proto.JournalIDCounters)
-  if (&from == this) return;
-  Clear();
-  MergeFrom(from);
-}
-
-bool JournalIDCounters::IsInitialized() const {
-
-  return true;
-}
-
-void JournalIDCounters::Swap(JournalIDCounters* other) {
-  if (other == this) return;
-  InternalSwap(other);
-}
-void JournalIDCounters::InternalSwap(JournalIDCounters* other) {
-  ids_.Swap(&other->ids_);
-  _internal_metadata_.Swap(&other->_internal_metadata_);
-  std::swap(_cached_size_, other->_cached_size_);
-}
-
-::google::protobuf::Metadata JournalIDCounters::GetMetadata() const {
-  protobuf_AssignDescriptorsOnce();
-  ::google::protobuf::Metadata metadata;
-  metadata.descriptor = JournalIDCounters_descriptor_;
-  metadata.reflection = JournalIDCounters_reflection_;
-  return metadata;
-}
-
-#if PROTOBUF_INLINE_NOT_IN_HEADERS
-// JournalIDCounters
-
-// map<string, int64> ids = 1;
-int JournalIDCounters::ids_size() const {
-  return ids_.size();
-}
-void JournalIDCounters::clear_ids() {
-  ids_.Clear();
-}
- const ::google::protobuf::Map< ::std::string, ::google::protobuf::int64 >&
-JournalIDCounters::ids() const {
-  // @@protoc_insertion_point(field_map:huawei.proto.JournalIDCounters.ids)
-  return ids_.GetMap();
-}
- ::google::protobuf::Map< ::std::string, ::google::protobuf::int64 >*
-JournalIDCounters::mutable_ids() {
-  // @@protoc_insertion_point(field_mutable_map:huawei.proto.JournalIDCounters.ids)
-  return ids_.MutableMap();
 }
 
 #endif  // PROTOBUF_INLINE_NOT_IN_HEADERS

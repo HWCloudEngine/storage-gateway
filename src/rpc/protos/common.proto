@@ -6,4 +6,5 @@ enum RESULT {
     DRS_UNKNOWN = 0;
     DRS_OK = 1;
     INTERNAL_ERROR = 2;
+    NO_SUCH_KEY = 3;
 }
