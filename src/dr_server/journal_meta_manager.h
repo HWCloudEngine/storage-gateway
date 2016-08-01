@@ -28,6 +28,7 @@ public:
     virtual ~JournalMetaManager() {}
     virtual RESULT get_volume_journals(string vol_id,int limit, 
             std::list<string> &list) = 0;
+    // TODO: delete_journals may be not necessery?
     virtual RESULT delete_journals(string vol_id, string journals[], int count) = 0;
     virtual RESULT seal_volume_journals(string vol_id, string journals[],
             int count) = 0;
