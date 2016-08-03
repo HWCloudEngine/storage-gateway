@@ -40,6 +40,7 @@ private:
     S3BucketContext bucketContext;
     JournalIDCounters counters;
     int counters_updates;
+    string _mount_path;
 public:
     CephS3Meta();
     ~CephS3Meta();
@@ -49,7 +50,7 @@ public:
     void list_objects(const char*prefix, const char*marker, int maxkeys, s3_call_response_t& response);
     void get_object(const char* key, s3_call_response_t& response);
     RESULT init(const char* access_key, const char* secret_key, const char* host,
-            const char* bucket_name);
+            const char* bucket_name, const char* path);
     RESULT update_journals_meta(string vol_id, string journals[],
         int count, JOURNAL_STATUS status);
     RESULT restore_volume_journalsID_counter();

@@ -11,6 +11,7 @@
 #include <grpc++/grpc++.h>
 #include "writer_service.h"
 #include "journal_meta_service.h"
+#include "log/log.h"
 using huawei::proto::DRS_OK;
 using huawei::proto::INTERNAL_ERROR;
 
@@ -29,11 +30,13 @@ Status WriterServiceImpl::GetWriteableJournals(ServerContext* context,
     //TODO:fix possible writer conflicts
     //request->uuid();
     std::cout << "request vol:" << request->vol_id() << ", journal count:" << request->limits() << std::endl;
+    LOG_DEBUG << "request vol:" << request->vol_id() << ", journal count:" << request->limits();
     std::list<string> list;
     RESULT result = _meta->get_volume_journals(request->vol_id(),request->limits(),list);
     if(result != DRS_OK) {
         reply->set_result(INTERNAL_ERROR);
         std::cerr << "get volume " << request->vol_id() << "'s journals failed." << std::endl;
+        LOG_ERROR << "get volume " << request->vol_id() << "'s journals failed.";
     }
     else {
         reply->set_result(DRS_OK);
@@ -50,6 +53,7 @@ Status WriterServiceImpl::SealJournals(ServerContext* context,
         SealJournalsResponse* reply) {
     if(_meta == nullptr){
         std::cout << "journal meta is not init." << std::endl;
+        LOG_ERROR << "journal meta is not init.";
         Status status(grpc::INTERNAL,"journal meta is not init.");
         return status;
     }
