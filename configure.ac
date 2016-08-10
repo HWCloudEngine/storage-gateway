@@ -25,4 +25,5 @@ AC_OUTPUT([Makefile
         src/rpc/Makefile
         src/test/Makefile
         src/log/Makefile
+        src/cache/Makefile
     ])
