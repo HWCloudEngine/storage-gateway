@@ -3,4 +3,5 @@ ACLOCAL_AMFLAGS = -I m4
 SUBDIRS = src/log \
           src/dr_server \
           src/test \
-          src/rpc
+          src/rpc \
+		  src/journal
