@@ -9,10 +9,9 @@
 
 #include "message.hpp"
 #include "nedmalloc.h"
-
+#include "replay_entry.hpp"
 
 #define HEADER_SIZE 128
-#define MESSAGE_MAGIC (0xAA)
 
 namespace Journal{
 
@@ -25,8 +24,8 @@ class Connection
 public:
     explicit Connection(raw_socket & socket_,entry_queue& entry_queue);
     virtual ~Connection();
-    void init(nedalloc::nedpool * buffer);
-    void deinit();
+    bool init(nedalloc::nedpool * buffer);
+    bool deinit();
     void start();
     void stop();
 
