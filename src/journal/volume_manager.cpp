@@ -2,6 +2,7 @@
 #include <boost/bind.hpp>
 #include <algorithm>
 #include "connection.hpp"
+#include "../log/log.h"
 
 namespace Journal{
 
@@ -9,28 +10,15 @@ Volume::Volume(boost::asio::io_service& io_service)
     :write_queue_(),
      entry_queue_(),
      raw_socket_(io_service),
-     handler(raw_socket_,write_queue_,entry_queue_),
+     handler(raw_socket_,write_queue_,entry_queue_,write_mtx,write_cv),
      connection(raw_socket_,entry_queue_),
-     writer()
+     writer("localhost:50051",write_queue_,raw_socket_,write_mtx,write_cv)
 {
-    //todo read thread_num from config file
-    int thread_num = 1;
-    buffer_pool = nedalloc::nedcreatepool(BUFFER_POOL_SIZE,thread_num+2);
-    if (buffer_pool == NULL)
-    {
-        //todo use LOG
-        std::cout << "create buffer pool failed" << std::endl;
-    }
-    connection.init(buffer_pool);
-    bool ret = handler.init(buffer_pool,thread_num);
-    if(!ret)
-    {
-        std::cout << "init request handler failed" << std::endl;
-    }
 }
 
 Volume::~Volume()
 {
+    writer.deinit();
     handler.deinit();
     connection.deinit();
     
@@ -39,6 +27,34 @@ Volume::~Volume()
         nedalloc::neddestroypool(buffer_pool);
         buffer_pool = NULL;
     }
+}
+bool Volume::init(std::string& vol)
+{
+    //todo read thread_num from config file
+    vol_id = vol;
+    int thread_num = 1;
+    buffer_pool = nedalloc::nedcreatepool(BUFFER_POOL_SIZE,thread_num+2);
+    if(buffer_pool == NULL)
+    {
+        LOG_ERROR << "create buffer pool failed";
+        return false;
+    }
+    if(!connection.init(buffer_pool))
+    {
+        LOG_ERROR << "init connection failed,vol_id:" << vol;
+        return false;
+    }
+    if(!handler.init(buffer_pool,thread_num))
+    {
+        LOG_ERROR << "init handler failed,vol_id:"<< vol;
+        return false;
+    }
+    if(!writer.init(vol))
+    {
+        LOG_ERROR << "init journal writer failed,vol_id:" << vol;
+        return false;
+    }
+    return true;
 }
 
 raw_socket& Volume::get_raw_socket()

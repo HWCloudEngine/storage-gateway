@@ -33,14 +33,16 @@ Connection::~Connection()
 
 }
 
-void Connection::init(nedalloc::nedpool * buffer)
+bool Connection::init(nedalloc::nedpool * buffer)
 {
     buffer_pool = buffer;
+    return true;
 }
 
-void Connection::deinit()
+bool Connection::deinit()
 {
-    ;
+    //todo
+    return true;
 }
 
 void Connection::start()
@@ -153,7 +155,7 @@ bool Connection::handle_request(char* buffer,uint32_t size,char* header)
     entry_ptr entry_ptr_ = NULL;
     try
     {
-        entry_ptr_= new ReplayEntry(buffer,size,header_ptr->handle);
+        entry_ptr_= new ReplayEntry(buffer,size,header_ptr->handle,buffer_pool);
     }
     catch(const std::bad_alloc & e)
     {

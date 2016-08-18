@@ -24,16 +24,22 @@ public:
     raw_socket& get_raw_socket();
     void start();
     void stop();
+    bool init(std::string& vol);
 private:
     entry_queue write_queue_;
     entry_queue entry_queue_;
     raw_socket raw_socket_;
+
+    std::mutex write_mtx;
+    std::condition_variable write_cv;
         
     RequestHandler handler;
     Connection connection;
     JournalWriter writer;
 
     nedalloc::nedpool * buffer_pool;
+
+    std::string vol_id;
 };
 typedef boost::shared_ptr<Volume> volume_ptr;
 

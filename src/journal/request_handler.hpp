@@ -15,7 +15,11 @@ class RequestHandler
     :private boost::noncopyable
 {
 public:
-    explicit RequestHandler(boost::asio::ip::tcp::socket& socket_,entry_queue& write_queue,entry_queue& entry_queue);
+    explicit RequestHandler(boost::asio::ip::tcp::socket& socket_,
+                                  entry_queue& write_queue,
+                                  entry_queue& entry_queue,
+                                  std::mutex& write_mtx,
+                                  std::condition_variable& write_cv);
     virtual ~RequestHandler();
     void work();
     bool init(nedalloc::nedpool* buffer_pool,int thread_num);
@@ -27,6 +31,8 @@ private:
     boost::thread_group worker_threads;
     nedalloc::nedpool* buffer_pool_;
     boost::asio::ip::tcp::socket& raw_socket_;
+    std::mutex& write_mtx_;
+    std::condition_variable& write_cv_;
 };
 
 }

@@ -8,6 +8,9 @@
 
 #include "nedmalloc.h"
 #include "../common/log_header.h"
+#include "../log/log.h"
+
+#define MESSAGE_MAGIC (0xAA)
 
 namespace Journal{
 
@@ -34,17 +37,27 @@ class ReplayEntry
      private boost::noncopyable
 {
 public:
-    ReplayEntry(char* data,uint32_t size,uint64_t req_id):data_(data),data_size_(size),req_id_(req_id)
+    ReplayEntry(char* data,uint32_t size,uint64_t req_id,nedalloc::nedpool * buffer_pool)
+        :data_(data),data_size_(size),req_id_(req_id),buffer_pool_(buffer_pool)
     {
     }
     virtual ~ReplayEntry()
     {
-        //todo use nedpfree here or when we pop ReplayEntry from entry_queue?
+        if(data_ != NULL)
+        {
+            nedalloc::nedpfree(buffer_pool_,data_);
+            data_ = NULL;
+        }
     }
 
     const char* body()const
     {
         return data_ + header_lenth();
+    }
+
+    const uint32_t body_lenth()const
+    {
+        return data_size_ - header_lenth();
     }
 
     const char* data()const
@@ -55,6 +68,12 @@ public:
     const uint32_t length()const
     {
         return data_size_;
+    }
+
+    const log_header_t* header()const
+    {
+        log_header_t* header_ptr = reinterpret_cast<log_header_t *>(data_);
+        return header_ptr;
     }
       
     const uint32_t header_lenth()const
@@ -74,6 +93,7 @@ private:
     char* data_;
     uint32_t data_size_;
     uint64_t req_id_;
+    nedalloc::nedpool * buffer_pool_;
 };
 typedef ReplayEntry* entry_ptr;
 typedef boost::lockfree::queue<entry_ptr> entry_queue;
