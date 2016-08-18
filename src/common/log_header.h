@@ -22,8 +22,8 @@ typedef enum {
 #define CRC_64_LEN      8
 #define MD5_128_LEN     16
 typedef union {
-    uint8_t crc_32[CRC_32_LEN];
-    uint8_t crc_64[CRC_64_LEN];
+    uint32_t crc_32;
+    uint64_t crc_64;
     uint8_t md5_128[MD5_128_LEN];
 }checksum_t;
 
