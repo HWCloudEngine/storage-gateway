@@ -15,6 +15,7 @@ Server::Server(const std::string& address, const std::string& port,uint32_t io_s
     #if defined(SIGQUIT)
     signals_.add(SIGQUIT);
     #endif 
+    volume_manager_.init();
     signals_.async_wait(boost::bind(&Server::handle_stop, this));
     
     boost::asio::ip::tcp::resolver resolver(acceptor_.get_io_service());
@@ -50,12 +51,19 @@ void Server::handle_accept(const  boost::system::error_code & e)
     if(!e)
     {
         //todo read vol id
-        std::string vol_id = "test";
-        volume_manager_.start(vol_id,new_volume_);
+        std::string vol_id = "test-volume";
+        if(new_volume_->init(vol_id))
+        {
+            volume_manager_.start(vol_id,new_volume_);
+        }
+        else
+        {
+            LOG_ERROR << "volume init failed,vol_id:" << vol_id;
+        }
     }
     else
     {
-        std::cerr << "Can not hanle this accept" << std::endl;
+        LOG_ERROR << "Can not hanle this accept";
         //todo use log4cpp
     }
     start_accept();
