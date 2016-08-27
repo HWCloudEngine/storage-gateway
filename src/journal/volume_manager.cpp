@@ -12,7 +12,8 @@ Volume::Volume(boost::asio::io_service& io_service)
      raw_socket_(io_service),
      pre_processor(raw_socket_,write_queue_,entry_queue_,entry_cv,write_cv),
      connection(raw_socket_,entry_queue_,entry_cv),
-     writer("localhost:50051",write_queue_,raw_socket_,write_cv)
+     writer("localhost:50051",write_queue_,raw_socket_,write_cv),
+     replayer("localhost:50051")
 {
 }
 
@@ -51,6 +52,12 @@ bool Volume::init()
     if(!writer.init(vol_id_))
     {
         LOG_ERROR << "init journal writer failed,vol_id:" << vol_id_;
+        return false;
+    }
+    id_maker_ptr_.reset(new IDGenerator());
+    cache_proxy_ptr_.reset(new CacheProxy(vol_path_, id_maker_ptr_));
+    if (!replayer.init(vol_id_, vol_path_)) {
+        LOG_ERROR<< "init journal replayer failed,vol_id:" << vol_id_;
         return false;
     }
     return true;

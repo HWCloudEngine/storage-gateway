@@ -11,6 +11,9 @@
 #include "journal_writer.hpp"
 #include "pre_processor.hpp"
 #include "nedmalloc.h"
+#include "journal_replayer.hpp"
+#include "seq_generator.hpp"
+#include "cache/cache_proxy.h"
 
 #define BUFFER_POOL_SIZE 1024*1024*64
 #define REQUEST_BODY_SIZE 512
@@ -42,6 +45,9 @@ private:
     PreProcessor pre_processor;
     Connection connection;
     JournalWriter writer;
+    std::shared_ptr<CacheProxy> cache_proxy_ptr_;
+    std::shared_ptr<IDGenerator> id_maker_ptr_;
+    JournalReplayer replayer;
 
     nedalloc::nedpool * buffer_pool;
 
