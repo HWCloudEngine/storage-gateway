@@ -3,6 +3,7 @@
 
 #include <mutex>
 #include <condition_variable>
+#include <iostream>
 
 #include <boost/asio.hpp>
 #include <boost/noncopyable.hpp>
@@ -36,6 +37,7 @@ private:
     bool handle_write_request(char* buffer,uint32_t size,char* header);
     void parse_write_request(IOHookRequest* header_ptr);
     void dispatch(IOHookRequest* header_ptr);
+    void read_request_header();
 
     raw_socket& raw_socket_;
     entry_queue& entry_queue_;

@@ -6,6 +6,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <time.h>
+#include <atomic> 
 
 #include <sys/stat.h>
 
@@ -59,6 +60,7 @@ private:
     std::string *cur_journal;
     uint64_t cur_journal_size;
     uint64_t journal_max_size;
+    std::atomic_int journal_queue_size;
     
     std::string vol_id;
     std::string journal_mnt;

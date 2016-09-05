@@ -6,7 +6,6 @@
 #include <string>
 #include "connection.hpp"
 #include "volume_manager.hpp"
-#include "request_handler.hpp"
 #include "io_service_pool.hpp"
 
 namespace Journal{
@@ -23,13 +22,12 @@ private:
     void handle_accept(const boost::system::error_code& e);
     void handle_stop();
 
+    io_service_pool io_service_pool_;
     boost::asio::ip::tcp::acceptor acceptor_;
-
+    boost::asio::signal_set signals_;
+    
     VolumeManager volume_manager_;
     volume_ptr new_volume_;
-
-    io_service_pool io_service_pool_;
-    boost::asio::signal_set signals_;
 };
 }
 

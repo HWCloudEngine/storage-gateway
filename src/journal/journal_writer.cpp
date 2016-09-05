@@ -16,6 +16,7 @@ JournalWriter::JournalWriter(std::string rpc_addr,
     cur_file_ptr(NULL),
     cur_journal(NULL),
     cur_journal_size(0),
+    journal_queue_size(0),
     cv_(cv)
 {
 }
@@ -147,6 +148,7 @@ bool JournalWriter::get_journal()
         LOG_ERROR << "journal_queue pop failed";
         return false;
     }
+    journal_queue_size--;
     if(cur_journal == NULL)
         return false;
     return true;
@@ -212,7 +214,16 @@ bool JournalWriter::write_journal_header()
 bool JournalWriter::get_writeable_journals(const std::string& uuid,const int limit)
 {
     std::list<std::string> journals;
-    if(!rpc_client.GetWriteableJournals(uuid,vol_id,limit,journals))
+    int tmp = 0;
+    if(journal_queue_size >= limit)
+    {
+        return true;
+    }
+    else
+    {
+        tmp = limit - journal_queue_size;
+    }
+    if(!rpc_client.GetWriteableJournals(uuid,vol_id,tmp,journals))
     {
         LOG_ERROR << "get journal file failed";
         return false;
@@ -221,6 +232,7 @@ bool JournalWriter::get_writeable_journals(const std::string& uuid,const int lim
     {
         std::string * journal_ptr = new std::string(tmp);
         journal_queue.push(journal_ptr);
+        journal_queue_size++;
     }
     return true;
 }
@@ -278,7 +290,7 @@ void JournalWriter::send_reply(ReplayEntry* entry,bool success)
 {
     IOHookReply* reply_ptr = reinterpret_cast<IOHookReply *>(reply_buffer_.data());
     reply_ptr->magic = MESSAGE_MAGIC;
-    reply_ptr->error = success?1:0;
+    reply_ptr->error = success?0:1;
     reply_ptr->handle = entry->req_id();
     reply_ptr->len = 0;
     boost::asio::async_write(raw_socket_,
