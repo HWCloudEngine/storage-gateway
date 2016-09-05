@@ -15,6 +15,7 @@ struct IOHookRequest {
     uint64_t handle;        /*command unique identifier*/
     uint32_t offset;
     uint32_t len;
+    uint8_t  data[0];
 }__attribute__((packed));
 
 
@@ -24,6 +25,7 @@ struct IOHookReply {
     uint32_t reserves;
     uint64_t handle;
     uint32_t len;
+    uint8_t  data[0];
 }__attribute__((packed));
 
 enum IOHook_request_code {

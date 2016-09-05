@@ -19,10 +19,14 @@
 
 namespace Journal{
 
-Connection::Connection(raw_socket & socket_, entry_queue& entry_queue,std::condition_variable& entry_cv)
+Connection::Connection(raw_socket & socket_,
+                           entry_queue& entry_queue,std::condition_variable& entry_cv,
+                           reply_queue& reply_queue,std::condition_variable& reply_cv)
                         :raw_socket_(socket_),
                          entry_queue_(entry_queue),
                          entry_cv_(entry_cv),
+                         reply_queue_(reply_queue),
+                         reply_cv_(reply_cv),
                          buffer_pool(NULL)
 {
     
@@ -36,42 +40,49 @@ Connection::~Connection()
 bool Connection::init(nedalloc::nedpool * buffer)
 {
     buffer_pool = buffer;
+    thread_ptr.reset(new boost::thread(boost::bind(&Connection::send_thread, this)));
     return true;
 }
 
 bool Connection::deinit()
 {
-    //todo
+    thread_ptr->interrupt();
+    thread_ptr->join();
     return true;
 }
 
 void Connection::start()
 {
-    boost::asio::async_read(raw_socket_,
-        boost::asio::buffer(header_buffer_, sizeof(struct IOHookRequest)),
-        boost::bind(&Connection::handle_request_header, shared_from_this(),
-                     boost::asio::placeholders::error));
-    
+    read_request_header();
 }
 
 void Connection::stop()
 {
     boost::system::error_code ignored_ec;
+    #ifndef _USE_UNIX_DOMAIN
     raw_socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both,ignored_ec);
+    #else
+    raw_socket_.shutdown(boost::asio::local::stream_protocol::socket,ignored_ec);
+    #endif
 }
 
+void Connection::read_request_header()
+{
+    boost::asio::async_read(raw_socket_,
+        boost::asio::buffer(header_buffer_, sizeof(struct IOHookRequest)),
+        boost::bind(&Connection::handle_request_header, this,
+                     boost::asio::placeholders::error));
+}
 void Connection::dispatch(IOHookRequest* header_ptr)
 {
     switch(header_ptr->type)
     {
         case SCSI_READ:
-            //todo
             break;
         case SCSI_WRITE:
             parse_write_request(header_ptr);
             break;
         case SYNC_CACHE:
-            //todo
             break;
         default:
             LOG_ERROR << "unsupported request type:" << header_ptr->type;
@@ -104,8 +115,8 @@ void Connection::parse_write_request(IOHookRequest* header_ptr)
         if (buffer_ptr!=NULL)
         {
             boost::asio::async_read(raw_socket_,
-                    boost::asio::buffer(buffer_ptr+header_size, buffer_size),
-                    boost::bind(&Connection::handle_write_request_body, shared_from_this(),buffer_ptr,buffer_size,
+                    boost::asio::buffer(buffer_ptr+header_size, header_ptr->len),
+                    boost::bind(&Connection::handle_write_request_body, this,buffer_ptr,buffer_size,
                     boost::asio::placeholders::error));
         }
         else
@@ -134,16 +145,14 @@ void Connection::handle_write_request_body(char* buffer_ptr,uint32_t buffer_size
             ;
             //todo reply client error code
         }
-        boost::asio::async_read(raw_socket_,
-            boost::asio::buffer(header_buffer_, sizeof(struct IOHookRequest)),
-            boost::bind(&Connection::handle_request_header, shared_from_this(),
-            boost::asio::placeholders::error));
+
     }
     else
     {
         //todo bad request
         ;
     }
+    read_request_header();
 
 }   
 
@@ -154,9 +163,9 @@ bool Connection::handle_write_request(char* buffer,uint32_t size,char* header)
         //LOG
         return false;
     }
-    log_header_t* buffer_ptr = reinterpret_cast<log_header_t *>(buffer_ptr);
+    log_header_t* buffer_ptr = reinterpret_cast<log_header_t *>(buffer);
     IOHookRequest* header_ptr = reinterpret_cast<IOHookRequest *>(header);
-    off_len_t* off_ptr = reinterpret_cast<off_len_t *>(buffer_ptr + sizeof(log_header_t));
+    off_len_t* off_ptr = reinterpret_cast<off_len_t *>(buffer + sizeof(log_header_t));
     buffer_ptr->type = LOG_IO;
     //merge will change the count and offset,maybe should remalloc
     buffer_ptr->count = 1;
@@ -186,6 +195,70 @@ bool Connection::handle_write_request(char* buffer,uint32_t size,char* header)
     }
     entry_cv_.notify_all();
     return true;
+}
+
+void Connection::send_thread()
+{
+    IOHookReply* reply = NULL;
+    while(true)
+    {
+        std::unique_lock<std::mutex> lk(mtx_);
+        while(reply_queue_.empty())
+        {
+            reply_cv_.wait(lk);
+        }
+        if(!reply_queue_.pop(reply))
+        {
+            LOG_ERROR << "reply_queue pop failed";
+            continue;
+        }
+        send_reply(reply);
+    }
+}
+
+void Connection::send_reply(IOHookReply* reply)
+{
+    if(NULL == reply)
+    {
+        LOG_ERROR << "Invalid reply ptr";
+        return;
+    }
+    boost::asio::async_write(raw_socket_,
+    boost::asio::buffer(reply, sizeof(struct IOHookReply)),
+    boost::bind(&Connection::handle_send_reply, this,reply,
+                 boost::asio::placeholders::error));
+}
+
+void Connection::handle_send_reply(IOHookReply* reply,const boost::system::error_code& err)
+{
+    if (!err)
+    {
+        if(reply->len > 0)
+        {
+                boost::asio::async_write(raw_socket_,boost::asio::buffer(reply->data, reply->len),
+                boost::bind(&Connection::handle_send_data, this,reply,
+                boost::asio::placeholders::error));
+        }
+        else
+        {
+            delete []reply;
+        }
+    }
+    else
+    {
+        LOG_ERROR << "send reply failed,reply id:" << reply->handle;
+        delete []reply;
+    }
+
+}
+
+void Connection::handle_send_data(IOHookReply* reply,const boost::system::error_code& err)
+{
+    if(err)
+    {
+        LOG_ERROR << "send reply data failed, reply id:" << reply->handle;
+    }
+    delete []reply;
 }
 
 }

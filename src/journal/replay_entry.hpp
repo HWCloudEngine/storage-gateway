@@ -4,13 +4,23 @@
 #include <boost/noncopyable.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/enable_shared_from_this.hpp>
-#include <boost/lockfree/queue.hpp>  
+#include <boost/lockfree/queue.hpp>
+#include <boost/asio.hpp>
 
 #include "nedmalloc.h"
 #include "../common/log_header.h"
 #include "../log/log.h"
+#include "message.hpp"
 
 namespace Journal{
+
+#ifndef _USE_UNIX_DOMAIN
+typedef boost::asio::ip::tcp::socket raw_socket;
+#else
+typedef boost::asio::local::stream_protocol::socket raw_socket;  
+#endif
+
+typedef boost::lockfree::queue<IOHookReply*> reply_queue;
 
 class ReplayEntry
     :public boost::enable_shared_from_this<ReplayEntry>,

@@ -3,10 +3,17 @@
 
 namespace Journal{
 
-Server::Server(const std::string& address, const std::string& port,uint32_t io_service_pool_size)
+Server::Server(const std::string& address, 
+                  const std::string& port,
+                  const std::string& file,
+                  uint32_t io_service_pool_size)
     :io_service_pool_(io_service_pool_size),
     signals_(io_service_pool_.get_io_service()),
+    #ifndef _USE_UNIX_DOMAIN
     acceptor_(io_service_pool_.get_io_service()),
+    #else
+    acceptor_(io_service_pool_.get_io_service(), boost::asio::local::stream_protocol::endpoint(file))
+    #endif
     volume_manager_(),
     new_volume_()
 {
@@ -17,7 +24,7 @@ Server::Server(const std::string& address, const std::string& port,uint32_t io_s
     #endif 
     volume_manager_.init();
     signals_.async_wait(boost::bind(&Server::handle_stop, this));
-    
+    #ifndef _USE_UNIX_DOMAIN
     boost::asio::ip::tcp::resolver resolver(acceptor_.get_io_service());
     boost::asio::ip::tcp::resolver::query query(address, port);
     boost::asio::ip::tcp::endpoint endpoint = *resolver.resolve(query);
@@ -25,6 +32,7 @@ Server::Server(const std::string& address, const std::string& port,uint32_t io_s
     acceptor_.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
     acceptor_.bind(endpoint);
     acceptor_.listen();
+    #endif
 
     start_accept();
 }

@@ -6,7 +6,6 @@
 #include <string>
 #include "connection.hpp"
 #include "volume_manager.hpp"
-#include "request_handler.hpp"
 #include "io_service_pool.hpp"
 
 namespace Journal{
@@ -15,7 +14,10 @@ class Server
     :private boost::noncopyable
 {
 public:
-    explicit Server(const std::string& address, const std::string& port,uint32_t io_service_pool_size);
+    explicit Server(const std::string& address,
+                       const std::string& port,
+                       const std::string& file,
+                       uint32_t io_service_pool_size);
     void run();
 
 private:
@@ -23,13 +25,16 @@ private:
     void handle_accept(const boost::system::error_code& e);
     void handle_stop();
 
+    io_service_pool io_service_pool_;
+    #ifndef _USE_UNIX_DOMAIN
     boost::asio::ip::tcp::acceptor acceptor_;
-
+    #else
+    boost::asio::local::stream_protocol::acceptor acceptor_;
+    #endif
+    boost::asio::signal_set signals_;
+    
     VolumeManager volume_manager_;
     volume_ptr new_volume_;
-
-    io_service_pool io_service_pool_;
-    boost::asio::signal_set signals_;
 };
 }
 

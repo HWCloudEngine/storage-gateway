@@ -5,8 +5,7 @@
 
 namespace Journal{
 
-PreProcessor::PreProcessor(boost::asio::ip::tcp::socket& socket_,
-                                     entry_queue& write_queue,
+PreProcessor::PreProcessor(entry_queue& write_queue,
                                      entry_queue& entry_queue,
                                      std::condition_variable& recieve_cv,
                                      std::condition_variable& write_cv)
@@ -14,7 +13,6 @@ PreProcessor::PreProcessor(boost::asio::ip::tcp::socket& socket_,
     entry_queue_(entry_queue),
     buffer_pool_(NULL),
     worker_threads(),
-    raw_socket_(socket_),
     recieve_cv_(recieve_cv),
     write_cv_(write_cv)
 {

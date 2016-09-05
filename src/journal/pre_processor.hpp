@@ -19,8 +19,7 @@ class PreProcessor
     :private boost::noncopyable
 {
 public:
-    explicit PreProcessor(boost::asio::ip::tcp::socket& socket_,
-                                  entry_queue& write_queue,
+    explicit PreProcessor(entry_queue& write_queue,
                                   entry_queue& entry_queue,
                                   std::condition_variable& recieve_cv,
                                   std::condition_variable& write_cv);
@@ -34,7 +33,6 @@ private:
     entry_queue& entry_queue_;
     boost::thread_group worker_threads;
     nedalloc::nedpool* buffer_pool_;
-    boost::asio::ip::tcp::socket& raw_socket_;
     std::mutex mtx_;
     std::condition_variable& recieve_cv_;
     std::condition_variable& write_cv_;

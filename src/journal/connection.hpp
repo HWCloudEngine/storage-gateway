@@ -3,12 +3,14 @@
 
 #include <mutex>
 #include <condition_variable>
+#include <iostream>
 
 #include <boost/asio.hpp>
 #include <boost/noncopyable.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/array.hpp>
+#include <boost/thread/thread.hpp>
 
 #include "message.hpp"
 #include "nedmalloc.h"
@@ -16,14 +18,14 @@
 
 namespace Journal{
 
-typedef boost::asio::ip::tcp::socket raw_socket;
-
 class Connection
     :public boost::enable_shared_from_this<Connection>,
      private boost::noncopyable
 {
 public:
-    explicit Connection(raw_socket & socket_,entry_queue& entry_queue,std::condition_variable& entry_cv);
+    explicit Connection(raw_socket & socket_,
+                            entry_queue& entry_queue,std::condition_variable& entry_cv,
+                            reply_queue& reply_queue,std::condition_variable& reply_cv);
     virtual ~Connection();
     bool init(nedalloc::nedpool * buffer);
     bool deinit();
@@ -36,11 +38,20 @@ private:
     bool handle_write_request(char* buffer,uint32_t size,char* header);
     void parse_write_request(IOHookRequest* header_ptr);
     void dispatch(IOHookRequest* header_ptr);
+    void read_request_header();
+    void send_thread();
+    void send_reply(IOHookReply* reply);
+    void handle_send_reply(IOHookReply* reply,const boost::system::error_code& err);
+    void handle_send_data(IOHookReply* reply,const boost::system::error_code& err);
 
+    std::mutex mtx_;
     raw_socket& raw_socket_;
     entry_queue& entry_queue_;
+    reply_queue& reply_queue_;
     std::condition_variable& entry_cv_;
+    std::condition_variable& reply_cv_;
     boost::array<char, HEADER_SIZE> header_buffer_;
+    boost::shared_ptr<boost::thread> thread_ptr;
     nedalloc::nedpool * buffer_pool;
 
 };

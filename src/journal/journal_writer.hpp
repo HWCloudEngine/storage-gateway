@@ -6,6 +6,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <time.h>
+#include <atomic> 
 
 #include <sys/stat.h>
 
@@ -26,9 +27,8 @@ class JournalWriter
 {
 public:
     explicit JournalWriter(std::string rpc_addr,
-                                 entry_queue& write_queue,
-                                 boost::asio::ip::tcp::socket& raw_socket,
-                                 std::condition_variable& cv);
+                                 entry_queue& write_queue,std::condition_variable& cv,
+                                 reply_queue& rep_queue,std::condition_variable& reply_cv);
     virtual ~JournalWriter();
     void work();
     bool init(std::string& vol);
@@ -43,22 +43,22 @@ private:
     int64_t get_file_size(const char *path);
     bool write_journal_header();
     void send_reply(ReplayEntry* entry,bool success);
-    void handle_send_reply(const boost::system::error_code& error);
 
     std::mutex mtx_;
     std::condition_variable& cv_;
+    std::condition_variable& reply_cv_;
     WriterClient rpc_client;
     boost::shared_ptr<boost::thread> thread_ptr;
     entry_queue& write_queue_;
-    boost::asio::ip::tcp::socket& raw_socket_;
+    reply_queue& reply_queue_;
     boost::lockfree::queue<std::string*> journal_queue;
     boost::lockfree::queue<std::string*> seal_queue;
-    boost::array<char, HEADER_SIZE> reply_buffer_;
 
     FILE* cur_file_ptr;
     std::string *cur_journal;
     uint64_t cur_journal_size;
     uint64_t journal_max_size;
+    std::atomic_int journal_queue_size;
     
     std::string vol_id;
     std::string journal_mnt;

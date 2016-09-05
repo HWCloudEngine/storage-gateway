@@ -6,17 +6,18 @@
 namespace Journal{
 
 JournalWriter::JournalWriter(std::string rpc_addr,
-                                   entry_queue& write_queue,
-                                   boost::asio::ip::tcp::socket& raw_socket,
-                                   std::condition_variable& cv)
+                                   entry_queue& write_queue,std::condition_variable& cv,
+                                   reply_queue& rep_queue,std::condition_variable& reply_cv)
     :rpc_client(grpc::CreateChannel(rpc_addr, grpc::InsecureChannelCredentials())),
     thread_ptr(),
-    raw_socket_(raw_socket),
     write_queue_(write_queue),
+    reply_queue_(rep_queue),
     cur_file_ptr(NULL),
     cur_journal(NULL),
     cur_journal_size(0),
-    cv_(cv)
+    journal_queue_size(0),
+    cv_(cv),
+    reply_cv_(reply_cv)
 {
 }
 
@@ -147,6 +148,7 @@ bool JournalWriter::get_journal()
         LOG_ERROR << "journal_queue pop failed";
         return false;
     }
+    journal_queue_size--;
     if(cur_journal == NULL)
         return false;
     return true;
@@ -206,13 +208,23 @@ bool JournalWriter::write_journal_header()
         LOG_ERROR << "write journal header faied,journal:" << cur_journal << "errno:" << strerror(errno); 
         return false;
     }
-
+    cur_journal_size = cur_journal_size + sizeof(journal_header_t);
+    return true;
 }
 
 bool JournalWriter::get_writeable_journals(const std::string& uuid,const int limit)
 {
     std::list<std::string> journals;
-    if(!rpc_client.GetWriteableJournals(uuid,vol_id,limit,journals))
+    int tmp = 0;
+    if(journal_queue_size >= limit)
+    {
+        return true;
+    }
+    else
+    {
+        tmp = limit - journal_queue_size;
+    }
+    if(!rpc_client.GetWriteableJournals(uuid,vol_id,tmp,journals))
     {
         LOG_ERROR << "get journal file failed";
         return false;
@@ -221,6 +233,7 @@ bool JournalWriter::get_writeable_journals(const std::string& uuid,const int lim
     {
         std::string * journal_ptr = new std::string(tmp);
         journal_queue.push(journal_ptr);
+        journal_queue_size++;
     }
     return true;
 }
@@ -276,24 +289,18 @@ int64_t JournalWriter::get_file_size(const char *path)
 
 void JournalWriter::send_reply(ReplayEntry* entry,bool success)
 {
-    IOHookReply* reply_ptr = reinterpret_cast<IOHookReply *>(reply_buffer_.data());
+    IOHookReply* reply_ptr = (IOHookReply*)new char[sizeof(IOHookReply)];
     reply_ptr->magic = MESSAGE_MAGIC;
-    reply_ptr->error = success?1:0;
+    reply_ptr->error = success?0:1;
     reply_ptr->handle = entry->req_id();
     reply_ptr->len = 0;
-    boost::asio::async_write(raw_socket_,
-    boost::asio::buffer(reply_buffer_, sizeof(struct IOHookReply)),
-    boost::bind(&JournalWriter::handle_send_reply, this,
-                 boost::asio::placeholders::error));
-}
-
-void JournalWriter::handle_send_reply(const boost::system::error_code& error)
-{
-    if (error)
+    if(!reply_queue_.push(reply_ptr))
     {
-        std::cerr << "handle_send_reply failed";
+        LOG_ERROR << "reply queue push failed";
+        delete []reply_ptr;
+        return;
     }
-
+    reply_cv_.notify_one();
 }
 
 }

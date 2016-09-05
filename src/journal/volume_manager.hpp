@@ -35,12 +35,14 @@ public:
     void set_property(std::string vol_id,std::string vol_path);
 private:
     void periodic_task();
+    raw_socket raw_socket_;
     entry_queue write_queue_;
     entry_queue entry_queue_;
-    raw_socket raw_socket_;
+    reply_queue reply_queue_;
 
     std::condition_variable entry_cv;
     std::condition_variable write_cv;
+    std::condition_variable reply_cv;
         
     PreProcessor pre_processor;
     Connection connection;
@@ -72,11 +74,14 @@ private:
     void periodic_task();
     void handle_request_header(volume_ptr vol,const boost::system::error_code& e);
     void handle_request_body(volume_ptr vol,const boost::system::error_code& e);
+    void send_reply(volume_ptr vol,bool success);
+    void handle_send_reply(const boost::system::error_code& error);
     std::mutex mtx;
     boost::shared_ptr<boost::thread> thread_ptr;
     std::map<std::string,volume_ptr> volumes;
     boost::array<char, HEADER_SIZE> header_buffer_;
     boost::array<char, 512> body_buffer_;
+    boost::array<char, HEADER_SIZE> reply_buffer_;
 
     int_least64_t interval;
     int journal_limit;

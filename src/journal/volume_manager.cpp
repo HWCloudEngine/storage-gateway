@@ -10,9 +10,9 @@ Volume::Volume(boost::asio::io_service& io_service)
     :write_queue_(),
      entry_queue_(),
      raw_socket_(io_service),
-     pre_processor(raw_socket_,write_queue_,entry_queue_,entry_cv,write_cv),
-     connection(raw_socket_,entry_queue_,entry_cv),
-     writer("localhost:50051",write_queue_,raw_socket_,write_cv),
+     pre_processor(write_queue_,entry_queue_,entry_cv,write_cv),
+     connection(raw_socket_,entry_queue_,entry_cv,reply_queue_,reply_cv),
+     writer("localhost:50051",write_queue_,write_cv,reply_queue_,reply_cv),
      replayer("localhost:50051")
 {
 }
@@ -171,13 +171,14 @@ void VolumeManager::handle_request_body(volume_ptr vol,const boost::system::erro
 {
     if(!e)
     {
-        add_vol_req_t* header_ptr = reinterpret_cast<add_vol_req_t *>(body_buffer_.data());
-        std::string vol_id = std::string(header_ptr->volume_name);
-        std::string vol_path = std::string(header_ptr->device_path);
+        add_vol_req_t* body_ptr = reinterpret_cast<add_vol_req_t *>(body_buffer_.data());
+        std::string vol_id = std::string(body_ptr->volume_name);
+        std::string vol_path = std::string(body_ptr->device_path);
         std::unique_lock<std::mutex> lk(mtx);
         vol->set_property(vol_id,vol_path);
         volumes.insert(std::pair<std::string,volume_ptr>(vol_id,vol));
-        vol->init();
+        bool ret = vol->init();
+        send_reply(vol,ret);
         vol->start();
     }
     else
@@ -185,6 +186,33 @@ void VolumeManager::handle_request_body(volume_ptr vol,const boost::system::erro
         //todo
         ;
     }
+}
+
+void VolumeManager::send_reply(volume_ptr vol,bool success)
+{
+    IOHookReply* reply_ptr = reinterpret_cast<IOHookReply *>(reply_buffer_.data());
+    IOHookRequest* header_ptr = reinterpret_cast<IOHookRequest *>(header_buffer_.data());
+    reply_ptr->magic = MESSAGE_MAGIC;
+    reply_ptr->error = success?0:1;
+    reply_ptr->handle = header_ptr->handle;
+    reply_ptr->len = 0;
+    boost::asio::async_write(vol->get_raw_socket(),
+    boost::asio::buffer(reply_buffer_, sizeof(struct IOHookReply)),
+    boost::bind(&VolumeManager::handle_send_reply, this,
+                 boost::asio::placeholders::error));
+}
+
+void VolumeManager::handle_send_reply(const boost::system::error_code& error)
+{
+    if (error)
+    {
+        std::cerr << "send reply failed";
+    }
+    else
+    {
+        ;
+    }
+
 }
     
 void VolumeManager::start(volume_ptr vol)
