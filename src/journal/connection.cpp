@@ -47,11 +47,7 @@ bool Connection::deinit()
 
 void Connection::start()
 {
-    boost::asio::async_read(raw_socket_,
-        boost::asio::buffer(header_buffer_, sizeof(struct IOHookRequest)),
-        boost::bind(&Connection::handle_request_header, shared_from_this(),
-                     boost::asio::placeholders::error));
-    
+    read_request_header();
 }
 
 void Connection::stop()
@@ -60,18 +56,23 @@ void Connection::stop()
     raw_socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both,ignored_ec);
 }
 
+void Connection::read_request_header()
+{
+    boost::asio::async_read(raw_socket_,
+        boost::asio::buffer(header_buffer_, sizeof(struct IOHookRequest)),
+        boost::bind(&Connection::handle_request_header, this,
+                     boost::asio::placeholders::error));
+}
 void Connection::dispatch(IOHookRequest* header_ptr)
 {
     switch(header_ptr->type)
     {
         case SCSI_READ:
-            //todo
             break;
         case SCSI_WRITE:
             parse_write_request(header_ptr);
             break;
         case SYNC_CACHE:
-            //todo
             break;
         default:
             LOG_ERROR << "unsupported request type:" << header_ptr->type;
@@ -104,8 +105,8 @@ void Connection::parse_write_request(IOHookRequest* header_ptr)
         if (buffer_ptr!=NULL)
         {
             boost::asio::async_read(raw_socket_,
-                    boost::asio::buffer(buffer_ptr+header_size, buffer_size),
-                    boost::bind(&Connection::handle_write_request_body, shared_from_this(),buffer_ptr,buffer_size,
+                    boost::asio::buffer(buffer_ptr+header_size, header_ptr->len),
+                    boost::bind(&Connection::handle_write_request_body, this,buffer_ptr,buffer_size,
                     boost::asio::placeholders::error));
         }
         else
@@ -134,16 +135,14 @@ void Connection::handle_write_request_body(char* buffer_ptr,uint32_t buffer_size
             ;
             //todo reply client error code
         }
-        boost::asio::async_read(raw_socket_,
-            boost::asio::buffer(header_buffer_, sizeof(struct IOHookRequest)),
-            boost::bind(&Connection::handle_request_header, shared_from_this(),
-            boost::asio::placeholders::error));
+
     }
     else
     {
         //todo bad request
         ;
     }
+    read_request_header();
 
 }   
 
@@ -154,9 +153,9 @@ bool Connection::handle_write_request(char* buffer,uint32_t size,char* header)
         //LOG
         return false;
     }
-    log_header_t* buffer_ptr = reinterpret_cast<log_header_t *>(buffer_ptr);
+    log_header_t* buffer_ptr = reinterpret_cast<log_header_t *>(buffer);
     IOHookRequest* header_ptr = reinterpret_cast<IOHookRequest *>(header);
-    off_len_t* off_ptr = reinterpret_cast<off_len_t *>(buffer_ptr + sizeof(log_header_t));
+    off_len_t* off_ptr = reinterpret_cast<off_len_t *>(buffer + sizeof(log_header_t));
     buffer_ptr->type = LOG_IO;
     //merge will change the count and offset,maybe should remalloc
     buffer_ptr->count = 1;
