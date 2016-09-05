@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include "server.hpp"
+#include "../log/log.h"
 
 int main(int argc, char* argv[])
 {
@@ -11,6 +12,7 @@ int main(int argc, char* argv[])
     }
     //todo read from config file
     uint32_t io_service_pool_size = 1;
+    DRLog::log_init("journal_server.log");
     try
     {
         Journal::Server server(argv[1], argv[2],io_service_pool_size);
