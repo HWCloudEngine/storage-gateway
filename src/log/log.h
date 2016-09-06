@@ -14,6 +14,7 @@
 #include <boost/log/attributes/named_scope.hpp>
 #include <boost/log/common.hpp>
 #include <string>
+#include <assert.h>
 #define LOG_PATH "/var/log/dr_service"
 // define severity levels
 typedef enum severity_level
@@ -26,6 +27,7 @@ typedef enum severity_level
     fatal
 }severity_level_t;
 
+extern void print_backtrace();
 extern std::string path_to_filename(std::string path);
 extern std::string set_get_attrib(const char* name, std::string value);
 extern int set_get_attrib(const char* name, int value);
@@ -50,7 +52,18 @@ public:
 #define LOG_INFO BOOST_SLOG(info)
 #define LOG_DEBUG BOOST_SLOG(debug)
 #define LOG_TRACE BOOST_SLOG(trace)
-
+#define DR_ERROR_OCCURED() \
+    do { \
+        LOG_ERROR << "Internal error occured!"; \
+        print_backtrace(); \
+        assert(0); \
+        exit(1); \
+    }while(0);
+#define DR_ASSERT(x) \
+    if(!(x)){ \
+        LOG_ERROR << "Assert failed:"#x"\n"; \
+        DR_ERROR_OCCURED(); \
+    }
 #define SHOW_CALL_STACK BOOST_LOG_FUNCTION()
 #define SET_ACOPE_NAME(name) BOOST_LOG_NAMED_SCOPE(name)
 #endif

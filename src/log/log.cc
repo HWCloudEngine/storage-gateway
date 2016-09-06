@@ -8,6 +8,7 @@
 * Description:
 * 
 **********************************************/
+#include <execinfo.h>
 #include <iostream>
 #include <iomanip>
 #include <boost/smart_ptr.hpp>
@@ -20,7 +21,7 @@
 #include <boost/log/support/date_time.hpp>
 #include <boost/log/sinks/sync_frontend.hpp>
 #include "log.h"
-
+#define BT_BUF_SIZE 128
 namespace logging = boost::log;
 namespace src = boost::log::sources;
 namespace expr = boost::log::expressions;
@@ -131,6 +132,31 @@ void DRLog::set_log_level(severity_level_t level)
     if (static_cast<std::size_t>(level) < sizeof(strings) / sizeof(*strings))
         logging::core::get()->set_filter(severity >= level);
 }
+
+void print_backtrace(){
+    int i,n;
+    void *buffer[BT_BUF_SIZE];
+    char **strings;
+    
+    n = backtrace(buffer, BT_BUF_SIZE);
+    /* The call backtrace_symbols_fd(buffer, nptrs, STDOUT_FILENO)
+    would produce similar output to the following: */
+
+    strings = backtrace_symbols(buffer, n);
+    if (strings == NULL) {
+        std::cerr << "backtrace_symbols failed!" << std::endl;
+        LOG_FATAL << "backtrace_symbols failed!";
+        exit(1);
+    }
+
+    for (i = 0; i < n; i++){
+        std::cerr << strings[i] << std::endl;
+        LOG_FATAL << strings[i];
+    }
+
+    free(strings);
+}
+
 #if 0
 void zxxx(void)
 {
