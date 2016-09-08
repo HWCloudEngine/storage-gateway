@@ -4,4 +4,5 @@ SUBDIRS = src/log \
           src/dr_server \
           src/test \
           src/rpc \
+		  src/journal/cache \
           src/journal
