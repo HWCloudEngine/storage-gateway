@@ -26,16 +26,15 @@ using std::string;
 class JournalMetaManager {
 public:
     virtual ~JournalMetaManager() {}
-    virtual RESULT get_volume_journals(string vol_id,int limit, 
-            std::list<string> &list) = 0;
-    virtual RESULT delete_journals(string vol_id, string journals[], int count) = 0;
-    virtual RESULT seal_volume_journals(string vol_id, string journals[],
-            int count) = 0;
-    virtual RESULT get_journal_marker(string vol_id, CONSUMER_TYPE type,
-            JournalMarker* marker) = 0;
-    virtual RESULT update_journals_marker(string vol_id, CONSUMER_TYPE type,
-            JournalMarker marker) = 0;
-    virtual RESULT get_consumer_journals(string vol_id, JournalMarker marker,
-            int limit, std::list<string> &list) = 0;
+    virtual RESULT create_journals(const string& uuid,const string& vol_id,
+            const int& limit, std::list<string> &list) = 0;
+    virtual RESULT seal_volume_journals(const string& uuid,const string& vol_id,
+            const string journals[],const int& count) = 0;
+    virtual RESULT get_journal_marker(const string& uuid,const string& vol_id,
+            const CONSUMER_TYPE& type,JournalMarker* marker) = 0;
+    virtual RESULT update_journals_marker(const string& uuid, const string& vol_id,
+            const CONSUMER_TYPE& type,const JournalMarker& marker) = 0;
+    virtual RESULT get_consumable_journals(const string& uuid,const string& vol_id,
+            const JournalMarker& marker,const int& limit, std::list<string> &list) = 0;
 };
 #endif

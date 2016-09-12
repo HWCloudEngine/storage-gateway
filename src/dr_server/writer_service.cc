@@ -14,7 +14,7 @@
 using huawei::proto::DRS_OK;
 using huawei::proto::INTERNAL_ERROR;
 
-WriterServiceImpl::WriterServiceImpl(JournalMetaManager* meta) {
+WriterServiceImpl::WriterServiceImpl(std::shared_ptr<JournalMetaManager> meta) {
     _meta = meta;
 }
 
@@ -30,7 +30,7 @@ Status WriterServiceImpl::GetWriteableJournals(ServerContext* context,
     //request->uuid();
     LOG_DEBUG << "request vol:" << request->vol_id() << ", journal count:" << request->limits();
     std::list<string> list;
-    RESULT result = _meta->get_volume_journals(request->vol_id(),request->limits(),list);
+    RESULT result = _meta->create_journals(request->uuid(),request->vol_id(),request->limits(),list);
     if(result != DRS_OK) {
         reply->set_result(INTERNAL_ERROR);
         LOG_ERROR << "get volume " << request->vol_id() << "'s journals failed.";
@@ -57,7 +57,7 @@ Status WriterServiceImpl::SealJournals(ServerContext* context,
     for(int i=0; i<request->journals_size(); ++i) {
         journals[i] = request->journals(i);
     }
-    RESULT res = _meta->seal_volume_journals(request->vol_id(),journals,
+    RESULT res = _meta->seal_volume_journals(request->uuid(),request->vol_id(),journals,
             request->journals_size());
     if(res != DRS_OK){
         reply->set_result(INTERNAL_ERROR);
