@@ -26,8 +26,10 @@ automake -a
 automake -a
 automake
 #compile...
+cd ${CUR_PATH}
+mkdir -p build
 chmod +x ${CUR_PATH}/configure
-${CUR_PATH}/configure
+${CUR_PATH}/configure --prefix=${CUR_PATH}
 make clean
 make -j8
 #copy program to bin
@@ -37,8 +39,8 @@ elif [ "$1"a = "clean"a ]
 then
 make clean
 #delete temporary building files
-rm -rf `ls | grep -E -v "lib$|test|src|bin|Makefile.am|README.md|build.sh|configure.ac"`
-rm -rf bin/*;
+rm -rf aclocal.m4 config.guess config.log configure depcomp install-sh ltmain.sh NEWS AUTHORS ChangeLog config.h config.status m4 Makefile.in README stamp-h1 autom4te.cache compile config.h.in  config.sub COPYING INSTALL libtool Makefile missing
+rm -rf build/
 find . -name Makefile | xargs rm -f
 find . -name Makefile.in | xargs rm -f
 find . -name .deps | xargs rm -rf
