@@ -1,0 +1,72 @@
+#ifndef _BLOCK_QUEUE_H
+#define _BLOCK_QUEUE_H
+
+#include <queue>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <iostream>
+using namespace std;
+
+template <typename T>
+class BlockingQueue
+{
+public:
+    BlockingQueue(){
+    }
+
+    ~BlockingQueue(){
+    }
+
+    T pop()
+    {
+        std::unique_lock<std::mutex> mlock(m_mtx);
+        while(m_queue.empty()){
+            m_cond.wait(mlock);
+        }
+        auto item = m_queue.front();
+        m_queue.pop();
+        mlock.unlock();
+        return item;
+    }
+
+    void pop(T& item)
+    {
+        std::unique_lock<std::mutex> mlock(m_mtx);
+        while(m_queue.empty()){
+            m_cond.wait(mlock);
+        }
+
+        item = m_queue.front();
+        m_queue.pop();
+    }
+
+    void push(const T& item)
+    {
+        std::unique_lock<std::mutex> mlock(m_mtx); 
+        m_queue.push(item);
+        m_cond.notify_one();
+    }
+
+    void push(T&& item)
+    {
+        std::unique_lock<std::mutex> mlock(m_mtx); 
+        m_queue.push(std::move(item));
+        m_cond.notify_one();
+    }
+    
+    int size()const{
+        return m_queue.size(); 
+    }
+
+    bool empty()const{
+        return m_queue.empty(); 
+    }
+
+private:
+    std::queue<T>           m_queue;
+    std::mutex              m_mtx;
+    std::condition_variable m_cond;
+};
+
+#endif
