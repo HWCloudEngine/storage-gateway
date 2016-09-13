@@ -15,10 +15,11 @@
 using huawei::proto::RESULT;
 
 class LeaseClient {
-public:
-    virtual ~LeaseClient();
+private:
     virtual bool acquire_lease() = 0;
     virtual void renew_lease() = 0;
+public:
+    virtual ~LeaseClient();
     virtual bool check_lease_validity() = 0;
 };
 
