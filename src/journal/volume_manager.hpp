@@ -11,9 +11,12 @@
 #include "journal_writer.hpp"
 #include "pre_processor.hpp"
 #include "nedmalloc.h"
-#include "journal_replayer.hpp"
+
+#include "../common/blocking_queue.h"
 #include "seq_generator.hpp"
 #include "cache/cache_proxy.h"
+#include "journal_replayer.hpp"
+#include "journal_reader.hpp"
 
 #define BUFFER_POOL_SIZE 1024*1024*64
 #define REQUEST_BODY_SIZE 512
@@ -43,12 +46,18 @@ private:
     std::condition_variable entry_cv;
     std::condition_variable write_cv;
     std::condition_variable reply_cv;
-        
+
+    /*reader relevant*/
+    BlockingQueue<struct IOHookRequest> read_queue;
+    
+    /*cache relevant*/
+    shared_ptr<IDGenerator> idproxy;
+    shared_ptr<CacheProxy> cacheproxy;
+
     PreProcessor pre_processor;
     Connection connection;
-    JournalWriter writer;
-    std::shared_ptr<CacheProxy> cache_proxy_ptr_;
-    std::shared_ptr<IDGenerator> id_maker_ptr_;
+    JournalWriter   writer;
+    JournalReader   reader;
     JournalReplayer replayer;
 
     nedalloc::nedpool * buffer_pool;
