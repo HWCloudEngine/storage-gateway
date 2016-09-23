@@ -11,16 +11,20 @@ Volume::Volume(boost::asio::io_service& io_service)
      entry_queue_(),
      raw_socket_(io_service),
      pre_processor(write_queue_,entry_queue_,entry_cv,write_cv),
-     connection(raw_socket_,entry_queue_,entry_cv,reply_queue_,reply_cv),
-     writer("localhost:50051",write_queue_,write_cv,reply_queue_,reply_cv),
-     replayer("localhost:50051")
-{
+     read_queue(),
+     idproxy(new IDGenerator()),
+     cacheproxy(new CacheProxy("/dev/sdc", idproxy)),
+     connection(raw_socket_,entry_queue_,entry_cv,reply_queue_,reply_cv,read_queue),
+     writer("localhost:50051",write_queue_,write_cv,reply_queue_,reply_cv, idproxy, cacheproxy),
+     reader(reply_queue_, reply_cv, read_queue, cacheproxy),
+     replayer("localhost:50051", cacheproxy, idproxy)
+{
 }
 
 Volume::~Volume()
 {
     writer.deinit();
-    replayer.deinit();
+    reader.deinit();
     pre_processor.deinit();
     connection.deinit();
     
@@ -55,12 +59,19 @@ bool Volume::init()
         LOG_ERROR << "init journal writer failed,vol_id:" << vol_id_;
         return false;
     }
-    id_maker_ptr_.reset(new IDGenerator());
-    cache_proxy_ptr_.reset(new CacheProxy(vol_path_, id_maker_ptr_));
-    if (!replayer.init(vol_id_, vol_path_, cache_proxy_ptr, id_maker_ptr_)) {
-        LOG_ERROR<< "init journal replayer failed,vol_id:" << vol_id_;
+
+    if(!reader.init())
+    {
+        LOG_ERROR << "init journal writer failed,vol_id:" << vol_id_;
         return false;
     }
+   
+    if (!replayer.init(vol_id_, "/dev/sdc")) 
+	{
+        LOG_ERROR << "init journal replayer failed,vol_id:" << vol_id_;
+        return false;
+    }
+
     return true;
 }
 
@@ -217,7 +228,13 @@ void VolumeManager::handle_send_reply(const boost::system::error_code& error)
     
 void VolumeManager::start(volume_ptr vol)
 {
-    add_vol(vol);
+    //add_vol(vol);
+    vol->set_property("TEST","TEST");
+    volumes.insert(std::pair<std::string,volume_ptr>("TEST",vol));
+    vol->init();
+    //send_reply(vol,true);
+    vol->start();
+
 }
 
 void VolumeManager::stop(std::string vol_id)

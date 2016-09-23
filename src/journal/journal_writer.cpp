@@ -7,7 +7,9 @@ namespace Journal{
 
 JournalWriter::JournalWriter(std::string rpc_addr,
                                    entry_queue& write_queue,std::condition_variable& cv,
-                                   reply_queue& rep_queue,std::condition_variable& reply_cv)
+                                   reply_queue& rep_queue,std::condition_variable& reply_cv,
+                                   shared_ptr<IDGenerator>& idproxy,
+                                   shared_ptr<CacheProxy>& cacheproxy)
     :rpc_client(grpc::CreateChannel(rpc_addr, grpc::InsecureChannelCredentials())),
     thread_ptr(),
     write_queue_(write_queue),
@@ -17,7 +19,9 @@ JournalWriter::JournalWriter(std::string rpc_addr,
     cur_journal_size(0),
     journal_queue_size(0),
     cv_(cv),
-    reply_cv_(reply_cv)
+    reply_cv_(reply_cv),
+    idproxy_(idproxy),
+    cacheproxy_(cacheproxy)
 {
 }
 
@@ -54,7 +58,7 @@ bool JournalWriter::init(std::string& vol)
     //todo read from config.ini
     cur_journal_size = 0;
     journal_max_size = 32 * 1024 * 1024;
-    journal_mnt = "/journal_mnt";
+    journal_mnt = "/mnt/cephfs";
     write_seq = 0;
     write_timeout = 2;
     version = 0;
@@ -116,15 +120,20 @@ void JournalWriter::work()
                 continue;
             }
             fflush(cur_file_ptr);
+            
+            std::string log_file = journal_mnt + *cur_journal;
+            off_t log_off = cur_journal_size;
+            shared_ptr<ReplayEntry> log_entry(entry);
+            cacheproxy_->write(log_file, log_off, log_entry);
+
             cur_journal_size = cur_journal_size + write_size;
             success = true;
             write_seq++;
         }
         lk.unlock();
         send_reply(entry,success);
-        //todo cache entry
-        delete entry;
-        entry = NULL;
+        //delete entry;
+        //entry = NULL;
     }
 }
 bool JournalWriter::get_journal()
@@ -194,6 +203,8 @@ bool JournalWriter::open_journal(uint64_t entry_size)
             if(!write_journal_header())
                 return false;
         }
+
+        idproxy_->add_file(tmp);
     }
     return true;
 }
@@ -208,7 +219,7 @@ bool JournalWriter::write_journal_header()
         LOG_ERROR << "write journal header faied,journal:" << cur_journal << "errno:" << strerror(errno); 
         return false;
     }
-    cur_journal_size = cur_journal_size + sizeof(journal_header_t);
+    cur_journal_size += sizeof(journal_header);
     return true;
 }
 
