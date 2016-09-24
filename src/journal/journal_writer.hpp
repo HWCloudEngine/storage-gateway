@@ -20,6 +20,9 @@
 #include "replay_entry.hpp"
 #include "../rpc/clients/writer_client.hpp"
 
+#include "seq_generator.hpp"
+#include "cache/cache_proxy.h"
+
 namespace Journal{
 
 class JournalWriter
@@ -27,8 +30,10 @@ class JournalWriter
 {
 public:
     explicit JournalWriter(std::string rpc_addr,
-                                 entry_queue& write_queue,std::condition_variable& cv,
-                                 reply_queue& rep_queue,std::condition_variable& reply_cv);
+                           entry_queue& write_queue,std::condition_variable& cv,
+                           reply_queue& rep_queue,std::condition_variable& reply_cv,
+                           shared_ptr<IDGenerator>& idproxy,
+                           shared_ptr<CacheProxy>& cacheproxy);
     virtual ~JournalWriter();
     void work();
     bool init(std::string& vol);
@@ -43,6 +48,9 @@ private:
     int64_t get_file_size(const char *path);
     bool write_journal_header();
     void send_reply(ReplayEntry* entry,bool success);
+
+    shared_ptr<IDGenerator>& idproxy_;
+    shared_ptr<CacheProxy>& cacheproxy_;
 
     std::mutex mtx_;
     std::condition_variable& cv_;

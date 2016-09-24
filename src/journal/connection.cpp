@@ -19,17 +19,18 @@
 
 namespace Journal{
 
-Connection::Connection(raw_socket & socket_,
-                           entry_queue& entry_queue,std::condition_variable& entry_cv,
-                           reply_queue& reply_queue,std::condition_variable& reply_cv)
+Connection::Connection(raw_socket& socket_, 
+                       entry_queue& entry_queue,std::condition_variable& entry_cv,
+					   reply_queue& reply_queue,std::condition_variable& reply_cv,
+                       BlockingQueue<struct IOHookRequest>& read_queue)
                         :raw_socket_(socket_),
                          entry_queue_(entry_queue),
                          entry_cv_(entry_cv),
                          reply_queue_(reply_queue),
                          reply_cv_(reply_cv),
+                         read_queue_(read_queue),
                          buffer_pool(NULL)
 {
-    
 }
 
 Connection::~Connection()
@@ -53,6 +54,7 @@ bool Connection::deinit()
 
 void Connection::start()
 {
+    raw_socket_.set_option(boost::asio::ip::tcp::no_delay(true));
     read_request_header();
 }
 
@@ -78,11 +80,14 @@ void Connection::dispatch(IOHookRequest* header_ptr)
     switch(header_ptr->type)
     {
         case SCSI_READ:
+            read_queue_.push(*header_ptr);
+            read_request_header();
             break;
         case SCSI_WRITE:
             parse_write_request(header_ptr);
             break;
         case SYNC_CACHE:
+            //send_reply(true);
             break;
         default:
             LOG_ERROR << "unsupported request type:" << header_ptr->type;
@@ -153,7 +158,6 @@ void Connection::handle_write_request_body(char* buffer_ptr,uint32_t buffer_size
         ;
     }
     read_request_header();
-
 }   
 
 bool Connection::handle_write_request(char* buffer,uint32_t size,char* header)
@@ -163,15 +167,16 @@ bool Connection::handle_write_request(char* buffer,uint32_t size,char* header)
         //LOG
         return false;
     }
-    log_header_t* buffer_ptr = reinterpret_cast<log_header_t *>(buffer);
-    IOHookRequest* header_ptr = reinterpret_cast<IOHookRequest *>(header);
+
+    log_header_t* buffer_ptr = reinterpret_cast<log_header_t*>(buffer);
+    IOHookRequest* header_ptr = reinterpret_cast<IOHookRequest*>(header);
     off_len_t* off_ptr = reinterpret_cast<off_len_t *>(buffer + sizeof(log_header_t));
     buffer_ptr->type = LOG_IO;
     //merge will change the count and offset,maybe should remalloc
     buffer_ptr->count = 1;
     off_ptr->length = header_ptr->len;
     off_ptr->offset = header_ptr->offset;
-        
+   
     entry_ptr entry_ptr_ = NULL;
     try
     {
@@ -260,5 +265,4 @@ void Connection::handle_send_data(IOHookReply* reply,const boost::system::error_
     }
     delete []reply;
 }
-
 }
