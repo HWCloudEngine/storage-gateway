@@ -1,7 +1,7 @@
 noinst_PROGRAMS=journal_server
 AM_CPPFLAGS=-I$(top_srcdir)/src -I$(top_srcdir)/src/include -std=c++11
 ACLOCAL_AMFLAGS=-I m4
-journal_server_SOURCES=connection.cpp  io_service_pool.cpp  journal_writer.cpp  main.cpp  pre_processor.cpp server.cpp  volume_manager.cpp \
+journal_server_SOURCES=connection.cpp  io_service_pool.cpp  journal_writer.cpp journal_replayer.cpp main.cpp  pre_processor.cpp server.cpp  volume_manager.cpp \
                     $(top_srcdir)/src/common/crc32.c $(top_srcdir)/src/common/xxhash.c $(top_srcdir)/src/common/utils.cpp
 journal_server_LDADD=${top_srcdir}/src/rpc/librpc.la ${top_srcdir}/src/log/liblog.la
 journal_server_LDFLAGS=-D_GNU_SOURCE
