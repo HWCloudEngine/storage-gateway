@@ -18,29 +18,29 @@
 namespace Journal
 {
 
-JournalReplayer::JournalReplayer(const std::string& rpc_addr,
-        std::shared_ptr<CacheProxy>& cache_proxy_ptr,
-        std::shared_ptr<IDGenerator>& id_maker_ptr) :
-        cache_proxy_ptr_(cache_proxy_ptr), id_maker_ptr_(id_maker_ptr)
+JournalReplayer::JournalReplayer(const std::string& rpc_addr)
 {
 
     rpc_client_ptr_.reset(
             new ReplayerClient(
                     grpc::CreateChannel(rpc_addr,
                             grpc::InsecureChannelCredentials())));
-
-    //todo:device
-    cache_recover_ptr_.reset(
-            new CacheRecovery("/dev/sdc", rpc_client_ptr_, id_maker_ptr_,
-                    cache_proxy_ptr_));
-
 }
 
-bool JournalReplayer::init(const std::string& vol_id, const std::string& device)
-{
+bool JournalReplayer::init(const std::string& vol_id, 
+                           const std::string& device,
+                           std::shared_ptr<IDGenerator> id_maker_ptr,
+                           std::shared_ptr<CacheProxy> cache_proxy_ptr){
     vol_id_ = vol_id;
     device_ = device;
 
+    id_maker_ptr_    = id_maker_ptr;
+    cache_proxy_ptr_ = cache_proxy_ptr;
+
+    cache_recover_ptr_.reset(new CacheRecovery(device_, 
+                                rpc_client_ptr_, 
+                                id_maker_ptr_,
+                                cache_proxy_ptr_));
     //start recover
     cache_recover_ptr_->start();
 

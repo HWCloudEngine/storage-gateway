@@ -7,9 +7,7 @@ namespace Journal{
 
 JournalWriter::JournalWriter(std::string rpc_addr,
                                    entry_queue& write_queue,std::condition_variable& cv,
-                                   reply_queue& rep_queue,std::condition_variable& reply_cv,
-                                   shared_ptr<IDGenerator>& idproxy,
-                                   shared_ptr<CacheProxy>& cacheproxy)
+                                   reply_queue& rep_queue,std::condition_variable& reply_cv)
     :rpc_client(grpc::CreateChannel(rpc_addr, grpc::InsecureChannelCredentials())),
     thread_ptr(),
     write_queue_(write_queue),
@@ -19,9 +17,7 @@ JournalWriter::JournalWriter(std::string rpc_addr,
     cur_journal_size(0),
     journal_queue_size(0),
     cv_(cv),
-    reply_cv_(reply_cv),
-    idproxy_(idproxy),
-    cacheproxy_(cacheproxy)
+    reply_cv_(reply_cv)
 {
 }
 
@@ -52,9 +48,15 @@ JournalWriter::~JournalWriter()
 }
 
 
-bool JournalWriter::init(std::string& vol)
+bool JournalWriter::init(std::string& vol,
+                         shared_ptr<IDGenerator> idproxy,
+                         shared_ptr<CacheProxy> cacheproxy)
+ 
 {
     vol_id = vol;
+    idproxy_ = idproxy;
+    cacheproxy_ = cacheproxy;
+
     //todo read from config.ini
     cur_journal_size = 0;
     journal_max_size = 32 * 1024 * 1024;
