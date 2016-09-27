@@ -13,7 +13,7 @@ struct IOHookRequest {
     uint32_t type;          /*command type*/
     uint32_t reserves;
     uint64_t handle;        /*command unique identifier*/
-    uint32_t offset;
+    uint64_t offset;
     uint32_t len;
     uint8_t  data[0];
 }__attribute__((packed));

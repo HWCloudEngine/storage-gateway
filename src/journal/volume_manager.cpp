@@ -12,12 +12,10 @@ Volume::Volume(boost::asio::io_service& io_service)
      raw_socket_(io_service),
      pre_processor(write_queue_,entry_queue_,entry_cv,write_cv),
      read_queue(),
-     idproxy(new IDGenerator()),
-     cacheproxy(new CacheProxy("/dev/sdc", idproxy)),
      connection(raw_socket_,entry_queue_,entry_cv,reply_queue_,reply_cv,read_queue),
-     writer("localhost:50051",write_queue_,write_cv,reply_queue_,reply_cv, idproxy, cacheproxy),
-     reader(reply_queue_, reply_cv, read_queue, cacheproxy),
-     replayer("localhost:50051", cacheproxy, idproxy)
+     writer("localhost:50051",write_queue_,write_cv,reply_queue_,reply_cv),
+     reader(reply_queue_, reply_cv, read_queue),
+     replayer("localhost:50051")
 {
 }
 
@@ -54,19 +52,23 @@ bool Volume::init()
         LOG_ERROR << "init pre_processor failed,vol_id:"<< vol_id_;
         return false;
     }
-    if(!writer.init(vol_id_))
+
+    idproxy.reset(new IDGenerator());
+    cacheproxy.reset(new CacheProxy(vol_path_, idproxy));
+
+    if(!writer.init(vol_id_, idproxy, cacheproxy))
     {
         LOG_ERROR << "init journal writer failed,vol_id:" << vol_id_;
         return false;
     }
 
-    if(!reader.init())
+    if(!reader.init(cacheproxy))
     {
         LOG_ERROR << "init journal writer failed,vol_id:" << vol_id_;
         return false;
     }
    
-    if (!replayer.init(vol_id_, "/dev/sdc")) 
+    if (!replayer.init(vol_id_, vol_path_, idproxy, cacheproxy)) 
 	{
         LOG_ERROR << "init journal replayer failed,vol_id:" << vol_id_;
         return false;
@@ -186,6 +188,7 @@ void VolumeManager::handle_request_body(volume_ptr vol,const boost::system::erro
         std::string vol_id = std::string(body_ptr->volume_name);
         std::string vol_path = std::string(body_ptr->device_path);
         std::unique_lock<std::mutex> lk(mtx);
+        std::cerr << "add volume vol_id:" << vol_id << "vol_path:" << vol_path << std::endl;
         vol->set_property(vol_id,vol_path);
         volumes.insert(std::pair<std::string,volume_ptr>(vol_id,vol));
         bool ret = vol->init();
@@ -228,12 +231,12 @@ void VolumeManager::handle_send_reply(const boost::system::error_code& error)
     
 void VolumeManager::start(volume_ptr vol)
 {
-    //add_vol(vol);
-    vol->set_property("TEST","TEST");
-    volumes.insert(std::pair<std::string,volume_ptr>("TEST",vol));
-    vol->init();
+    add_vol(vol);
+    //vol->set_property("TEST","TEST");
+    //volumes.insert(std::pair<std::string,volume_ptr>("TEST",vol));
+    //vol->init();
     //send_reply(vol,true);
-    vol->start();
+    //vol->start();
 
 }
 

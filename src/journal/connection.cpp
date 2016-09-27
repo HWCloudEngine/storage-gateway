@@ -104,7 +104,12 @@ void Connection::handle_request_header(const boost::system::error_code& e)
     else
     {
         //todo bad request
-        ;
+        std::cerr << "xxxxxxx" << e <<std::endl;
+        std::cerr << "magic:" << header_ptr->magic << " X:" << MESSAGE_MAGIC << std::endl;
+        std::cerr << "request type:" << header_ptr->type << std::endl;
+        std::cerr << "request len " << header_ptr->len << std::endl;
+        read_request_header();
+
     }
 
 }
@@ -128,6 +133,7 @@ void Connection::parse_write_request(IOHookRequest* header_ptr)
         {
             //todo block or remalloc
             ;
+            std::cerr << "buffer_ptr is NULL" << std::endl;
         }
     
     }
@@ -135,6 +141,7 @@ void Connection::parse_write_request(IOHookRequest* header_ptr)
     {
         //todo just a header?
         ;
+        std::cerr <<"write header_ptr->len :" << header_ptr << std::endl;
     }
 
 }
@@ -212,6 +219,7 @@ void Connection::send_thread()
         {
             reply_cv_.wait(lk);
         }
+        cout << "send_thread triggered" << endl;
         if(!reply_queue_.pop(reply))
         {
             LOG_ERROR << "reply_queue pop failed";
@@ -228,6 +236,8 @@ void Connection::send_reply(IOHookReply* reply)
         LOG_ERROR << "Invalid reply ptr";
         return;
     }
+    
+    cout << "send reply magic:" << reply->magic << endl;
     boost::asio::async_write(raw_socket_,
     boost::asio::buffer(reply, sizeof(struct IOHookReply)),
     boost::bind(&Connection::handle_send_reply, this,reply,
@@ -240,6 +250,7 @@ void Connection::handle_send_reply(IOHookReply* reply,const boost::system::error
     {
         if(reply->len > 0)
         {
+            cout << "send reply ack len:" << reply->len << endl;
                 boost::asio::async_write(raw_socket_,boost::asio::buffer(reply->data, reply->len),
                 boost::bind(&Connection::handle_send_data, this,reply,
                 boost::asio::placeholders::error));
@@ -261,8 +272,10 @@ void Connection::handle_send_data(IOHookReply* reply,const boost::system::error_
 {
     if(err)
     {
-        LOG_ERROR << "send reply data failed, reply id:" << reply->handle;
+        //LOG_ERROR << "send reply data failed, reply id:" << reply->handle;
+        cout << "send reply data failed, reply id:" << reply->handle;
     }
+    cout << "send reply data ok" << endl;
     delete []reply;
 }
 }

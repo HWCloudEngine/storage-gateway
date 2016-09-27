@@ -24,12 +24,10 @@ class JournalReader : private boost::noncopyable
 public:
     explicit JournalReader(reply_queue& reply_queue,
                            condition_variable& reply_queue_cv,
-                           BlockingQueue<struct IOHookRequest>& read_queue,
-                           shared_ptr<CacheProxy>& cacheproxy);
-
+                           BlockingQueue<struct IOHookRequest>& read_queue); 
     virtual ~JournalReader();
 
-    bool init();
+    bool init(shared_ptr<CacheProxy> cacheproxy);
     bool deinit();
     
     void work();
@@ -40,7 +38,7 @@ private:
 
     BlockingQueue<struct IOHookRequest>& m_read_queue; /*requst queue*/
 
-    shared_ptr<CacheProxy>&  m_cacheproxy;  
+    shared_ptr<CacheProxy>  m_cacheproxy;  
 
     bool               m_run;
     shared_ptr<thread> m_thread;

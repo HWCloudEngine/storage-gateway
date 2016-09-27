@@ -52,13 +52,14 @@ private:
     
     /*cache relevant*/
     shared_ptr<IDGenerator> idproxy;
-    shared_ptr<CacheProxy> cacheproxy;
+    shared_ptr<CacheProxy>  cacheproxy;
 
     PreProcessor pre_processor;
     Connection connection;
-    JournalWriter   writer;
-    JournalReader   reader;
-    JournalReplayer replayer;
+
+    JournalWriter   writer;   /*handle write io*/
+    JournalReader   reader;   /*handle read io*/
+    JournalReplayer replayer; /*handle write io replay*/
 
     nedalloc::nedpool * buffer_pool;
 

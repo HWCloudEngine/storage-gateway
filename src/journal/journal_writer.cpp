@@ -7,9 +7,7 @@ namespace Journal{
 
 JournalWriter::JournalWriter(std::string rpc_addr,
                                    entry_queue& write_queue,std::condition_variable& cv,
-                                   reply_queue& rep_queue,std::condition_variable& reply_cv,
-                                   shared_ptr<IDGenerator>& idproxy,
-                                   shared_ptr<CacheProxy>& cacheproxy)
+                                   reply_queue& rep_queue,std::condition_variable& reply_cv)
     :rpc_client(grpc::CreateChannel(rpc_addr, grpc::InsecureChannelCredentials())),
     thread_ptr(),
     write_queue_(write_queue),
@@ -19,9 +17,7 @@ JournalWriter::JournalWriter(std::string rpc_addr,
     cur_journal_size(0),
     journal_queue_size(0),
     cv_(cv),
-    reply_cv_(reply_cv),
-    idproxy_(idproxy),
-    cacheproxy_(cacheproxy)
+    reply_cv_(reply_cv)
 {
 }
 
@@ -52,9 +48,15 @@ JournalWriter::~JournalWriter()
 }
 
 
-bool JournalWriter::init(std::string& vol)
+bool JournalWriter::init(std::string& vol,
+                         shared_ptr<IDGenerator> idproxy,
+                         shared_ptr<CacheProxy> cacheproxy)
+ 
 {
     vol_id = vol;
+    idproxy_ = idproxy;
+    cacheproxy_ = cacheproxy;
+
     //todo read from config.ini
     cur_journal_size = 0;
     journal_max_size = 32 * 1024 * 1024;
@@ -121,10 +123,21 @@ void JournalWriter::work()
             }
             fflush(cur_file_ptr);
             
+            log_header_t* lh = entry->header();
+            off_len_t* off_ptr = (off_len_t*)((char*)lh + sizeof(log_header_t));
+
+            std::cout << "add cache type:" << lh->type 
+                      << " count:" << (unsigned)lh->count 
+                      << " off:" << off_ptr->offset 
+                      << " length:" << off_ptr->length <<  std::endl;
+
+            //todo cache entry
             std::string log_file = journal_mnt + *cur_journal;
             off_t log_off = cur_journal_size;
             shared_ptr<ReplayEntry> log_entry(entry);
             cacheproxy_->write(log_file, log_off, log_entry);
+
+            std::cout << "add cache ok" << std::endl;
 
             cur_journal_size = cur_journal_size + write_size;
             success = true;
@@ -212,7 +225,7 @@ bool JournalWriter::open_journal(uint64_t entry_size)
 bool JournalWriter::write_journal_header()
 {
     journal_header_t journal_header;
-    journal_header.version = version;
+    journal_header.version = 0xAA ; //version;
     journal_header.checksum_type = checksum_type;
     if(fwrite(&journal_header,sizeof(journal_header),1,cur_file_ptr) != 1)
     {

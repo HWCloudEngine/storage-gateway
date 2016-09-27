@@ -9,48 +9,44 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <cstdio>
+#include <aio.h>
 #include <errno.h>
 #include <vector>
 #include <boost/bind.hpp>
 #include "journal_replayer.hpp"
 #include "../log/log.h"
 
-namespace Journal
+ssize_t align(ssize_t x, ssize_t unit)
 {
+    return ((x)+(unit)-1) &~((unit)-1);
+}
 
-JournalReplayer::JournalReplayer(const std::string& rpc_addr,
-        std::shared_ptr<CacheProxy>& cache_proxy_ptr,
-        std::shared_ptr<IDGenerator>& id_maker_ptr) :
-        cache_proxy_ptr_(cache_proxy_ptr), id_maker_ptr_(id_maker_ptr)
-{
+namespace Journal {
 
+JournalReplayer::JournalReplayer(const std::string& rpc_addr){ 
     rpc_client_ptr_.reset(
             new ReplayerClient(
                     grpc::CreateChannel(rpc_addr,
                             grpc::InsecureChannelCredentials())));
-
-    //todo:device
-    cache_recover_ptr_.reset(
-            new CacheRecovery("/dev/sdc", rpc_client_ptr_, id_maker_ptr_,
-                    cache_proxy_ptr_));
-
 }
 
-bool JournalReplayer::init(const std::string& vol_id, const std::string& device)
-{
+bool JournalReplayer::init(const std::string& vol_id, 
+                           const std::string& device,
+                           std::shared_ptr<IDGenerator> id_maker_ptr,
+                           std::shared_ptr<CacheProxy> cache_proxy_ptr){
     vol_id_ = vol_id;
     device_ = device;
 
+    id_maker_ptr_    = id_maker_ptr;
+    cache_proxy_ptr_ = cache_proxy_ptr;
+
+    cache_recover_ptr_.reset(new CacheRecovery(device_, 
+                                rpc_client_ptr_, 
+                                id_maker_ptr_,
+                                cache_proxy_ptr_));
     //start recover
     cache_recover_ptr_->start();
 
-    update_ = false;
-    vol_fd_ = open(device_.c_str(), O_WRONLY | O_DIRECT | O_SYNC);
-    if (vol_fd_ < 0)
-    {
-        LOG_ERROR << "open volume failed";
-        return false;
-    }
     //start replay volume
     replay_thread_ptr_.reset(
             new boost::thread(
@@ -63,78 +59,85 @@ bool JournalReplayer::init(const std::string& vol_id, const std::string& device)
     return true;
 }
 
-bool JournalReplayer::deinit()
-{
+bool JournalReplayer::deinit() {
     replay_thread_ptr_->interrupt();
     update_thread_ptr_->interrupt();
     replay_thread_ptr_->join();
     update_thread_ptr_->join();
     cache_recover_ptr_->stop();
-    close(vol_fd_);
     return true;
 }
 
 //update marker
-void JournalReplayer::update_marker()
-{
+void JournalReplayer::update_marker() {
     //todo: read config ini
-    int_least64_t update_interval = 60;
-    while (true)
-    {
-        boost::this_thread::sleep_for(boost::chrono::seconds(update_interval));
-        if (latest_entry_.get() && update_)
-        {
-            std::unique_lock < std::mutex > ul(entry_mutex_);
+    int_least64_t update_interval = 500;
+    while (true) {
+        boost::this_thread::sleep_for(
+                boost::chrono::milliseconds(update_interval));
+        if (latest_entry_.get()) {
+            std::unique_lock<std::mutex> ul(entry_mutex_);
             std::string file_name = latest_entry_->get_log_file();
             off_t off = latest_entry_->get_log_offset();
             journal_marker_.set_cur_journal(file_name.c_str());
             journal_marker_.set_pos(off);
             update_consumer_marker();
-            LOG_INFO << "update marker succeed";
-            update_ = false;
+            LOG_INFO<<"update marker succeed";
         }
     }
 }
 
 //replay volume
-void JournalReplayer::replay_volume()
-{
+void JournalReplayer::replay_volume() {
     //todo: read config ini
-    while (true)
-    {
+    int_least64_t replay_interval = 50;
+    int vol_fd = open(device_.c_str(), O_WRONLY | O_DIRECT | O_SYNC);
+    if (vol_fd < 0) {
+        LOG_ERROR << "open volume failed";
+        return;
+    }
+    LOG_ERROR << "open volume ok" << device_.c_str() << endl;
+
+    while (true) {
+        //todo: config replay_number(current replay only one journal entry)
+        //todo: no cache
         std::shared_ptr<CEntry> entry = cache_proxy_ptr_->pop();
-        if (entry->get_cache_type() == 0)
-        {
+        cout << "replay pop" << endl;
+
+        if (entry->get_cache_type() == 0) {
             //replay from memory
-            LOG_INFO << "replay from memory";
-            bool succeed = process_cache(entry->get_log_entry());
-            if (succeed)
-            {
-                std::unique_lock < std::mutex > ul(entry_mutex_);
+            cout << "replay pop memory 1" << endl;
+            bool succeed = process_cache(vol_fd, entry->get_log_entry());
+            if (true == succeed) {
+                std::unique_lock<std::mutex> ul(entry_mutex_);
                 latest_entry_ = entry;
                 cache_proxy_ptr_->reclaim(entry);
-                update_ = true;
             }
-        } else
-        {
-            //replay from journal file
-            LOG_INFO << "replay from journal file";
+            cout << "replay pop memory 2" << endl;
+        } else {
+            //todo: replay from journal file
+            cout << "replay pop file 1" << endl;
             const std::string file_name = entry->get_log_file();
             const off_t off = entry->get_log_offset();
-            bool succeed = process_file(file_name, off);
-            if (succeed)
-            {
-                std::unique_lock < std::mutex > ul(entry_mutex_);
+            bool succeed = process_file(vol_fd, file_name, off);
+            if (true == succeed) {
+                std::unique_lock<std::mutex> ul(entry_mutex_);
                 latest_entry_ = entry;
                 cache_proxy_ptr_->reclaim(entry);
-                update_ = true;
             }
+            cout << "replay pop file 2" << endl;
         }
+        //todo: wait on condition
+        //boost::this_thread::sleep_for(
+        //        boost::chrono::milliseconds(replay_interval));
     }
+    
+    close(vol_fd);
 }
 
-bool JournalReplayer::process_cache(std::shared_ptr<ReplayEntry> r_entry)
-{
+bool JournalReplayer::process_cache(int vol_fd,
+        std::shared_ptr<ReplayEntry> r_entry) {
+
     /*get header*/
     log_header_t* log_head = r_entry->header();
     off_t header_length = r_entry->header_length();
@@ -143,47 +146,67 @@ bool JournalReplayer::process_cache(std::shared_ptr<ReplayEntry> r_entry)
     //todo: use direct-IO to optimize journal replay
     off_t off_len_start = sizeof(log_header_t);
     off_t body_start = 0;
+    uint8_t count = log_head->count;
+    uint8_t i = 0;
+    std::vector<aiocb> v_waiocb(count);
 
-    while (off_len_start < header_length && body_start < length)
-    {
+    while (i < count && off_len_start < header_length && body_start < length) {
         /*get off len*/
-        off_len_t* off_len =
-                reinterpret_cast<off_len_t *>((char*) r_entry->header()
-                        + off_len_start);
-        uint64_t off = off_len->offset;
-        uint32_t length = off_len->length;
+        off_len_t* off_len = reinterpret_cast<off_len_t *>((char*)r_entry->header()
+                                                            + off_len_start);
+        uint64_t off     = off_len->offset;
+        uint32_t length  = off_len->length;
         const char* data = r_entry->body() + body_start;
 
+#if 1
         //todo: check crc
         void *align_buf = nullptr;
-        int ret = posix_memalign((void**) &align_buf, 512, length);
-        if (ret)
-        {
-            LOG_ERROR << "posix malloc failed ";
-            return false;
+        int ret = posix_memalign((void**)&align_buf, 512, length);
+        if(ret){
+            cout << "posix malloc failed " << endl;
+            return true;
         }
         memcpy(align_buf, data, length);
-        ret = pwrite(vol_fd_, align_buf, length, off);
-        if (align_buf)
-        {
+        ret = pwrite(vol_fd, align_buf, length, off);
+        if(align_buf){
             free(align_buf);
         }
-
+#else
+        //replay current data
+        aiocb w_aiocb = v_waiocb[i];
+        bzero(&w_aiocb, sizeof(w_aiocb));
+        w_aiocb.aio_fildes = vol_fd;
+        w_aiocb.aio_buf = (void*)data;
+        w_aiocb.aio_offset = off;
+        w_aiocb.aio_nbytes = length;
+        aio_write(&w_aiocb);
+#endif
         off_len_start += sizeof(off_len_t);
         body_start += length;
+        ++i;
     }
-
-    LOG_INFO << "replay succeed";
+   
+    return true;
+    //check replay finished
+    cout << "replay succeed 1" << endl;
+    for (auto w_aiocb : v_waiocb) {
+        while (aio_error(&w_aiocb) == EINPROGRESS)
+            ;
+        if (aio_return(&w_aiocb) != 0) {
+            cout<< "data replay failed" << endl;
+            return false;
+        }
+    }
+    cout << "replay succeed 2" << endl;
     return true;
 }
 
 //todo: unify this function, get ReplayEntry from journal file
-bool JournalReplayer::process_file(const std::string& file_name, off_t off)
-{
+bool JournalReplayer::process_file(int vol_fd, const std::string& file_name,
+        off_t off) {
     int src_fd = open(file_name.c_str(), O_RDONLY);
-    if (src_fd < 0)
-    {
-        LOG_ERROR << "open journal file failed";
+    if (src_fd < 0) {
+        LOG_ERROR<< "open journal file failed";
         return false;
     }
 
@@ -193,9 +216,8 @@ bool JournalReplayer::process_file(const std::string& file_name, off_t off)
     memset(&log_head, 0, sizeof(log_head));
     size_t head_size = sizeof(log_head);
     int ret = read(src_fd, &log_head, head_size);
-    if (ret != head_size)
-    {
-        LOG_ERROR << "read log head failed ret=" << ret;
+    if (ret != head_size) {
+        LOG_ERROR<< "read log head failed ret=" << ret;
         close(src_fd);
         return false;
     }
@@ -204,66 +226,79 @@ bool JournalReplayer::process_file(const std::string& file_name, off_t off)
     size_t off_len_size = log_head.count * sizeof(off_len_t);
     off_len_t* off_len = (off_len_t*) malloc(off_len_size);
     ret = read(src_fd, off_len, off_len_size);
-    if (ret != off_len_size)
-    {
-        LOG_ERROR << "read log off len failed ret=" << ret;
+    if (ret != off_len_size) {
+        LOG_ERROR<< "read log off len failed ret=" << ret;
         close(src_fd);
         return false;
     }
 
     /*read data and replay data*/
+    char* data = nullptr;
     uint8_t count = log_head.count;
-    std::vector < aiocb > v_waiocb(count);
-    for (int i = 0; i < log_head.count; i++)
-    {
+    std::vector<aiocb> v_waiocb(count);
+    for (int i = 0; i < log_head.count; i++) {
         uint64_t off = off_len[i].offset;
         uint32_t length = off_len[i].length;
-        char* data = (char*) malloc(sizeof(char) * length);
+        data = (char*) malloc(sizeof(char) * length);
         ret = read(src_fd, data, length);
-        if (ret != length)
-        {
-            LOG_ERROR << "read data failed ret=" << ret;
+        if (ret != length) {
+            LOG_ERROR<< "read data failed ret=" << ret;
             close(src_fd);
             return false;
         }
 
         //todo: check crc
+#if 1
         void *align_buf = nullptr;
-        int ret = posix_memalign((void**) &align_buf, 512, length);
-        if (ret)
-        {
-            LOG_ERROR << "posix malloc failed ";
-            close(src_fd);
-            return false;
+        int ret = posix_memalign((void**)&align_buf, 512, length);
+        if(ret){
+            cout << "posix malloc failed " << endl;
+            return true;
         }
         memcpy(align_buf, data, length);
 
-        ret = pwrite(vol_fd_, align_buf, length, off);
-        if (align_buf)
-        {
+        ret = pwrite(vol_fd, align_buf, length, off);
+        if(align_buf){
             free(align_buf);
         }
-        if (data)
-        {
-            free(data);
-        }
+#else
+        //replay current data
+        aiocb w_aiocb = v_waiocb[i];
+        bzero(&w_aiocb, sizeof(w_aiocb));
+        w_aiocb.aio_fildes = vol_fd;
+        w_aiocb.aio_buf = (void*)data;
+        w_aiocb.aio_offset = off;
+        w_aiocb.aio_nbytes = length;
+        aio_write(&w_aiocb);
+#endif
     }
     close(src_fd);
-    if (off_len)
-    {
+
+#if 0
+    //check replay finished
+    for (auto w_aiocb : v_waiocb) {
+        while (aio_error(&w_aiocb) == EINPROGRESS)
+            ;
+        if (aio_return(&w_aiocb) != 0) {
+            LOG_ERROR<< "data replay failed";
+            return false;
+        }
+    }
+#endif
+    if(off_len){
         free(off_len);
     }
-    LOG_INFO << "replay succeed";
+    if(data){
+        free(data);
+    }
+    LOG_INFO<< "replay succeed";
     return true;
 }
 
-bool JournalReplayer::update_consumer_marker()
-{
-    if (rpc_client_ptr_->UpdateConsumerMarker(journal_marker_, vol_id_))
-    {
+bool JournalReplayer::update_consumer_marker() {
+    if (rpc_client_ptr_->UpdateConsumerMarker(journal_marker_, vol_id_)) {
         return true;
-    } else
-    {
+    } else {
         return false;
     }
 }
