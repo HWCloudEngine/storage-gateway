@@ -8,8 +8,10 @@
 #include <map>
 #include <chrono>
 #include <time.h>
+#include <thread>
 #include <boost/bind.hpp>
 #include <boost/uuid/uuid.hpp>
+#include <boost/uuid/uuid_io.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/lexical_cast.hpp>
 #include "ceph_s3_lease.h"
@@ -25,8 +27,7 @@ RESULT CephS3LeaseClient::init(const char* access_key, const char* secret_key,
     expire_window_ = expire_window;
     validity_window_ = validity_window;
     prefix_ = "/leases/";
-    uuid_ = boost::lexical_cast<std::string>(
-            uuid(boost::uuids::random_generator()()));
+    uuid_ = boost::uuids::to_string(boost::uuids::uuid(boost::uuids::random_generator()()));
 
     if (acquire_lease()) {
         renew_thread_ptr_.reset(
@@ -98,7 +99,7 @@ RESULT CephS3LeaseServer::init(const char* access_key, const char* secret_key,
 void CephS3LeaseServer::gc_task() {
     while (true) {
         std::list<std::string> leases;
-        RESULT result = s3Api_ptr_->list_objects(NULL, NULL, NULL, -1, leases);
+        RESULT result = s3Api_ptr_->list_objects(NULL, NULL, NULL, -1, &leases);
         if (result == DRS_OK) {
             for (auto lease : leases) {
                 std::map<std::string, std::string> metadata;
