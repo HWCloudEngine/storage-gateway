@@ -31,12 +31,12 @@ class JournalWriter
 public:
     explicit JournalWriter(std::string rpc_addr,
                            entry_queue& write_queue,std::condition_variable& cv,
-                           reply_queue& rep_queue,std::condition_variable& reply_cv,
-                           shared_ptr<IDGenerator>& idproxy,
-                           shared_ptr<CacheProxy>& cacheproxy);
+                           reply_queue& rep_queue,std::condition_variable& reply_cv);
     virtual ~JournalWriter();
     void work();
-    bool init(std::string& vol);
+    bool init(std::string& vol, 
+              shared_ptr<IDGenerator> id_proxy, 
+              shared_ptr<CacheProxy> cacheproxy);
     bool deinit();
     //The following two function must be called in another thread,can't call in write thread
     //The write thread and another thread are single consumer/single producer module,communicate with lockfree queue
@@ -49,8 +49,8 @@ private:
     bool write_journal_header();
     void send_reply(ReplayEntry* entry,bool success);
 
-    shared_ptr<IDGenerator>& idproxy_;
-    shared_ptr<CacheProxy>& cacheproxy_;
+    shared_ptr<IDGenerator> idproxy_;
+    shared_ptr<CacheProxy> cacheproxy_;
 
     std::mutex mtx_;
     std::condition_variable& cv_;

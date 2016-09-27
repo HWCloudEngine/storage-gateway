@@ -10,7 +10,6 @@
 #include <sys/types.h>
 #include <cstdio>
 #include <errno.h>
-#include <vector>
 #include <boost/bind.hpp>
 #include "journal_replayer.hpp"
 #include "../log/log.h"
@@ -18,29 +17,29 @@
 namespace Journal
 {
 
-JournalReplayer::JournalReplayer(const std::string& rpc_addr,
-        std::shared_ptr<CacheProxy>& cache_proxy_ptr,
-        std::shared_ptr<IDGenerator>& id_maker_ptr) :
-        cache_proxy_ptr_(cache_proxy_ptr), id_maker_ptr_(id_maker_ptr)
+JournalReplayer::JournalReplayer(const std::string& rpc_addr)
 {
 
     rpc_client_ptr_.reset(
             new ReplayerClient(
                     grpc::CreateChannel(rpc_addr,
                             grpc::InsecureChannelCredentials())));
-
-    //todo:device
-    cache_recover_ptr_.reset(
-            new CacheRecovery("/dev/sdc", rpc_client_ptr_, id_maker_ptr_,
-                    cache_proxy_ptr_));
-
 }
 
-bool JournalReplayer::init(const std::string& vol_id, const std::string& device)
-{
+bool JournalReplayer::init(const std::string& vol_id, 
+                           const std::string& device,
+                           std::shared_ptr<IDGenerator> id_maker_ptr,
+                           std::shared_ptr<CacheProxy> cache_proxy_ptr){
     vol_id_ = vol_id;
     device_ = device;
 
+    id_maker_ptr_    = id_maker_ptr;
+    cache_proxy_ptr_ = cache_proxy_ptr;
+
+    cache_recover_ptr_.reset(new CacheRecovery(device_, 
+                                rpc_client_ptr_, 
+                                id_maker_ptr_,
+                                cache_proxy_ptr_));
     //start recover
     cache_recover_ptr_->start();
 
@@ -213,7 +212,6 @@ bool JournalReplayer::process_file(const std::string& file_name, off_t off)
 
     /*read data and replay data*/
     uint8_t count = log_head.count;
-    std::vector < aiocb > v_waiocb(count);
     for (int i = 0; i < log_head.count; i++)
     {
         uint64_t off = off_len[i].offset;

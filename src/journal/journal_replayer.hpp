@@ -22,10 +22,12 @@ namespace Journal
 class JournalReplayer: private boost::noncopyable
 {
 public:
-    explicit JournalReplayer(const std::string& rpc_addr,
-            std::shared_ptr<CacheProxy>& cache_proxy_ptr,
-            std::shared_ptr<IDGenerator>& id_maker_ptr);
-    bool init(const std::string& vol_id, const std::string& device);
+    explicit JournalReplayer(const std::string& rpc_addr); 
+
+    bool init(const std::string& vol_id, 
+              const std::string& device,
+              std::shared_ptr<IDGenerator> id_maker_ptr,
+              std::shared_ptr<CacheProxy> cache_proxy_ptr);
     bool deinit();
 private:
     void replay_volume();

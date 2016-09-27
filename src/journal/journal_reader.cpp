@@ -6,12 +6,10 @@ namespace Journal{
     
 JournalReader::JournalReader(reply_queue& reply_queue,
                              condition_variable& reply_queue_cv,
-                             BlockingQueue<struct IOHookRequest>& read_queue,
-                             shared_ptr<CacheProxy>& cacheproxy)
+                             BlockingQueue<struct IOHookRequest>& read_queue)
     :m_reply_queue(reply_queue),
      m_reply_queue_cv(reply_queue_cv), 
      m_read_queue(read_queue), 
-     m_cacheproxy(cacheproxy),
      m_run(false)
 {
     LOG_INFO << "JournalReader create";
@@ -23,8 +21,9 @@ JournalReader::~JournalReader()
 }
 
 
-bool JournalReader::init()
+bool JournalReader::init(shared_ptr<CacheProxy> cacheproxy)
 {
+   m_cacheproxy = cacheproxy;
    m_run = true;
    m_thread.reset(new thread(std::bind(&JournalReader::work, this)));
    return true;
