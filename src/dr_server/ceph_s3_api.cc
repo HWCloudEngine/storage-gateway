@@ -110,7 +110,8 @@ static S3Status listBucketCallback(int isTruncated, const char *nextMarker,
         response->nextMarker[0] = 0;
     }
     std::list<string>* list = (std::list<string>*)(response->pdata);
-    LOG_DEBUG << "list objects:";
+    LOG_DEBUG << "list objects: " << contentsCount 
+        << ",commonPrefixesCnt: " << commonPrefixesCount;
     for (int i = 0; i < contentsCount; i++) {
         const S3ListBucketContent *content = &(contents[i]);
         if(response->endMarker[0] != 0){
@@ -125,6 +126,12 @@ static S3Status listBucketCallback(int isTruncated, const char *nextMarker,
         LOG_DEBUG << content->key;
     }
     response->keyCount += contentsCount;
+    for (int i = 0; i < commonPrefixesCount; i++) {
+        string key(commonPrefixes[i]);
+        list->push_back(key);
+        LOG_DEBUG << key;
+    }
+    response->keyCount += commonPrefixesCount;
     return S3StatusOK;
 }
 
@@ -288,7 +295,7 @@ RESULT CephS3Api::delete_object(const char* key) {
 }
 
 RESULT CephS3Api::list_objects(const char*prefix, const char*marker, const char* end_marker,
-            int maxkeys, std::list<string>* list) {
+            int maxkeys, std::list<string>* list,const char* delimiter) {
     S3ListBucketHandler listBucketHandler =
     {
         responseHandler,
@@ -313,7 +320,7 @@ RESULT CephS3Api::list_objects(const char*prefix, const char*marker, const char*
         response.isTruncated = 0;
         do {
             S3_list_bucket(&bucketContext,prefix,response.nextMarker,
-                NULL/*delimiter*/,maxkeys,NULL,&listBucketHandler,&response);
+                delimiter,maxkeys,NULL,&listBucketHandler,&response);
         } while(S3_status_is_retryable(response.status)
                 && should_retry(response));
         if(response.status != S3StatusOK)

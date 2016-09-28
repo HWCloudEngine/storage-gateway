@@ -8,6 +8,7 @@
 * Description:
 * 
 ***********************************************/
+#include <algorithm>    // std::for_each
 #include <iostream>
 #include <unistd.h>
 #include <memory>
@@ -391,3 +392,129 @@ RESULT CephS3Meta::get_consumable_journals(const string& uuid,const string& vol_
     return DRS_OK;
 }
 
+// gc manager
+RESULT CephS3Meta::get_sealed_and_consumed_journals(const string& vol_id,
+        const int& limit, std::list<string>& list){
+    JournalMarker marker;
+    string end_marker;
+    string key = assemble_journal_marker_key(vol_id,REPLAYER);
+    unique_ptr<string> p(new string());
+    RESULT res = s3Api_ptr_->get_object(key.c_str(),p.get());
+    if(DRS_OK != res){
+        if(NO_SUCH_KEY == res)
+            return DRS_OK; // no journal
+        else
+            return INTERNAL_ERROR;
+    }    
+    if(false==marker.ParseFromString(*(p.get()))){
+        LOG_ERROR << "parser from string failed!";
+        return INTERNAL_ERROR;
+    }
+    end_marker = marker.cur_journal();
+    p->clear();
+    marker.Clear();
+    key = assemble_journal_marker_key(vol_id,REPLICATER);
+    res = s3Api_ptr_->get_object(key.c_str(),p.get());
+    if(DRS_OK != res){
+        if(NO_SUCH_KEY == res)
+            return DRS_OK; // no journal
+        else
+            return INTERNAL_ERROR;
+    } 
+    if(false==marker.ParseFromString(*(p.get()))){
+        LOG_ERROR << "parser from string failed!";
+        return INTERNAL_ERROR;
+    }
+    end_marker = end_marker.compare(marker.cur_journal()) < 0 ? 
+        end_marker : marker.cur_journal();  // set the lower journal key as end_marker
+    string prefix = g_key_prefix+vol_id;
+    return s3Api_ptr_->list_objects(prefix.c_str(),nullptr,end_marker.c_str(),
+        limit,&list);    
+}
+RESULT CephS3Meta::recycle_journals(const string& vol_id,
+        const std::list<string>& journals){
+    RESULT res;
+    for(auto it=journals.begin();it!=journals.end();it++){
+        string value;
+        res = s3Api_ptr_->get_object(it->c_str(),&value);
+        if(res != DRS_OK){
+            LOG_WARN << " recycle journal " << *it << " failed.";
+            continue;
+        }
+        string r_key = construct_recyled_index(*it);
+        res = s3Api_ptr_->put_object(r_key.c_str(),&value,nullptr);
+        DR_ASSERT(DRS_OK == res);
+        string s_key = construct_sealed_index(*it);
+        s3Api_ptr_->delete_object(s_key.c_str());
+        res = s3Api_ptr_->delete_object(it->c_str());
+        DR_ASSERT(DRS_OK == res);
+    }
+    return res;
+}
+// TODO: recycled_journals delete or reuse
+RESULT CephS3Meta::get_recycled_journals(const string& vol_id,
+        const int& limit, std::list<string>& list){
+    return INTERNAL_ERROR;
+}
+RESULT CephS3Meta::delete_journals(const string& vol_id,
+        const std::list<string>& journals){
+    return INTERNAL_ERROR;
+}
+RESULT CephS3Meta::get_producer_id(const string& vol_id,
+        std::list<string>& list){
+    string prefix = g_writer_prefix+vol_id+"/";
+    RESULT res = s3Api_ptr_->list_objects(prefix.c_str(),nullptr,nullptr,0,&list,"/");
+    if(DRS_OK != res){
+        LOG_ERROR << "list objects failed:" << prefix;
+        return res;
+    }
+    if(list.empty())
+        return DRS_OK;
+    std::for_each(list.begin(),list.end(),[](string& s){
+        // get "/uuid/" in "/sessions/writer/vol/uuid/"
+        size_t end = s.find_last_of('/');
+        size_t pos = s.find_last_of('/',end-1);
+        s = s.substr(pos+1,end-pos-1);// remove '/' at start and end
+    });
+    return DRS_OK;
+}
+RESULT CephS3Meta::seal_opened_journals(const string& vol_id,
+        const string& uuid){
+    std::list<string> list;
+    string prefix = g_writer_prefix+vol_id+"/"+uuid+"/";
+    RESULT res = s3Api_ptr_->list_objects(prefix.c_str(),nullptr,nullptr,0,&list);
+    if(DRS_OK != res){
+        LOG_ERROR << "list objects failed:" << prefix;
+        return res;
+    }
+    if(list.empty())
+        return DRS_OK;
+    std::for_each(list.begin(),list.end(),[=](string& s){
+        //replace "/sessions/writer/vol-id/uuid/" with "/journals/vol-id/"
+        size_t pos = s.find_last_of('/');
+        s = s.substr(pos+1);
+        s = g_key_prefix + vol_id + "/" + s;
+    });
+    string keys_a[list.size()];
+    std::copy(list.begin(),list.end(),keys_a);
+    return seal_volume_journals(uuid,vol_id,keys_a,list.size());
+}
+RESULT CephS3Meta::list_volumes(std::list<string>& list){
+    string prefix = g_writer_prefix;
+    RESULT res = s3Api_ptr_->list_objects(prefix.c_str(),nullptr,nullptr,10,&list,"/");
+    if(DRS_OK != res){
+        LOG_ERROR << "list objects failed:" << prefix;
+        return res;
+    }
+    LOG_DEBUG << "list volumes :" << list.size();
+    if(list.empty())
+        return DRS_OK;
+    std::for_each(list.begin(),list.end(),[](string& s){
+        // get "/vol-id/" in "/sessions/writer/vol-id/"
+        size_t end = s.find_last_of('/');
+        size_t pos = s.find_last_of('/',end-1);
+        s = s.substr(pos+1,end-pos-1);// remove '/' at start and end
+    });
+    return DRS_OK;
+    return DRS_OK;
+}
