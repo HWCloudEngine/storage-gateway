@@ -16,6 +16,7 @@
 #include "ceph_s3_meta.h"
 #include "log/log.h"
 #include "common/config_parser.h"
+#include "gc_task.h"
 using grpc::Server;
 using grpc::ServerBuilder;
 using grpc::ServerContext;
@@ -37,7 +38,7 @@ void RunServer() {
     parser.reset();
     DR_ASSERT(type.compare("ceph_s3")==0);
     std::shared_ptr<CephS3Meta> meta(new CephS3Meta());
-
+    GCTask::instance().init(meta);
     WriterServiceImpl writerSer(meta);
     ConsumerServiceImpl consumerSer(meta);
     // TODO: use async streaming service later
