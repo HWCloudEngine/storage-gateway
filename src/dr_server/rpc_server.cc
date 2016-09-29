@@ -67,7 +67,7 @@ void RunServer() {
 int main(int argc, char** argv) {
     std::string file="drserver.log";
     DRLog::log_init(file);
-    DRLog::set_log_level(debug);
+    DRLog::set_log_level(SG_DEBUG);
     // TODO:check and make sure ceph file system is established and mounted
     RunServer();
     return 0;

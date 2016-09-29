@@ -19,12 +19,12 @@
 // define severity levels
 typedef enum severity_level
 {
-    trace,
-    debug,
-    info,
-    warning,
-    err,
-    fatal
+    SG_TRACE,
+    SG_DEBUG,
+    SG_INFO,
+    SG_WARN,
+    SG_ERR,
+    SG_FATAL
 }severity_level_t;
 
 extern void print_backtrace();
@@ -46,12 +46,12 @@ public:
         (::boost::log::keywords::severity = log_level) \
     )
 
-#define LOG_FATAL BOOST_SLOG(fatal)
-#define LOG_ERROR BOOST_SLOG(err)
-#define LOG_WARN BOOST_SLOG(warning)
-#define LOG_INFO BOOST_SLOG(info)
-#define LOG_DEBUG BOOST_SLOG(debug)
-#define LOG_TRACE BOOST_SLOG(trace)
+#define LOG_FATAL BOOST_SLOG(SG_FATAL)
+#define LOG_ERROR BOOST_SLOG(SG_ERR)
+#define LOG_WARN BOOST_SLOG(SG_WARN)
+#define LOG_INFO BOOST_SLOG(SG_INFO)
+#define LOG_DEBUG BOOST_SLOG(SG_DEBUG)
+#define LOG_TRACE BOOST_SLOG(SG_TRACE)
 #define DR_ERROR_OCCURED() \
     do { \
         LOG_ERROR << "Internal error occured!"; \
