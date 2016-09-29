@@ -51,6 +51,8 @@ S3Status responsePropertiesCallback(
 }
 static void responseCompleteCallback(S3Status status,
         const S3ErrorDetails *error, void *callbackData){
+    if(nullptr == callbackData)
+        return;
     s3_call_response_t* response = (s3_call_response_t*) callbackData;
     response->status = status;
     if(status != S3StatusOK && error != nullptr && error->message){
@@ -143,6 +145,7 @@ CephS3Api::CephS3Api(const char* access_key, const char* secret_key, const char*
         LOG_FATAL << "Failed to initialize libs3:: " << S3_get_status_name(status);
         exit(EXIT_FAILURE);
     }
+    create_bucket_if_not_exists(bucket_name);
 }
 CephS3Api::~CephS3Api() {
     S3_deinitialize();
