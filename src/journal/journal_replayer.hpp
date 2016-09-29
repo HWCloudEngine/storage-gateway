@@ -46,10 +46,9 @@ private:
     std::shared_ptr<ReplayerClient> rpc_client_ptr_;
     std::unique_ptr<boost::thread> replay_thread_ptr_;
     std::unique_ptr<boost::thread> update_thread_ptr_;
-    std::shared_ptr<CacheProxy>& cache_proxy_ptr_;
-    std::shared_ptr<IDGenerator>& id_maker_ptr_;
-    std::shared_ptr<CacheRecovery> cache_recover_ptr_
-    { nullptr };
+    std::shared_ptr<CacheProxy> cache_proxy_ptr_;
+    std::shared_ptr<IDGenerator> id_maker_ptr_;
+    std::shared_ptr<CacheRecovery> cache_recover_ptr_;
 };
 
 }
