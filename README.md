@@ -3,31 +3,42 @@
 1. deploy ceph environment  
 `to be supplemented`  
 2. compile and install grpc and protobuf  
-`apt-get install build-essential autoconf libtool`  
+`apt-get update`  
+`apt-get install build-essential autoconf libtool git unzip pkg-config`  
 `git clone -b $(curl -L http://grpc.io/release) https://github.com/grpc/grpc`  
 `cd grpc`  
 `git submodule update --init`  
-`cd third_party/protobuf/`  
 `make -j8`  
 `make install`  
-`cd ../..`  
+`cd third_party/protobuf`  
 `make -j8`  
 `make install`  
+`cd ../../`  
+`ldconfig`  
 3. compile storage-gateway source code  
-`apt-get update`  
-`apt-get install libboost-all-dev`  
+`apt-get install libboost-all-dev libcurl3-nss`  
 `git clone https://github.com/Hybrid-Cloud/storage-gateway.git`  
 `cd storage-gateway`  
 `./build.sh`  
 4. compile tgt source code  
-`apt-get install tgt`  
-`git clone https://github.com/Hybrid-Cloud/tgt.git`  
+`apt-get install tgt xsltproc`  
+`apt-get install lttng-tools`  
+`apt-get install lttng-modules-dkms`  
+`apt-get install liblttng-ust-dev`  
+`git clone -b iohook https://github.com/Hybrid-Cloud/tgt.git`  
 `cd tgt`  
 `make -j8`  
 `make install`  
 5. prepare cephfs direcotry to store journal files  
+prepare mount point  
 `mkdir -p /mnt/cephfs`  
-`mount -t ceph ceph_fs_ip:ceph_fs_port:/ /mnt/cephfs -o name=admin secret=admin_key`  
+`mkdir -p /mnt/cephfs/journals`  
+create cephfs  
+`ceph osd pool create cephfs_data 128`  
+`ceph osd pool create cephfs_metadata 128`  
+`ceph fs new cephfs cephfs_metadata cephfs_data`  
+mount cephfs on mount point, `admin_key` get from `/etc/ceph/ceph.client.admin.keyring`  
+`mount -t ceph ceph_fs_ip:ceph_fs_port:/ /mnt/cephfs -o name=admin,secret=admin_key`  
 6. configure storage gateway ini file  
 create a S3 user and generate `access_key` and `secret_key` for later use  
 `radosgw-admin user create --uid={username}`  
@@ -47,6 +58,7 @@ create and edit /etc/storage-gateway/config.ini
 `server_port=50051`  
 7. start rpc server, which manage all journal files meta data  
 `cd storage-gateway/src/dr_server`  
+`cp storage-gateway/lib/libs3.so /lib/libs3.so.trunk0`  
 `./rpc_server &`  
 8. start journal server  
 `cd storage-gateway/src/journal_writer`  
@@ -56,10 +68,14 @@ create and edit /etc/tgt/targets.conf
 `include /etc/tgt/config.d/*conf`  
 `<target iqn.2016.xxx.com.test>`  
 `bs_type hijacker`  
-`backing-store /dev/sdc`  
+`bsopts "host=journal_server_ip\;port=journal_server_port\;volume=volume_name\;device=block_device_path"`  
+`backing-store block_device_path`  
 `</target>`  
 10. start iscsi target tgtd  
 `service tgt start`  
+exceptions on linux kernel version later than 4.0, solution as follow:  
+`/etc/init.d/tgt` script no work, replace it with tgt scrpit provided with tgt.1.0.63  
+use systemd to control tgt service `systemctl start|stop|status tgt.service`  
 11. start iscsi initiator on another host  
 install iscsi initiator  
 `apt-get install open-iscsi`  
