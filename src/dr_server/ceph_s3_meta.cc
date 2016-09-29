@@ -231,7 +231,10 @@ CephS3Meta::CephS3Meta() {
 CephS3Meta::~CephS3Meta() {
 }
 RESULT CephS3Meta::init() {   
-    return init_cephs3_api(s3Api_ptr_,mount_path_);
+    RESULT res = init_cephs3_api(s3Api_ptr_,mount_path_);
+    if(DRS_OK != res)
+        return res;
+    return mkdir_if_not_exist((mount_path_+g_key_prefix).c_str(),S_IRWXG|S_IRWXU|S_IRWXO);
 }
 
 RESULT CephS3Meta::create_journals(const string& uuid, const string& vol_id,
@@ -503,7 +506,6 @@ RESULT CephS3Meta::list_volumes(std::list<string>& list){
         LOG_ERROR << "list objects failed:" << prefix;
         return res;
     }
-    LOG_DEBUG << "list volumes :" << list.size();
     if(list.empty())
         return DRS_OK;
     std::for_each(list.begin(),list.end(),[](string& s){

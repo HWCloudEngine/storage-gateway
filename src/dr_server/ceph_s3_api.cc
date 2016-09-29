@@ -150,6 +150,7 @@ CephS3Api::CephS3Api(const char* access_key, const char* secret_key, const char*
         LOG_FATAL << "Failed to initialize libs3:: " << S3_get_status_name(status);
         exit(EXIT_FAILURE);
     }
+    create_bucket_if_not_exists(bucket_name);
 }
 CephS3Api::~CephS3Api() {
     S3_deinitialize();
