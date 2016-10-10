@@ -49,6 +49,7 @@ JournalWriter::~JournalWriter()
 
 
 bool JournalWriter::init(std::string& vol,
+                         ConfigParser& conf,
                          shared_ptr<IDGenerator> idproxy,
                          shared_ptr<CacheProxy> cacheproxy)
  
@@ -56,22 +57,23 @@ bool JournalWriter::init(std::string& vol,
     vol_id = vol;
     idproxy_ = idproxy;
     cacheproxy_ = cacheproxy;
-
-    //todo read from config.ini
+    running_flag = true;
     cur_journal_size = 0;
-    journal_max_size = 32 * 1024 * 1024;
-    journal_mnt = "/mnt/cephfs";
     write_seq = 0;
-    write_timeout = 2;
-    version = 0;
-    checksum_type = CRC_32;
+
+    std::string mnt = "/mnt/cephfs";
+    config.journal_max_size = conf.get_default<int>("journal_writer.journal_max_size",32 * 1024 * 1024);
+    config.journal_mnt = conf.get_default("journal_writer.mnt",mnt);
+    config.write_timeout = conf.get_default("journal_writer.write_timeout",2);
+    config.version = conf.get_default("journal_writer.version",0);
+    config.checksum_type = (checksum_type_t)conf.get_default("pre_processor.checksum_type",0);
     thread_ptr.reset(new boost::thread(boost::bind(&JournalWriter::work, this)));
     return true;
 }
 
 bool JournalWriter::deinit()
 {
-    thread_ptr->interrupt();
+    running_flag = false;
     thread_ptr->join();
 
     return true;
@@ -87,10 +89,12 @@ void JournalWriter::work()
     while(true)
     {
         std::unique_lock<std::mutex> lk(mtx_);
-        while(write_queue_.empty())
+        while(running_flag && write_queue_.empty())
         {
-            cv_.wait(lk);
+            cv_.wait_for(lk,std::chrono::seconds(2));
         }
+        if (running_flag == false)
+            return;
         if(!write_queue_.pop(entry))
         {
             LOG_ERROR << "write_queue pop failed";
@@ -105,7 +109,7 @@ void JournalWriter::work()
         time(&start);
         time(&end);
         entry_size = entry->length();
-        while(!success && (difftime(end,start) < write_timeout))
+        while(!success && (difftime(end,start) < config.write_timeout))
         {
             if(!open_journal(entry_size))
             {
@@ -123,7 +127,7 @@ void JournalWriter::work()
             }
             fflush(cur_file_ptr);
             
-            std::string log_file = journal_mnt + *cur_journal;
+            std::string log_file = config.journal_mnt + *cur_journal;
             off_t log_off = cur_journal_size;
             shared_ptr<ReplayEntry> log_entry(entry);
             cacheproxy_->write(log_file, log_off, log_entry);
@@ -173,7 +177,7 @@ bool JournalWriter::open_journal(uint64_t entry_size)
             return false;
     }
 
-    if((entry_size + cur_journal_size) > journal_max_size)
+    if((entry_size + cur_journal_size) > config.journal_max_size)
     {
         if(!seal_queue.push(cur_journal))
         {
@@ -193,7 +197,7 @@ bool JournalWriter::open_journal(uint64_t entry_size)
     
     if (NULL == cur_file_ptr)
     {
-        std::string tmp = journal_mnt + *cur_journal;
+        std::string tmp = config.journal_mnt + *cur_journal;
         cur_file_ptr = fopen(tmp.c_str(), "ab+");
         if(NULL == cur_file_ptr)
         {
@@ -214,8 +218,8 @@ bool JournalWriter::open_journal(uint64_t entry_size)
 bool JournalWriter::write_journal_header()
 {
     journal_header_t journal_header;
-    journal_header.version = version;
-    journal_header.checksum_type = checksum_type;
+    journal_header.version = config.version;
+    journal_header.checksum_type = config.checksum_type;
     if(fwrite(&journal_header,sizeof(journal_header),1,cur_file_ptr) != 1)
     {
         LOG_ERROR << "write journal header faied,journal:" << cur_journal << "errno:" << strerror(errno); 

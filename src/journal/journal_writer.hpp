@@ -5,6 +5,8 @@
 #include <cstdio>
 #include <mutex>
 #include <condition_variable>
+#include <chrono>
+
 #include <time.h>
 #include <atomic> 
 
@@ -19,11 +21,21 @@
 #include "message.hpp"
 #include "replay_entry.hpp"
 #include "../rpc/clients/writer_client.hpp"
+#include "../common/config_parser.h"
+
 
 #include "seq_generator.hpp"
 #include "cache/cache_proxy.h"
 
 namespace Journal{
+
+struct JournalWriterConf{
+    uint64_t journal_max_size;
+    std::string journal_mnt;
+    double write_timeout;
+    int32_t version;
+    checksum_type_t checksum_type;
+};
 
 class JournalWriter
     :private boost::noncopyable
@@ -35,6 +47,7 @@ public:
     virtual ~JournalWriter();
     void work();
     bool init(std::string& vol, 
+              ConfigParser& conf,
               shared_ptr<IDGenerator> id_proxy, 
               shared_ptr<CacheProxy> cacheproxy);
     bool deinit();
@@ -65,15 +78,13 @@ private:
     FILE* cur_file_ptr;
     std::string *cur_journal;
     uint64_t cur_journal_size;
-    uint64_t journal_max_size;
-    std::atomic_int journal_queue_size;
-    
-    std::string vol_id;
-    std::string journal_mnt;
     uint64_t write_seq;
-    double write_timeout;
-    int32_t version;
-    checksum_type_t checksum_type;
+    std::atomic_int journal_queue_size;
+    std::string vol_id;
+    
+    struct JournalWriterConf config;
+
+    bool running_flag;
 };
 
 }

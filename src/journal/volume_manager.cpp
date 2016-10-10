@@ -34,8 +34,8 @@ Volume::~Volume()
 }
 bool Volume::init()
 {
-    //todo read thread_num from config file
-    int thread_num = 1;
+    ConfigParser conf(DEFAULT_CONFIG_FILE);
+    int thread_num = conf.get_default("pre_processor.thread_num",1);
     buffer_pool = nedalloc::nedcreatepool(BUFFER_POOL_SIZE,thread_num+2);
     if(buffer_pool == NULL)
     {
@@ -47,7 +47,7 @@ bool Volume::init()
         LOG_ERROR << "init connection failed,vol_id:" << vol_id_;
         return false;
     }
-    if(!pre_processor.init(buffer_pool,thread_num))
+    if(!pre_processor.init(buffer_pool,conf))
     {
         LOG_ERROR << "init pre_processor failed,vol_id:"<< vol_id_;
         return false;
@@ -56,7 +56,7 @@ bool Volume::init()
     idproxy.reset(new IDGenerator());
     cacheproxy.reset(new CacheProxy(vol_path_, idproxy));
 
-    if(!writer.init(vol_id_, idproxy, cacheproxy))
+    if(!writer.init(vol_id_,conf, idproxy, cacheproxy))
     {
         LOG_ERROR << "init journal writer failed,vol_id:" << vol_id_;
         return false;
