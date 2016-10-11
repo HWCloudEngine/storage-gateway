@@ -40,7 +40,7 @@ mount cephfs on mount point, `admin_key` get from `/etc/ceph/ceph.client.admin.k
 `mount -t ceph ceph_fs_ip:ceph_fs_port:/ /mnt/cephfs -o name=admin,secret=admin_key`  
 6. configure storage gateway ini file  
 create a S3 user and generate `access_key` and `secret_key` for later use  
-`radosgw-admin user create --uid={username}`  
+`radosgw-admin user create --uid={username} --display-name={display-name}`  
 create and edit /etc/storage-gateway/config.ini  
 `[journal_meta_storage]`  
 `type=ceph_s3`  
@@ -66,7 +66,7 @@ create and edit /etc/storage-gateway/config.ini
 create and edit /etc/tgt/targets.conf  
 `include /etc/tgt/config.d/*conf`  
 `<target iqn.2016.xxx.com.test>`  
-`bs_type hijacker`  
+`bs-type hijacker`  
 `bsopts "host=journal_server_ip\;port=journal_server_port\;volume=volume_name\;device=block_device_path"`  
 `backing-store block_device_path`  
 `</target>`  
@@ -83,7 +83,7 @@ edit /etc/iscsi/iscsid.conf and change following
 iscsi initiator discover iscsi target  
 `iscsiadm -m discovery -t st -p target_host_ip`  
 iscsi initiator login  
-`iscsiadm -m node --login`  
+`iscsiadm -m node -p target_host_ip --login`  
 iscsi initiator logout  
-`iscsiadm -m node --logout`  
+`iscsiadm -m node -p target_host_op --logout`  
 
