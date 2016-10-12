@@ -29,7 +29,7 @@ namespace sinks = boost::log::sinks;
 namespace attrs = boost::log::attributes;
 namespace keywords = boost::log::keywords;
 
-::boost::log::sources::severity_logger<severity_level> DRLog::slg;
+::boost::log::sources::severity_logger_mt<severity_level> DRLog::slg;
 
 static const char* strings[] =
 {
@@ -55,27 +55,6 @@ std::ostream& operator<< (std::ostream& strm, severity_level level)
 BOOST_LOG_ATTRIBUTE_KEYWORD(severity, "Severity", severity_level)
 BOOST_LOG_ATTRIBUTE_KEYWORD(timestamp, "TimeStamp", boost::posix_time::ptime)
 BOOST_LOG_ATTRIBUTE_KEYWORD(scope, "Scope", attrs::named_scope::value_type)
-
-// Set attribute and return the new value
-int set_get_attrib(const char* name, int value)
-{
-    auto attr = logging::attribute_cast<attrs::mutable_constant<int>>(logging::core::get()->get_global_attributes()[name]);
-    attr.set(value);
-    return attr.get();
-}
-
-std::string set_get_attrib(const char* name, std::string value)
-{
-    auto attr = logging::attribute_cast<attrs::mutable_constant<std::string>>(logging::core::get()->get_global_attributes()[name]);
-    attr.set(value);
-    return attr.get();
-}
-
-// Convert file path to only the filename
-std::string path_to_filename(std::string path)
-{
-    return path.substr(path.find_last_of("/\\")+1);
-}
 
 void DRLog::log_init(std::string file_name)
 {
@@ -122,9 +101,7 @@ void DRLog::log_init(std::string file_name)
     core->add_sink(file_sink);
     // Add attributes
     logging::add_common_attributes();
-    logging::core::get()->add_global_attribute("Scope", attrs::named_scope());    
-    logging::core::get()->add_global_attribute("File", attrs::mutable_constant<std::string>(""));
-    logging::core::get()->add_global_attribute("Line", attrs::mutable_constant<int>(0));
+    logging::core::get()->add_global_attribute("Scope", attrs::named_scope());
 }
 
 void DRLog::set_log_level(severity_level_t level)
