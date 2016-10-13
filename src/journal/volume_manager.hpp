@@ -13,6 +13,8 @@
 #include "nedmalloc.h"
 
 #include "../common/blocking_queue.h"
+#include "../common/config_parser.h"
+
 #include "seq_generator.hpp"
 #include "cache/cache_proxy.h"
 #include "journal_replayer.hpp"

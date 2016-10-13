@@ -63,10 +63,12 @@ void PreProcessor::work()
     while(true)
     {
         std::unique_lock<std::mutex> lk(mtx_);
-        while(entry_queue_.empty())
+        while(running_flag && entry_queue_.empty())
         {
-            recieve_cv_.wait(lk);
+            recieve_cv_.wait_for(lk,std::chrono::seconds(2));
         }
+        if (running_flag == false)
+            return;
         if(!entry_queue_.pop(entry))
         {
             LOG_ERROR << "entry_queue_ pop failed";
@@ -90,18 +92,21 @@ void PreProcessor::work()
     }
 }
 
-bool PreProcessor::init(nedalloc::nedpool * buffer_pool,int thread_num)
+bool PreProcessor::init(nedalloc::nedpool * buffer_pool,ConfigParser& conf)
 {
+    running_flag = true;
     if (buffer_pool == NULL)
     {
         return false;
     }
     buffer_pool_ = buffer_pool;
-    if(thread_num <= 0)
+    config.checksum_type = (checksum_type_t)conf.get_default("pre_processor.checksum_type",0);
+    config.thread_num = conf.get_default("pre_processor.thread_num",1);
+    if(config.thread_num <= 0)
     {
         return false;
     }
-    for (int i=0;i < thread_num;i++)
+    for (int i=0;i < config.thread_num;i++)
     {
         worker_threads.create_thread(boost::bind(&PreProcessor::work,this));
     }
@@ -109,7 +114,7 @@ bool PreProcessor::init(nedalloc::nedpool * buffer_pool,int thread_num)
 }
 bool PreProcessor::deinit()
 {
-    worker_threads.interrupt_all();
+    running_flag = false;
     worker_threads.join_all();
     return true;
 }

@@ -41,20 +41,23 @@ Connection::~Connection()
 bool Connection::init(nedalloc::nedpool * buffer)
 {
     buffer_pool = buffer;
+    running_flag = true;
     thread_ptr.reset(new boost::thread(boost::bind(&Connection::send_thread, this)));
     return true;
 }
 
 bool Connection::deinit()
 {
-    thread_ptr->interrupt();
+    running_flag = false;
     thread_ptr->join();
     return true;
 }
 
 void Connection::start()
 {
+    #ifndef _USE_UNIX_DOMAIN
     raw_socket_.set_option(boost::asio::ip::tcp::no_delay(true));
+    #endif
     read_request_header();
 }
 
@@ -64,7 +67,7 @@ void Connection::stop()
     #ifndef _USE_UNIX_DOMAIN
     raw_socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both,ignored_ec);
     #else
-    raw_socket_.shutdown(boost::asio::local::stream_protocol::socket,ignored_ec);
+    raw_socket_.shutdown(boost::asio::local::stream_protocol::socket::shutdown_both,ignored_ec);
     #endif
 }
 
@@ -103,8 +106,7 @@ void Connection::handle_request_header(const boost::system::error_code& e)
     }
     else
     {
-        //todo bad request
-        ;
+        LOG_ERROR << "recieve header error:" << e << " ,magic number:" << header_ptr->magic;
     }
 
 }
@@ -123,19 +125,19 @@ void Connection::parse_write_request(IOHookRequest* header_ptr)
                     boost::asio::buffer(buffer_ptr+header_size, header_ptr->len),
                     boost::bind(&Connection::handle_write_request_body, this,buffer_ptr,buffer_size,
                     boost::asio::placeholders::error));
+            return;
         }
         else
         {
-            //todo block or remalloc
-            ;
+            LOG_ERROR << "nedmalloc failed";
         }
     
     }
     else
     {
-        //todo just a header?
-        ;
+        LOG_ERROR << "write request data length == 0";
     }
+    read_request_header();
 
 }
 
@@ -147,15 +149,13 @@ void Connection::handle_write_request_body(char* buffer_ptr,uint32_t buffer_size
         bool ret = handle_write_request(buffer_ptr,buffer_size,header_buffer_.data());
         if (!ret)
         {
-            ;
-            //todo reply client error code
+            LOG_ERROR << "handle write request failed";
         }
 
     }
     else
     {
-        //todo bad request
-        ;
+        LOG_ERROR << "recieve write request data error:" << e;
     }
     read_request_header();
 }   
@@ -164,7 +164,6 @@ bool Connection::handle_write_request(char* buffer,uint32_t size,char* header)
 {     
     if (buffer == NULL || header == NULL)
     {
-        //LOG
         return false;
     }
 
@@ -184,17 +183,15 @@ bool Connection::handle_write_request(char* buffer,uint32_t size,char* header)
     }
     catch(const std::bad_alloc & e)
     {
-        //LOG
+        LOG_ERROR << "new ReplayEntry failed";
         return false;
     }
     if(entry_ptr_ == NULL)
     {
-        //LOG
         return false;
     }
     if(!entry_queue_.push(entry_ptr_))
     {
-        //todo LOG
         delete entry_ptr_;
         return false;
     }
@@ -205,13 +202,15 @@ bool Connection::handle_write_request(char* buffer,uint32_t size,char* header)
 void Connection::send_thread()
 {
     IOHookReply* reply = NULL;
-    while(true)
+    while(running_flag)
     {
         std::unique_lock<std::mutex> lk(mtx_);
-        while(reply_queue_.empty())
+        while(running_flag && reply_queue_.empty())
         {
-            reply_cv_.wait(lk);
+            reply_cv_.wait_for(lk,std::chrono::seconds(2));
         }
+        if(running_flag == false)
+            return;
         if(!reply_queue_.pop(reply))
         {
             LOG_ERROR << "reply_queue pop failed";

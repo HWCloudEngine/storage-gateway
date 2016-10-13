@@ -3,6 +3,7 @@
 
 #include <mutex>
 #include <condition_variable>
+#include <chrono>
 #include <iostream>
 #include <boost/asio.hpp>
 #include <boost/noncopyable.hpp>
@@ -57,6 +58,7 @@ private:
     std::condition_variable& reply_cv_;
     boost::array<char, HEADER_SIZE> header_buffer_;
     boost::shared_ptr<boost::thread> thread_ptr;
+    bool running_flag;
     nedalloc::nedpool * buffer_pool;
 
 };

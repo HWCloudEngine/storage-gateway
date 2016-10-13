@@ -3,6 +3,7 @@
 
 #include <mutex>
 #include <condition_variable>
+#include <chrono>
 
 #include <boost/asio.hpp>
 #include <boost/lockfree/queue.hpp>  
@@ -12,8 +13,14 @@
 
 #include "message.hpp"
 #include "replay_entry.hpp"
+#include "../common/config_parser.h"
 
 namespace Journal{
+
+struct PrePreocessorConf{
+    int thread_num;
+    checksum_type_t checksum_type;
+};
 
 class PreProcessor
     :private boost::noncopyable
@@ -25,7 +32,7 @@ public:
                                   std::condition_variable& write_cv);
     virtual ~PreProcessor();
     void work();
-    bool init(nedalloc::nedpool* buffer_pool,int thread_num);
+    bool init(nedalloc::nedpool* buffer_pool,ConfigParser& conf);
     bool deinit();
     bool cal_checksum(ReplayEntry * entry,bool sse_flag,checksum_type_t checksum_type);
 private:
@@ -36,6 +43,9 @@ private:
     std::mutex mtx_;
     std::condition_variable& recieve_cv_;
     std::condition_variable& write_cv_;
+
+    bool running_flag;
+    struct PrePreocessorConf config;
 
 };
 

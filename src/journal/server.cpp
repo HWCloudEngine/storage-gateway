@@ -12,7 +12,7 @@ Server::Server(const std::string& address,
     #ifndef _USE_UNIX_DOMAIN
     acceptor_(io_service_pool_.get_io_service()),
     #else
-    acceptor_(io_service_pool_.get_io_service(), boost::asio::local::stream_protocol::endpoint(file))
+    acceptor_(io_service_pool_.get_io_service(), boost::asio::local::stream_protocol::endpoint(file)),
     #endif
     volume_manager_(),
     new_volume_()
