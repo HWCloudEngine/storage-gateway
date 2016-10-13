@@ -47,7 +47,7 @@ public:
     RESULT put_object(const char* obj_name, const string* value, const std::map<string,string>* meta);
     RESULT delete_object(const char* key);
     RESULT list_objects(const char*prefix, const char*marker, const char* end_marker,
-            int maxkeys, std::list<string>* list);
+            int maxkeys, std::list<string>* list, const char* delimiter=NULL);
     RESULT get_object(const char* key, string* value);
     RESULT head_object(const char* key, std::map<string,string>* meta);
 };
