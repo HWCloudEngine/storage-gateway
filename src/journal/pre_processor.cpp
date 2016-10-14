@@ -92,7 +92,7 @@ void PreProcessor::work()
     }
 }
 
-bool PreProcessor::init(nedalloc::nedpool * buffer_pool,ConfigParser& conf)
+bool PreProcessor::init(nedalloc::nedpool * buffer_pool,shared_ptr<ConfigParser> conf)
 {
     running_flag = true;
     if (buffer_pool == NULL)
@@ -100,8 +100,8 @@ bool PreProcessor::init(nedalloc::nedpool * buffer_pool,ConfigParser& conf)
         return false;
     }
     buffer_pool_ = buffer_pool;
-    config.checksum_type = (checksum_type_t)conf.get_default("pre_processor.checksum_type",0);
-    config.thread_num = conf.get_default("pre_processor.thread_num",1);
+    config.checksum_type = (checksum_type_t)conf->get_default("pre_processor.checksum_type",0);
+    config.thread_num = conf->get_default("pre_processor.thread_num",1);
     if(config.thread_num <= 0)
     {
         return false;

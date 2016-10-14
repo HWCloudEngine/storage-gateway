@@ -32,10 +32,9 @@ Volume::~Volume()
         buffer_pool = NULL;
     }
 }
-bool Volume::init()
+bool Volume::init(shared_ptr<ConfigParser> conf, shared_ptr<CephS3LeaseClient> lease_client)
 {
-    ConfigParser conf(DEFAULT_CONFIG_FILE);
-    int thread_num = conf.get_default("pre_processor.thread_num",1);
+    int thread_num = conf->get_default("pre_processor.thread_num",1);
     buffer_pool = nedalloc::nedcreatepool(BUFFER_POOL_SIZE,thread_num+2);
     if(buffer_pool == NULL)
     {
@@ -56,7 +55,7 @@ bool Volume::init()
     idproxy.reset(new IDGenerator());
     cacheproxy.reset(new CacheProxy(vol_path_, idproxy));
 
-    if(!writer.init(vol_id_,conf, idproxy, cacheproxy))
+    if(!writer.init(vol_id_, conf, idproxy, cacheproxy,lease_client))
     {
         LOG_ERROR << "init journal writer failed,vol_id:" << vol_id_;
         return false;
@@ -117,28 +116,45 @@ VolumeManager::~VolumeManager()
 
 bool VolumeManager::init()
 {
+    conf.reset(new ConfigParser(DEFAULT_CONFIG_FILE));
+    lease_client.reset(new CephS3LeaseClient());
+    std::string access_key,secret_key,host,bucket_name;
+    access_key = conf->get_default("ceph_s3.access_key",access_key);
+    secret_key = conf->get_default("ceph_s3.secret_key",secret_key);
+    host = conf->get_default("ceph_s3.host",host);
+    int renew_window = conf->get_default("ceph_s3.renew_window",4);
+    int expire_window = conf->get_default("ceph_s3.expire_window",10);
+    int validity_window = conf->get_default("ceph_s3.validity_window",2);
+    bucket_name = conf->get_default("ceph_s3.bucket",bucket_name);
+    
+    lease_client->init(access_key.c_str(), secret_key.c_str(),
+        host.c_str(), bucket_name.c_str(), renew_window,
+        expire_window, validity_window) ;
     thread_ptr.reset(new boost::thread(boost::bind(&VolumeManager::periodic_task, this)));
 }
 
 void VolumeManager::periodic_task()
 {
-    //todo read config.ini
-    int_least64_t interval = 500;
-    int journal_limit = 4;
+    int_least64_t interval = conf->get_default("ceph_s3.get_journal_interval",500);
+    int journal_limit = conf->get_default("ceph_s3.journal_limit",4);
     while(true)
     {
         boost::this_thread::sleep_for(boost::chrono::milliseconds(interval));
+        if(!lease_client->check_lease_validity())
+        {
+            continue;
+        }
         std::unique_lock<std::mutex> lk(mtx);
         for(std::map<std::string,volume_ptr>::iterator iter = volumes.begin();iter!=volumes.end();++iter)
         {
             std::string vol_id = iter->first;
             volume_ptr vol = iter->second;
             JournalWriter& writer = vol->get_writer();
-            if(!writer.get_writeable_journals("test-uuid",journal_limit))
+            if(!writer.get_writeable_journals(lease_client->get_lease(),journal_limit))
             {
                 LOG_ERROR << "get_writeable_journals failed,vol_id:" << vol_id;
             }
-            if(!writer.seal_journals("test-uuid"))
+            if(!writer.seal_journals(lease_client->get_lease()))
             {
                 LOG_ERROR << "seal_journals failed,vol_id:" << vol_id;
             }
@@ -168,14 +184,12 @@ void VolumeManager::handle_request_header(volume_ptr vol,const boost::system::er
         }
         else
         {
-            //todo
-            std::cerr << "first message is not ADD_VOLUME";
+            LOG_ERROR << "first message is not ADD_VOLUME";
         }
     }
     else
     {
-        //todo bad request
-        ;
+        LOG_ERROR << "recieve header error:" << e << " ,magic number:" << header_ptr->magic;
     }
 
 }
@@ -190,14 +204,13 @@ void VolumeManager::handle_request_body(volume_ptr vol,const boost::system::erro
         std::unique_lock<std::mutex> lk(mtx);
         vol->set_property(vol_id,vol_path);
         volumes.insert(std::pair<std::string,volume_ptr>(vol_id,vol));
-        bool ret = vol->init();
+        bool ret = vol->init(conf,lease_client);
         send_reply(vol,ret);
         vol->start();
     }
     else
     {
-        //todo
-        ;
+        LOG_ERROR << "recieve add volume request data error:" << e;
     }
 }
 
@@ -231,12 +244,6 @@ void VolumeManager::handle_send_reply(const boost::system::error_code& error)
 void VolumeManager::start(volume_ptr vol)
 {
     add_vol(vol);
-    //vol->set_property("TEST","TEST");
-    //volumes.insert(std::pair<std::string,volume_ptr>("TEST",vol));
-    //vol->init();
-    //send_reply(vol,true);
-    //vol->start();
-
 }
 
 void VolumeManager::stop(std::string vol_id)
