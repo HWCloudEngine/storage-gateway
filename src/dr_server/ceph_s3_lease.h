@@ -1,7 +1,7 @@
 /*
  * ceph_s3_lease.h
  *
- *  Created on: 2016年8月12日
+ *  Created on: 2016򣌕2�
  *      Author: smile-luobin
  */
 
@@ -17,8 +17,11 @@ class CephS3LeaseClient: public LeaseClient {
 private:
     std::unique_ptr<CephS3Api> s3Api_ptr_;
     std::unique_ptr<boost::thread> renew_thread_ptr_;
+    std::unique_ptr<boost::thread> check_thread_ptr_;
     std::string uuid_;
     std::string prefix_;
+    std::mutex expire_mtx_;
+    std::mutex lease_mtx_;
 
     long lease_expire_time_;
     int expire_window_;
@@ -27,6 +30,7 @@ private:
 
     virtual bool acquire_lease();
     virtual void renew_lease();
+    virtual void check_lease();
 public:
     RESULT init(const char* access_key, const char* secret_key,
             const char* host, const char* bucket_name, int renew_window,
@@ -50,3 +54,4 @@ public:
     virtual ~CephS3LeaseServer();
 };
 #endif /* CEPH_S3_LEASE_H_ */
+
