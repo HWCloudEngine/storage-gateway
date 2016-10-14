@@ -118,7 +118,17 @@ void Connection::parse_write_request(IOHookRequest* header_ptr)
         uint32_t header_size = sizeof(log_header_t) + sizeof(off_len_t);
         uint32_t buffer_size = header_ptr->len + header_size;
         // buffer_ptr will be free when we finish journal write,use nedpfree
-        char* buffer_ptr = reinterpret_cast<char *>(nedalloc::nedpmalloc(buffer_pool,buffer_size));
+        char* buffer_ptr = NULL;
+        uint32_t try_attempts = 0;
+        while(buffer_ptr == NULL)
+        {
+            if(try_attempts > 0)
+            {
+                boost::this_thread::sleep_for(boost::chrono::milliseconds(500));
+            }
+            buffer_ptr = reinterpret_cast<char *>(nedalloc::nedpmalloc(buffer_pool,buffer_size));
+            try_attempts++;
+        }
         if (buffer_ptr!=NULL)
         {
             boost::asio::async_read(raw_socket_,
@@ -126,10 +136,6 @@ void Connection::parse_write_request(IOHookRequest* header_ptr)
                     boost::bind(&Connection::handle_write_request_body, this,buffer_ptr,buffer_size,
                     boost::asio::placeholders::error));
             return;
-        }
-        else
-        {
-            LOG_ERROR << "nedmalloc failed";
         }
     
     }
