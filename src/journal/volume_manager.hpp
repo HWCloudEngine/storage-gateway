@@ -19,6 +19,7 @@
 #include "cache/cache_proxy.h"
 #include "journal_replayer.hpp"
 #include "journal_reader.hpp"
+#include "../dr_server/ceph_s3_lease.h"
 
 #define BUFFER_POOL_SIZE 1024*1024*64
 #define REQUEST_BODY_SIZE 512
@@ -36,7 +37,7 @@ public:
     raw_socket& get_raw_socket();
     void start();
     void stop();
-    bool init();
+    bool init(shared_ptr<CephS3LeaseClient> lease_client);
     void set_property(std::string vol_id,std::string vol_path);
 private:
     void periodic_task();
@@ -97,6 +98,8 @@ private:
 
     int_least64_t interval;
     int journal_limit;
+    shared_ptr<CephS3LeaseClient> lease_client;
+    shared_ptr<ConfigParser> conf;
 };
 }
 

@@ -49,24 +49,26 @@ JournalWriter::~JournalWriter()
 
 
 bool JournalWriter::init(std::string& vol,
-                         ConfigParser& conf,
+                         shared_ptr<ConfigParser> conf,
                          shared_ptr<IDGenerator> idproxy,
-                         shared_ptr<CacheProxy> cacheproxy)
+                         shared_ptr<CacheProxy> cacheproxy,
+                         shared_ptr<CephS3LeaseClient> lease_client)
  
 {
     vol_id = vol;
     idproxy_ = idproxy;
     cacheproxy_ = cacheproxy;
     running_flag = true;
+    lease_client_ = lease_client;
     cur_journal_size = 0;
     write_seq = 0;
 
     std::string mnt = "/mnt/cephfs";
-    config.journal_max_size = conf.get_default<int>("journal_writer.journal_max_size",32 * 1024 * 1024);
-    config.journal_mnt = conf.get_default("journal_writer.mnt",mnt);
-    config.write_timeout = conf.get_default("journal_writer.write_timeout",2);
-    config.version = conf.get_default("journal_writer.version",0);
-    config.checksum_type = (checksum_type_t)conf.get_default("pre_processor.checksum_type",0);
+    config.journal_max_size = conf->get_default<int>("journal_writer.journal_max_size",32 * 1024 * 1024);
+    config.journal_mnt = conf->get_default("journal_writer.mnt",mnt);
+    config.write_timeout = conf->get_default("journal_writer.write_timeout",2);
+    config.version = conf->get_default("journal_writer.version",0);
+    config.checksum_type = (checksum_type_t)conf->get_default("pre_processor.checksum_type",0);
     thread_ptr.reset(new boost::thread(boost::bind(&JournalWriter::work, this)));
     return true;
 }
@@ -88,6 +90,18 @@ void JournalWriter::work()
     uint64_t write_size = 0;
     while(true)
     {
+        if(!lease_client_->check_lease_validity())
+        {
+            LOG_ERROR << "check lease validity result:false";
+            if(!journal_queue.empty())
+            {
+                boost::function< void (std::string*) > callback;
+                callback = boost::bind(&JournalWriter::handle_lease_invalid,this,_1);
+                journal_queue.consume_all(callback);
+            }
+            boost::this_thread::sleep_for(boost::chrono::seconds(write_timeout));
+            continue;
+        }
         std::unique_lock<std::mutex> lk(mtx_);
         while(running_flag && write_queue_.empty())
         {
@@ -147,7 +161,7 @@ bool JournalWriter::get_journal()
     if(journal_queue.empty())
     {
         std::list<std::string> journals;
-        if(!rpc_client.GetWriteableJournals("test-uuid",vol_id,1,journals))
+        if(!rpc_client.GetWriteableJournals(lease_client_->get_lease(),vol_id,1,journals))
         {
             LOG_ERROR << "get journal file failed";
             return false;
@@ -318,6 +332,14 @@ void JournalWriter::send_reply(ReplayEntry* entry,bool success)
         return;
     }
     reply_cv_.notify_one();
+}
+
+void JournalWriter::handle_lease_invalid(std::string* journal_ptr)
+{
+    if(NULL != journal_ptr)
+    {
+        delete journal_ptr;
+    }
 }
 
 }

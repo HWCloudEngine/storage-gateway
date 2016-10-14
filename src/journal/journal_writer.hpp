@@ -17,12 +17,16 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/array.hpp>
 #include <boost/asio.hpp>
+#include <boost/chrono/chrono.hpp>
+#include <boost/function.hpp>
+#include <boost/bind.hpp>
+
 
 #include "message.hpp"
 #include "replay_entry.hpp"
 #include "../rpc/clients/writer_client.hpp"
 #include "../common/config_parser.h"
-
+#include "../dr_server/ceph_s3_lease.h"
 
 #include "seq_generator.hpp"
 #include "cache/cache_proxy.h"
@@ -47,9 +51,10 @@ public:
     virtual ~JournalWriter();
     void work();
     bool init(std::string& vol, 
-              ConfigParser& conf,
+              shared_ptr<ConfigParser> conf,
               shared_ptr<IDGenerator> id_proxy, 
-              shared_ptr<CacheProxy> cacheproxy);
+              shared_ptr<CacheProxy> cacheproxy,
+              shared_ptr<CephS3LeaseClient> lease_client);
     bool deinit();
     //The following two function must be called in another thread,can't call in write thread
     //The write thread and another thread are single consumer/single producer module,communicate with lockfree queue
@@ -61,9 +66,11 @@ private:
     int64_t get_file_size(const char *path);
     bool write_journal_header();
     void send_reply(ReplayEntry* entry,bool success);
+    void handle_lease_invalid(std::string* journal_ptr);
 
     shared_ptr<IDGenerator> idproxy_;
     shared_ptr<CacheProxy> cacheproxy_;
+    shared_ptr<CephS3LeaseClient> lease_client;
 
     std::mutex mtx_;
     std::condition_variable& cv_;
@@ -83,8 +90,16 @@ private:
     std::string vol_id;
     
     struct JournalWriterConf config;
-
     bool running_flag;
+
+    std::string journal_mnt;
+    uint64_t write_seq;
+    int write_timeout;
+    int32_t version;
+    checksum_type_t checksum_type;
+
+    shared_ptr<CephS3LeaseClient> lease_client_;
+>>>>>>> d0ed646... Add lease mechanism and block if we malloc failed
 };
 
 }
