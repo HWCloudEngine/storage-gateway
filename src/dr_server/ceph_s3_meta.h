@@ -12,6 +12,7 @@
 #define CEPH_S3_META_H_
 #include <cstdint>
 #include <memory>
+#include <atomic>
 #include "libs3.h" // require ceph-libs3
 #include "journal_meta_manager.h"
 #include "journal_gc_manager.h"
@@ -31,11 +32,12 @@ class CephS3Meta:public JournalMetaManager,public JournalGCManager{
 private:    
     std::unique_ptr<CephS3Api> s3Api_ptr_;
     string mount_path_;
-    std::map<string,int64_t> counter_map_; // volume journal_name counters
+    std::map<string,std::shared_ptr<std::atomic<int64_t>>> counter_map_; // volume journal_name counters
     std::map<string,JournalMeta> kv_map_; // major key value cache
     RESULT init_journal_key_counter(const string& vol_id,int64_t& cnt);
     RESULT get_journal_key_counter(const string& vol_id,int64_t& cnt);
-    RESULT add_journal_key_counter(const string& vol_id,const int64_t& cnt);
+    RESULT add_journal_key_counter(const string& vol_id,
+            int64_t& expected,const int64_t& val);
     RESULT get_journal_meta_by_key(const string& key, JournalMeta& meta);
     RESULT init();
 public:

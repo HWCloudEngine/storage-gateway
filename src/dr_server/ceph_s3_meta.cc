@@ -10,7 +10,6 @@
 ***********************************************/
 #include <algorithm>    // std::for_each
 #include <iostream>
-#include <unistd.h>
 #include <memory>
 #include <cstdio>
 #include <cerrno>
@@ -190,15 +189,19 @@ RESULT CephS3Meta::init_journal_key_counter(const string& vol_id,int64_t& cnt){
         if(DRS_OK != extract_counter_from_object_key(list.back(),counter1)){
             return INTERNAL_ERROR;
         }
-        cnt = counter1;
-        counter_map_.insert(std::pair<string,int64_t>(vol_id,cnt));
-        cnt++; // point to next counter
+        std::shared_ptr<std::atomic<int64_t>> _c(new std::atomic<int64_t>(counter1));
+        counter_map_.insert(std::pair<string,std::shared_ptr<std::atomic<int64_t>>>(vol_id,_c));
+        cnt = counter1 + 1; // point to next counter
+        LOG_INFO << "init volume " << vol_id << " journal name counter:"
+            << cnt;
         return DRS_OK;
     }
     else{
-        LOG_INFO << "init volume " << vol_id << " journal name counter.";
+        LOG_INFO << "init volume " << vol_id << " journal name counter:"
+            << MIN_JOURNAL_COUNTER;
         cnt = MIN_JOURNAL_COUNTER;
-        counter_map_.insert(std::pair<string,int64_t>(vol_id,cnt-1));
+        std::shared_ptr<std::atomic<int64_t>> _c(new std::atomic<int64_t>(cnt-1));
+        counter_map_.insert(std::pair<string,std::shared_ptr<std::atomic<int64_t>>>(vol_id,_c));
         return DRS_OK;
     }    
 }
@@ -208,19 +211,23 @@ RESULT CephS3Meta::get_journal_key_counter(const string& vol_id,int64_t& cnt){
         LOG_INFO << "get journal name counter:volume " << vol_id << " not found.";
         return init_journal_key_counter(vol_id,cnt);
     }
-    cnt = it->second + 1; // point to next counter
+    cnt = (it->second)->load() + 1; // point to next counter
     return DRS_OK;
 }
 RESULT CephS3Meta::add_journal_key_counter(const string& vol_id,
-        const int64_t& add){
+        int64_t& expected,const int64_t& val){
     auto it = counter_map_.find(vol_id);
     if(counter_map_.end() == it) { // volume not found
         LOG_ERROR << "set journal name counter failed:volume " << vol_id << " not found.";
         return INTERNAL_ERROR;
     }
-    LOG_DEBUG << "update " << vol_id << " journal name counter " 
-        << it->second << " ,add " << add;
-    it->second = (it->second + add)%MAX_JOURNAL_COUNTER;
+    int64_t temp = expected;
+    if(false == (it->second)->compare_exchange_weak(expected,val)){
+        LOG_WARN << "try to update " << vol_id << " journal counter from "
+            << temp << " to " << val << " failed, since old counter changed to "
+            << expected;
+        return INTERNAL_ERROR;
+    }
     return DRS_OK;
 }
 
@@ -245,6 +252,17 @@ RESULT CephS3Meta::create_journals(const string& uuid, const string& vol_id,
     res = get_journal_key_counter(vol_id,counter);
     if(res != DRS_OK)
         return res;
+    int max_trys = 5;
+    do{
+        int64_t new_counter = (counter + limit)%MAX_JOURNAL_COUNTER;
+        res = add_journal_key_counter(vol_id,counter,new_counter);
+    }while(DRS_OK != res && max_trys-- > 0);
+    if(res != DRS_OK){
+        LOG_ERROR << "update " << vol_id << " journal counter failed!";
+        return res;
+    }
+    LOG_INFO << vol_id << " creating journals from " 
+        << counter << ",number " << limit;
     for(int i=0;i<limit;i++) {
         // TODO:recycle counter?
         int64_t next = (i+counter%MAX_JOURNAL_COUNTER);
@@ -284,10 +302,8 @@ RESULT CephS3Meta::create_journals(const string& uuid, const string& vol_id,
         s3Api_ptr_->delete_object(journals[list.size()].c_str());
         string o_key = construct_write_open_index(journals[list.size()],vol_id,uuid);
         s3Api_ptr_->delete_object(o_key.c_str());
-        add_journal_key_counter(vol_id,list.size());
         return DRS_OK; // partial success
     }
-    add_journal_key_counter(vol_id,limit);
     return res;
 }
 
@@ -506,7 +522,6 @@ RESULT CephS3Meta::list_volumes(std::list<string>& list){
         LOG_ERROR << "list objects failed:" << prefix;
         return res;
     }
-    LOG_DEBUG << "list volumes :" << list.size();
     if(list.empty())
         return DRS_OK;
     std::for_each(list.begin(),list.end(),[](string& s){
