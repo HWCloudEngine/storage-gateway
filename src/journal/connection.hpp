@@ -61,6 +61,8 @@ private:
     bool running_flag;
     nedalloc::nedpool * buffer_pool;
 
+    uint64_t req_seq;
+
 };
 
 typedef boost::shared_ptr<Connection> connection_ptr;

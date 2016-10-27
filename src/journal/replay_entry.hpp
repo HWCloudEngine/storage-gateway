@@ -78,11 +78,22 @@ public:
     {
         return req_id_;
     }
+
+    void set_req_seq(uint64_t seq)
+    {
+        req_seq_ = seq;
+    }
+
+    uint64_t get_req_seq()
+    {
+        return req_seq_;
+    }
       
 private:
     char* data_;
     uint32_t data_size_;
     uint64_t req_id_;
+    uint64_t req_seq_;
     nedalloc::nedpool * buffer_pool_;
 };
 typedef ReplayEntry* entry_ptr;

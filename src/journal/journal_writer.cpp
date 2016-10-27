@@ -67,6 +67,7 @@ bool JournalWriter::init(std::string& vol,
     config.write_timeout = conf.get_default("journal_writer.write_timeout",2);
     config.version = conf.get_default("journal_writer.version",0);
     config.checksum_type = (checksum_type_t)conf.get_default("pre_processor.checksum_type",0);
+    config.journal_limit = conf.get_default("ceph_s3.journal_limit",4);
     thread_ptr.reset(new boost::thread(boost::bind(&JournalWriter::work, this)));
     return true;
 }
@@ -89,22 +90,12 @@ void JournalWriter::work()
     while(true)
     {
         std::unique_lock<std::mutex> lk(mtx_);
-        while(running_flag && write_queue_.empty())
+        while(running_flag && !(entry = get_entry()))
         {
             cv_.wait_for(lk,std::chrono::seconds(2));
         }
         if (running_flag == false)
             return;
-        if(!write_queue_.pop(entry))
-        {
-            LOG_ERROR << "write_queue pop failed";
-            continue;
-        }
-        if (NULL == entry)
-        {
-            LOG_ERROR << "entry ptr NULL";
-            continue;
-        }
         success = false;
         time(&start);
         time(&end);
@@ -134,29 +125,18 @@ void JournalWriter::work()
 
             cur_journal_size = cur_journal_size + write_size;
             success = true;
-            write_seq++;
         }
+        entry_map.erase(write_seq);
+        write_seq++;
         lk.unlock();
         send_reply(entry,success);
-        //delete entry;
-        //entry = NULL;
     }
 }
 bool JournalWriter::get_journal()
 {
     if(journal_queue.empty())
     {
-        std::list<std::string> journals;
-        if(!rpc_client.GetWriteableJournals("test-uuid",vol_id,1,journals))
-        {
-            LOG_ERROR << "get journal file failed";
-            return false;
-        }
-        for(auto tmp:journals)
-        {
-            std::string * journal_ptr = new std::string(tmp);
-            journal_queue.push(journal_ptr);
-        }
+        get_writeable_journals("test-uuid",config.journal_limit);
     }
     if(!journal_queue.pop(cur_journal))
     {
@@ -229,10 +209,11 @@ bool JournalWriter::write_journal_header()
     return true;
 }
 
-bool JournalWriter::get_writeable_journals(const std::string& uuid,const int limit)
+bool JournalWriter::get_writeable_journals(const std::string& uuid,const int32_t limit)
 {
+    std::unique_lock<std::mutex> lk(rpc_mtx_);
     std::list<std::string> journals;
-    int tmp = 0;
+    int32_t tmp = 0;
     if(journal_queue_size >= limit)
     {
         return true;
@@ -318,6 +299,29 @@ void JournalWriter::send_reply(ReplayEntry* entry,bool success)
         return;
     }
     reply_cv_.notify_one();
+}
+
+ReplayEntry* JournalWriter::get_entry()
+{
+    update_entry_map();
+    EntryMap::iterator it = entry_map.find(write_seq);
+    if(it != entry_map.end())
+    {
+        return it->second;
+    }
+    return NULL;
+}
+
+void JournalWriter::update_entry_map()
+{
+    ReplayEntry* entry = NULL;
+    while(!write_queue_.empty())
+    {
+        if(write_queue_.pop(entry))
+        {
+            entry_map.insert(std::pair<uint64_t,ReplayEntry*>(entry->get_req_seq(),entry));
+        }
+    }
 }
 
 }

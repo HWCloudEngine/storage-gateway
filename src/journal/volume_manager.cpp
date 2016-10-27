@@ -124,7 +124,7 @@ void VolumeManager::periodic_task()
 {
     //todo read config.ini
     int_least64_t interval = 500;
-    int journal_limit = 4;
+    int32_t journal_limit = 4;
     while(true)
     {
         boost::this_thread::sleep_for(boost::chrono::milliseconds(interval));
