@@ -137,6 +137,7 @@ void VolumeManager::periodic_task()
 {
     int_least64_t interval = conf->get_default("ceph_s3.get_journal_interval",500);
     int journal_limit = conf->get_default("ceph_s3.journal_limit",4);
+
     while(true)
     {
         boost::this_thread::sleep_for(boost::chrono::milliseconds(interval));

@@ -6,6 +6,8 @@
 #include <mutex>
 #include <condition_variable>
 #include <chrono>
+#include <map>
+#include <memory>
 
 #include <time.h>
 #include <atomic> 
@@ -33,12 +35,14 @@
 
 namespace Journal{
 
+typedef std::map<uint64_t,ReplayEntry*> EntryMap;
 struct JournalWriterConf{
     uint64_t journal_max_size;
     std::string journal_mnt;
-    double write_timeout;
+    int_least64_t write_timeout;
     int32_t version;
     checksum_type_t checksum_type;
+    int32_t journal_limit;
 };
 
 class JournalWriter
@@ -51,10 +55,10 @@ public:
     virtual ~JournalWriter();
     void work();
     bool init(std::string& vol, 
-              shared_ptr<ConfigParser> conf,
-              shared_ptr<IDGenerator> id_proxy, 
-              shared_ptr<CacheProxy> cacheproxy,
-              shared_ptr<CephS3LeaseClient> lease_client);
+              std::shared_ptr<ConfigParser> conf,
+              std::shared_ptr<IDGenerator> id_proxy, 
+              std::shared_ptr<CacheProxy> cacheproxy,
+              std::shared_ptr<CephS3LeaseClient> lease_client);
     bool deinit();
     //The following two function must be called in another thread,can't call in write thread
     //The write thread and another thread are single consumer/single producer module,communicate with lockfree queue
@@ -66,7 +70,11 @@ private:
     int64_t get_file_size(const char *path);
     bool write_journal_header();
     void send_reply(ReplayEntry* entry,bool success);
+
     void handle_lease_invalid(std::string* journal_ptr);
+
+    ReplayEntry* get_entry();
+    void update_entry_map();
 
     shared_ptr<IDGenerator> idproxy_;
     shared_ptr<CacheProxy> cacheproxy_;
@@ -75,6 +83,7 @@ private:
     std::mutex mtx_;
     std::condition_variable& cv_;
     std::condition_variable& reply_cv_;
+    std::mutex rpc_mtx_;
     WriterClient rpc_client;
     boost::shared_ptr<boost::thread> thread_ptr;
     entry_queue& write_queue_;
@@ -86,16 +95,12 @@ private:
     std::string *cur_journal;
     uint64_t cur_journal_size;
     uint64_t write_seq;
+    EntryMap entry_map;
     std::atomic_int journal_queue_size;
     std::string vol_id;
     
     struct JournalWriterConf config;
     bool running_flag;
-
-    std::string journal_mnt;
-    int write_timeout;
-    int32_t version;
-    checksum_type_t checksum_type;
 
     shared_ptr<CephS3LeaseClient> lease_client_;
 };

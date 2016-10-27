@@ -92,7 +92,7 @@ void PreProcessor::work()
     }
 }
 
-bool PreProcessor::init(nedalloc::nedpool * buffer_pool,shared_ptr<ConfigParser> conf)
+bool PreProcessor::init(nedalloc::nedpool * buffer_pool,std::shared_ptr<ConfigParser> conf)
 {
     running_flag = true;
     if (buffer_pool == NULL)
