@@ -42,6 +42,7 @@ bool Connection::init(nedalloc::nedpool * buffer)
 {
     buffer_pool = buffer;
     running_flag = true;
+    req_seq = 0;
     thread_ptr.reset(new boost::thread(boost::bind(&Connection::send_thread, this)));
     return true;
 }
@@ -190,8 +191,11 @@ bool Connection::handle_write_request(char* buffer,uint32_t size,char* header)
     {
         return false;
     }
+    entry_ptr_ ->set_req_seq(req_seq);
+    req_seq++;
     if(!entry_queue_.push(entry_ptr_))
     {
+        req_seq--;
         delete entry_ptr_;
         return false;
     }
