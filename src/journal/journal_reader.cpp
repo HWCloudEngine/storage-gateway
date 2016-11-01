@@ -42,8 +42,10 @@ void JournalReader::work()
     {
         /*fetch io read request*/
         struct IOHookRequest ioreq;
-        ioreq = m_read_queue.pop();
-        
+        bool ret = m_read_queue.pop(ioreq);
+        if(!ret){
+            break;
+        } 
         int iorsp_len = sizeof(struct IOHookReply) + ioreq.len;
         struct IOHookReply* iorsp = (struct IOHookReply*)new char[iorsp_len];
         iorsp->magic    = ioreq.magic;
@@ -56,7 +58,7 @@ void JournalReader::work()
                   << " off:"   << ioreq.offset 
                   << " len:"   << ioreq.len;
         /*read*/
-        int ret = m_cacheproxy->read(ioreq.offset, ioreq.len, buf);
+        int read_size = m_cacheproxy->read(ioreq.offset, ioreq.len, buf);
         iorsp->error = 0;
         iorsp->len   = ioreq.len;
 

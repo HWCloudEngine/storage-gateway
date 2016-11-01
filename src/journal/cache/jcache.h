@@ -28,7 +28,7 @@ public:
     shared_ptr<CEntry> pop();
  
     int size()const{
-        return m_queue.size();
+        return m_queue.entry_number();
     }
 
     bool empty()const{
