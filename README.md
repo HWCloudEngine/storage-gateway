@@ -69,6 +69,7 @@ create and edit /etc/tgt/targets.conf
 `bs-type hijacker`  
 `bsopts "host=journal_server_ip\;port=journal_server_port\;volume=volume_name\;device=block_device_path"`  
 `backing-store block_device_path`  
+`allow-in-use yes`  
 `</target>`  
 10. start iscsi target tgtd  
 `service tgt start`  
