@@ -2,7 +2,7 @@
 
 void Jcache::push(shared_ptr<CEntry> entry)
 {
-    return  m_queue.push(entry);
+    return  (void)m_queue.push(entry);
 }
 
 shared_ptr<CEntry> Jcache::pop()
@@ -12,5 +12,11 @@ shared_ptr<CEntry> Jcache::pop()
 
 void Jcache::trace()
 {
-    LOG_INFO << "item_num:" << m_queue.size();
+    for(int i=0; i < m_queue.entry_number(); i++){
+        shared_ptr<CEntry> entry = m_queue[i];
+        LOG_INFO  << " jcache item_num:" << m_queue.entry_number() \
+                  << " blk_off:" << entry->get_blk_off()           \
+                  << " blk_len:" << entry->get_blk_len()           \
+                  << " seq: " << entry->get_log_seq() ;
+    }
 }

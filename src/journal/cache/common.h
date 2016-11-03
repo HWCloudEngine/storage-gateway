@@ -26,10 +26,11 @@ public:
 public:
     CEntry(){}
     /*in log */
-    explicit CEntry(IoVersion seq, string file, off_t file_offset,
-                    off_t blk_off, size_t blk_len);
+    explicit CEntry(IoVersion seq, string jfile, off_t jfile_off,
+                    off_t bdev_off, size_t bdev_len);
     /*in memory*/
-    explicit CEntry(IoVersion seq, string file, off_t offset, 
+    explicit CEntry(IoVersion seq, string jfile, off_t jfile_off, 
+                    off_t bdev_off, size_t bdev_len,
                     shared_ptr<ReplayEntry> entry);
     CEntry(const CEntry& other);
     CEntry(CEntry&& other);
@@ -37,30 +38,30 @@ public:
     CEntry& operator=(CEntry&& other);
     ~CEntry(){}
 
-    const IoVersion get_log_seq()const{
+    IoVersion get_log_seq()const{
         return log_seq;
     }
 
-    const string get_log_file()const{
+    string get_log_file()const{
         return log_file;
     }
 
-    const off_t get_log_offset()const{
-        return log_offset;
+    off_t get_log_off()const{
+        return log_off;
     }
 
-    const uint8_t get_cache_type()const{
+    uint8_t get_cache_type()const{
         return cache_type;
     }
 
-    const off_t get_blk_off()const{
+    off_t get_blk_off()const{
         return blk_off;
     }
-    const size_t get_blk_len()const{
+    size_t get_blk_len()const{
         return blk_len;
     }
 
-    const shared_ptr<ReplayEntry> get_log_entry()const{
+    shared_ptr<ReplayEntry> get_log_entry()const{
         return log_entry;
     }
     
@@ -70,7 +71,7 @@ public:
 private:
     IoVersion log_seq;       //io log sequence number
     string    log_file;      //log file name  
-    off_t     log_offset;    //log entry append to log offset 
+    off_t     log_off;    //log entry append to log offset 
 
     int      cache_type;    //cache in memory or on log file 
     

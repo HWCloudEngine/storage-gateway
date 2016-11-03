@@ -9,35 +9,40 @@
 #include "common.h"
 #include "../../log/log.h"
 
-CEntry::CEntry(IoVersion seq, string file, off_t file_offset, 
-               off_t blk_off, size_t blk_len)
+CEntry::CEntry(IoVersion seq, string jfile, off_t jfile_off, 
+               off_t bdev_off, size_t bdev_len)
 {
     log_seq    = seq;
-    log_file   = file;
-    log_offset = file_offset;
+    log_file   = jfile;
+    log_off    = jfile_off;
     cache_type = IN_LOG;
-    blk_off    = blk_off;
-    blk_len    = blk_len;
+    blk_off    = bdev_off;
+    blk_len    = bdev_len;
     log_entry  = nullptr;
 }
 
-CEntry::CEntry(IoVersion seq, string file, off_t offset, 
+CEntry::CEntry(IoVersion seq, string jfile, off_t jfile_off, 
+               off_t bdev_off, size_t bdev_len,
                shared_ptr<ReplayEntry> entry)
 {
     log_seq    = seq;
-    log_file   = file;
-    log_offset = offset;
+    log_file   = jfile;
+    log_off    = jfile_off;
     cache_type = IN_MEM;
+    blk_off    = bdev_off;
+    blk_len    = bdev_len;
     log_entry  = entry;
 }
 
 CEntry::CEntry(const CEntry& other)
 {
-    log_seq = other.log_seq;
-    log_file = other.log_file;
-    log_offset = other.log_offset;
+    log_seq    = other.log_seq;
+    log_file   = other.log_file;
+    log_off    = other.log_off;
     cache_type = other.cache_type;
-    log_entry = other.log_entry;
+    blk_off    = other.blk_off;
+    blk_len    = other.blk_len;
+    log_entry  = other.log_entry;
 }
 
 CEntry::CEntry(CEntry&& other)
@@ -48,24 +53,31 @@ CEntry::CEntry(CEntry&& other)
 CEntry& CEntry::operator=(const CEntry& other)
 {
     if(this != &other){
-        log_seq = other.log_seq;
-        log_file = other.log_file;
-        log_offset = other.log_offset;
+        log_seq    = other.log_seq;
+        log_file   = other.log_file;
+        log_off    = other.log_off;
         cache_type = other.cache_type;
+        blk_off    = other.blk_off;
+        blk_len    = other.blk_len;
+        log_entry  = other.log_entry;
     } 
     return *this;
 }
 
-CEntry& CEntry::operator=(CEntry&& other)
-{
-    if(this != &other){
-        log_seq = other.log_seq;
-        log_file = other.log_file;
-        log_offset = other.log_offset;
-        cache_type = other.cache_type;
-    } 
-    return *this;
-}
+                                                                                 
+CEntry& CEntry::operator=(CEntry&& other)                                        
+{                                                                                
+    if(this != &other){                                                          
+        log_seq    = other.log_seq;                                                 
+        log_file   = other.log_file;                                               
+        log_off    = other.log_off;                                           
+        cache_type = other.cache_type;                                           
+        blk_off    = other.blk_off;
+        blk_len    = other.blk_len;
+        log_entry  = other.log_entry;
+    }                                                                            
+    return *this;                                                                
+}          
 
 size_t CEntry::get_mem_size()const
 {
