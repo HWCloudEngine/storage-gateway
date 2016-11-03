@@ -36,6 +36,7 @@ ostream& operator<<(ostream& cout, const Bkey& key)
 
     return cout;
 }
+
 bool BkeySeqCompare(const Bkey& a, const Bkey& b)
 {
     return a.m_seq < b.m_seq;
@@ -53,12 +54,9 @@ bool Bcache::add(Bkey key, shared_ptr<CEntry> value)
     std::pair<std::map<Bkey, shared_ptr<CEntry>>::iterator, bool> ret;
     ret = m_bcache.insert(std::pair<Bkey, shared_ptr<CEntry>>(key, value));
     if(ret.second == false){
-        LOG_ERROR << "add bkey:" << key << "failed key existed";
+        LOG_ERROR << "add bkey:" << key << "failed";
         return false;  
     }
-    
-    m_mem_size += value->get_mem_size();
-    m_item_num++;
     return true;
 }
 
@@ -68,10 +66,9 @@ shared_ptr<CEntry> Bcache::get(Bkey key)
     ReadLock read_lock(m_mutex);
     auto it = m_bcache.find(key);
     if(it != m_bcache.end()){
-        LOG_ERROR << "get key: " << key << "ok" << endl;
         return it->second;
     }
-    LOG_ERROR << "get key: " << key  << "failed key no existed";
+    LOG_ERROR << "get key: " << key  << "failed";
     return nullptr;
 }
 
@@ -81,8 +78,6 @@ bool Bcache::update(Bkey key, shared_ptr<CEntry> value)
     WriteLock write_lock(m_mutex);
     auto it = m_bcache.find(key);
     if(it != m_bcache.end()){
-        m_mem_size -= it->second->get_mem_size();
-        m_item_num--;
         m_bcache.erase(it);
     }
     std::pair<std::map<Bkey, shared_ptr<CEntry>>::iterator, bool> ret;
@@ -91,9 +86,6 @@ bool Bcache::update(Bkey key, shared_ptr<CEntry> value)
         LOG_ERROR << "update key: " << key << "failed";
         return false;  
     }
-    LOG_INFO << "update key: " << key << "ok";
-    m_mem_size += value->get_mem_size();
-    m_item_num++;
     return true;
 }
 
@@ -103,21 +95,10 @@ bool Bcache::del(Bkey key)
     WriteLock write_lock(m_mutex);
     auto it = m_bcache.find(key);
     if(it != m_bcache.end()){
-        m_mem_size -= it->second->get_mem_size();
-        m_item_num--;
         m_bcache.erase(it);
-    }
-    return true;
-}
-
-/*check memory full or not, if full, CEntry point to log file, else in memory*/
-bool Bcache::isfull(int io_size)
-{
-    LOG_INFO << " limit:" << m_mem_limit 
-             << " cur:"   << m_mem_size 
-             << " io:"    << io_size << endl;
-    if(m_mem_size+io_size > m_mem_limit)
         return true;
+    }
+    LOG_ERROR << "del key:" << key << "failed";
     return false;
 }
 
@@ -266,7 +247,7 @@ int Bcache::_cache_hit_read(off_t off, size_t len, char* buf,
             //todo: one log header has many io
             LOG_DEBUG << "hit read from log";
             string log_file = v->get_log_file();
-            off_t  log_off  = v->get_log_offset();
+            off_t  log_off  = v->get_log_off();
             IReadFile* rfile = new SyncReadFile(log_file, log_off, false);
             rfile->open();
             rfile->read_entry(log_off, m_buffer_pool, log_head);
@@ -415,8 +396,6 @@ int Bcache::read(off_t off, size_t len, char* buf)
 
 void Bcache::trace()
 {
-    LOG_INFO << "bcache status mem_size:" << m_mem_size 
-             << "item_num:" << m_item_num << endl;
     for(auto it : m_bcache)
     {
         LOG_INFO << "\t" << "(" << it.first.m_off << " "  \
