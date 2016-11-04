@@ -18,3 +18,8 @@ message JournalMeta {
     string path = 1;
     JOURNAL_STATUS status = 2 ;
 }
+message JournalMarker {
+    // the latest journal file in consumed files
+    string cur_journal = 1;
+    uint64 pos = 2 ;
+}

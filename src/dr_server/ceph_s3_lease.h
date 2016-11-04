@@ -7,7 +7,7 @@
 
 #ifndef CEPH_S3_LEASE_H_
 #define CEPH_S3_LEASE_H_
-
+#include <mutex>
 #include <string>
 #include <boost/thread/thread.hpp>
 #include "ceph_s3_api.h"
