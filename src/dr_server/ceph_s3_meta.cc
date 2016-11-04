@@ -19,7 +19,7 @@
 #include "log/log.h"
 #include "common/config_parser.h"
 #define MAX_JOURNAL_COUNTER (1000000000000L)
-#define MIN_JOURNAL_COUNTER 0
+#define MIN_JOURNAL_COUNTER -1 // journal counter start at 0
 const string g_key_prefix = "/journals/";
 const string g_marker_prefix = "/markers/";
 const string g_writer_prefix = "/session/writer/";
@@ -27,6 +27,8 @@ const string g_sealed = "/sealed/";
 const string g_replayer = "replayer";
 const string g_replicator = "replicator";
 const string g_recycled = "/recycled/";
+const string g_consumer = "consumer/";
+const string g_producer = "producer/";
 using std::unique_ptr;
 
 static string counter_to_string(const int64_t& counter) {
@@ -37,13 +39,17 @@ static string counter_to_string(const int64_t& counter) {
 }
 
 static string assemble_journal_marker_key(const string& vol_id,
-        const CONSUMER_TYPE& type) {
-    string key;
+        const CONSUMER_TYPE& type, const bool is_consumer=true) {
+    string key = g_marker_prefix + vol_id + "/";
+    if(is_consumer)
+        key += g_consumer;
+    else
+        key += g_producer;
     if(REPLAYER == type){
-        key += g_marker_prefix + vol_id + "/" + g_replayer;
+        key += g_replayer;
     }
     else{
-        key += g_marker_prefix + vol_id + "/" + g_replicator;
+        key += g_replicator;
     }
     return key;
 }
@@ -191,7 +197,7 @@ RESULT CephS3Meta::init_journal_key_counter(const string& vol_id,int64_t& cnt){
         }
         std::shared_ptr<std::atomic<int64_t>> _c(new std::atomic<int64_t>(counter1));
         counter_map_.insert(std::pair<string,std::shared_ptr<std::atomic<int64_t>>>(vol_id,_c));
-        cnt = counter1 + 1; // point to next counter
+        cnt = counter1;
         LOG_INFO << "init volume " << vol_id << " journal name counter:"
             << cnt;
         return DRS_OK;
@@ -200,7 +206,7 @@ RESULT CephS3Meta::init_journal_key_counter(const string& vol_id,int64_t& cnt){
         LOG_INFO << "init volume " << vol_id << " journal name counter:"
             << MIN_JOURNAL_COUNTER;
         cnt = MIN_JOURNAL_COUNTER;
-        std::shared_ptr<std::atomic<int64_t>> _c(new std::atomic<int64_t>(cnt-1));
+        std::shared_ptr<std::atomic<int64_t>> _c(new std::atomic<int64_t>(cnt));
         counter_map_.insert(std::pair<string,std::shared_ptr<std::atomic<int64_t>>>(vol_id,_c));
         return DRS_OK;
     }    
@@ -211,7 +217,7 @@ RESULT CephS3Meta::get_journal_key_counter(const string& vol_id,int64_t& cnt){
         LOG_INFO << "get journal name counter:volume " << vol_id << " not found.";
         return init_journal_key_counter(vol_id,cnt);
     }
-    cnt = (it->second)->load() + 1; // point to next counter
+    cnt = (it->second)->load();
     return DRS_OK;
 }
 RESULT CephS3Meta::set_journal_key_counter(const string& vol_id,
@@ -261,6 +267,7 @@ RESULT CephS3Meta::create_journals(const string& uuid, const string& vol_id,
         LOG_ERROR << "update " << vol_id << " journal counter failed!";
         return res;
     }
+    counter++;// start at next journal counter
     LOG_INFO << vol_id << " creating journals from " 
         << counter << ",number " << limit;
     for(int i=0;i<limit;i++) {
@@ -317,6 +324,7 @@ RESULT CephS3Meta::seal_volume_journals(const string& uuid, const string& vol_id
             LOG_ERROR << "get journal " << journals[i] << " meta failed!";
             break;
         }
+        meta.set_status(SEALED);
         string meta_s;
         if(true != meta.SerializeToString(&meta_s)){
             LOG_ERROR << "serialize journal meta failed!";
@@ -516,8 +524,8 @@ RESULT CephS3Meta::seal_opened_journals(const string& vol_id,
     return seal_volume_journals(uuid,vol_id,keys_a,list.size());
 }
 RESULT CephS3Meta::list_volumes(std::list<string>& list){
-    string prefix = g_writer_prefix;
-    RESULT res = s3Api_ptr_->list_objects(prefix.c_str(),nullptr,nullptr,10,&list,"/");
+    string prefix = g_key_prefix;
+    RESULT res = s3Api_ptr_->list_objects(prefix.c_str(),nullptr,nullptr,0,&list,"/");
     if(DRS_OK != res){
         LOG_ERROR << "list objects failed:" << prefix;
         return res;
@@ -525,7 +533,7 @@ RESULT CephS3Meta::list_volumes(std::list<string>& list){
     if(list.empty())
         return DRS_OK;
     std::for_each(list.begin(),list.end(),[](string& s){
-        // get "/vol-id/" in "/sessions/writer/vol-id/"
+        // get "vol-id" in "/journals/vol-id/"
         size_t end = s.find_last_of('/');
         size_t pos = s.find_last_of('/',end-1);
         s = s.substr(pos+1,end-pos-1);// remove '/' at start and end

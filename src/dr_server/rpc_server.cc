@@ -31,7 +31,7 @@ void RunServer() {
         LOG_FATAL << "config parse journal_meta_storage.type error!";
         return;
     }
-    if(false == parser->get<int>("grpc.server_port",port)){
+    if(false == parser->get<int>("grpc_server.port",port)){
         LOG_FATAL << "config parse grpc_server.port error!";
         return;
     }

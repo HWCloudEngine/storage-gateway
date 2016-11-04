@@ -15,7 +15,7 @@
 #define SLEEP_UNITS_PER_SECOND 1
 #endif
 #ifndef MAX_RETRIES
-#define MAX_RETRIES 3
+#define MAX_RETRIES 5
 #endif
 using huawei::proto::DRS_OK;
 using huawei::proto::INTERNAL_ERROR;
@@ -28,6 +28,8 @@ static int should_retry(s3_call_response_t &response)
         sleep(response.retrySleepInterval);
         // Next sleep 1 second longer
         response.retrySleepInterval++;
+        LOG_WARN << "retry s3 api since last operation failed:"
+            << S3_get_status_name(response.status);
         return 1;
     }
     return 0;
@@ -183,7 +185,7 @@ RESULT CephS3Api::create_bucket_if_not_exists(const char* bucket_name) {
     do{
         S3_create_bucket(bucketContext.protocol, bucketContext.accessKeyId,
                 bucketContext.secretAccessKey,bucketContext.hostName, bucket_name,
-                S3CannedAclPrivate, NULL, NULL, &responseHandler, NULL);
+                S3CannedAclPrivate, NULL, NULL, &responseHandler, &response);
     }while(S3_status_is_retryable(response.status)
                 && should_retry(response));
     if(S3StatusOK != response.status) {
@@ -249,10 +251,10 @@ RESULT CephS3Api::get_object(const char* key, string* value){
     } while(S3_status_is_retryable(response.status)
                 && should_retry(response));
     if(S3StatusOK != response.status) {
-        LOG_ERROR << "get object " << key << " failed:"
-            << S3_get_status_name(response.status);
         if(S3StatusErrorNoSuchKey == response.status)
             return NO_SUCH_KEY;
+        LOG_ERROR << "get object " << key << " failed:"
+            << S3_get_status_name(response.status);
         return INTERNAL_ERROR;
     }
     return DRS_OK;
