@@ -38,13 +38,15 @@ private:
     RESULT get_journal_key_counter(const string& vol_id,int64_t& cnt);
     RESULT set_journal_key_counter(const string& vol_id,
             int64_t& expected,const int64_t& val);
-    RESULT get_journal_meta_by_key(const string& key, JournalMeta& meta);
+    RESULT get_journal_meta(const string& key, JournalMeta& meta);
     RESULT init();
 public:
     CephS3Meta();
     ~CephS3Meta();
     virtual RESULT create_journals(const string& uuid,const string& vol_id,
             const int& limit, std::list<string> &list);
+    virtual RESULT create_journals_by_given_keys(const string& uuid,
+            const string& vol_id,const std::list<string> &list);
     virtual RESULT seal_volume_journals(const string& uuid,const string& vol_id,
             const string journals[],const int& count);
     virtual RESULT get_journal_marker(const string& uuid,const string& vol_id,
