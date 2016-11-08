@@ -48,13 +48,13 @@ int GCTask::init(std::shared_ptr<JournalGCManager> meta){
         LOG_FATAL << "config parse ceph_s3.bucket error!";
         return INTERNAL_ERROR;
     }
+    lease_check_window_ = parser->get_default<int>("ceph_s3.expire_window",10);
     parser.reset();
     lease_->init(access_key.c_str(),
             secret_key.c_str(),host.c_str(),bucket_name.c_str(),gc_interval);
 
     tick_ = 1;
     GC_window_ = 10; // TODO: config in config file?
-    lease_check_window_ = 5;
     GC_running_ = true;
     thread_GC_.reset(new ::std::thread([this]{
         int ticks = 0;
@@ -62,9 +62,9 @@ int GCTask::init(std::shared_ptr<JournalGCManager> meta){
             std::this_thread::sleep_for(std::chrono::seconds(tick_));
             ticks++;
             if(ticks%GC_window_==0)
-                GC_task();
+                do_GC();
             if(ticks % lease_check_window_ == 0){
-//                lease_check_task(); // TODO: the writer did not implement lease yet?
+                lease_check_task();
             }
         }
     }));
@@ -72,7 +72,7 @@ int GCTask::init(std::shared_ptr<JournalGCManager> meta){
     return 0;
 }
 
-void GCTask::GC_task(){
+void GCTask::do_GC(){
     // TODO: journal GC
     LOG_DEBUG << "GC_task";
     update_volume_set();
@@ -155,7 +155,7 @@ void GCTask::update_volume_set(){
         }
         vol_to_remove_.clear();
     }
-#if 1 // TODO: debug for single-point test, to delete when volume-id can be dynamiclly added
+#if 0 // TODO: debug for single-point test, to delete when volume-id can be dynamiclly added
     std::list<string> list;
     RESULT res = meta_ptr_->list_volumes(list);
     if(res != DRS_OK || list.empty())

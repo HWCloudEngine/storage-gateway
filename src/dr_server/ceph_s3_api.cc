@@ -93,10 +93,13 @@ static S3Status getObjectDataCallback(int bufferSize, const char *buffer, void *
     return S3StatusOK;
 }
 
+// this callback may be called more than once during a list request
 static S3Status listBucketCallback(int isTruncated, const char *nextMarker,
         int contentsCount, const S3ListBucketContent *contents, int commonPrefixesCount,
         const char **commonPrefixes, void *callbackData){
     s3_call_response_t* response = (s3_call_response_t*)callbackData;
+    if(response->endMarker[0] != 0 && response->match_end_marker) // do nothing if had matched end marker
+        return S3StatusOK;
     response->isTruncated = isTruncated;
     // This is tricky.  S3 doesn't return the NextMarker if there is no
     // delimiter. since it's still useful for paging through results. 
@@ -118,7 +121,8 @@ static S3Status listBucketCallback(int isTruncated, const char *nextMarker,
         const S3ListBucketContent *content = &(contents[i]);
         if(response->endMarker[0] != 0){
             if(0==strcmp(content->key,response->endMarker)){
-                response->isTruncated = false;
+                response->isTruncated = 0;
+                response->match_end_marker = 1;
                 LOG_INFO << "match list objects end marker:" << content->key;
                 break;
             }
@@ -233,7 +237,8 @@ RESULT CephS3Api::put_object(const char* obj_name, const string* value,
         delete [] properties.metaData;
     }
     if(S3StatusOK != response.status){
-        LOG_ERROR << "update object failed:" << S3_get_status_name(response.status);;
+        LOG_ERROR << "create object " << obj_name << " failed:"
+            << S3_get_status_name(response.status);
         return INTERNAL_ERROR;
     }
     return DRS_OK;
@@ -299,7 +304,7 @@ RESULT CephS3Api::delete_object(const char* key) {
     }
     return DRS_OK;
 }
-
+// if end_marker is set and didnot match it during listing, retrun a empty list
 RESULT CephS3Api::list_objects(const char*prefix, const char*marker, const char* end_marker,
             int maxkeys, std::list<string>* list,const char* delimiter) {
     S3ListBucketHandler listBucketHandler =
@@ -323,7 +328,6 @@ RESULT CephS3Api::list_objects(const char*prefix, const char*marker, const char*
     else
         response.endMarker[0] = 0;
     do {
-        response.isTruncated = 0;
         do {
             S3_list_bucket(&bucketContext,prefix,response.nextMarker,
                 delimiter,maxkeys,NULL,&listBucketHandler,&response);
@@ -331,10 +335,12 @@ RESULT CephS3Api::list_objects(const char*prefix, const char*marker, const char*
                 && should_retry(response));
         if(response.status != S3StatusOK)
             break;
-    } while(response.isTruncated && (!maxkeys || (response.keyCount < maxkeys)));
+    } while(response.isTruncated && (maxkeys<=0 || (response.keyCount < maxkeys)));
     if(S3StatusOK != response.status){
         LOG_ERROR << "list object failed: " << S3_get_status_name(response.status);
         return INTERNAL_ERROR;
     }
+    if(NULL!=end_marker && 0!=end_marker[0] && !response.match_end_marker)
+        list->clear();
     return DRS_OK;
 }

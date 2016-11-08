@@ -50,7 +50,7 @@ private:
         if(thread_GC_.get() && thread_GC_->joinable())
             thread_GC_->join();
     };
-    void GC_task();
+    void do_GC();
     void lease_check_task();
     void update_volume_set();
 };
