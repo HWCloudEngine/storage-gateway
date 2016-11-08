@@ -155,7 +155,7 @@ void GCTask::update_volume_set(){
         }
         vol_to_remove_.clear();
     }
-#if 1 // TODO: debug for single-point test, to delete when volume-id can be dynamiclly added
+#if 0 // TODO: debug for single-point test, to delete when volume-id can be dynamiclly added
     std::list<string> list;
     RESULT res = meta_ptr_->list_volumes(list);
     if(res != DRS_OK || list.empty())

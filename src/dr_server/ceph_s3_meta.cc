@@ -103,7 +103,9 @@ string construct_sealed_index(const string& m_key){
     return g_sealed + sub; 
 }
 string construct_recyled_index(const string& m_key){
-    string sub = m_key.substr(g_key_prefix.length(),m_key.length()-g_key_prefix.length());
+    string sub = m_key;
+    sub.erase(0,sub.find_first_of("/")+1);
+    sub.erase(0,sub.find_first_of("/")+1);
     return g_recycled + sub;    
 }
 string construct_write_open_index(const string& m_key, 
@@ -165,7 +167,7 @@ RESULT init_cephs3_api(std::unique_ptr<CephS3Api>& s3Api,string& mount_path){
     return DRS_OK;
 }
 
-RESULT CephS3Meta::get_journal_meta_by_key(const string& key, JournalMeta& meta) {
+RESULT CephS3Meta::get_journal_meta(const string& key, JournalMeta& meta) {
     auto it = kv_map_.find(key);
     if(it != kv_map_.end()){
         meta.CopyFrom(it->second);
@@ -314,12 +316,81 @@ RESULT CephS3Meta::create_journals(const string& uuid, const string& vol_id,
     return res;
 }
 
+RESULT CephS3Meta::create_journals_by_given_keys(const string& uuid,
+            const string& vol_id,const std::list<string> &list){
+    RESULT res;
+    int count = 0;
+    int64_t counter;
+    res = get_journal_key_counter(vol_id,counter);
+    DR_ASSERT(res == DRS_OK)
+    int64_t next = std::stoll(list.back().substr(list.back().find_last_of('/')+1));
+    int max_trys = 5;
+    while(next > counter && max_trys-- > 0){
+        res = set_journal_key_counter(vol_id,counter,next);
+        if(res == DRS_OK)
+            break;
+    }
+    if(res != DRS_OK){
+        LOG_ERROR << "update " << vol_id << " journal counter failed!";
+        return res;
+    }
+    LOG_INFO << vol_id << " creating journals from "
+        << counter << ",to " << next;
+
+    for(auto it=list.begin();it!=list.end();++it) {
+        res = s3Api_ptr_->head_object(it->c_str(),nullptr);
+        if(res == DRS_OK) // journal existed
+            continue;
+        int64_t next = std::stoll(it->substr(it->find_last_of('/')+1));
+        string filename = get_journal_filename(vol_id,next);
+        JournalMeta meta;
+        meta.set_path(filename);
+        meta.set_status(OPENED);
+        string meta_s;
+        if(true != meta.SerializeToString(&meta_s)){
+            LOG_ERROR << "serialize journal meta failed!";
+            res = INTERNAL_ERROR;
+            break;
+        }
+        res = s3Api_ptr_->put_object(it->c_str(),&meta_s,nullptr); // add journal major key
+        if(DRS_OK != res){
+            LOG_ERROR << "update journal " << *it << " opened status failed!";
+            break;
+        }
+        count++;
+        string o_key = construct_write_open_index(*it,vol_id,uuid);
+        res = s3Api_ptr_->put_object(o_key.c_str(),nullptr,nullptr);
+        if(DRS_OK != res){
+            LOG_ERROR << "add opened journal's index key " << o_key << " failed!";
+            break;
+        }
+        res = create_journal_file(mount_path_ + filename);
+        if(DRS_OK != res){
+            LOG_ERROR << "creat file " << mount_path_+filename << " failed!" ;
+            break;
+        }
+    }
+    if(DRS_OK != res){
+        if(count <= 0)
+            return INTERNAL_ERROR;
+        // roll back: delete partial written meta
+        int i=0;
+        for(auto it=list.begin();it!=list.end() && i<count;++it,++i){
+            s3Api_ptr_->delete_object(it->c_str());
+            string o_key = construct_write_open_index(*it,vol_id,uuid);
+            s3Api_ptr_->delete_object(o_key.c_str());       
+        }
+        return INTERNAL_ERROR;
+    }
+    return res;
+}
+
 RESULT CephS3Meta::seal_volume_journals(const string& uuid, const string& vol_id,
         const string journals[], const int& count) {
     RESULT res = DRS_OK;    
     for(int i=0;i<count;i++){
         JournalMeta meta;
-        res = get_journal_meta_by_key(journals[i],meta);
+        res = get_journal_meta(journals[i],meta);
         if(DRS_OK != res){
             LOG_ERROR << "get journal " << journals[i] << " meta failed!";
             break;
@@ -353,8 +424,8 @@ RESULT CephS3Meta::seal_volume_journals(const string& uuid, const string& vol_id
 }
 
 RESULT CephS3Meta::get_journal_marker(const string& uuid,const string& vol_id,
-        const CONSUMER_TYPE& type, JournalMarker* marker){
-    string key = assemble_journal_marker_key(vol_id,type);
+        const CONSUMER_TYPE& type, JournalMarker* marker,const bool is_consumer){
+    string key = assemble_journal_marker_key(vol_id,type,is_consumer);
     unique_ptr<string> p(new string());
     string *value = p.get();
     RESULT res = s3Api_ptr_->get_object(key.c_str(),value);
@@ -365,11 +436,16 @@ RESULT CephS3Meta::get_journal_marker(const string& uuid,const string& vol_id,
             LOG_WARN << vol_id << " 's marker is not initialized!";
             std::list<string> list;
             res = s3Api_ptr_->list_objects((g_key_prefix+vol_id).c_str(),nullptr,nullptr,1,&list);
-            if(DRS_OK != res || list.size() <= 0){
+            if(DRS_OK != res){
                 LOG_ERROR << "list volume " << vol_id << " journals failed!";
                 return INTERNAL_ERROR;
             }
-            marker->set_cur_journal(list.front());
+            if(list.size() <= 0){
+                string key = g_key_prefix + vol_id + "/" + counter_to_string(0);
+                marker->set_cur_journal(key);
+            }
+            else
+                marker->set_cur_journal(list.front());
             marker->set_pos(0L);
         }
         else{
@@ -383,9 +459,9 @@ RESULT CephS3Meta::get_journal_marker(const string& uuid,const string& vol_id,
             << ":" << marker->pos();
     return DRS_OK;
 }
-RESULT CephS3Meta::update_journals_marker(const string&uuid, const string& vol_id,
-        const CONSUMER_TYPE& type, const JournalMarker& marker){
-    string key = assemble_journal_marker_key(vol_id,type);
+RESULT CephS3Meta::update_journal_marker(const string&uuid, const string& vol_id,
+        const CONSUMER_TYPE& type, const JournalMarker& marker,const bool is_consumer){
+    string key = assemble_journal_marker_key(vol_id,type,is_consumer);
     string marker_s;
     if(false==marker.SerializeToString(&marker_s)){
         LOG_ERROR << vol_id << " serialize marker failed!";
@@ -393,7 +469,7 @@ RESULT CephS3Meta::update_journals_marker(const string&uuid, const string& vol_i
     }
     RESULT res = s3Api_ptr_->put_object(key.c_str(),&marker_s,nullptr);
     if(DRS_OK != res){
-        LOG_ERROR << "update_journals_marker of volume " << vol_id << " failed!";
+        LOG_ERROR << "update_journal_marker of volume " << vol_id << " failed!";
         return res;
     }
     // TODO: delete journals files which were consumed by both replyer and replicator
@@ -451,7 +527,7 @@ RESULT CephS3Meta::get_sealed_and_consumed_journals(const string& vol_id,
     }
     end_marker = end_marker.compare(marker.cur_journal()) < 0 ? 
         end_marker : marker.cur_journal();  // set the lower journal key as end_marker
-    string prefix = g_key_prefix+vol_id;
+    string prefix = g_sealed+vol_id;  // recycle sealed journals
     return s3Api_ptr_->list_objects(prefix.c_str(),nullptr,end_marker.c_str(),
         limit,&list);    
 }
