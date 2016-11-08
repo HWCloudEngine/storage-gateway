@@ -89,7 +89,7 @@ static S3Status getObjectDataCallback(int bufferSize, const char *buffer, void *
 {
     string *value = (string*)(((s3_call_response_t*)callbackData)->pdata);
     value->append(buffer,bufferSize);
-    LOG_DEBUG << "getObjectDataCallback, len:" << value->length() << ":" << bufferSize;
+//    LOG_DEBUG << "getObjectDataCallback, len:" << value->length() << ":" << bufferSize;
     return S3StatusOK;
 }
 

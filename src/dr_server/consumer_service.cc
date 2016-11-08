@@ -59,7 +59,7 @@ Status ConsumerServiceImpl::UpdateConsumerMarker(ServerContext* context,
         const UpdateConsumerMarkerRequest* request,
         UpdateConsumerMarkerResponse* reply) {
     JournalMarker marker = request->marker();
-    RESULT res = _meta->update_journals_marker(request->uuid(),request->vol_id(),request->type(),marker);
+    RESULT res = _meta->update_journal_marker(request->uuid(),request->vol_id(),request->type(),marker);
     if(res != DRS_OK) {
         LOG_ERROR << "update " << request->vol_id() << " journals marker failed!";
         reply->set_result(INTERNAL_ERROR);

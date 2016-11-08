@@ -1,5 +1,8 @@
 noinst_LTLIBRARIES=librpc.la
-librpc_la_SOURCES=common.pb.cc consumer.grpc.pb.cc consumer.pb.cc  journal.pb.cc  writer.grpc.pb.cc  writer.pb.cc
+librpc_la_SOURCES=common.pb.cc consumer.grpc.pb.cc consumer.pb.cc  journal.pb.cc  writer.grpc.pb.cc  writer.pb.cc \
+				  replicator.pb.cc replicator.grpc.pb.cc
+#noinst_LTLIBRARIES=libreplicate_rpc.la
+#libreplicate_rpc_la_SOURCES=common.pb.cc journal.pb.cc replicator.pb.cc replicator.grpc.pb.cc
 AM_CPPFLAGS=-std=c++11
 DEFS+=-D_GNU_SOURCE
 LIBS=-lpthread -lprotobuf -lpthread -ldl -lgrpc -lgrpc++
