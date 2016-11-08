@@ -27,6 +27,7 @@ typedef struct s3_call_response{
     int retrySleepInterval;
     int isTruncated;
     int keyCount;
+    int match_end_marker;
     char nextMarker[1024];
     char endMarker[1024];
     void *pdata;

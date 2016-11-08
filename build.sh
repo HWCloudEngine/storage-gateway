@@ -1,5 +1,5 @@
 #!/bin/sh
-USAGE="$0 [make | clean]"
+USAGE="$0 [make | clean] \n option: -debug, enable debug mode"
 CUR_PATH=$(/bin/pwd)
 RPC_SOURCE_PATH=${CUR_PATH}/src/rpc
 PROTO_PATH=${CUR_PATH}/src/rpc/protos
@@ -15,7 +15,8 @@ echo "generate new grpc C++ source files to ${RPC_SOURCE_PATH} ..."
 #generate grpc
 $PROTOC -I $PROTO_PATH --grpc_out=$RPC_SOURCE_PATH \
        --plugin=protoc-gen-grpc=`which grpc_cpp_plugin` \
-        ${PROTO_PATH}/writer.proto ${PROTO_PATH}/consumer.proto
+        ${PROTO_PATH}/writer.proto ${PROTO_PATH}/consumer.proto \
+        ${PROTO_PATH}/replicator.proto
 
 #generate protocol
 $PROTOC -I $PROTO_PATH --cpp_out=$RPC_SOURCE_PATH \
@@ -23,8 +24,8 @@ $PROTOC -I $PROTO_PATH --cpp_out=$RPC_SOURCE_PATH \
         ${PROTO_PATH}/consumer.proto \
         ${PROTO_PATH}/common.proto \
         ${PROTO_PATH}/journal.proto \
-        ${PROTO_PATH}/message.proto
-
+        ${PROTO_PATH}/message.proto \
+        ${PROTO_PATH}/replicator.proto 
 
 #auto generate Makefiles
 touch NEWS README AUTHORS ChangeLog
@@ -40,7 +41,13 @@ automake
 cd ${CUR_PATH}
 mkdir -p build
 chmod +x ${CUR_PATH}/configure
-${CUR_PATH}/configure --prefix=${CUR_PATH}
+if [ 2 -eq $# ] && [ x"-debug" = x$2 ]
+then
+    ${CUR_PATH}/configure --prefix=${CUR_PATH} CXXFLAGS='-g2 -O0 -w' CFLAGS='-g2 -O0 -w'
+else
+    ${CUR_PATH}/configure --prefix=${CUR_PATH}
+fi
+
 make clean
 make -j 8
 #copy program to bin

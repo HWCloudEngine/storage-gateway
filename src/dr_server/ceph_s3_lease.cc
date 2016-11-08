@@ -197,4 +197,3 @@ CephS3LeaseServer::~CephS3LeaseServer() {
         gc_thread_ptr_.reset();
     }
 }
-
