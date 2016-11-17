@@ -73,16 +73,10 @@ class Bcache
 {
 public:
     Bcache() = default;
-    /*blk_dev:  orignal block device path
-     *mem_limit: max memory cache 
-     */
-    Bcache(string bdev, size_t mem_limit){
+    /*blk_dev:  orignal block device path*/
+    Bcache(string bdev){
         LOG_INFO << "Bcache create";
         m_blkdev = bdev;
-        m_mem_limit = mem_limit;
-        m_mem_size = 0;
-        m_item_limit = 0;
-        m_item_num = 0;
         init();
     }
 
@@ -94,10 +88,6 @@ public:
     ~Bcache(){
         LOG_INFO << "Bcache destroy";
         m_bcache.clear();
-        m_mem_size = 0;
-        m_item_limit = 0;
-        m_item_num = 0;
-
         fini();
     }
    
@@ -123,10 +113,6 @@ public:
     bool update(Bkey key, shared_ptr<CEntry> value);
     bool del(Bkey key);
 
-    /*check memory full or not, if full CEntry point to log file,else in memory
-     */
-    bool isfull(int io_size);
-   
     /*debug*/
     void trace();
 
@@ -159,10 +145,6 @@ private:
 
     Mutex                         m_mutex;     //read write lock
     bcache_map_t                  m_bcache;    //memory cache
-    size_t                        m_mem_limit; //memory cache max capacity
-    size_t                        m_mem_size;  //current memory cache size
-    size_t                        m_item_limit; //map entry item limit(reserved)
-    size_t                        m_item_num;   //map entry item num(reserved)
 }; 
 
 #endif
