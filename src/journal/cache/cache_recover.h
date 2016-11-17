@@ -105,7 +105,8 @@ public:
     SrcWorker(string vol, 
               shared_ptr<ReplayerClient> rpc_cli, 
               shared_ptr<JournalMarker> lastest_mark)
-        :m_volume(vol), m_grpc_client(rpc_cli), m_latest_marker(lastest_mark){}
+                :m_volume(vol), m_grpc_client(rpc_cli), 
+                 m_latest_marker(lastest_mark){}
     virtual ~SrcWorker(){}
     
     void start() override;

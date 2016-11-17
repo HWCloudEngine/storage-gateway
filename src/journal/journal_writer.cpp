@@ -141,10 +141,10 @@ void JournalWriter::work()
             }
             fflush(cur_file_ptr);
             
-            std::string log_file = config.journal_mnt + *cur_journal;
-            off_t log_off = cur_journal_size;
-            shared_ptr<ReplayEntry> log_entry(entry);
-            cacheproxy_->write(log_file, log_off, log_entry);
+            std::string journal_file = config.journal_mnt + *cur_journal;
+            off_t journal_off = cur_journal_size;
+            shared_ptr<ReplayEntry> journal_entry(entry);
+            cacheproxy_->write(journal_file, journal_off, journal_entry);
 
             cur_journal_size = cur_journal_size + write_size;
             success = true;

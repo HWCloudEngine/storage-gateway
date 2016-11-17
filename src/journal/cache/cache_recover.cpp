@@ -68,8 +68,8 @@ void ProcessWorker::process_file(IReadFile* file)
         off_t end   = file->m_size;
         while(start < end){
             /*to do: optimize read*/
-            string log_file = file->m_file;
-            off_t  log_off  = start;
+            string journal_file = file->m_file;
+            off_t  journal_off  = start;
             shared_ptr<ReplayEntry> entry; 
             size_t ret = file->read_entry(start, m_buffer_pool, entry);
             if(nullptr == entry || ret != entry->length()){
@@ -77,7 +77,7 @@ void ProcessWorker::process_file(IReadFile* file)
                 break;
             }
             start += ret;
-            m_cache_proxy->write(log_file, log_off, entry);
+            m_cache_proxy->write(journal_file, journal_off, entry);
         }
     }
 

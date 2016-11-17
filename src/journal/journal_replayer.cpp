@@ -84,8 +84,8 @@ void JournalReplayer::update_marker()
         if (latest_entry_.get() && update_)
         {
             std::unique_lock < std::mutex > ul(entry_mutex_);
-            std::string file_name = latest_entry_->get_log_file();
-            off_t off = latest_entry_->get_log_offset();
+            std::string file_name = latest_entry_->get_journal_file();
+            off_t off = latest_entry_->get_journal_off();
             journal_marker_.set_cur_journal(file_name.c_str());
             journal_marker_.set_pos(off);
             update_consumer_marker();
@@ -106,7 +106,7 @@ void JournalReplayer::replay_volume()
         {
             //replay from memory
             LOG_INFO << "replay from memory";
-            bool succeed = process_cache(entry->get_log_entry());
+            bool succeed = process_cache(entry->get_journal_entry());
             if (succeed)
             {
                 std::unique_lock < std::mutex > ul(entry_mutex_);
@@ -118,8 +118,8 @@ void JournalReplayer::replay_volume()
         {
             //replay from journal file
             LOG_INFO << "replay from journal file";
-            const std::string file_name = entry->get_log_file();
-            const off_t off = entry->get_log_offset();
+            const std::string file_name = entry->get_journal_file();
+            const off_t off = entry->get_journal_off();
             bool succeed = process_file(file_name, off);
             if (succeed)
             {

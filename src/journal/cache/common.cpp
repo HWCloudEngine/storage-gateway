@@ -9,35 +9,40 @@
 #include "common.h"
 #include "../../log/log.h"
 
-CEntry::CEntry(IoVersion seq, string file, off_t file_offset, 
-               off_t blk_off, size_t blk_len)
+CEntry::CEntry(IoVersion seq, off_t bdev_off, size_t bdev_len,
+               string jfile, off_t jfile_off)
 {
-    log_seq    = seq;
-    log_file   = file;
-    log_offset = file_offset;
-    cache_type = IN_LOG;
-    blk_off    = blk_off;
-    blk_len    = blk_len;
-    log_entry  = nullptr;
+    io_seq  = seq;
+    blk_off = bdev_off;
+    blk_len = bdev_len;
+    journal_file = jfile;
+    journal_off  = jfile_off;
+    cache_type   = IN_JOURANL;
+    journal_entry  = nullptr;
 }
 
-CEntry::CEntry(IoVersion seq, string file, off_t offset, 
+CEntry::CEntry(IoVersion seq, off_t bdev_off, size_t bdev_len,
+               string jfile, off_t jfile_off, 
                shared_ptr<ReplayEntry> entry)
 {
-    log_seq    = seq;
-    log_file   = file;
-    log_offset = offset;
-    cache_type = IN_MEM;
-    log_entry  = entry;
+    io_seq  = seq;
+    blk_off = bdev_off;
+    blk_len = bdev_len;
+    journal_file   = jfile;
+    journal_off    = jfile_off;
+    cache_type     = IN_MEM;
+    journal_entry  = entry;
 }
 
 CEntry::CEntry(const CEntry& other)
 {
-    log_seq = other.log_seq;
-    log_file = other.log_file;
-    log_offset = other.log_offset;
-    cache_type = other.cache_type;
-    log_entry = other.log_entry;
+    io_seq  = other.io_seq;
+    blk_off = other.blk_off;
+    blk_len = other.blk_len;
+    journal_file = other.journal_file;
+    journal_off  = other.journal_off;
+    cache_type   = other.cache_type;
+    journal_entry  = other.journal_entry;
 }
 
 CEntry::CEntry(CEntry&& other)
@@ -48,10 +53,13 @@ CEntry::CEntry(CEntry&& other)
 CEntry& CEntry::operator=(const CEntry& other)
 {
     if(this != &other){
-        log_seq = other.log_seq;
-        log_file = other.log_file;
-        log_offset = other.log_offset;
-        cache_type = other.cache_type;
+        io_seq  = other.io_seq;
+        blk_off = other.blk_off;
+        blk_len = other.blk_len;
+        journal_file = other.journal_file;
+        journal_off  = other.journal_off;
+        cache_type   = other.cache_type;
+        journal_entry = other.journal_entry;
     } 
     return *this;
 }
@@ -59,11 +67,14 @@ CEntry& CEntry::operator=(const CEntry& other)
 CEntry& CEntry::operator=(CEntry&& other)
 {
     if(this != &other){
-        log_seq = other.log_seq;
-        log_file = other.log_file;
-        log_offset = other.log_offset;
+        io_seq  = other.io_seq;
+        blk_off = other.blk_off;
+        blk_len = other.blk_len;
+        journal_file = other.journal_file;
+        journal_off  = other.journal_off;
         cache_type = other.cache_type;
-    } 
+        journal_entry = other.journal_entry;
+    }
     return *this;
 }
 
@@ -74,16 +85,15 @@ size_t CEntry::get_mem_size()const
      */
     size_t size = 0;
     if(cache_type == IN_MEM){
-       log_header_t* lh = (log_header_t*)log_entry->data();
+       log_header_t* lh = (log_header_t*)journal_entry->data();
        int off_count = lh->count;
        off_len_t* poff = (off_len_t*)((char*)lh + sizeof(log_header_t));
        for(int i = 0; i < off_count; i++){
            size += poff[i].length; 
        }
     } else {
-        
+       ; 
     }
-
     return size;
 }
 
@@ -94,14 +104,14 @@ IReadFile::IReadFile(string file, off_t pos, bool eos)
 {
 }
 
-static inline size_t _cal_data_size(off_len_t* off_len, int count)                      
-{                                                                                
-    size_t data_size = 0;                                                        
-    for(int i = 0 ; i < count; i++){                                             
-        data_size += off_len[i].length;                                          
-    }                                                                            
-    return data_size;                                                            
-}    
+static inline size_t _cal_data_size(off_len_t* off_len, int count)
+{
+    size_t data_size = 0;
+    for(int i = 0 ; i < count; i++){
+        data_size += off_len[i].length;
+    }
+    return data_size;
+}
 
 size_t IReadFile:: read_entry(off_t off, 
                               nedalloc::nedpool* bufpool, 
