@@ -42,7 +42,10 @@ void JournalReader::work()
     {
         /*fetch io read request*/
         struct IOHookRequest ioreq;
-        ioreq = m_read_queue.pop();
+        bool rval = m_read_queue.pop(ioreq);
+        if(!rval){
+            break;
+        }
         
         int iorsp_len = sizeof(struct IOHookReply) + ioreq.len;
         struct IOHookReply* iorsp = (struct IOHookReply*)new char[iorsp_len];
