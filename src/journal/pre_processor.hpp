@@ -32,7 +32,7 @@ public:
                                   std::condition_variable& write_cv);
     virtual ~PreProcessor();
     void work();
-    bool init(nedalloc::nedpool* buffer_pool,ConfigParser& conf);
+    bool init(nedalloc::nedpool* buffer_pool,shared_ptr<ConfigParser> conf);
     bool deinit();
     bool cal_checksum(ReplayEntry * entry,bool sse_flag,checksum_type_t checksum_type);
 private:
