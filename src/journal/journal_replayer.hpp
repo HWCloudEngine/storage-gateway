@@ -15,6 +15,7 @@
 #include "cache/cache_proxy.h"
 #include "cache/cache_recover.h"
 #include "../rpc/clients/replayer_client.hpp"
+#include "../snapshot/snapshot_proxy.h"
 
 namespace Journal
 {
@@ -27,13 +28,16 @@ public:
     bool init(const std::string& vol_id, 
               const std::string& device,
               std::shared_ptr<IDGenerator> id_maker_ptr,
-              std::shared_ptr<CacheProxy> cache_proxy_ptr);
+              std::shared_ptr<CacheProxy> cache_proxy_ptr,
+              std::shared_ptr<SnapshotProxy> snapshot_proxy_ptr);
     bool deinit();
 private:
     void replay_volume();
     void update_marker();
     bool process_cache(std::shared_ptr<ReplayEntry> r_entry);
     bool process_file(const std::string& file_name, off_t off);
+    /*handle snapshot and other control command*/
+    bool handle_ctrl_cmd(log_header_t* log_head);
     bool update_consumer_marker();
 
     int vol_fd_;
@@ -49,6 +53,11 @@ private:
     std::shared_ptr<CacheProxy> cache_proxy_ptr_;
     std::shared_ptr<IDGenerator> id_maker_ptr_;
     std::shared_ptr<CacheRecovery> cache_recover_ptr_;
+    
+    /*snapshot*/
+    std::shared_ptr<SnapshotProxy> snapshot_proxy_ptr_;
+    snapid_t latest_snapid_;
+    bool exist_snapshot_;
 };
 
 }

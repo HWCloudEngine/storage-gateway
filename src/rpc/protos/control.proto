@@ -1,0 +1,89 @@
+// storage gateway rpc request/response
+
+syntax = "proto3";
+
+package huawei.proto;
+
+/*northern oriented rpc service interface*/
+service CtrlRpcSvc {
+    /*snapshot relevant*/
+    rpc CreateSnapshot(CreateSnapshotReq) returns(CreateSnapshotAck){}
+    rpc ListSnapshot(ListSnapshotReq) returns(ListSnapshotAck){}
+    rpc RollbackSnapshot(RollbackSnapshotReq) returns(RollbackSnapshotAck){}
+    rpc DeleteSnapshot(DeleteSnapshotReq) returns(DeleteSnapshotAck){}
+    rpc DiffSnapshot(DiffSnapshotReq) returns(DiffSnapshotAck){}
+    rpc ReadSnapshot(ReadSnapshotReq) returns(ReadSnapshotAck){}
+
+    /*other control*/
+}
+
+message CreateSnapshotReq {
+    string vol_name = 1;
+    string snap_name = 2;
+}
+
+message CreateSnapshotAck {
+    int32 ret = 1;
+}
+
+message ListSnapshotReq {
+    string vol_name = 1;
+}
+
+message ListSnapshotAck {
+    int32 ret = 1;
+    repeated string snap_name = 2;
+}
+
+message RollbackSnapshotReq {
+    string vol_name  = 1;
+    string snap_name = 2;
+}
+
+message RollbackSnapshotAck {
+    int32 ret = 1; 
+}
+
+message DeleteSnapshotReq {
+    string vol_name = 1;
+    string snap_name   = 2;
+}
+
+message DeleteSnapshotAck {
+    int32 ret = 1;
+}
+
+message DiffSnapshotReq {
+    string vol_name         = 1;
+    string first_snap_name  = 2;
+    string last_snap_name   = 3;
+}
+
+message ExtDiffBlock {
+    uint64 off = 1;
+    uint64 len = 2;
+}
+
+message ExtDiffBlocks {
+    string vol_name  = 1;
+    string snap_name = 2;
+    /*diff blocks in the snapshot*/
+    repeated ExtDiffBlock diff_block = 3;
+}
+
+message DiffSnapshotAck {
+    int32 ret = 1;
+    repeated ExtDiffBlocks diff_blocks = 2;
+} 
+
+message ReadSnapshotReq {
+    string vol_name  = 1;
+    string snap_name = 2;
+    uint64 off       = 3;
+    uint64 len       = 4;
+}
+
+message ReadSnapshotAck {
+    int32 ret = 1;
+    repeated bytes data = 2;
+}

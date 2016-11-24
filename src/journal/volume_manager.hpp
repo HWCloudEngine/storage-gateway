@@ -20,9 +20,14 @@
 #include "journal_replayer.hpp"
 #include "journal_reader.hpp"
 #include "../dr_server/ceph_s3_lease.h"
+#include "../snapshot/snapshot_proxy.h"
 
 #define BUFFER_POOL_SIZE 1024*1024*64
 #define REQUEST_BODY_SIZE 512
+
+using namespace std; 
+/*forward declaration SnapshotSvc*/                                              
+class ControlSvc;  
 
 namespace Journal{
 
@@ -39,6 +44,11 @@ public:
     void stop();
     bool init(shared_ptr<ConfigParser> conf, shared_ptr<CephS3LeaseClient> lease_client);
     void set_property(std::string vol_id,std::string vol_path);
+
+    shared_ptr<SnapshotProxy> get_snapshot_proxy(){
+        return snapshotproxy;
+    }
+
 private:
     void periodic_task();
     raw_socket raw_socket_;
@@ -56,6 +66,8 @@ private:
     /*cache relevant*/
     shared_ptr<IDGenerator> idproxy;
     shared_ptr<CacheProxy>  cacheproxy;
+    /*snapshot relevant*/
+    shared_ptr<SnapshotProxy> snapshotproxy;
 
     PreProcessor pre_processor;
     Connection connection;
@@ -100,6 +112,9 @@ private:
     int journal_limit;
     shared_ptr<CephS3LeaseClient> lease_client;
     shared_ptr<ConfigParser> conf;
+
+    /*control rpc service*/
+    ControlSvc*  control_svc_;
 };
 }
 

@@ -86,6 +86,7 @@ void JournalWriter::work()
     bool success = false;
     time_t start,end;
     ReplayEntry* entry = NULL;
+    log_header_t* log_header = nullptr;
     uint64_t entry_size = 0;
     uint64_t write_size = 0;
     while(true)
@@ -122,6 +123,7 @@ void JournalWriter::work()
         success = false;
         time(&start);
         time(&end);
+        log_header = entry->header();
         entry_size = entry->length();
         while(!success && (difftime(end,start) < config.write_timeout))
         {
@@ -151,7 +153,12 @@ void JournalWriter::work()
             write_seq++;
         }
         lk.unlock();
-        send_reply(entry,success);
+
+        if(log_header->type == LOG_IO){
+            send_reply(entry,success);
+        } else {
+            ;
+        }
         //delete entry;
         //entry = NULL;
     }

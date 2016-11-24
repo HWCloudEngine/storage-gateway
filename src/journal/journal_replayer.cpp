@@ -29,12 +29,15 @@ JournalReplayer::JournalReplayer(const std::string& rpc_addr)
 bool JournalReplayer::init(const std::string& vol_id, 
                            const std::string& device,
                            std::shared_ptr<IDGenerator> id_maker_ptr,
-                           std::shared_ptr<CacheProxy> cache_proxy_ptr){
+                           std::shared_ptr<CacheProxy> cache_proxy_ptr,
+                           std::shared_ptr<SnapshotProxy> snapshot_proxy_ptr){
     vol_id_ = vol_id;
     device_ = device;
 
-    id_maker_ptr_    = id_maker_ptr;
-    cache_proxy_ptr_ = cache_proxy_ptr;
+    id_maker_ptr_       = id_maker_ptr;
+    cache_proxy_ptr_    = cache_proxy_ptr;
+    snapshot_proxy_ptr_ = snapshot_proxy_ptr;
+    exist_snapshot_     = false;
 
     cache_recover_ptr_.reset(new CacheRecovery(device_, 
                                 rpc_client_ptr_, 
@@ -114,7 +117,8 @@ void JournalReplayer::replay_volume()
                 cache_proxy_ptr_->reclaim(entry);
                 update_ = true;
             }
-        } else
+        } 
+        else
         {
             //replay from journal file
             LOG_INFO << "replay from journal file";
@@ -132,17 +136,64 @@ void JournalReplayer::replay_volume()
     }
 }
 
+bool JournalReplayer::handle_ctrl_cmd(log_header_t* log_head)
+{
+    /*handle snapshot*/
+    if(log_head->type == SNAPSHOT_CREATE)
+    {
+        LOG_INFO << "journal_replayer create snapshot"
+                 << " id:" << (unsigned)log_head->count;
+        /*update snapshot status*/
+        snapid_t snap_id = log_head->count;
+        string   snap_name = snapshot_proxy_ptr_->local_get_snapshot_name(snap_id);
+        snapshot_proxy_ptr_->do_create(snap_name, snap_id);
+        exist_snapshot_ = true;
+        latest_snapid_  = snap_id;
+        return true;
+    } 
+    else if(log_head->type == SNAPSHOT_DELETE)
+    {
+        LOG_INFO << "journal_replayer delete snapshot" 
+                 << " id:" << (unsigned)log_head->count;
+        snapid_t snap_id = log_head->count;
+        snapshot_proxy_ptr_->do_delete(snap_id);
+        if(latest_snapid_ == snap_id){
+            exist_snapshot_ = false;
+        }
+        return true;
+    }
+    else if(log_head->type == SNAPSHOT_ROLLBACK)
+    {
+        LOG_INFO << "journal_replay rollback snapshot"
+                 << " id:" << (unsigned)log_head->count;
+        snapid_t snap_id = log_head->count;
+        snapshot_proxy_ptr_->do_rollback(snap_id);
+        return true;
+    } 
+    else 
+    {
+        ;
+    }
+
+    return false;
+}
+
 bool JournalReplayer::process_cache(std::shared_ptr<ReplayEntry> r_entry)
 {
     /*get header*/
     log_header_t* log_head = r_entry->header();
     off_t header_length = r_entry->header_length();
     off_t length = r_entry->length();
+    
+    /*handle ctrl cmd*/
+    if(handle_ctrl_cmd(log_head)){
+        LOG_INFO << "replay succeed";
+        return true;
+    }
 
     //todo: use direct-IO to optimize journal replay
     off_t off_len_start = sizeof(log_header_t);
     off_t body_start = 0;
-
     while (off_len_start < header_length && body_start < length)
     {
         /*get off len*/
@@ -155,14 +206,24 @@ bool JournalReplayer::process_cache(std::shared_ptr<ReplayEntry> r_entry)
 
         //todo: check crc
         void *align_buf = nullptr;
-        int ret = posix_memalign((void**) &align_buf, 512, length);
+        int ret = posix_memalign((void**)&align_buf, 512, length);
         if (ret)
         {
             LOG_ERROR << "posix malloc failed ";
             return false;
         }
         memcpy(align_buf, data, length);
-        ret = pwrite(vol_fd_, align_buf, length, off);
+
+        if(!exist_snapshot_)
+        {
+            ret = pwrite(vol_fd_, align_buf, length, off);
+        } 
+        else 
+        {
+            ret = snapshot_proxy_ptr_->do_cow(off, length, 
+                                              (char*)align_buf, false); 
+        }
+
         if (align_buf)
         {
             free(align_buf);
@@ -198,6 +259,12 @@ bool JournalReplayer::process_file(const std::string& file_name, off_t off)
         close(src_fd);
         return false;
     }
+    
+    if(handle_ctrl_cmd(&log_head)){
+        LOG_INFO << "replay succeed";
+        close(src_fd);
+        return true;
+    }
 
     /*read off len */
     size_t off_len_size = log_head.count * sizeof(off_len_t);
@@ -216,7 +283,9 @@ bool JournalReplayer::process_file(const std::string& file_name, off_t off)
     {
         uint64_t off = off_len[i].offset;
         uint32_t length = off_len[i].length;
-        char* data = (char*) malloc(sizeof(char) * length);
+        char* data = nullptr;
+        int ret = posix_memalign((void**)&data, 512, length);
+        assert(ret == 0 && data != nullptr);
         ret = read(src_fd, data, length);
         if (ret != length)
         {
@@ -226,21 +295,16 @@ bool JournalReplayer::process_file(const std::string& file_name, off_t off)
         }
 
         //todo: check crc
-        void *align_buf = nullptr;
-        int ret = posix_memalign((void**) &align_buf, 512, length);
-        if (ret)
+        if(!exist_snapshot_)
         {
-            LOG_ERROR << "posix malloc failed ";
-            close(src_fd);
-            return false;
+            ret = pwrite(vol_fd_, data, length, off);
+        } 
+        else 
+        {
+            ret = snapshot_proxy_ptr_->do_cow(off, length, 
+                                              (char*)data, false); 
         }
-        memcpy(align_buf, data, length);
 
-        ret = pwrite(vol_fd_, align_buf, length, off);
-        if (align_buf)
-        {
-            free(align_buf);
-        }
         if (data)
         {
             free(data);

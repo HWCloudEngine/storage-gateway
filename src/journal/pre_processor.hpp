@@ -1,6 +1,6 @@
 #ifndef JOURNAL_PREPROCESSOR_HPP
 #define JOURNAL_PREPROCESSOR_HPP
-
+#include <memory>
 #include <mutex>
 #include <condition_variable>
 #include <chrono>
@@ -14,6 +14,8 @@
 #include "message.hpp"
 #include "replay_entry.hpp"
 #include "../common/config_parser.h"
+
+using namespace std;
 
 namespace Journal{
 
