@@ -17,6 +17,8 @@
 #include "journal_entry.hpp"
 #include "../rpc/clients/replayer_client.hpp"
 #include "../rpc/message.pb.h"
+#include "../snapshot/snapshot_proxy.h"
+using google::protobuf::Message;
 using huawei::proto::WriteMessage;
 
 namespace Journal
@@ -30,7 +32,8 @@ public:
     bool init(const std::string& vol_id, 
               const std::string& device,
               std::shared_ptr<IDGenerator> id_maker_ptr,
-              std::shared_ptr<CacheProxy> cache_proxy_ptr);
+              std::shared_ptr<CacheProxy> cache_proxy_ptr,
+              std::shared_ptr<SnapshotProxy> snapshot_proxy_ptr);
     bool deinit();
 private:
     void replay_volume();
@@ -39,6 +42,8 @@ private:
     bool process_cache(std::shared_ptr<JournalEntry> r_entry);
     bool process_file(const std::string& file_name, off_t off);
     bool update_consumer_marker();
+    /*handle snapshot and other control command*/
+    bool handle_ctrl_cmd(JournalEntry* entry);
 
     int vol_fd_;
     bool update_;
@@ -60,6 +65,9 @@ private:
     /*cache recover when crash*/
     std::shared_ptr<IDGenerator> id_maker_ptr_;
     std::shared_ptr<CacheRecovery> cache_recover_ptr_;
+    
+    /*snapshot*/
+    std::shared_ptr<SnapshotProxy> snapshot_proxy_ptr_;
 };
 
 }

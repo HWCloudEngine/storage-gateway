@@ -25,7 +25,7 @@ using huawei::proto::DiskPos;
 namespace Journal{
 
 Connection::Connection(raw_socket& socket_, 
-                       BlockingQueue<shared_ptr<JournalEntry>>& entry_queue,
+                       PRQueue<shared_ptr<JournalEntry>>& entry_queue,
                        BlockingQueue<struct IOHookRequest>& read_queue,
                        BlockingQueue<struct IOHookReply*>&  reply_queue)
                         :raw_socket_(socket_),
@@ -206,13 +206,8 @@ bool Connection::handle_write_request(char* buffer, uint32_t size, char* header)
     entry->set_message(message);
     
     /*enqueue*/
-    if(!entry_queue_.push(entry))
-    {
-        req_seq--;
-        nedalloc::nedpfree(buffer_pool, buffer);
-        return false;
-    }
-    
+    entry_queue_.push(entry);
+   
     /*free buffer, data already copy to WriteMessage*/
     nedalloc::nedpfree(buffer_pool, buffer);
     return true;

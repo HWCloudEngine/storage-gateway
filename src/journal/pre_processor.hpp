@@ -1,6 +1,6 @@
 #ifndef JOURNAL_PREPROCESSOR_HPP
 #define JOURNAL_PREPROCESSOR_HPP
-
+#include <memory>
 #include <mutex>
 #include <condition_variable>
 #include <chrono>
@@ -13,9 +13,11 @@
 
 #include "../common/config_parser.h"
 #include "../common/blocking_queue.h"
-
+#include "../common/prqueue.h"
 #include "message.hpp"
 #include "journal_entry.hpp"
+
+using namespace std;
 
 namespace Journal{
 
@@ -28,8 +30,8 @@ class PreProcessor
     :private boost::noncopyable
 {
 public:
-    explicit PreProcessor(BlockingQueue<shared_ptr<JournalEntry>>& entry_queue,
-                          BlockingQueue<shared_ptr<JournalEntry>>& write_queue);
+    explicit PreProcessor(PRQueue<shared_ptr<JournalEntry>>& entry_queue,
+                          PRQueue<shared_ptr<JournalEntry>>& write_queue);
     virtual ~PreProcessor();
 
     void work();
@@ -38,9 +40,9 @@ public:
 
 private:
     /*input queue*/
-    BlockingQueue<shared_ptr<JournalEntry>>& entry_queue_;
+    PRQueue<shared_ptr<JournalEntry>>& entry_queue_;
     /*output queue*/
-    BlockingQueue<shared_ptr<JournalEntry>>& write_queue_;
+    PRQueue<shared_ptr<JournalEntry>>& write_queue_;
    
     /*config*/
     struct PrePreocessorConf config;

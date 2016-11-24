@@ -12,6 +12,7 @@
 #include <boost/array.hpp>
 #include <boost/thread/thread.hpp>
 #include "../common/blocking_queue.h"
+#include "../common/prqueue.h"
 #include "message.hpp"
 #include "journal_entry.hpp"
 #include "nedmalloc.h"
@@ -31,9 +32,9 @@ class Connection : public boost::enable_shared_from_this<Connection>,
 {
 public:
     explicit Connection(raw_socket& socket_,
-                        BlockingQueue<shared_ptr<JournalEntry>>& entry_queue,
-                        BlockingQueue<struct IOHookRequest>&     read_queue,
-                        BlockingQueue<struct IOHookReply*>&      reply_queue);
+                        PRQueue<shared_ptr<JournalEntry>>&   entry_queue,
+                        BlockingQueue<struct IOHookRequest>& read_queue,
+                        BlockingQueue<struct IOHookReply*>&  reply_queue);
     virtual ~Connection();
     bool init(nedalloc::nedpool * buffer);
     bool deinit();
@@ -57,7 +58,7 @@ private:
     raw_socket& raw_socket_;
     
     /*write io input queue*/
-    BlockingQueue<shared_ptr<JournalEntry>>& entry_queue_;
+    PRQueue<shared_ptr<JournalEntry>>& entry_queue_;
     /*read io input queue*/
     BlockingQueue<struct IOHookRequest>& read_queue_;
     /*output queue*/

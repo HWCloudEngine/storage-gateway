@@ -28,7 +28,7 @@ void CacheProxy::write(string journal_file, off_t journal_off,
             DiskPos* pos = write_message->mutable_pos(i);
             off_t    off = pos->offset();
             size_t   len = pos->length(); 
-            if(isfull(len)){
+           if(isfull(len)){
                 /*trigger bcache evict*/
                 trigger_cache_evict();
 
@@ -57,7 +57,12 @@ void CacheProxy::write(string journal_file, off_t journal_off,
             }
         }
     } else {
-        /*other type message*/
+        /*other type message, only push to jcache*/
+        IoVersion io_seq  = idproc->get_version(journal_file);
+        shared_ptr<CEntry> v(new CEntry(io_seq, 0, 0, 
+                                        journal_file, journal_off, 
+                                        journal_entry));
+        jcache->push(v);
     }
 }
 
@@ -88,18 +93,21 @@ bool CacheProxy::reclaim(shared_ptr<CEntry> entry)
     if(ce->get_cache_type() == CEntry::IN_MEM){
         /*todo other message*/
         shared_ptr<JournalEntry> journal_entry = ce->get_journal_entry();
-        shared_ptr<Message>      message = journal_entry->get_message();
-        shared_ptr<WriteMessage> io_message = dynamic_pointer_cast<WriteMessage>
-                                                (message);
-        IoVersion io_seq   = ce->get_io_seq();
-        int pos_num = io_message->pos_size();
-        for(int i=0; i < pos_num; i++)
-        {
-            DiskPos* pos = io_message->mutable_pos(i);
-            off_t    off = pos->offset();
-            size_t   len = pos->length(); 
-            Bkey key(off, len, io_seq);
-            bcache->del(key);
+        journal_event_type_t type = journal_entry->get_type();
+        if(type == IO_WRITE){
+            shared_ptr<Message> message = journal_entry->get_message();
+            shared_ptr<WriteMessage> io_message = dynamic_pointer_cast<WriteMessage>
+                (message);
+            IoVersion io_seq   = ce->get_io_seq();
+            int pos_num = io_message->pos_size();
+            for(int i=0; i < pos_num; i++)
+            {
+                DiskPos* pos = io_message->mutable_pos(i);
+                off_t    off = pos->offset();
+                size_t   len = pos->length(); 
+                Bkey key(off, len, io_seq);
+                bcache->del(key);
+            }
         }
     } else {
         IoVersion io_seq = ce->get_io_seq();
@@ -160,6 +168,10 @@ void CacheProxy::cache_evict_work()
             int centry_mem_size = centry->get_mem_size();
 
             if(centry->get_cache_type() == CEntry::IN_JOURANL){
+                continue;
+            }
+            
+            if(centry->get_blk_off() == 0 && centry->get_blk_len() == 0){
                 continue;
             }
 

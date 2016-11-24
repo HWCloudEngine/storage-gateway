@@ -206,7 +206,6 @@ RESULT CephS3Api::put_object(const char* obj_name, const string* value,
     int64_t len = 0;
     if(nullptr != value)
         len = value->length();
-    LOG_DEBUG << "put object " << obj_name << ",length: " << len;
     s3_call_response_t response;
     response.pdata = (void*)(value);
     response.size = len;

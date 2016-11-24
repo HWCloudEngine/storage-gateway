@@ -6,8 +6,8 @@
 
 namespace Journal{
 
-PreProcessor::PreProcessor(BlockingQueue<shared_ptr<JournalEntry>>& entry_queue,
-                           BlockingQueue<shared_ptr<JournalEntry>>& write_queue)
+PreProcessor::PreProcessor(PRQueue<shared_ptr<JournalEntry>>& entry_queue,
+                           PRQueue<shared_ptr<JournalEntry>>& write_queue)
     :entry_queue_(entry_queue),
      write_queue_(write_queue),
      worker_threads()
@@ -20,26 +20,20 @@ PreProcessor::~PreProcessor()
 
 void PreProcessor::work()
 {
+    PRQueue<shared_ptr<JournalEntry>>::position pos;
+
     while(running_flag)
     {
         shared_ptr<JournalEntry> entry;
-        if(!entry_queue_.pop(entry))
-        {
-            LOG_ERROR << "entry_queue_ pop failed";
-            break;
-        }
-        
+        entry_queue_.pop(entry, write_queue_, pos);    
+
         /*message serialize*/
         entry->serialize();
 
         /*calculate crc*/ 
         entry->calculate_crc();
-        
-        /*push to journal writer queue*/
-        if(!write_queue_.push(entry))
-        {
-            LOG_ERROR << "write_queue_ push failed";
-        }
+
+        write_queue_.push(entry, pos);
     }
 }
 
@@ -53,6 +47,7 @@ bool PreProcessor::init(std::shared_ptr<ConfigParser> conf)
     {
         return false;
     }
+    config.thread_num = 3;
     for (int i=0;i < config.thread_num;i++)
     {
         worker_threads.create_thread(boost::bind(&PreProcessor::work,this));

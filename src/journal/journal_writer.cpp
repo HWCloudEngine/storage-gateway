@@ -6,8 +6,8 @@
 namespace Journal{
 
 JournalWriter::JournalWriter(std::string rpc_addr,
-                        BlockingQueue<shared_ptr<JournalEntry>>& write_queue,
-                        BlockingQueue<struct IOHookReply*>&      reply_queue)
+                        PRQueue<shared_ptr<JournalEntry>>& write_queue,
+                        BlockingQueue<struct IOHookReply*>& reply_queue)
     :rpc_client(grpc::CreateChannel(rpc_addr, grpc::InsecureChannelCredentials())),
     thread_ptr(),
     write_queue_(write_queue),
@@ -50,16 +50,17 @@ bool JournalWriter::init(std::string& vol,
                          std::shared_ptr<ConfigParser> conf,
                          std::shared_ptr<IDGenerator> idproxy,
                          std::shared_ptr<CacheProxy> cacheproxy,
+                         std::shared_ptr<SnapshotProxy> snapshotproxy,
                          std::shared_ptr<CephS3LeaseClient> lease_client)
  
 {
     vol_id = vol;
     idproxy_ = idproxy;
     cacheproxy_ = cacheproxy;
+    snapshot_proxy_ = snapshotproxy;
     running_flag = true;
     lease_client_ = lease_client;
     cur_journal_size = 0;
-    write_seq = 0;
 
     std::string mnt = "/mnt/cephfs";
     config.journal_max_size = conf->get_default<int>("journal_writer.journal_max_size",32 * 1024 * 1024);
@@ -104,13 +105,12 @@ void JournalWriter::work()
             continue;
         }
         
-        while(running_flag && !(entry = get_entry()))
-        {
-            usleep(2000);
-        }
+        write_queue_.pop(entry);
 
         if (running_flag == false)
             return;
+        
+        LOG_INFO << "write seq:" << entry->get_sequence();
 
         success = false;
         time(&start);
@@ -140,6 +140,14 @@ void JournalWriter::work()
             }
             /*clear message serialized data*/
             entry->clear_serialized_data();
+            
+            /*snapshot cmd synchronize as soon as possible*/
+            if(entry->get_type() == SNAPSHOT_CREATE ||
+               entry->get_type() == SNAPSHOT_DELETE ||
+               entry->get_type() == SNAPSHOT_ROLLBACK){
+                LOG_INFO << "journal write reply snapshot command";
+                snapshot_proxy_->cmd_persist_notify(); 
+            }
 
             /*add to cache*/
             cacheproxy_->write(journal_file, journal_off, entry);
@@ -150,10 +158,11 @@ void JournalWriter::work()
             success = true;
         }
 
-        entry_map.erase(write_seq);
-        write_seq++;
-
-        send_reply(entry.get(),success);
+        if(entry->get_type() == IO_WRITE){
+            send_reply(entry.get(),success);
+        } else {
+            ;
+        }
     }
 }
 
@@ -165,15 +174,12 @@ bool JournalWriter::get_journal()
         get_writeable_journals(lease_client_->get_lease(),config.journal_limit);
     }
 
-    LOG_INFO << "journal_queue empty:" << journal_queue.empty();
-
     if(!journal_queue.pop(cur_journal))
     {
         LOG_ERROR << "journal_queue pop failed";
         return false;
     }
     journal_queue_size--;
-    LOG_INFO << "journal_queue pop journal_queue.size:" << journal_queue_size;
 
     if(cur_journal == NULL)
         return false;
@@ -195,7 +201,7 @@ bool JournalWriter::open_journal(uint64_t entry_size)
             LOG_ERROR << "push journal:" << *cur_journal << "to seal queue failed";
             return false;
         }
-        LOG_INFO << "push journal:" << *cur_journal << "to seal queue ok";
+
         if(NULL != cur_file_ptr)
         {
             fclose(cur_file_ptr);
@@ -348,30 +354,7 @@ void JournalWriter::handle_lease_invalid(std::string* journal_ptr)
     }
 }
 
-shared_ptr<JournalEntry> JournalWriter::get_entry()
-{
-    update_entry_map();
+} 
 
-    EntryMap::iterator it = entry_map.find(write_seq);
-    if(it != entry_map.end())
-    {
-        return it->second;
-    }
-    //LOG_INFO << "writer get_entry write_seq:" << write_seq << " nullptr";
-    return nullptr;
-}
 
-void JournalWriter::update_entry_map()
-{
-    shared_ptr<JournalEntry> entry = nullptr;
-    while(!write_queue_.empty())
-    {
-        if(write_queue_.pop(entry))
-        {
-            entry_map.insert(std::pair<uint64_t, shared_ptr<JournalEntry>>
-                            (entry->get_sequence(),entry));
-        }
-    }
-}
 
-}
