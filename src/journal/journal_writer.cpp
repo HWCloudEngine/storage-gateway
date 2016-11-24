@@ -7,7 +7,7 @@ namespace Journal{
 
 JournalWriter::JournalWriter(std::string rpc_addr,
                         BlockingQueue<shared_ptr<JournalEntry>>& write_queue,
-                        BlockingQueue<struct IOHookReply*>&      reply_queue)
+                        BlockingQueue<struct IOHookReply*>& reply_queue)
     :rpc_client(grpc::CreateChannel(rpc_addr, grpc::InsecureChannelCredentials())),
     thread_ptr(),
     write_queue_(write_queue),
@@ -28,25 +28,28 @@ JournalWriter::~JournalWriter()
 
     //todo seal journals
     while(!seal_queue.empty())
-    {
+    { 
         //If we don't seal again, then we'll never have the chance to do that again.
         seal_journals(lease_client_->get_lease());
     }
 }
 
+
 bool JournalWriter::init(std::string& vol,
                          std::shared_ptr<ConfigParser> conf,
                          std::shared_ptr<IDGenerator> idproxy,
                          std::shared_ptr<CacheProxy> cacheproxy,
+                         std::shared_ptr<SnapshotProxy> snapshotproxy,
                          std::shared_ptr<CephS3LeaseClient> lease_client)
+ 
 {
     vol_id = vol;
     idproxy_ = idproxy;
     cacheproxy_ = cacheproxy;
+    snapshot_proxy_ = snapshotproxy;
     running_flag = true;
     lease_client_ = lease_client;
     cur_journal_size = 0;
-    write_seq = 0;
 
     std::string mnt = "/mnt/cephfs";
     config.journal_max_size = conf->get_default<int>("journal_writer.journal_max_size",32 * 1024 * 1024);
@@ -78,14 +81,16 @@ void JournalWriter::work()
 
     while(true)
     {
-        while(running_flag && !(entry = get_entry()))
-        {
-            usleep(2000);
+        bool ret = write_queue_.pop(entry);
+        if(!ret){
+            return; 
         }
 
+        LOG_INFO << "write seq:" << entry->get_sequence();
+        
         if (running_flag == false)
             return;
-
+        
         success = false;
         time(&start);
         time(&end);
@@ -101,7 +106,7 @@ void JournalWriter::work()
 
             std::string journal_file = config.journal_mnt + cur_lease_journal.second;
             off_t journal_off = cur_journal_size;
-
+            
             /*persist to journal file*/
             write_size = entry->persist(cur_file_ptr, journal_off);
             if(write_size != entry_size)
@@ -114,6 +119,14 @@ void JournalWriter::work()
             }
             /*clear message serialized data*/
             entry->clear_serialized_data();
+            
+            /*snapshot cmd synchronize as soon as possible*/
+            if(entry->get_type() == SNAPSHOT_CREATE ||
+               entry->get_type() == SNAPSHOT_DELETE ||
+               entry->get_type() == SNAPSHOT_ROLLBACK){
+                LOG_INFO << "journal write reply snapshot command";
+                snapshot_proxy_->cmd_persist_notify(); 
+            }
 
             /*add to cache*/
             cacheproxy_->write(journal_file, journal_off, entry);
@@ -124,10 +137,11 @@ void JournalWriter::work()
             success = true;
         }
 
-        entry_map.erase(write_seq);
-        write_seq++;
-
-        send_reply(entry.get(),success);
+        if(entry->get_type() == IO_WRITE){
+            send_reply(entry.get(),success);
+        } else {
+            ;
+        }
     }
 }
 
@@ -265,7 +279,7 @@ bool JournalWriter::get_writeable_journals(const std::string& uuid,const int32_t
 
     if(journal_queue.size() >= limit)
     {
-        return true;
+       return true;
     }
     else
     {
@@ -281,7 +295,6 @@ bool JournalWriter::get_writeable_journals(const std::string& uuid,const int32_t
     {
         journal_queue.push(std::make_pair(uuid, tmp));
     }
-
     return true;
 }
 
@@ -327,17 +340,18 @@ bool JournalWriter::seal_journals(const std::string& uuid)
     return true;
 }
 
-int64_t JournalWriter::get_file_size(const char *path)
+
+int64_t JournalWriter::get_file_size(const char *path) 
 {
     int64_t filesize = -1;
     struct stat statbuff;
     if(stat(path, &statbuff) < 0)
     {
-        return filesize;
+        return filesize;  
     }
     else
     {
-        filesize = statbuff.st_size;
+        filesize = statbuff.st_size;  
     }
     return filesize;
 }
@@ -364,31 +378,6 @@ void JournalWriter::handle_lease_invalid()
     cur_lease_journal = std::make_pair("", "");
     cur_journal_size = 0;
 }
-
-shared_ptr<JournalEntry> JournalWriter::get_entry()
-{
-    update_entry_map();
-
-    EntryMap::iterator it = entry_map.find(write_seq);
-    if(it != entry_map.end())
-    {
-        return it->second;
-    }
-    //LOG_INFO << "writer get_entry write_seq:" << write_seq << " nullptr";
-    return nullptr;
 }
 
-void JournalWriter::update_entry_map()
-{
-    shared_ptr<JournalEntry> entry = nullptr;
-    while(!write_queue_.empty())
-    {
-        if(write_queue_.pop(entry))
-        {
-            entry_map.insert(std::pair<uint64_t, shared_ptr<JournalEntry>>
-                            (entry->get_sequence(),entry));
-        }
-    }
-}
 
-}

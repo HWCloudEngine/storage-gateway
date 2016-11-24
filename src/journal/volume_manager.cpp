@@ -3,6 +3,7 @@
 #include <algorithm>
 #include "connection.hpp"
 #include "../log/log.h"
+#include "control_service.h"
 
 namespace Journal{
 
@@ -14,6 +15,7 @@ Volume::Volume(boost::asio::io_service& io_service)
      reader(read_queue, reply_queue),
      replayer("localhost:50051")
 {
+
 }
 
 Volume::~Volume()
@@ -22,7 +24,7 @@ Volume::~Volume()
     reader.deinit();
     pre_processor.deinit();
     connection.deinit();
-
+    
     if (buffer_pool != NULL)
     {
         nedalloc::neddestroypool(buffer_pool);
@@ -52,8 +54,9 @@ bool Volume::init(shared_ptr<ConfigParser> conf, shared_ptr<CephS3LeaseClient> l
 
     idproxy.reset(new IDGenerator());
     cacheproxy.reset(new CacheProxy(vol_path_, idproxy));
+    snapshotproxy.reset(new SnapshotProxy(vol_id_, vol_path_, entry_queue)); 
 
-    if(!writer.init(vol_id_, conf, idproxy, cacheproxy,lease_client))
+    if(!writer.init(vol_id_, conf, idproxy, cacheproxy, snapshotproxy, lease_client))
     {
         LOG_ERROR << "init journal writer failed,vol_id:" << vol_id_;
         return false;
@@ -64,9 +67,9 @@ bool Volume::init(shared_ptr<ConfigParser> conf, shared_ptr<CephS3LeaseClient> l
         LOG_ERROR << "init journal writer failed,vol_id:" << vol_id_;
         return false;
     }
-
-    if (!replayer.init(vol_id_, vol_path_, idproxy, cacheproxy)) 
-    {
+   
+    if (!replayer.init(vol_id_, vol_path_, idproxy, cacheproxy, snapshotproxy)) 
+	{
         LOG_ERROR << "init journal replayer failed,vol_id:" << vol_id_;
         return false;
     }
@@ -120,15 +123,18 @@ bool VolumeManager::init()
     access_key = conf->get_default("ceph_s3.access_key",access_key);
     secret_key = conf->get_default("ceph_s3.secret_key",secret_key);
     host = conf->get_default("ceph_s3.host",host);
-    int renew_window = conf->get_default("ceph_s3.lease_renew_window", 100);
-    int expire_window = conf->get_default("ceph_s3.lease_expire_window", 600);
+    int renew_window = conf->get_default("ceph_s3.lease_renew_window",100);
+    int expire_window = conf->get_default("ceph_s3.lease_expire_window",600);
     int validity_window = conf->get_default("ceph_s3.lease_validity_window",150);
     bucket_name = conf->get_default("ceph_s3.bucket",bucket_name);
-
+    
     lease_client->init(access_key.c_str(), secret_key.c_str(),
         host.c_str(), bucket_name.c_str(), renew_window,
         expire_window, validity_window) ;
     thread_ptr.reset(new boost::thread(boost::bind(&VolumeManager::periodic_task, this)));
+
+    control_service = ControlService::GetInstance(volumes); 
+    assert(control_service != nullptr);
 }
 
 void VolumeManager::periodic_task()
@@ -160,7 +166,6 @@ void VolumeManager::periodic_task()
             {
                 LOG_ERROR << "seal_journals failed,vol_id:" << vol_id;
             }
-            LOG_INFO << "seal_journals ok vol_id:" << vol_id;
         }
     }
 }
@@ -242,8 +247,9 @@ void VolumeManager::handle_send_reply(const boost::system::error_code& error)
     {
         ;
     }
+
 }
- 
+    
 void VolumeManager::start(volume_ptr vol)
 {
     add_vol(vol);

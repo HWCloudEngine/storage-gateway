@@ -11,7 +11,7 @@
 #include <memory>
 
 #include <time.h>
-#include <atomic>
+#include <atomic> 
 
 #include <sys/stat.h>
 
@@ -30,6 +30,7 @@
 
 #include "seq_generator.hpp"
 #include "cache/cache_proxy.h"
+#include "../snapshot/snapshot_proxy.h"
 
 #include "message.hpp"
 #include "journal_entry.hpp"
@@ -37,8 +38,6 @@
 #include "../dr_server/ceph_s3_lease.h"
 
 namespace Journal{
-
-typedef std::map<uint64_t, shared_ptr<JournalEntry>> EntryMap;
 
 struct JournalWriterConf{
     uint64_t journal_max_size;
@@ -54,13 +53,14 @@ class JournalWriter :private boost::noncopyable
 public:
     explicit JournalWriter(std::string rpc_addr,
                            BlockingQueue<shared_ptr<JournalEntry>>& write_queue,
-                           BlockingQueue<struct IOHookReply*>&      reply_queue);
+                           BlockingQueue<struct IOHookReply*>& reply_queue);
     virtual ~JournalWriter();
     void work();
-    bool init(std::string& vol,
+    bool init(std::string& vol, 
               std::shared_ptr<ConfigParser> conf,
-              std::shared_ptr<IDGenerator> id_proxy,
+              std::shared_ptr<IDGenerator> id_proxy, 
               std::shared_ptr<CacheProxy> cacheproxy,
+              std::shared_ptr<SnapshotProxy> snapshotproxy,
               std::shared_ptr<CephS3LeaseClient> lease_client);
     bool deinit();
     //The following two function must be called in another thread,can't call in write thread
@@ -77,20 +77,20 @@ private:
 
     void handle_lease_invalid();
 
-    shared_ptr<JournalEntry> get_entry();
-    void update_entry_map();
-
     /*lease with dr server*/
     shared_ptr<CephS3LeaseClient> lease_client_;
-
+    
     /*input queue*/
     BlockingQueue<shared_ptr<JournalEntry>>& write_queue_;
     /*output queue*/
     BlockingQueue<struct IOHookReply*>& reply_queue_;
-
+    
     /*cache*/
     shared_ptr<IDGenerator> idproxy_;
     shared_ptr<CacheProxy> cacheproxy_;
+
+    /*snapshot*/
+    shared_ptr<SnapshotProxy> snapshot_proxy_;
 
     /*journal file prefetch and seal thread*/
     std::mutex rpc_mtx_;
@@ -100,18 +100,14 @@ private:
     std::queue<std::pair<std::string, std::string>> seal_queue;
     std::mutex journal_mtx_;
     std::mutex seal_mtx_;
-
+    
     /*current operation journal file info*/
     FILE* cur_file_ptr;
     std::pair<std::string, std::string> cur_lease_journal;
     uint64_t cur_journal_size;
-
-    /*order keep*/
-    uint64_t write_seq;
-    EntryMap entry_map;
-
+    
     std::string vol_id;
-
+    
     struct JournalWriterConf config;
     bool running_flag;
 };
