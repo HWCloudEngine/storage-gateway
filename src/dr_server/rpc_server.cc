@@ -17,6 +17,8 @@
 #include "log/log.h"
 #include "common/config_parser.h"
 #include "gc_task.h"
+#include "../snapshot/snapshot_mgr.h"
+
 using grpc::Server;
 using grpc::ServerBuilder;
 using grpc::ServerContext;
@@ -31,16 +33,17 @@ void RunServer() {
         LOG_FATAL << "config parse journal_meta_storage.type error!";
         return;
     }
-    if(false == parser->get<int>("grpc_server.port",port)){
+    if(false == parser->get<int>("grpc.server_port",port)){
         LOG_FATAL << "config parse grpc_server.port error!";
         return;
     }
     parser.reset();
     DR_ASSERT(type.compare("ceph_s3")==0);
     std::shared_ptr<CephS3Meta> meta(new CephS3Meta());
-    GCTask::instance().init(meta);
+    //GCTask::instance().init(meta);
     WriterServiceImpl writerSer(meta);
     ConsumerServiceImpl consumerSer(meta);
+    SnapshotMgr snapshot_mgr;
     // TODO: use async streaming service later
 
     ServerBuilder builder;
@@ -52,6 +55,7 @@ void RunServer() {
     // clients. In this case it corresponds to an *synchronous* service.
     builder.RegisterService(&writerSer);
     builder.RegisterService(&consumerSer);
+    builder.RegisterService(&snapshot_mgr);
 
     // Finally assemble the server.
     std::unique_ptr<Server> server(builder.BuildAndStart());

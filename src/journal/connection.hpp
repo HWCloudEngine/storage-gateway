@@ -32,8 +32,8 @@ class Connection : public boost::enable_shared_from_this<Connection>,
 public:
     explicit Connection(raw_socket& socket_,
                         BlockingQueue<shared_ptr<JournalEntry>>& entry_queue,
-                        BlockingQueue<struct IOHookRequest>&     read_queue,
-                        BlockingQueue<struct IOHookReply*>&      reply_queue);
+                        BlockingQueue<struct IOHookRequest>& read_queue,
+                        BlockingQueue<struct IOHookReply*>&  reply_queue);
     virtual ~Connection();
     bool init(nedalloc::nedpool * buffer);
     bool deinit();

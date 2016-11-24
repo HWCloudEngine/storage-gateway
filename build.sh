@@ -15,16 +15,18 @@ echo "generate new grpc C++ source files to ${RPC_SOURCE_PATH} ..."
 #generate grpc
 $PROTOC -I $PROTO_PATH --grpc_out=$RPC_SOURCE_PATH \
        --plugin=protoc-gen-grpc=`which grpc_cpp_plugin` \
-        ${PROTO_PATH}/writer.proto ${PROTO_PATH}/consumer.proto
-
+        ${PROTO_PATH}/writer.proto ${PROTO_PATH}/consumer.proto \
+        ${PROTO_PATH}/control.proto \
+        ${PROTO_PATH}/snapshot.proto
 #generate protocol
 $PROTOC -I $PROTO_PATH --cpp_out=$RPC_SOURCE_PATH \
         ${PROTO_PATH}/writer.proto \
         ${PROTO_PATH}/consumer.proto \
         ${PROTO_PATH}/common.proto \
         ${PROTO_PATH}/journal.proto \
-        ${PROTO_PATH}/message.proto
-
+        ${PROTO_PATH}/message.proto \
+        ${PROTO_PATH}/control.proto \
+        ${PROTO_PATH}/snapshot.proto
 
 #auto generate Makefiles
 touch NEWS README AUTHORS ChangeLog

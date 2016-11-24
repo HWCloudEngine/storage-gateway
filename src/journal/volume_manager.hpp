@@ -16,9 +16,14 @@
 #include "journal_replayer.hpp"
 #include "nedmalloc.h"
 #include "../dr_server/ceph_s3_lease.h"
+#include "../snapshot/snapshot_proxy.h"
 
 #define BUFFER_POOL_SIZE 1024*1024*64
 #define REQUEST_BODY_SIZE 512
+
+using namespace std; 
+/*forward declaration SnapshotSvc*/                                              
+class ControlService;  
 
 namespace Journal{
 
@@ -35,15 +40,20 @@ public:
     void stop();
     bool init(shared_ptr<ConfigParser> conf, shared_ptr<CephS3LeaseClient> lease_client);
     void set_property(std::string vol_id,std::string vol_path);
+
+    shared_ptr<SnapshotProxy> get_snapshot_proxy(){
+        return snapshotproxy;
+    }
+
 private:
     /*socket*/
     raw_socket raw_socket_;
 
     /*queue */
     BlockingQueue<shared_ptr<JournalEntry>> entry_queue;  /*connection and preprocessor*/
-    BlockingQueue<struct IOHookReply*>      reply_queue;  /*connection*/
-    BlockingQueue<shared_ptr<JournalEntry>> write_queue;  /*writer*/
-    BlockingQueue<struct IOHookRequest>     read_queue;   /*reader*/
+    BlockingQueue<struct IOHookReply*>  reply_queue;  /*connection*/
+    BlockingQueue<shared_ptr<JournalEntry>>   write_queue;  /*writer*/
+    BlockingQueue<struct IOHookRequest> read_queue;   /*reader*/
     
     /*cache */
     shared_ptr<IDGenerator> idproxy;
@@ -56,17 +66,20 @@ private:
     JournalReader   reader;     /*read io*/
     JournalReplayer replayer;   /*replay journal*/
     
+    /*snapshot relevant*/
+    shared_ptr<SnapshotProxy> snapshotproxy;
+
     /*memory pool for receive io hook data*/
     nedalloc::nedpool * buffer_pool;
 
     std::string vol_id_;
     std::string vol_path_;
 };
-typedef boost::shared_ptr<Volume> volume_ptr;
+
+typedef shared_ptr<Volume> volume_ptr;
 
 
-class VolumeManager
-    :private boost::noncopyable
+class VolumeManager : private boost::noncopyable
 {
 public:
     VolumeManager();
@@ -98,6 +111,9 @@ private:
     boost::shared_ptr<boost::thread> thread_ptr;
  
     shared_ptr<ConfigParser> conf;
+
+    /*control rpc service*/
+    ControlService*  control_service;
 };
 }
 
