@@ -24,17 +24,19 @@ typedef enum {
 typedef union {
     uint32_t crc_32;
     uint64_t crc_64;
-    uint8_t md5_128[MD5_128_LEN];
+    uint8_t  md5_128[MD5_128_LEN];
 }checksum_t;
 
 typedef enum {
     LOG_IO,
-    SNAPSHOT
+    SNAPSHOT_CREATE,
+    SNAPSHOT_DELETE,
+    SNAPSHOT_ROLLBACK,
 }log_type_t;
 
 #pragma pack(1)
 typedef struct journal_header {
-    int32_t version;
+    int32_t         version;
     checksum_type_t checksum_type;
 }journal_header_t;  // exists at the start of every journal file
 
@@ -44,10 +46,10 @@ typedef struct off_len {
 }off_len_t;
 
 typedef struct log_header {
-    log_type_t type;        // io or snapshot
-    checksum_t checksum;    // this is a union,use the right member according to the checksum_type in journal_header
-    uint8_t count;          // merged io count, if type==SNAPSHOT, set count=0
-    off_len_t off_len[0];   // io offset and length; the actual header legth should be sizeof(log_header_t) + .count * sizeof(off_len_t)
+    log_type_t type;         // io or snapshot
+    checksum_t checksum;     // this is a union,use the right member according to the checksum_type in journal_header
+    uint8_t    count;        // merged io count, if type==SNAPSHOT, set count=0
+    off_len_t  off_len[0];   // io offset and length; the actual header legth should be sizeof(log_header_t) + .count * sizeof(off_len_t)
 }log_header_t;
 #pragma pack()
 

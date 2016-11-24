@@ -3,6 +3,7 @@
 #include <algorithm>
 #include "connection.hpp"
 #include "../log/log.h"
+#include "control_service.h"
 
 namespace Journal{
 
@@ -54,6 +55,8 @@ bool Volume::init(shared_ptr<ConfigParser> conf, shared_ptr<CephS3LeaseClient> l
 
     idproxy.reset(new IDGenerator());
     cacheproxy.reset(new CacheProxy(vol_path_, idproxy));
+    snapshotproxy.reset(new SnapshotProxy(vol_id_, vol_path_, 
+                            buffer_pool, entry_queue_, entry_cv));
 
     if(!writer.init(vol_id_, conf, idproxy, cacheproxy,lease_client))
     {
@@ -67,7 +70,7 @@ bool Volume::init(shared_ptr<ConfigParser> conf, shared_ptr<CephS3LeaseClient> l
         return false;
     }
    
-    if (!replayer.init(vol_id_, vol_path_, idproxy, cacheproxy)) 
+    if (!replayer.init(vol_id_, vol_path_, idproxy, cacheproxy, snapshotproxy)) 
 	{
         LOG_ERROR << "init journal replayer failed,vol_id:" << vol_id_;
         return false;

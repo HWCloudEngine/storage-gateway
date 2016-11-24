@@ -14,38 +14,45 @@ void CacheProxy::write(string journal_file, off_t journal_off,
              << " journal_off:" << journal_off;
 
     /*todo: batch io case, may reconsider how to sequence each io*/
-    for(int i=0; i < logh->count; i++)
-    {
-        off_t  off = logh->off_len[i].offset;
-        size_t len = logh->off_len[i].length; 
-        
-        if(isfull(len)){
-            /*trigger bcache evict*/
-            trigger_cache_evict();
+    if(logh->type == LOG_IO){
+        for(int i=0; i < logh->count; i++)
+        {
+            off_t  off = logh->off_len[i].offset;
+            size_t len = logh->off_len[i].length; 
 
-            /*cache memory over threshold, cache point to journal file location*/
-            Bkey bkey(off, len, io_seq);
-            shared_ptr<CEntry> v(new CEntry(io_seq, off, len, 
-                                            journal_file,journal_off));
-            jcache->push(v);
-            ret = bcache->add(bkey, v);
-            if(!ret){
-                bcache->update(bkey, v);
+            if(isfull(len)){
+                /*trigger bcache evict*/
+                trigger_cache_evict();
+
+                /*cache memory over threshold, cache point to journal file location*/
+                Bkey bkey(off, len, io_seq);
+                shared_ptr<CEntry> v(new CEntry(io_seq, off, len, 
+                            journal_file,journal_off));
+                jcache->push(v);
+                ret = bcache->add(bkey, v);
+                if(!ret){
+                    bcache->update(bkey, v);
+                }
+                total_mem_size += v->get_mem_size();
+            } else {
+                /*cache memory in threshold, cache point to journal entry in memory*/
+                Bkey bkey(off, len, io_seq);
+                shared_ptr<CEntry> v(new CEntry(io_seq, off, len, 
+                            journal_file, journal_off, 
+                            journal_entry));
+                jcache->push(v);
+                ret = bcache->add(bkey, v);
+                if(!ret){
+                    bcache->update(bkey,v);
+                }
+                total_mem_size += v->get_mem_size();
             }
-            total_mem_size += v->get_mem_size();
-        } else {
-            /*cache memory in threshold, cache point to journal entry in memory*/
-            Bkey bkey(off, len, io_seq);
-            shared_ptr<CEntry> v(new CEntry(io_seq, off, len, 
-                                            journal_file, journal_off, 
-                                            journal_entry));
-            jcache->push(v);
-            ret = bcache->add(bkey, v);
-            if(!ret){
-                bcache->update(bkey,v);
-            }
-            total_mem_size += v->get_mem_size();
-       }
+        }
+    } else {
+        shared_ptr<CEntry> v(new CEntry(io_seq, 0, 0,
+                                        journal_file, journal_off, 
+                                        journal_entry));
+        jcache->push(v);
     }
 }
 

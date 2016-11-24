@@ -21,10 +21,11 @@ AC_CHECK_LIB([pthread],[pthread_rwlock_init])
 #AC_CHECK_LIB([grpc++],[])
 LT_INIT
 AC_OUTPUT([Makefile
-        src/dr_server/Makefile
-        src/rpc/Makefile
-        src/test/Makefile
         src/log/Makefile
+        src/rpc/Makefile
+        src/snapshot/Makefile
+        src/dr_server/Makefile
         src/journal/cache/Makefile
         src/journal/Makefile
+        src/test/Makefile
     ])
