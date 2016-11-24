@@ -3,6 +3,7 @@
 #include <algorithm>
 #include "connection.hpp"
 #include "../log/log.h"
+#include "control_service.h"
 
 namespace Journal{
 
@@ -53,8 +54,9 @@ bool Volume::init(shared_ptr<ConfigParser> conf, shared_ptr<CephS3LeaseClient> l
 
     idproxy.reset(new IDGenerator());
     cacheproxy.reset(new CacheProxy(vol_path_, idproxy));
+    snapshotproxy.reset(new SnapshotProxy(vol_id_, vol_path_, entry_queue)); 
 
-    if(!writer.init(vol_id_, conf, idproxy, cacheproxy,lease_client))
+    if(!writer.init(vol_id_, conf, idproxy, cacheproxy, snapshotproxy, lease_client))
     {
         LOG_ERROR << "init journal writer failed,vol_id:" << vol_id_;
         return false;
@@ -66,7 +68,7 @@ bool Volume::init(shared_ptr<ConfigParser> conf, shared_ptr<CephS3LeaseClient> l
         return false;
     }
    
-    if (!replayer.init(vol_id_, vol_path_, idproxy, cacheproxy)) 
+    if (!replayer.init(vol_id_, vol_path_, idproxy, cacheproxy, snapshotproxy)) 
 	{
         LOG_ERROR << "init journal replayer failed,vol_id:" << vol_id_;
         return false;
@@ -130,6 +132,9 @@ bool VolumeManager::init()
         host.c_str(), bucket_name.c_str(), renew_window,
         expire_window, validity_window) ;
     thread_ptr.reset(new boost::thread(boost::bind(&VolumeManager::periodic_task, this)));
+
+    control_service = ControlService::GetInstance(volumes); 
+    assert(control_service != nullptr);
 }
 
 void VolumeManager::periodic_task()
@@ -160,7 +165,6 @@ void VolumeManager::periodic_task()
             {
                 LOG_ERROR << "seal_journals failed,vol_id:" << vol_id;
             }
-            LOG_INFO << "seal_journals ok vol_id:" << vol_id;
         }
     }
 }

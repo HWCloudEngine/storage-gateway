@@ -6,7 +6,8 @@ journal_server_SOURCES=$(top_srcdir)/src/common/crc32.c \
                        $(top_srcdir)/src/common/utils.cpp \
                        $(top_srcdir)/src/dr_server/ceph_s3_lease.cc \
                        $(top_srcdir)/src/dr_server/ceph_s3_api.cc   \
-                       connection.cpp \
+                       control_service.cpp  \
+                       connection.cpp       \
                        io_service_pool.cpp  \
                        seq_generator.cpp    \
                        journal_entry.cpp    \
@@ -20,7 +21,8 @@ journal_server_SOURCES=$(top_srcdir)/src/common/crc32.c \
   
 journal_server_LDADD=${top_srcdir}/src/rpc/librpc.la \
                      ${top_srcdir}/src/log/liblog.la \
-                     $(top_srcdir)/src/journal/cache/libcache.la
+                     $(top_srcdir)/src/journal/cache/libcache.la \
+                     $(top_srcdir)/src/snapshot/libsnapshot.la
 
 journal_server_LDFLAGS=-D_GNU_SOURCE
 DEFS+=-D_GNU_SOURCE -DBOOST_ALL_DYN_LINK -DNDEBUG
@@ -31,3 +33,4 @@ LIBS=-lpthread -lprotobuf -lgrpc -lgrpc++ -ls3 \
 
 SUBDIRS=../rpc
 SUBDIRS=cache
+
