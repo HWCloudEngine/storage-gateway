@@ -206,13 +206,8 @@ bool Connection::handle_write_request(char* buffer, uint32_t size, char* header)
     entry->set_message(message);
     
     /*enqueue*/
-    if(!entry_queue_.push(entry))
-    {
-        req_seq--;
-        nedalloc::nedpfree(buffer_pool, buffer);
-        return false;
-    }
-    
+    entry_queue_.push(entry);
+   
     /*free buffer, data already copy to WriteMessage*/
     nedalloc::nedpfree(buffer_pool, buffer);
     return true;
