@@ -26,6 +26,7 @@
 #include "consumer_service.h"
 #include "replicate/rep_receiver.h"
 #include "replicate/replicate.h"
+#include "../snapshot/snapshot_mgr.h"
 #define DEFAULT_META_SERVER_PORT 50051
 #define DEFAULT_REPLICATE_PORT 50061
 
@@ -117,8 +118,10 @@ int main(int argc, char** argv) {
     RpcServer metaServer(ip1,port1,grpc::InsecureServerCredentials());
     WriterServiceImpl writerSer(meta);
     ConsumerServiceImpl consumerSer(meta);
+    SnapshotMgr snapshot_mgr;
     metaServer.register_service(&writerSer);
     metaServer.register_service(&consumerSer);
+    metaServer.register_service(&snapshot_mgr);
     LOG_INFO << "meta server listening on " << ip1 << ":" << port1;
     if(!metaServer.run()){
         LOG_FATAL << "start meta server failed!";

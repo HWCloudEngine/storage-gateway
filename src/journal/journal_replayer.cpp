@@ -17,6 +17,7 @@
 
 using google::protobuf::Message;
 using huawei::proto::WriteMessage;
+using huawei::proto::SnapshotMessage;
 using huawei::proto::DiskPos;
 
 namespace Journal
@@ -34,12 +35,14 @@ JournalReplayer::JournalReplayer(const std::string& rpc_addr)
 bool JournalReplayer::init(const std::string& vol_id, 
                            const std::string& device,
                            std::shared_ptr<IDGenerator> id_maker_ptr,
-                           std::shared_ptr<CacheProxy> cache_proxy_ptr){
+                           std::shared_ptr<CacheProxy> cache_proxy_ptr,
+                           std::shared_ptr<SnapshotProxy> snapshot_proxy_ptr){
     vol_id_ = vol_id;
     device_ = device;
 
-    id_maker_ptr_    = id_maker_ptr;
-    cache_proxy_ptr_ = cache_proxy_ptr;
+    id_maker_ptr_       = id_maker_ptr;
+    cache_proxy_ptr_    = cache_proxy_ptr;
+    snapshot_proxy_ptr_ = snapshot_proxy_ptr;
 
     cache_recover_ptr_.reset(new CacheRecovery(device_, 
                                 rpc_client_ptr_, 
@@ -119,7 +122,8 @@ void JournalReplayer::replay_volume()
                 cache_proxy_ptr_->reclaim(entry);
                 update_ = true;
             }
-        } else
+        } 
+        else
         {
             //replay from journal file
             LOG_INFO << "replay from journal file";
@@ -153,7 +157,11 @@ bool JournalReplayer::write_block_device(shared_ptr<WriteMessage> write)
         int ret = posix_memalign((void**) &align_buf, 512, len);
         assert(ret == 0 && align_buf != nullptr);
         memcpy(align_buf, data, len);
-        ret = pwrite(vol_fd_, align_buf, len, off);
+        if(!snapshot_proxy_ptr_->check_exist_snapshot()){
+            ret = pwrite(vol_fd_, align_buf, len, off);
+        } else {
+            ret = snapshot_proxy_ptr_->do_cow(off, len, (char*)align_buf, false);
+        }
         free(align_buf);
 
         /*next io data offset*/
@@ -161,6 +169,41 @@ bool JournalReplayer::write_block_device(shared_ptr<WriteMessage> write)
     }
 
     return true;
+}
+
+bool JournalReplayer::handle_ctrl_cmd(JournalEntry* entry)
+{
+    /*handle snapshot*/
+    int type = entry->get_type();
+    if(type == SNAPSHOT_CREATE){
+        shared_ptr<Message> message = entry->get_message();
+        shared_ptr<SnapshotMessage> snap_message = dynamic_pointer_cast
+                                                    <SnapshotMessage>(message);
+        string   snap_name = snap_message->snap_name();
+        LOG_INFO << "journal_replayer create snapshot:" << snap_name;
+        snapshot_proxy_ptr_->create_transaction(snap_name);
+        return true;
+    } else if(type == SNAPSHOT_DELETE){
+        shared_ptr<Message> message = entry->get_message();
+        shared_ptr<SnapshotMessage> snap_message = dynamic_pointer_cast
+                                                    <SnapshotMessage>(message);
+        string   snap_name = snap_message->snap_name();
+        LOG_INFO << "journal_replayer delete snapshot:" << snap_name;
+        snapshot_proxy_ptr_->delete_transaction(snap_name);
+        return true;
+    } else if(type == SNAPSHOT_ROLLBACK) {
+        shared_ptr<Message> message = entry->get_message();
+        shared_ptr<SnapshotMessage> snap_message = dynamic_pointer_cast
+                                                    <SnapshotMessage>(message);
+        string   snap_name = snap_message->snap_name();
+        LOG_INFO << "journal_replayer rollback snapshot:" << snap_name;
+        snapshot_proxy_ptr_->rollback_transaction(snap_name);
+        return true;
+    } else {
+        ;
+    }
+
+    return false;
 }
 
 bool JournalReplayer::process_cache(std::shared_ptr<JournalEntry> entry)
@@ -173,6 +216,10 @@ bool JournalReplayer::process_cache(std::shared_ptr<JournalEntry> entry)
         write_block_device(write_message);
     } else {
         /*other message type*/ 
+        if(handle_ctrl_cmd(entry.get())){
+            LOG_INFO << "replay succeed";
+            return true;
+        }
     }
     return true;
 }
@@ -199,12 +246,13 @@ bool JournalReplayer::process_file(const std::string& file_name, off_t off)
         write_block_device(write_message);
     } else {
         /*other message type*/ 
+        if(handle_ctrl_cmd(&entry)){
+            LOG_INFO << "replay succeed";
+            close(src_fd);
+            return true;
+        }
     }
-
-    if(src_fd != -1){
-        close(src_fd);
-    }
-
+    
     return true;
 }
 

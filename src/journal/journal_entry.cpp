@@ -124,8 +124,11 @@ uint32_t JournalEntry::calculate_crc()
 
 size_t JournalEntry::persist(int fd, off_t off)
 {
-    assert(!message_serialized_data.empty());
-    
+    if(message_serialized_data.empty()){
+        serialize();
+        calculate_crc();
+    }
+
     struct iovec iov[4];
     iov[0].iov_base = &type;
     iov[0].iov_len  = sizeof(type);
@@ -140,8 +143,8 @@ size_t JournalEntry::persist(int fd, off_t off)
     size_t write_ret  = pwritev(fd, iov, 4, off);
     assert(write_size == write_size);
     
-    //LOG_INFO << "persist type:" << type << " length:" << length 
-    //         << " crc:" << crc << " ok";
+    LOG_INFO << "persist type:" << type << " length:" << length 
+             << " crc:" << crc << " ok";
     return write_ret;
 }
 
@@ -152,7 +155,10 @@ size_t JournalEntry::get_persit_size()const
 
 size_t JournalEntry::persist(FILE* file, off_t off)
 {
-    assert(!message_serialized_data.empty());
+    if(message_serialized_data.empty()){
+        serialize();
+        calculate_crc();
+    }
 
     size_t buf_len = sizeof(type) + sizeof(length) + length + sizeof(crc) ;
     char*  buf = (char*)malloc(buf_len);
@@ -172,8 +178,8 @@ size_t JournalEntry::persist(FILE* file, off_t off)
     
     fflush(file);
 
-    //LOG_INFO << "persist type:" << type << " length:" << length 
-    //         << " crc:" << crc  << " ok";
+    LOG_INFO << "persist type:" << type << " length:" << length 
+             << " crc:" << crc  << " ok";
     return buf_len;
 }
 

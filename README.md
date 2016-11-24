@@ -17,6 +17,8 @@
 `ldconfig`  
 3. compile storage-gateway source code  
 `apt-get install libboost-all-dev libcurl3-nss`  
+`apt-get install librados-dev`  
+`install rocksdb`  
 `git clone https://github.com/Hybrid-Cloud/storage-gateway.git`  
 `cd storage-gateway`  
 `./build.sh`  
