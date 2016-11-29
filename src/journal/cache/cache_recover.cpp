@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "cache_recover.h"
+#include "../journal_entry.hpp"
 
 void ProcessWorker::start()
 {
@@ -70,14 +71,14 @@ void ProcessWorker::process_file(IReadFile* file)
             /*to do: optimize read*/
             string journal_file = file->m_file;
             off_t  journal_off  = start;
-            shared_ptr<ReplayEntry> entry; 
-            size_t ret = file->read_entry(start, m_buffer_pool, entry);
-            if(nullptr == entry || ret != entry->length()){
+            shared_ptr<JournalEntry> journal_entry = nullptr; 
+            size_t ret = file->read_entry(start,  journal_entry);
+            if(nullptr == journal_entry){
                 LOG_ERROR << "read entry failed ret:" << ret;
                 break;
             }
             start += ret;
-            m_cache_proxy->write(journal_file, journal_off, entry);
+            m_cache_proxy->write(journal_file, journal_off, journal_entry);
         }
     }
 
@@ -130,7 +131,7 @@ void SrcWorker::loop()
             if(*it == m_latest_marker->cur_journal()){
                 pos = m_latest_marker->pos();
             } else {
-                pos = sizeof(journal_header_t);
+                pos = sizeof(journal_file_header_t);
             }
             file = new SyncReadFile(name, pos, false); 
             int cidx = m_router->route(file->fid, m_consumer.size());
@@ -168,7 +169,6 @@ void CacheRecovery::start()
     for(int i = 0; i < m_processor_num; i++){
         /*todo: here use a trick*/
         new (&m_processor[i]) ProcessWorker(m_id_generator, m_cache_proxy);
-        m_processor[i].init(m_buffer_pool);
         m_processor[i].start();
     }
     
@@ -208,4 +208,3 @@ void CacheRecovery::stop()
     
     LOG_DEBUG << "CacheRecovery stop ok";
 }
-

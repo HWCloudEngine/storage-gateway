@@ -9,8 +9,12 @@
 #include <algorithm>
 #include "bcache.h"
 #include "common.h"
+#include "../../rpc/message.pb.h"
 
-#define MIN(a, b) ((a) < (b) ? (a) :(b))
+using google::protobuf::Message;
+using huawei::proto::WriteMessage;
+
+//#define MIN(a, b) ((a) < (b) ? (a) :(b))
 
 bool operator<(const Bkey& a, const Bkey& b)
 {
@@ -219,7 +223,6 @@ int Bcache::_cache_hit_read(off_t off, size_t len, char* buf,
         char*  pdst = NULL;
         size_t pdst_len  = 0;  
         off_t  pdst_off  = 0;
-       
         if(off > k.m_off){
             pdst_off = off;
             pdst_len = MIN(len, k.m_off+k.m_len - off);
@@ -234,13 +237,14 @@ int Bcache::_cache_hit_read(off_t off, size_t len, char* buf,
         }
         pdst = buf + (pdst_off-off);
        
-        shared_ptr<ReplayEntry> log_head = nullptr;
+        shared_ptr<JournalEntry> journal_entry = nullptr;
         uint8_t cache_type = v->get_cache_type();
+
         if(cache_type == CEntry::IN_MEM){
             //in memory
             //todo: one log header has many io
             LOG_DEBUG << "hit read from memory";
-            log_head = v->get_journal_entry(); 
+            journal_entry = v->get_journal_entry(); 
             LOG_DEBUG << "hit read from memory ok";
         } else if(cache_type == CEntry::IN_JOURANL){
             //in log  
@@ -250,16 +254,18 @@ int Bcache::_cache_hit_read(off_t off, size_t len, char* buf,
             off_t  journal_off  = v->get_journal_off();
             IReadFile* rfile = new SyncReadFile(journal_file, journal_off, false);
             rfile->open();
-            rfile->read_entry(journal_off, m_buffer_pool, log_head);
+            rfile->read_entry(journal_off, journal_entry);
             rfile->close();
             delete rfile;
             LOG_DEBUG << "hit read from journal ok ";
         } else {
             //assert(0);
         }
-
-        log_header_t* plog_head = (log_header_t*)log_head->data();
-        char* psrc = (char*)plog_head + plog_head->count*sizeof(off_len_t);
+        
+        shared_ptr<Message> message = journal_entry->get_message();
+        shared_ptr<WriteMessage> write_message = dynamic_pointer_cast
+                                                  <WriteMessage>(message);  
+        char* psrc = (char*)write_message->data().c_str();
         psrc += pdst_off-k.m_off;
         memcpy(pdst, psrc, pdst_len);
     }

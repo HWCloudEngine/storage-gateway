@@ -11,8 +11,20 @@ then
 echo "rm old grpc source files..."
 rm -f ${RPC_SOURCE_PATH}/*.pb.h ${RPC_SOURCE_PATH}/*.pb.cc
 echo "generate new grpc C++ source files to ${RPC_SOURCE_PATH} ..."
-$PROTOC -I $PROTO_PATH --grpc_out=$RPC_SOURCE_PATH --plugin=protoc-gen-grpc=`which grpc_cpp_plugin` ${PROTO_PATH}/writer.proto ${PROTO_PATH}/consumer.proto
-$PROTOC -I $PROTO_PATH --cpp_out=$RPC_SOURCE_PATH ${PROTO_PATH}/writer.proto ${PROTO_PATH}/consumer.proto ${PROTO_PATH}/common.proto ${PROTO_PATH}/journal.proto
+
+#generate grpc
+$PROTOC -I $PROTO_PATH --grpc_out=$RPC_SOURCE_PATH \
+       --plugin=protoc-gen-grpc=`which grpc_cpp_plugin` \
+        ${PROTO_PATH}/writer.proto ${PROTO_PATH}/consumer.proto
+
+#generate protocol
+$PROTOC -I $PROTO_PATH --cpp_out=$RPC_SOURCE_PATH \
+        ${PROTO_PATH}/writer.proto \
+        ${PROTO_PATH}/consumer.proto \
+        ${PROTO_PATH}/common.proto \
+        ${PROTO_PATH}/journal.proto \
+        ${PROTO_PATH}/message.proto
+
 
 #auto generate Makefiles
 touch NEWS README AUTHORS ChangeLog
@@ -30,7 +42,7 @@ mkdir -p build
 chmod +x ${CUR_PATH}/configure
 ${CUR_PATH}/configure --prefix=${CUR_PATH}
 make clean
-make -j8
+make -j 8
 #copy program to bin
 #cp ${CUR_PATH}/src/rpc_server ${CUR_PATH}/bin
 
@@ -38,7 +50,11 @@ elif [ "$1"a = "clean"a ]
 then
 make clean
 #delete temporary building files
-rm -rf aclocal.m4 config.guess config.log configure depcomp install-sh ltmain.sh NEWS AUTHORS ChangeLog config.h config.status m4 Makefile.in README stamp-h1 autom4te.cache compile config.h.in  config.sub COPYING INSTALL libtool Makefile missing
+rm -rf aclocal.m4 config.guess config.log configure depcomp \
+       install-sh ltmain.sh NEWS AUTHORS ChangeLog config.h \
+       config.status m4 Makefile.in README stamp-h1 autom4te.cache  \
+       compile config.h.in  config.sub COPYING INSTALL libtool Makefile missing
+
 rm -rf build/
 rm -rf ${RPC_SOURCE_PATH}/*.h ${RPC_SOURCE_PATH}/*.cc
 find . -name Makefile | xargs rm -f

@@ -7,16 +7,14 @@
 namespace Journal{
 
 Volume::Volume(boost::asio::io_service& io_service)
-    :write_queue_(),
-     entry_queue_(),
-     raw_socket_(io_service),
-     pre_processor(write_queue_,entry_queue_,entry_cv,write_cv),
-     read_queue(),
-     connection(raw_socket_,entry_queue_,entry_cv,reply_queue_,reply_cv,read_queue),
-     writer("localhost:50051",write_queue_,write_cv,reply_queue_,reply_cv),
-     reader(reply_queue_, reply_cv, read_queue),
+    :raw_socket_(io_service),
+     connection(raw_socket_, entry_queue, read_queue, reply_queue),
+     pre_processor(entry_queue, write_queue),
+     writer("localhost:50051", write_queue, reply_queue),
+     reader(read_queue, reply_queue),
      replayer("localhost:50051")
 {
+
 }
 
 Volume::~Volume()
@@ -32,6 +30,7 @@ Volume::~Volume()
         buffer_pool = NULL;
     }
 }
+
 bool Volume::init(shared_ptr<ConfigParser> conf, shared_ptr<CephS3LeaseClient> lease_client)
 {
     int thread_num = conf->get_default("pre_processor.thread_num",1);
@@ -46,7 +45,7 @@ bool Volume::init(shared_ptr<ConfigParser> conf, shared_ptr<CephS3LeaseClient> l
         LOG_ERROR << "init connection failed,vol_id:" << vol_id_;
         return false;
     }
-    if(!pre_processor.init(buffer_pool,conf))
+    if(!pre_processor.init(conf))
     {
         LOG_ERROR << "init pre_processor failed,vol_id:"<< vol_id_;
         return false;
@@ -145,6 +144,7 @@ void VolumeManager::periodic_task()
         {
             continue;
         }
+
         std::unique_lock<std::mutex> lk(mtx);
         for(std::map<std::string,volume_ptr>::iterator iter = volumes.begin();iter!=volumes.end();++iter)
         {
@@ -155,16 +155,19 @@ void VolumeManager::periodic_task()
             {
                 LOG_ERROR << "get_writeable_journals failed,vol_id:" << vol_id;
             }
+
             if(!writer.seal_journals(lease_client->get_lease()))
             {
                 LOG_ERROR << "seal_journals failed,vol_id:" << vol_id;
             }
+            LOG_INFO << "seal_journals ok vol_id:" << vol_id;
         }
     }
 }
 
 void VolumeManager::add_vol(volume_ptr vol)
 {
+    LOG_INFO << "add vol";
     boost::asio::async_read(vol->get_raw_socket(),
     boost::asio::buffer(header_buffer_, sizeof(struct IOHookRequest)),
     boost::bind(&VolumeManager::handle_request_header, this,vol,

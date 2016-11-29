@@ -89,7 +89,7 @@ static S3Status getObjectDataCallback(int bufferSize, const char *buffer, void *
 {
     string *value = (string*)(((s3_call_response_t*)callbackData)->pdata);
     value->append(buffer,bufferSize);
-    LOG_DEBUG << "getObjectDataCallback, len:" << value->length() << ":" << bufferSize;
+//    LOG_DEBUG << "getObjectDataCallback, len:" << value->length() << ":" << bufferSize;
     return S3StatusOK;
 }
 
@@ -216,18 +216,22 @@ RESULT CephS3Api::put_object(const char* obj_name, const string* value,
     memset(&properties,0,sizeof(S3PutProperties));
     if(meta != nullptr && meta->size()){
         properties.metaDataCount = meta->size();
-        S3NameValue meta_properties[properties.metaDataCount];
+        S3NameValue* meta_value = new S3NameValue[properties.metaDataCount];
         int i=0;
         for(auto it=meta->begin();it!=meta->end();it++,i++){
-            meta_properties[i].name = (it->first).c_str();
-            meta_properties[i].value = (it->second).c_str();
+            meta_value[i].name = (it->first).c_str();
+            meta_value[i].value = (it->second).c_str();
         }
+        properties.metaData = meta_value;
     }
     do {
         S3_put_object(&bucketContext,obj_name,len,&properties,
                 nullptr,&putObjectHandler,&response);
     } while(S3_status_is_retryable(response.status)
                 && should_retry(response));
+    if(properties.metaData){
+        delete [] properties.metaData;
+    }
     if(S3StatusOK != response.status){
         LOG_ERROR << "update object failed:" << S3_get_status_name(response.status);;
         return INTERNAL_ERROR;
