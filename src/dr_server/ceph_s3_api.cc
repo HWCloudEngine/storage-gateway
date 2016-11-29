@@ -206,7 +206,7 @@ RESULT CephS3Api::put_object(const char* obj_name, const string* value,
     int64_t len = 0;
     if(nullptr != value)
         len = value->length();
-    LOG_DEBUG << "put object " << obj_name << ",length: " << len;
+    //LOG_DEBUG << "put object " << obj_name << ",length: " << len;
     s3_call_response_t response;
     response.pdata = (void*)(value);
     response.size = len;
@@ -214,20 +214,26 @@ RESULT CephS3Api::put_object(const char* obj_name, const string* value,
     response.retrySleepInterval = SLEEP_UNITS_PER_SECOND;
     S3PutProperties properties;
     memset(&properties,0,sizeof(S3PutProperties));
+
     if(meta != nullptr && meta->size()){
         properties.metaDataCount = meta->size();
-        S3NameValue meta_properties[properties.metaDataCount];
+        S3NameValue* meta_properties = new S3NameValue[meta->size()]; 
         int i=0;
         for(auto it=meta->begin();it!=meta->end();it++,i++){
             meta_properties[i].name = (it->first).c_str();
             meta_properties[i].value = (it->second).c_str();
         }
+        properties.metaData = meta_properties;
     }
     do {
         S3_put_object(&bucketContext,obj_name,len,&properties,
                 nullptr,&putObjectHandler,&response);
     } while(S3_status_is_retryable(response.status)
                 && should_retry(response));
+    if(properties.metaData){
+        delete [] properties.metaData; 
+    }
+
     if(S3StatusOK != response.status){
         LOG_ERROR << "update object failed:" << S3_get_status_name(response.status);;
         return INTERNAL_ERROR;

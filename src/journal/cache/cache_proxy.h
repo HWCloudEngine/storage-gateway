@@ -18,8 +18,8 @@ using namespace std;
 
 class CacheProxy
 {
-    const static size_t MAX_CACHE_LIMIT  = (100 * 1024 * 1024); //100MBytes
-    const static size_t CACHE_EVICT_SIZE = (10 * 1024 * 1024);  //10MBytes
+    const static size_t MAX_CACHE_LIMIT  = (10 * 1024 * 1024); //100MBytes
+    const static size_t CACHE_EVICT_SIZE = (1 * 1024 * 1024);  //10MBytes
 public:
     CacheProxy(){}
     explicit CacheProxy(string blk_dev, shared_ptr<IDGenerator> id_maker){
@@ -49,7 +49,7 @@ public:
   
     /*journal writer or replayer add cache*/
     void write(string journal_file, off_t  journal_off,
-               shared_ptr<ReplayEntry> journal_entry);
+               shared_ptr<JournalEntry> journal_entry);
 
     /*io hook read handle*/
     int  read(off_t  off, size_t len, char*  buf); 

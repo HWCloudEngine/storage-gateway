@@ -14,7 +14,10 @@
 #include "seq_generator.hpp"
 #include "cache/cache_proxy.h"
 #include "cache/cache_recover.h"
+#include "journal_entry.hpp"
 #include "../rpc/clients/replayer_client.hpp"
+#include "../rpc/message.pb.h"
+using huawei::proto::WriteMessage;
 
 namespace Journal
 {
@@ -32,7 +35,8 @@ public:
 private:
     void replay_volume();
     void update_marker();
-    bool process_cache(std::shared_ptr<ReplayEntry> r_entry);
+    bool write_block_device(shared_ptr<WriteMessage> write);
+    bool process_cache(std::shared_ptr<JournalEntry> r_entry);
     bool process_file(const std::string& file_name, off_t off);
     bool update_consumer_marker();
 
@@ -44,9 +48,16 @@ private:
     JournalMarker journal_marker_;
     std::shared_ptr<CEntry> latest_entry_;
     std::shared_ptr<ReplayerClient> rpc_client_ptr_;
+
+    /*actually replay thread*/
     std::unique_ptr<boost::thread> replay_thread_ptr_;
+    /*mark update thread*/
     std::unique_ptr<boost::thread> update_thread_ptr_;
+
+    /*cache for replay*/
     std::shared_ptr<CacheProxy> cache_proxy_ptr_;
+
+    /*cache recover when crash*/
     std::shared_ptr<IDGenerator> id_maker_ptr_;
     std::shared_ptr<CacheRecovery> cache_recover_ptr_;
 };

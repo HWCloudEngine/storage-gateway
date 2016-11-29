@@ -79,7 +79,7 @@ void DRLog::log_init(std::string file_name)
     boost::shared_ptr<sinks::text_file_backend> backend =
         boost::make_shared<sinks::text_file_backend>(
             keywords::file_name =  file_name + ".%5N", // file name
-            keywords::rotation_size = 5 * 1024 * 1024, // log file size
+            keywords::rotation_size = 500 * 1024 * 1024, // log file size
             keywords::time_based_rotation = sinks::file::rotation_at_time_point(0, 0, 0)  // create new file at midnight
             );
 
