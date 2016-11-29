@@ -22,20 +22,23 @@
 #include <boost/chrono/chrono.hpp>
 #include <boost/function.hpp>
 #include <boost/bind.hpp>
+#include <boost/lockfree/queue.hpp>
 
-
-#include "message.hpp"
-#include "replay_entry.hpp"
-#include "../rpc/clients/writer_client.hpp"
+#include "../common/blocking_queue.h"
 #include "../common/config_parser.h"
-#include "../dr_server/ceph_s3_lease.h"
 
 #include "seq_generator.hpp"
 #include "cache/cache_proxy.h"
 
+#include "message.hpp"
+#include "journal_entry.hpp"
+#include "../rpc/clients/writer_client.hpp"
+#include "../dr_server/ceph_s3_lease.h"
+
 namespace Journal{
 
-typedef std::map<uint64_t,ReplayEntry*> EntryMap;
+typedef std::map<uint64_t, shared_ptr<JournalEntry>> EntryMap;
+
 struct JournalWriterConf{
     uint64_t journal_max_size;
     std::string journal_mnt;
@@ -45,13 +48,12 @@ struct JournalWriterConf{
     int32_t journal_limit;
 };
 
-class JournalWriter
-    :private boost::noncopyable
+class JournalWriter :private boost::noncopyable
 {
 public:
     explicit JournalWriter(std::string rpc_addr,
-                           entry_queue& write_queue,std::condition_variable& cv,
-                           reply_queue& rep_queue,std::condition_variable& reply_cv);
+                           BlockingQueue<shared_ptr<JournalEntry>>& write_queue,
+                           BlockingQueue<struct IOHookReply*>&      reply_queue);
     virtual ~JournalWriter();
     void work();
     bool init(std::string& vol, 
@@ -64,45 +66,52 @@ public:
     //The write thread and another thread are single consumer/single producer module,communicate with lockfree queue
     bool get_writeable_journals(const std::string& uuid,const int limit);
     bool seal_journals(const std::string& uuid);
+
 private:
     bool open_journal(uint64_t entry_size);
     bool get_journal();
     int64_t get_file_size(const char *path);
     bool write_journal_header();
-    void send_reply(ReplayEntry* entry,bool success);
+    void send_reply(JournalEntry* entry,bool success);
 
     void handle_lease_invalid(std::string* journal_ptr);
 
-    ReplayEntry* get_entry();
+    shared_ptr<JournalEntry> get_entry();
     void update_entry_map();
-
+    
+    /*lease with dr server*/
+    shared_ptr<CephS3LeaseClient> lease_client_;
+    
+    /*input queue*/
+    BlockingQueue<shared_ptr<JournalEntry>>& write_queue_;
+    /*output queue*/
+    BlockingQueue<struct IOHookReply*>& reply_queue_;
+    
+    /*cache*/
     shared_ptr<IDGenerator> idproxy_;
     shared_ptr<CacheProxy> cacheproxy_;
-    shared_ptr<CephS3LeaseClient> lease_client;
-
-    std::mutex mtx_;
-    std::condition_variable& cv_;
-    std::condition_variable& reply_cv_;
+    
+    /*journal file prefetch and seal thread*/
     std::mutex rpc_mtx_;
     WriterClient rpc_client;
     boost::shared_ptr<boost::thread> thread_ptr;
-    entry_queue& write_queue_;
-    reply_queue& reply_queue_;
     boost::lockfree::queue<std::string*> journal_queue;
     boost::lockfree::queue<std::string*> seal_queue;
-
+    
+    /*current operation journal file info*/
     FILE* cur_file_ptr;
     std::string *cur_journal;
     uint64_t cur_journal_size;
+    
+    /*order keep*/
     uint64_t write_seq;
     EntryMap entry_map;
+
     std::atomic_int journal_queue_size;
     std::string vol_id;
     
     struct JournalWriterConf config;
     bool running_flag;
-
-    shared_ptr<CephS3LeaseClient> lease_client_;
 };
 
 }

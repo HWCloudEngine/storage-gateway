@@ -5,12 +5,11 @@
 #include <string>
 #include <memory>
 #include "../nedmalloc.h"
-#include "../replay_entry.hpp"
+#include "../journal_entry.hpp"
 #include "../seq_generator.hpp"
 #include <boost/thread/shared_mutex.hpp>
 
 using namespace std;
-using namespace Journal;
 
 /*boost read write lock */
 typedef boost::shared_mutex       Mutex;
@@ -31,7 +30,7 @@ public:
     /*in memory*/
     explicit CEntry(IoVersion seq, off_t bdev_off, size_t bdev_len,
                     string jfile, off_t jfile_off, 
-                    shared_ptr<ReplayEntry> entry);
+                    shared_ptr<JournalEntry> entry);
 
     CEntry(const CEntry& other);
     CEntry(CEntry&& other);
@@ -67,7 +66,7 @@ public:
         return journal_off;
     }
 
-    shared_ptr<ReplayEntry>& get_journal_entry(){
+    shared_ptr<JournalEntry>& get_journal_entry(){
         return journal_entry;
     }
     
@@ -85,8 +84,9 @@ private:
     /*in journal entry*/
     string    journal_file;
     off_t     journal_off;
+
     /*in memory entry*/
-    shared_ptr<ReplayEntry> journal_entry; 
+    shared_ptr<JournalEntry> journal_entry; 
 
     friend class Bcache; 
     friend class Jcache;
@@ -117,12 +117,9 @@ public:
     virtual size_t write(off_t off, char* buf, size_t count) = 0;
 
     /*call by cache or replayer*/
-    size_t read_entry(off_t off, 
-                      nedalloc::nedpool* bufpool,
-                      shared_ptr<ReplayEntry>& entry);
+    size_t read_entry(off_t off, shared_ptr<JournalEntry>& entry);
     /*call by writer*/
-    size_t write_entry(off_t off, 
-                       shared_ptr<ReplayEntry>& entry);
+    size_t write_entry(off_t off, shared_ptr<JournalEntry>& entry);
 
 public:
     string m_file;  /*file name*/ 
