@@ -1,51 +1,63 @@
 #include "cache_proxy.h"
 
+#include "../../rpc/message.pb.h"
+using google::protobuf::Message;
+using huawei::proto::WriteMessage;
+using huawei::proto::DiskPos;
+
 /*journal write call*/
 void CacheProxy::write(string journal_file, off_t journal_off, 
-                       shared_ptr<ReplayEntry> journal_entry)
+                       shared_ptr<JournalEntry> journal_entry)
 {
     int ret = 0;
-    /*type cast*/
-    ReplayEntry*  re   = journal_entry.get();
-    log_header_t* logh = (log_header_t*)re->data();
-    IoVersion     io_seq  = idproc->get_version(journal_file);
 
-    LOG_INFO << " write journal_file:" << journal_file 
-             << " journal_off:" << journal_off;
+    journal_event_type_t type = journal_entry->get_type();
 
-    /*todo: batch io case, may reconsider how to sequence each io*/
-    for(int i=0; i < logh->count; i++)
-    {
-        off_t  off = logh->off_len[i].offset;
-        size_t len = logh->off_len[i].length; 
+    if(IO_WRITE == type){
+        shared_ptr<Message> message = journal_entry->get_message();
+        shared_ptr<WriteMessage> write_message = dynamic_pointer_cast<WriteMessage>
+                                                    (message);
+        IoVersion io_seq  = idproc->get_version(journal_file);
+
+        LOG_INFO << " write journal_file:" << journal_file 
+                 << " journal_off:" << journal_off
+                 << " io_seq:" << io_seq;
         
-        if(isfull(len)){
-            /*trigger bcache evict*/
-            trigger_cache_evict();
+        int pos_num = write_message->pos_size();
+        for(int i=0; i < pos_num; i++){
+            DiskPos* pos = write_message->mutable_pos(i);
+            off_t    off = pos->offset();
+            size_t   len = pos->length(); 
+            if(isfull(len)){
+                /*trigger bcache evict*/
+                trigger_cache_evict();
 
-            /*cache memory over threshold, cache point to journal file location*/
-            Bkey bkey(off, len, io_seq);
-            shared_ptr<CEntry> v(new CEntry(io_seq, off, len, 
-                                            journal_file,journal_off));
-            jcache->push(v);
-            ret = bcache->add(bkey, v);
-            if(!ret){
-                bcache->update(bkey, v);
+                /*cache memory over threshold, cache point to journal file location*/
+                Bkey bkey(off, len, io_seq);
+                shared_ptr<CEntry> v(new CEntry(io_seq, off, len, 
+                                                journal_file,journal_off));
+                jcache->push(v);
+                ret = bcache->add(bkey, v);
+                if(!ret){
+                    bcache->update(bkey, v);
+                }
+                total_mem_size += v->get_mem_size();
+            } else {
+                /*cache memory in threshold, cache point to journal entry in memory*/
+                Bkey bkey(off, len, io_seq);
+                shared_ptr<CEntry> v(new CEntry(io_seq, off, len, 
+                                                journal_file, journal_off, 
+                                                journal_entry));
+                jcache->push(v);
+                ret = bcache->add(bkey, v);
+                if(!ret){
+                    bcache->update(bkey,v);
+                }
+                total_mem_size += v->get_mem_size();
             }
-            total_mem_size += v->get_mem_size();
-        } else {
-            /*cache memory in threshold, cache point to journal entry in memory*/
-            Bkey bkey(off, len, io_seq);
-            shared_ptr<CEntry> v(new CEntry(io_seq, off, len, 
-                                            journal_file, journal_off, 
-                                            journal_entry));
-            jcache->push(v);
-            ret = bcache->add(bkey, v);
-            if(!ret){
-                bcache->update(bkey,v);
-            }
-            total_mem_size += v->get_mem_size();
-       }
+        }
+    } else {
+        /*other type message*/
     }
 }
 
@@ -74,16 +86,21 @@ bool CacheProxy::reclaim(shared_ptr<CEntry> entry)
              << " blk_len:" << entry->get_blk_len();
 
     if(ce->get_cache_type() == CEntry::IN_MEM){
-        ReplayEntry*  re   = ce->get_journal_entry().get();
-        log_header_t* logh = (log_header_t*)re->data();
+        /*todo other message*/
+        shared_ptr<JournalEntry> journal_entry = ce->get_journal_entry();
+        shared_ptr<Message>      message = journal_entry->get_message();
+        shared_ptr<WriteMessage> io_message = dynamic_pointer_cast<WriteMessage>
+                                                (message);
         IoVersion io_seq   = ce->get_io_seq();
-        for(int i=0; i < logh->count; i++)
+        int pos_num = io_message->pos_size();
+        for(int i=0; i < pos_num; i++)
         {
-            off_t  off = logh->off_len[i].offset;
-            size_t len = logh->off_len[i].length; 
+            DiskPos* pos = io_message->mutable_pos(i);
+            off_t    off = pos->offset();
+            size_t   len = pos->length(); 
             Bkey key(off, len, io_seq);
             bcache->del(key);
-       }
+        }
     } else {
         IoVersion io_seq = ce->get_io_seq();
         off_t  off  = ce->get_blk_off();
@@ -126,6 +143,7 @@ void CacheProxy::trigger_cache_evict()
 {
     unique_lock<mutex> lock(evict_lock);
     evict_cond.notify_all();
+    LOG_INFO << "trigger cache evict";
 }
 
 void CacheProxy::cache_evict_work()
@@ -146,8 +164,8 @@ void CacheProxy::cache_evict_work()
             }
 
             Bkey update_key(centry->get_blk_off(), 
-                    centry->get_blk_len(), 
-                    centry->get_io_seq());
+                            centry->get_blk_len(), 
+                            centry->get_io_seq());
 
             LOG_INFO << "update key"
                      << " off:" << centry->get_blk_off() 
@@ -163,6 +181,7 @@ void CacheProxy::cache_evict_work()
             bool ret = bcache->update(update_key, centry);
             if(ret){
                 already_evit_size += centry_mem_size;
+                total_mem_size -= centry_mem_size;
             }
 
             if(already_evit_size >= CACHE_EVICT_SIZE){

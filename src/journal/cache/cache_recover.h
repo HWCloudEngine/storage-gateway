@@ -16,11 +16,11 @@
 #include <functional>
 
 #include "../../log/log.h"
-#include "../nedmalloc.h"
 #include "../../common/blocking_queue.h"
-#include "../../common/log_header.h"
 #include "../../rpc/consumer.pb.h"
 #include "../../rpc/clients/replayer_client.hpp"
+
+#include "../nedmalloc.h"
 #include "../seq_generator.hpp"
 #include "../message.hpp"
 
@@ -29,7 +29,6 @@
 
 using namespace std;
 using huawei::proto::JournalMarker;
-using Journal::ReplayEntry;
 
 /*interface to all kind of worker thread*/
 class IWorker
@@ -46,10 +45,6 @@ public:
         m_producer.push_back(worker);
     }
     
-    void init(nedalloc::nedpool* bufpool){
-        m_buffer_pool = bufpool; 
-    }
-
     /*start worker*/
     virtual void start() = 0;
     /*stop worker*/
@@ -60,8 +55,8 @@ public:
     virtual void enqueue(void* item) = 0;
     
 protected:
+    /*the work*/
     atomic_bool           m_run{false};
-    nedalloc::nedpool*    m_buffer_pool{nullptr}; 
     thread*               m_thread{nullptr};
     /*producer of the worker*/
     vector<IWorker*>      m_producer;
@@ -141,37 +136,21 @@ public:
         m_id_generator = id_maker;
         m_cache_proxy  = cache_proxy;
         LOG_DEBUG << "CacheRecovery create";
-        init();
     }
 
     ~CacheRecovery(){
         LOG_DEBUG << "CacheRecovery create";
-        fini(); 
     }
     
-    void init(){
-        const int recover_mpool_size = 100*1024*1024;
-        m_buffer_pool = nedalloc::nedcreatepool(recover_mpool_size, 1);
-        if(nullptr == m_buffer_pool){
-            LOG_ERROR << "cache recovery init memory pool failed";
-        }
-    }
-    
-    void fini(){
-        if(m_buffer_pool){
-            nedalloc::neddestroypool(m_buffer_pool);
-        }
-    }
-
     /*start cache recover*/
     void start();
     /*wait until cache recover finished*/
     void stop();
 
 private:
-    string                     m_volume;               //volume name 
-    nedalloc::nedpool*         m_buffer_pool{nullptr}; //memory pool
-    shared_ptr<ReplayerClient> m_grpc_client;          //grpc client
+    string  m_volume; //volume name 
+
+    shared_ptr<ReplayerClient> m_grpc_client; //grpc client
 
     shared_ptr<JournalMarker>  m_last_marker;    //last marker
     shared_ptr<JournalMarker>  m_latest_marker;  //latest marker

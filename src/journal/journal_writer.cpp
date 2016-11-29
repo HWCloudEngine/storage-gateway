@@ -6,18 +6,16 @@
 namespace Journal{
 
 JournalWriter::JournalWriter(std::string rpc_addr,
-                                   entry_queue& write_queue,std::condition_variable& cv,
-                                   reply_queue& rep_queue,std::condition_variable& reply_cv)
+                        BlockingQueue<shared_ptr<JournalEntry>>& write_queue,
+                        BlockingQueue<struct IOHookReply*>&      reply_queue)
     :rpc_client(grpc::CreateChannel(rpc_addr, grpc::InsecureChannelCredentials())),
     thread_ptr(),
     write_queue_(write_queue),
-    reply_queue_(rep_queue),
+    reply_queue_(reply_queue),
     cur_file_ptr(NULL),
     cur_journal(NULL),
     cur_journal_size(0),
-    journal_queue_size(0),
-    cv_(cv),
-    reply_cv_(reply_cv)
+    journal_queue_size(0)
 {
 }
 
@@ -87,9 +85,10 @@ void JournalWriter::work()
 {
     bool success = false;
     time_t start,end;
-    ReplayEntry* entry = NULL;
+    shared_ptr<JournalEntry> entry = nullptr;
     uint64_t entry_size = 0;
     uint64_t write_size = 0;
+
     while(true)
     {
         if(!lease_client_->check_lease_validity())
@@ -104,17 +103,20 @@ void JournalWriter::work()
             boost::this_thread::sleep_for(boost::chrono::seconds(config.write_timeout));
             continue;
         }
-        std::unique_lock<std::mutex> lk(mtx_);
+        
         while(running_flag && !(entry = get_entry()))
         {
-            cv_.wait_for(lk,std::chrono::seconds(2));
+            usleep(2000);
         }
+
         if (running_flag == false)
             return;
+
         success = false;
         time(&start);
         time(&end);
-        entry_size = entry->length();
+        entry_size = entry->get_persit_size();
+
         while(!success && (difftime(end,start) < config.write_timeout))
         {
             if(!open_journal(entry_size))
@@ -122,29 +124,34 @@ void JournalWriter::work()
                 time(&end);
                 continue;
             }
-            //todo to be enhanced to aio
-            write_size = fwrite(entry->data(),1,entry_size,cur_file_ptr);
+
+            std::string journal_file = config.journal_mnt + *cur_journal;
+            off_t journal_off = cur_journal_size;
+            
+            /*persist to journal file*/
+            write_size = entry->persist(cur_file_ptr, journal_off);
             if(write_size != entry_size)
             {
-                LOG_ERROR << "write journal file: " << cur_journal<< " failed:" << strerror(errno);
-                cur_journal_size = cur_journal_size + write_size;
+                LOG_ERROR << "write journal file: " << cur_journal
+                          << " failed:" << strerror(errno);
+                cur_journal_size += write_size;
                 time(&end);
                 continue;
             }
-            fflush(cur_file_ptr);
             
-            std::string journal_file = config.journal_mnt + *cur_journal;
-            off_t journal_off = cur_journal_size;
-            shared_ptr<ReplayEntry> journal_entry(entry);
-            cacheproxy_->write(journal_file, journal_off, journal_entry);
+            /*add to cache*/
+            cacheproxy_->write(journal_file, journal_off, entry);
 
-            cur_journal_size = cur_journal_size + write_size;
+            cur_journal_size += write_size;
+            journal_off = cur_journal_size;
+
             success = true;
         }
+
         entry_map.erase(write_seq);
         write_seq++;
-        lk.unlock();
-        send_reply(entry,success);
+
+        send_reply(entry.get(),success);
     }
 }
 
@@ -153,14 +160,19 @@ bool JournalWriter::get_journal()
 {
     if(journal_queue.empty())
     {
-        get_writeable_journals(lease_client->get_lease(),config.journal_limit);
+        get_writeable_journals(lease_client_->get_lease(),config.journal_limit);
     }
+
+    LOG_INFO << "journal_queue empty:" << journal_queue.empty();
+
     if(!journal_queue.pop(cur_journal))
     {
         LOG_ERROR << "journal_queue pop failed";
         return false;
     }
     journal_queue_size--;
+    LOG_INFO << "journal_queue pop journal_queue.size:" << journal_queue_size;
+
     if(cur_journal == NULL)
         return false;
     return true;
@@ -181,6 +193,7 @@ bool JournalWriter::open_journal(uint64_t entry_size)
             LOG_ERROR << "push journal:" << *cur_journal << "to seal queue failed";
             return false;
         }
+        LOG_INFO << "push journal:" << *cur_journal << "to seal queue ok";
         if(NULL != cur_file_ptr)
         {
             fclose(cur_file_ptr);
@@ -198,7 +211,8 @@ bool JournalWriter::open_journal(uint64_t entry_size)
         cur_file_ptr = fopen(tmp.c_str(), "ab+");
         if(NULL == cur_file_ptr)
         {
-             LOG_ERROR << "open journal file: " << *cur_journal << " failed:" << strerror(errno);
+             LOG_ERROR << "open journal file: " << *cur_journal 
+                       << " failed:" << strerror(errno);
              return false;
         }
         else
@@ -214,15 +228,16 @@ bool JournalWriter::open_journal(uint64_t entry_size)
 
 bool JournalWriter::write_journal_header()
 {
-    journal_header_t journal_header;
+    journal_file_header_t journal_header;
     journal_header.version = config.version;
-    journal_header.checksum_type = config.checksum_type;
-    if(fwrite(&journal_header,sizeof(journal_header),1,cur_file_ptr) != 1)
+
+    if(fwrite(&journal_header,sizeof(journal_file_header_t),1,cur_file_ptr) != 1)
     {
-        LOG_ERROR << "write journal header faied,journal:" << cur_journal << "errno:" << strerror(errno); 
+        LOG_ERROR << "write journal header faied,journal:" << cur_journal 
+                  << "errno:" << strerror(errno); 
         return false;
     }
-    cur_journal_size += sizeof(journal_header);
+    cur_journal_size += sizeof(journal_file_header_t);
     return true;
 }
 
@@ -233,6 +248,9 @@ bool JournalWriter::get_writeable_journals(const std::string& uuid,const int32_t
     int32_t tmp = 0;
     if(journal_queue_size >= limit)
     {
+        LOG_INFO << "get journal file journal_queue_size:" << journal_queue_size
+                 << " limit:" << limit
+                 << " emtpty:" << journal_queue.empty();
         return true;
     }
     else
@@ -244,6 +262,8 @@ bool JournalWriter::get_writeable_journals(const std::string& uuid,const int32_t
         LOG_ERROR << "get journal file failed";
         return false;
     }
+
+    LOG_INFO << "get journal file ok journals.size:" << journals.size();
     for(auto tmp:journals)
     {
         std::string * journal_ptr = new std::string(tmp);
@@ -266,10 +286,12 @@ bool JournalWriter::seal_journals(const std::string& uuid)
             journals.push_back(*tmp);
         }
     }
+
     if(!journals.empty())
     {
         if(!rpc_client.SealJournals(uuid,vol_id,journals))
         {
+            LOG_ERROR << "SealJournals failed";
             for(auto k:backup)
             {
                 seal_queue.push(k);
@@ -278,6 +300,7 @@ bool JournalWriter::seal_journals(const std::string& uuid)
         }
         else
         {
+            LOG_INFO << "SealJournals ok";
             for(auto i:backup)
             {
                 delete i;
@@ -302,20 +325,21 @@ int64_t JournalWriter::get_file_size(const char *path)
     return filesize;
 }
 
-void JournalWriter::send_reply(ReplayEntry* entry,bool success)
+void JournalWriter::send_reply(JournalEntry* entry,bool success)
 {
-    IOHookReply* reply_ptr = (IOHookReply*)new char[sizeof(IOHookReply)];
-    reply_ptr->magic = MESSAGE_MAGIC;
-    reply_ptr->error = success?0:1;
-    reply_ptr->handle = entry->req_id();
-    reply_ptr->len = 0;
-    if(!reply_queue_.push(reply_ptr))
-    {
-        LOG_ERROR << "reply queue push failed";
-        delete []reply_ptr;
-        return;
+    vector<uint64_t> handles = entry->get_handle();
+    for(uint64_t handle : handles){
+        IOHookReply* reply_ptr = (IOHookReply*)new char[sizeof(IOHookReply)];
+        reply_ptr->magic = MESSAGE_MAGIC;
+        reply_ptr->error = success?0:1;
+        reply_ptr->handle = handle;
+        reply_ptr->len = 0;
+        if(!reply_queue_.push(reply_ptr)){
+            LOG_ERROR << "reply queue push failed";
+            delete []reply_ptr;
+            return;
+        }
     }
-    reply_cv_.notify_one();
 }
 
 void JournalWriter::handle_lease_invalid(std::string* journal_ptr)
@@ -326,27 +350,29 @@ void JournalWriter::handle_lease_invalid(std::string* journal_ptr)
     }
 }
 
-ReplayEntry* JournalWriter::get_entry()
+shared_ptr<JournalEntry> JournalWriter::get_entry()
 {
     update_entry_map();
+
     EntryMap::iterator it = entry_map.find(write_seq);
     if(it != entry_map.end())
     {
         return it->second;
     }
-    return NULL;
+    //LOG_INFO << "writer get_entry write_seq:" << write_seq << " nullptr";
+    return nullptr;
 }
 
 void JournalWriter::update_entry_map()
 {
-    ReplayEntry* entry = NULL;
+    shared_ptr<JournalEntry> entry = nullptr;
     while(!write_queue_.empty())
     {
         if(write_queue_.pop(entry))
         {
-            entry_map.insert(std::pair<uint64_t,ReplayEntry*>(entry->get_req_seq(),entry));
+            entry_map.insert(std::pair<uint64_t, shared_ptr<JournalEntry>>
+                            (entry->get_sequence(),entry));
         }
-
     }
 }
 

@@ -4,12 +4,10 @@
 
 namespace Journal{
     
-JournalReader::JournalReader(reply_queue& reply_queue,
-                             condition_variable& reply_queue_cv,
-                             BlockingQueue<struct IOHookRequest>& read_queue)
-    :m_reply_queue(reply_queue),
-     m_reply_queue_cv(reply_queue_cv), 
-     m_read_queue(read_queue), 
+JournalReader::JournalReader(BlockingQueue<struct IOHookRequest>& read_queue,
+                             BlockingQueue<struct IOHookReply*>&  reply_queue)
+    :m_read_queue(read_queue), 
+     m_reply_queue(reply_queue),
      m_run(false)
 {
     LOG_INFO << "JournalReader create";
@@ -69,7 +67,6 @@ void JournalReader::work()
             delete [] iorsp;
             return;
         }
-        m_reply_queue_cv.notify_one();
    }
 }
 
