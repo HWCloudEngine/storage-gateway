@@ -53,11 +53,13 @@ void Server::handle_accept(const  boost::system::error_code & e)
 {
     if(!acceptor_.is_open())
     {
+        LOG_ERROR << "handle accept failed no open";
         return;
     }
     
     if(!e)
     {
+        LOG_INFO << "handle accept new client connect ok";
         volume_manager_.start(new_volume_);
     }
     else

@@ -11,9 +11,11 @@
 #include <boost/noncopyable.hpp>
 #include <boost/shared_ptr.hpp>
 
-#include "message.hpp"
-#include "replay_entry.hpp"
 #include "../common/config_parser.h"
+#include "../common/blocking_queue.h"
+
+#include "message.hpp"
+#include "journal_entry.hpp"
 
 namespace Journal{
 
@@ -26,27 +28,26 @@ class PreProcessor
     :private boost::noncopyable
 {
 public:
-    explicit PreProcessor(entry_queue& write_queue,
-                                  entry_queue& entry_queue,
-                                  std::condition_variable& recieve_cv,
-                                  std::condition_variable& write_cv);
+    explicit PreProcessor(BlockingQueue<shared_ptr<JournalEntry>>& entry_queue,
+                          BlockingQueue<shared_ptr<JournalEntry>>& write_queue);
     virtual ~PreProcessor();
-    void work();
-    bool init(nedalloc::nedpool* buffer_pool,std::shared_ptr<ConfigParser> conf);
-    bool deinit();
-    bool cal_checksum(ReplayEntry * entry,bool sse_flag,checksum_type_t checksum_type);
-private:
-    entry_queue& write_queue_;
-    entry_queue& entry_queue_;
-    boost::thread_group worker_threads;
-    nedalloc::nedpool* buffer_pool_;
-    std::mutex mtx_;
-    std::condition_variable& recieve_cv_;
-    std::condition_variable& write_cv_;
 
-    bool running_flag;
+    void work();
+    bool init(std::shared_ptr<ConfigParser> conf);
+    bool deinit();
+
+private:
+    /*input queue*/
+    BlockingQueue<shared_ptr<JournalEntry>>& entry_queue_;
+    /*output queue*/
+    BlockingQueue<shared_ptr<JournalEntry>>& write_queue_;
+   
+    /*config*/
     struct PrePreocessorConf config;
 
+    /*crc and io merge thread group*/
+    bool running_flag;
+    boost::thread_group worker_threads;
 };
 
 }

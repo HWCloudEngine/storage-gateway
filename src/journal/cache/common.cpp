@@ -8,6 +8,10 @@
 #include <string.h>
 #include "common.h"
 #include "../../log/log.h"
+#include "../../rpc/message.pb.h"
+
+using google::protobuf::Message;
+using huawei::proto::WriteMessage;
 
 CEntry::CEntry(IoVersion seq, off_t bdev_off, size_t bdev_len,
                string jfile, off_t jfile_off)
@@ -23,7 +27,7 @@ CEntry::CEntry(IoVersion seq, off_t bdev_off, size_t bdev_len,
 
 CEntry::CEntry(IoVersion seq, off_t bdev_off, size_t bdev_len,
                string jfile, off_t jfile_off, 
-               shared_ptr<ReplayEntry> entry)
+               shared_ptr<JournalEntry> entry)
 {
     io_seq  = seq;
     blk_off = bdev_off;
@@ -80,19 +84,18 @@ CEntry& CEntry::operator=(CEntry&& other)
 
 size_t CEntry::get_mem_size()const
 {
-    /*todo: CEntry memory space whether take ReplayEntry data in consideration,
-     *or should consider other member field in CEntry
-     */
     size_t size = 0;
     if(cache_type == IN_MEM){
-       log_header_t* lh = (log_header_t*)journal_entry->data();
-       int off_count = lh->count;
-       off_len_t* poff = (off_len_t*)((char*)lh + sizeof(log_header_t));
-       for(int i = 0; i < off_count; i++){
-           size += poff[i].length; 
-       }
+        if(IO_WRITE == journal_entry->get_type()){
+            shared_ptr<Message> message = journal_entry->get_message();
+            shared_ptr<WriteMessage> write_message = dynamic_pointer_cast
+                                                     <WriteMessage>(message);  
+            size += write_message->data().size();
+        } else {
+            /*other message*/
+        }
     } else {
-       ; 
+        ; 
     }
     return size;
 }
@@ -104,89 +107,15 @@ IReadFile::IReadFile(string file, off_t pos, bool eos)
 {
 }
 
-static inline size_t _cal_data_size(off_len_t* off_len, int count)
+size_t IReadFile:: read_entry(off_t off, shared_ptr<JournalEntry>& entry)
 {
-    size_t data_size = 0;
-    for(int i = 0 ; i < count; i++){
-        data_size += off_len[i].length;
-    }
-    return data_size;
+    entry = make_shared<JournalEntry>();
+    return entry->parse(m_fd, off);
 }
 
-size_t IReadFile:: read_entry(off_t off, 
-                              nedalloc::nedpool* bufpool, 
-                              shared_ptr<ReplayEntry>& entry)
+size_t IReadFile::write_entry(off_t off, shared_ptr<JournalEntry>& entry)
 {
-    log_header_t log_head;
-    off_len_t* off_len = NULL;
-    char* entry_data = NULL;
-    size_t ret = 0;
-
-    do {
-        /*read head*/
-        memset(&log_head, 0, sizeof(log_head));
-        size_t head_size = sizeof(log_head);
-        off_t  start = off;
-        ret = read(start,(char*)&log_head, head_size);
-        if(ret != sizeof(log_head)){
-            LOG_ERROR << "read log head failed ret=" << ret;
-            ret = -1;
-            break;
-        }
-        start += head_size;
-
-        LOG_DEBUG << "read log head ok type: " << log_head.type 
-                  << " count:" << (unsigned)log_head.count;
-
-        /*read off len */
-        size_t off_len_size = log_head.count * sizeof(off_len_t);
-        off_len = (off_len_t*)nedalloc::nedpmalloc(bufpool, off_len_size);
-        ret = read(start, (char*)off_len, off_len_size);
-        if(ret != off_len_size){
-            LOG_ERROR << "read log off len failed ret=" << ret;
-            ret = -1;
-            break;
-        }
-        start += off_len_size;
-        LOG_DEBUG << "read log off len ok off:" << off_len->offset 
-                  << " len:" << off_len->length;
-
-        /*read data*/
-        size_t data_size = _cal_data_size(off_len, log_head.count);
-        size_t entry_data_len = head_size + off_len_size + data_size;
-        entry_data = (char*)nedalloc::nedpmalloc(bufpool, entry_data_len);
-        memcpy(entry_data, &log_head, head_size);
-        memcpy(entry_data+head_size, off_len, off_len_size);
-        ret = read(start, entry_data+head_size+off_len_size, data_size);
-        if(ret != data_size){
-            LOG_ERROR << "read log data failed ret=" << ret;
-            ret = -1;
-            break;
-        }
-        LOG_DEBUG << "read log data ok datasize:" << data_size;
-
-        /*todo: crc checksum*/
-
-        /*read entry successfullly*/
-        entry.reset(new ReplayEntry(entry_data, entry_data_len, 0, bufpool));
-        ret = entry_data_len;  
-    }while(0);
-
-    if(off_len){
-        nedalloc::nedpfree(bufpool, off_len);
-    } 
-
-    return ret;
-}
-
-size_t IReadFile::write_entry(off_t off, shared_ptr<ReplayEntry>& entry)
-{
-    char* buf  = (char*)entry->data();
-    size_t len = entry->length();
-    int ret = write(off, buf, len);
-    if(ret != len){
-        LOG_ERROR << "write entry failed ret:" << ret << " len:" << len;
-    }
+   return entry->persist(m_fd, off);
 }
 
 SyncReadFile::SyncReadFile(string file, off_t pos, bool eos)

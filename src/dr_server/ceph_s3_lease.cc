@@ -15,6 +15,7 @@
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/lexical_cast.hpp>
 #include "ceph_s3_lease.h"
+#include "../log/log.h"
 
 using huawei::proto::DRS_OK;
 using huawei::proto::INTERNAL_ERROR;
@@ -43,8 +44,8 @@ RESULT CephS3LeaseClient::init(const char* access_key, const char* secret_key,
 }
 
 std::string& CephS3LeaseClient::get_lease() {
-    std::unique_lock<std::mutex> luk(lease_mtx_);
     {
+        std::unique_lock<std::mutex> luk(lease_mtx_);
         return uuid_;
     }
 }
@@ -54,16 +55,16 @@ bool CephS3LeaseClient::acquire_lease() {
             boost::uuids::uuid(boost::uuids::random_generator()()));
     long now_time = static_cast<long>(time(NULL));
     std::map<std::string, std::string> metadata;
-    std::unique_lock<std::mutex> euk(expire_mtx_);
     {
+        std::unique_lock<std::mutex> euk(expire_mtx_);
         lease_expire_time_ = now_time + expire_window_;
         metadata["expire-time"] = std::to_string(lease_expire_time_);
     }
     std::string lease_key = prefix_ + uuid;
     RESULT result = s3Api_ptr_->put_object(lease_key.c_str(), &uuid, &metadata);
     if (result == DRS_OK) {
-        std::unique_lock<std::mutex> luk(lease_mtx_);
         {
+            std::unique_lock<std::mutex> luk(lease_mtx_);
             uuid_ = uuid;
         }
         return true;
@@ -75,14 +76,14 @@ bool CephS3LeaseClient::acquire_lease() {
 void CephS3LeaseClient::renew_lease() {
     while (true) {
         long now_time = static_cast<long>(time(NULL));
-        std::unique_lock<std::mutex> euk(expire_mtx_);
         std::map<std::string, std::string> metadata;
         {
+            std::unique_lock<std::mutex> euk(expire_mtx_);
             lease_expire_time_ = now_time + expire_window_;
             metadata["expire-time"] = std::to_string(lease_expire_time_);
         }
-        std::unique_lock<std::mutex> luk(lease_mtx_);
         {
+            std::unique_lock<std::mutex> luk(lease_mtx_);
             std::string lease_key = prefix_ + uuid_;
             RESULT result = s3Api_ptr_->put_object(lease_key.c_str(), &uuid_,
                     &metadata);
@@ -95,8 +96,8 @@ void CephS3LeaseClient::check_lease() {
     while (true) {
         long now_time = static_cast<long>(time(NULL));
         long sleep_time = 0;
-        std::unique_lock<std::mutex> euk(expire_mtx_);
         {
+            std::unique_lock<std::mutex> euk(expire_mtx_);
             sleep_time = lease_expire_time_ - now_time;
         }
         boost::this_thread::sleep_for(boost::chrono::seconds(sleep_time));
@@ -107,8 +108,8 @@ void CephS3LeaseClient::check_lease() {
 }
 bool CephS3LeaseClient::check_lease_validity() {
     long now_time = static_cast<long>(time(NULL));
-    std::unique_lock<std::mutex> luk(expire_mtx_);
     {
+        std::unique_lock<std::mutex> luk(expire_mtx_);
         if (lease_expire_time_ - now_time > validity_window_) {
             return true;
         } else {

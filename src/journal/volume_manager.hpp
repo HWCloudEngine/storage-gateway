@@ -1,24 +1,20 @@
 #ifndef JOURNAL_VOLUME_MANAGER_HPP
 #define JOURNAL_VOLUME_MANAGER_HPP
-
 #include <set>
-#include <mutex>
-#include <condition_variable>
 #include <boost/asio.hpp>
 #include <boost/noncopyable.hpp>
 #include <boost/thread/thread.hpp>
-#include "connection.hpp"
-#include "journal_writer.hpp"
-#include "pre_processor.hpp"
-#include "nedmalloc.h"
-
-#include "../common/blocking_queue.h"
 #include "../common/config_parser.h"
-
+#include "../common/blocking_queue.h"
+#include "journal_entry.hpp"
 #include "seq_generator.hpp"
 #include "cache/cache_proxy.h"
-#include "journal_replayer.hpp"
+#include "connection.hpp"
+#include "pre_processor.hpp"
+#include "journal_writer.hpp"
 #include "journal_reader.hpp"
+#include "journal_replayer.hpp"
+#include "nedmalloc.h"
 #include "../dr_server/ceph_s3_lease.h"
 
 #define BUFFER_POOL_SIZE 1024*1024*64
@@ -40,30 +36,27 @@ public:
     bool init(shared_ptr<ConfigParser> conf, shared_ptr<CephS3LeaseClient> lease_client);
     void set_property(std::string vol_id,std::string vol_path);
 private:
-    void periodic_task();
+    /*socket*/
     raw_socket raw_socket_;
-    entry_queue write_queue_;
-    entry_queue entry_queue_;
-    reply_queue reply_queue_;
 
-    std::condition_variable entry_cv;
-    std::condition_variable write_cv;
-    std::condition_variable reply_cv;
-
-    /*reader relevant*/
-    BlockingQueue<struct IOHookRequest> read_queue;
+    /*queue */
+    BlockingQueue<shared_ptr<JournalEntry>> entry_queue;  /*connection and preprocessor*/
+    BlockingQueue<struct IOHookReply*>      reply_queue;  /*connection*/
+    BlockingQueue<shared_ptr<JournalEntry>> write_queue;  /*writer*/
+    BlockingQueue<struct IOHookRequest>     read_queue;   /*reader*/
     
-    /*cache relevant*/
+    /*cache */
     shared_ptr<IDGenerator> idproxy;
     shared_ptr<CacheProxy>  cacheproxy;
-
-    PreProcessor pre_processor;
-    Connection connection;
-
-    JournalWriter   writer;   /*handle write io*/
-    JournalReader   reader;   /*handle read io*/
-    JournalReplayer replayer; /*handle write io replay*/
-
+    
+    /*work thread*/ 
+    Connection   connection;    /*network receive and send*/
+    PreProcessor pre_processor; /*request merge and crc*/
+    JournalWriter   writer;     /*append to journal */
+    JournalReader   reader;     /*read io*/
+    JournalReplayer replayer;   /*replay journal*/
+    
+    /*memory pool for receive io hook data*/
     nedalloc::nedpool * buffer_pool;
 
     std::string vol_id_;
@@ -89,16 +82,21 @@ private:
     void handle_request_body(volume_ptr vol,const boost::system::error_code& e);
     void send_reply(volume_ptr vol,bool success);
     void handle_send_reply(const boost::system::error_code& error);
-    std::mutex mtx;
-    boost::shared_ptr<boost::thread> thread_ptr;
-    std::map<std::string,volume_ptr> volumes;
+
+   /*receive add or delete volume command*/
     boost::array<char, HEADER_SIZE> header_buffer_;
     boost::array<char, 512> body_buffer_;
     boost::array<char, HEADER_SIZE> reply_buffer_;
-
+    
+    std::map<std::string,volume_ptr> volumes;
+    
+    /*journal prefetch and seal*/
     int_least64_t interval;
     int journal_limit;
     shared_ptr<CephS3LeaseClient> lease_client;
+    std::mutex mtx;
+    boost::shared_ptr<boost::thread> thread_ptr;
+ 
     shared_ptr<ConfigParser> conf;
 };
 }
