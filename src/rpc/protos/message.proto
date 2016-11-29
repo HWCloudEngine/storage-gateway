@@ -1,0 +1,23 @@
+syntax = "proto3";
+package huawei.proto;
+
+/*todo memory optimize*/
+option cc_enable_arenas = true;
+
+/*positon information on disk*/
+message DiskPos {
+    uint64 offset = 1;
+    uint64 length = 2;
+}
+
+/*write io event*/
+message WriteMessage {
+    repeated DiskPos pos  = 1;
+    repeated bytes   data = 2;
+}
+
+/*snapshot(create, delete , rollback)*/
+message SnapshotMessage {
+    string snap_name = 1;
+}
+
