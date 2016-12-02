@@ -217,7 +217,7 @@ RESULT CephS3Api::put_object(const char* obj_name, const string* value,
     if(meta != nullptr && meta->size()){
         properties.metaDataCount = meta->size();
         S3NameValue* meta_value = new S3NameValue[properties.metaDataCount];
-		int i=0;
+        int i=0;
         for(auto it=meta->begin();it!=meta->end();it++,i++){
             meta_value[i].name = (it->first).c_str();
             meta_value[i].value = (it->second).c_str();
