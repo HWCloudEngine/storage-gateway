@@ -11,7 +11,6 @@
 
 #include "../common/blocking_queue.h"
 
-#include "replay_entry.hpp"
 #include "message.hpp"
 #include "cache/cache_proxy.h"
 
@@ -22,9 +21,8 @@ namespace Journal{
 class JournalReader : private boost::noncopyable
 {
 public:
-    explicit JournalReader(reply_queue& reply_queue,
-                           condition_variable& reply_queue_cv,
-                           BlockingQueue<struct IOHookRequest>& read_queue); 
+    explicit JournalReader(BlockingQueue<struct IOHookRequest>& read_queue, 
+                           BlockingQueue<struct IOHookReply*>&  reply_queue); 
     virtual ~JournalReader();
 
     bool init(shared_ptr<CacheProxy> cacheproxy);
@@ -33,10 +31,10 @@ public:
     void work();
 
 private:
-    reply_queue&            m_reply_queue;     /*reply queue*/
-    condition_variable&     m_reply_queue_cv;  /*reply queue condition variable*/
-
-    BlockingQueue<struct IOHookRequest>& m_read_queue; /*requst queue*/
+    /*in queue*/
+    BlockingQueue<struct IOHookRequest>& m_read_queue; 
+    /*out queue*/
+    BlockingQueue<struct IOHookReply*>&  m_reply_queue; 
 
     shared_ptr<CacheProxy>  m_cacheproxy;  
 

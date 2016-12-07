@@ -13,6 +13,11 @@
 #include <boost/bind.hpp>
 #include "journal_replayer.hpp"
 #include "../log/log.h"
+#include "../rpc/message.pb.h"
+
+using google::protobuf::Message;
+using huawei::proto::WriteMessage;
+using huawei::proto::DiskPos;
 
 namespace Journal
 {
@@ -132,126 +137,74 @@ void JournalReplayer::replay_volume()
     }
 }
 
-bool JournalReplayer::process_cache(std::shared_ptr<ReplayEntry> r_entry)
+bool JournalReplayer::write_block_device(shared_ptr<WriteMessage> write)
 {
-    /*get header*/
-    log_header_t* log_head = r_entry->header();
-    off_t header_length = r_entry->header_length();
-    off_t length = r_entry->length();
+    int pos_num = write->pos_size();
+    char* data = (char*)write->data().c_str();
 
-    //todo: use direct-IO to optimize journal replay
-    off_t off_len_start = sizeof(log_header_t);
-    off_t body_start = 0;
+    /*entry contain merged io*/
+    for(int i = 0; i < pos_num; i++){
+        DiskPos* pos = write->mutable_pos(i);
+        off_t  off = pos->offset();
+        size_t len = pos->length();
 
-    while (off_len_start < header_length && body_start < length)
-    {
-        /*get off len*/
-        off_len_t* off_len =
-                reinterpret_cast<off_len_t *>((char*) r_entry->header()
-                        + off_len_start);
-        uint64_t off = off_len->offset;
-        uint32_t length = off_len->length;
-        const char* data = r_entry->body() + body_start;
-
-        //todo: check crc
+        /*todo: direct io need memory align*/
         void *align_buf = nullptr;
-        int ret = posix_memalign((void**) &align_buf, 512, length);
-        if (ret)
-        {
-            LOG_ERROR << "posix malloc failed ";
-            return false;
-        }
-        memcpy(align_buf, data, length);
-        ret = pwrite(vol_fd_, align_buf, length, off);
-        if (align_buf)
-        {
-            free(align_buf);
-        }
+        int ret = posix_memalign((void**) &align_buf, 512, len);
+        assert(ret == 0 && align_buf != nullptr);
+        memcpy(align_buf, data, len);
+        ret = pwrite(vol_fd_, align_buf, len, off);
+        free(align_buf);
 
-        off_len_start += sizeof(off_len_t);
-        body_start += length;
+        /*next io data offset*/
+        data += len;
     }
 
-    LOG_INFO << "replay succeed";
+    return true;
+}
+
+bool JournalReplayer::process_cache(std::shared_ptr<JournalEntry> entry)
+{
+    journal_event_type_t type = entry->get_type();
+    if(IO_WRITE == type){
+        shared_ptr<Message> message = entry->get_message();
+        shared_ptr<WriteMessage> write_message = dynamic_pointer_cast
+                                                    <WriteMessage>(message);
+        write_block_device(write_message);
+    } else {
+        /*other message type*/ 
+    }
     return true;
 }
 
 //todo: unify this function, get ReplayEntry from journal file
 bool JournalReplayer::process_file(const std::string& file_name, off_t off)
 {
+    /*todo avoid open frequently*/
     int src_fd = open(file_name.c_str(), O_RDONLY);
-    if (src_fd < 0)
-    {
+    if (src_fd < 0){
         LOG_ERROR << "open journal file failed";
         return false;
     }
+    
+    /*get journal entry from file*/
+    JournalEntry entry;
+    entry.parse(src_fd, off);
+    journal_event_type_t type = entry.get_type();
 
-    /*read header*/
-    lseek(src_fd, off, SEEK_SET);
-    log_header_t log_head;
-    memset(&log_head, 0, sizeof(log_head));
-    size_t head_size = sizeof(log_head);
-    int ret = read(src_fd, &log_head, head_size);
-    if (ret != head_size)
-    {
-        LOG_ERROR << "read log head failed ret=" << ret;
+    if(IO_WRITE == type){
+        shared_ptr<Message> message = entry.get_message();
+        shared_ptr<WriteMessage> write_message = dynamic_pointer_cast
+                                                    <WriteMessage>(message);
+        write_block_device(write_message);
+    } else {
+        /*other message type*/ 
+    }
+
+    if(src_fd != -1){
         close(src_fd);
-        return false;
     }
 
-    /*read off len */
-    size_t off_len_size = log_head.count * sizeof(off_len_t);
-    off_len_t* off_len = (off_len_t*) malloc(off_len_size);
-    ret = read(src_fd, off_len, off_len_size);
-    if (ret != off_len_size)
-    {
-        LOG_ERROR << "read log off len failed ret=" << ret;
-        close(src_fd);
-        return false;
-    }
-
-    /*read data and replay data*/
-    uint8_t count = log_head.count;
-    for (int i = 0; i < log_head.count; i++)
-    {
-        uint64_t off = off_len[i].offset;
-        uint32_t length = off_len[i].length;
-        char* data = (char*) malloc(sizeof(char) * length);
-        ret = read(src_fd, data, length);
-        if (ret != length)
-        {
-            LOG_ERROR << "read data failed ret=" << ret;
-            close(src_fd);
-            return false;
-        }
-
-        //todo: check crc
-        void *align_buf = nullptr;
-        int ret = posix_memalign((void**) &align_buf, 512, length);
-        if (ret)
-        {
-            LOG_ERROR << "posix malloc failed ";
-            close(src_fd);
-            return false;
-        }
-        memcpy(align_buf, data, length);
-
-        ret = pwrite(vol_fd_, align_buf, length, off);
-        if (align_buf)
-        {
-            free(align_buf);
-        }
-        if (data)
-        {
-            free(data);
-        }
-    }
-    close(src_fd);
-    if (off_len)
-    {
-        free(off_len);
-    }
-    LOG_INFO << "replay succeed";
     return true;
 }
 
