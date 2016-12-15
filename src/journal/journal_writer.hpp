@@ -7,10 +7,11 @@
 #include <condition_variable>
 #include <chrono>
 #include <map>
+#include <queue>
 #include <memory>
 
 #include <time.h>
-#include <atomic> 
+#include <atomic>
 
 #include <sys/stat.h>
 
@@ -56,9 +57,9 @@ public:
                            BlockingQueue<struct IOHookReply*>&      reply_queue);
     virtual ~JournalWriter();
     void work();
-    bool init(std::string& vol, 
+    bool init(std::string& vol,
               std::shared_ptr<ConfigParser> conf,
-              std::shared_ptr<IDGenerator> id_proxy, 
+              std::shared_ptr<IDGenerator> id_proxy,
               std::shared_ptr<CacheProxy> cacheproxy,
               std::shared_ptr<CephS3LeaseClient> lease_client);
     bool deinit();
@@ -74,42 +75,43 @@ private:
     bool write_journal_header();
     void send_reply(JournalEntry* entry,bool success);
 
-    void handle_lease_invalid(std::string* journal_ptr);
+    void handle_lease_invalid();
 
     shared_ptr<JournalEntry> get_entry();
     void update_entry_map();
-    
+
     /*lease with dr server*/
     shared_ptr<CephS3LeaseClient> lease_client_;
-    
+
     /*input queue*/
     BlockingQueue<shared_ptr<JournalEntry>>& write_queue_;
     /*output queue*/
     BlockingQueue<struct IOHookReply*>& reply_queue_;
-    
+
     /*cache*/
     shared_ptr<IDGenerator> idproxy_;
     shared_ptr<CacheProxy> cacheproxy_;
-    
+
     /*journal file prefetch and seal thread*/
     std::mutex rpc_mtx_;
     WriterClient rpc_client;
     boost::shared_ptr<boost::thread> thread_ptr;
-    boost::lockfree::queue<std::string*> journal_queue;
-    boost::lockfree::queue<std::string*> seal_queue;
-    
+    std::queue<std::pair<std::string, std::string>> journal_queue;
+    std::queue<std::pair<std::string, std::string>> seal_queue;
+    std::mutex journal_mtx_;
+    std::mutex seal_mtx_;
+
     /*current operation journal file info*/
     FILE* cur_file_ptr;
-    std::string *cur_journal;
+    std::pair<std::string, std::string> cur_lease_journal;
     uint64_t cur_journal_size;
-    
+
     /*order keep*/
     uint64_t write_seq;
     EntryMap entry_map;
 
-    std::atomic_int journal_queue_size;
     std::string vol_id;
-    
+
     struct JournalWriterConf config;
     bool running_flag;
 };
