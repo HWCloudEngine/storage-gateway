@@ -1,10 +1,3 @@
-/*
- * ceph_s3_lease.cc
- *
- *  Created on: 2016򣌕2�
- *      Author: smile-luobin
- */
-
 #include <map>
 #include <chrono>
 #include <time.h>
@@ -33,10 +26,6 @@ RESULT CephS3LeaseClient::init(const char* access_key, const char* secret_key,
         renew_thread_ptr_.reset(
                 new boost::thread(
                         boost::bind(&CephS3LeaseClient::renew_lease, this)));
-        check_thread_ptr_.reset(
-                new boost::thread(
-                        boost::bind(&CephS3LeaseClient::check_lease, this)));
-
         return DRS_OK;
     } else {
         return INTERNAL_ERROR;
@@ -44,76 +33,64 @@ RESULT CephS3LeaseClient::init(const char* access_key, const char* secret_key,
 }
 
 std::string& CephS3LeaseClient::get_lease() {
-    {
-        std::unique_lock<std::mutex> luk(lease_mtx_);
-        return uuid_;
-    }
+    std::unique_lock<std::mutex> luk(lease_mtx_);
+    return uuid_;
 }
 
 bool CephS3LeaseClient::acquire_lease() {
     std::string uuid = boost::uuids::to_string(
             boost::uuids::uuid(boost::uuids::random_generator()()));
-    long now_time = static_cast<long>(time(NULL));
-    std::map<std::string, std::string> metadata;
-    {
-        std::unique_lock<std::mutex> euk(expire_mtx_);
-        lease_expire_time_ = now_time + expire_window_;
-        metadata["expire-time"] = std::to_string(lease_expire_time_);
-    }
     std::string lease_key = prefix_ + uuid;
+    std::map<std::string, std::string> metadata;
+    metadata["expire-window"] = std::to_string(expire_window_);
+
     RESULT result = s3Api_ptr_->put_object(lease_key.c_str(), &uuid, &metadata);
     if (result == DRS_OK) {
-        {
-            std::unique_lock<std::mutex> luk(lease_mtx_);
-            uuid_ = uuid;
-        }
+        std::unique_lock<std::mutex> luk(lease_mtx_);
+        lease_expire_time_ = static_cast<long>(time(NULL)) + expire_window_;
+        uuid_ = uuid;
+        LOG_INFO<<"acquire lease succeed:"<<uuid;
         return true;
     } else {
+        LOG_INFO<<"acquire lease failed.";
         return false;
     }
 }
 
 void CephS3LeaseClient::renew_lease() {
     while (true) {
-        long now_time = static_cast<long>(time(NULL));
-        std::map<std::string, std::string> metadata;
-        {
-            std::unique_lock<std::mutex> euk(expire_mtx_);
-            lease_expire_time_ = now_time + expire_window_;
-            metadata["expire-time"] = std::to_string(lease_expire_time_);
-        }
-        {
+        boost::this_thread::sleep_for(boost::chrono::seconds(renew_window_));
+        if (!check_lease_validity(uuid_)) {
+            acquire_lease();
+        } else {
             std::unique_lock<std::mutex> luk(lease_mtx_);
             std::string lease_key = prefix_ + uuid_;
+            std::map<std::string, std::string> metadata;
+            metadata["expire-window"] = std::to_string(expire_window_);
+
             RESULT result = s3Api_ptr_->put_object(lease_key.c_str(), &uuid_,
                     &metadata);
+            if (result == DRS_OK) {
+                lease_expire_time_ = static_cast<long>(time(NULL))
+                        + expire_window_;
+                LOG_INFO<<"renew lease succeed:"<<uuid_;
+            }
         }
-        boost::this_thread::sleep_for(boost::chrono::seconds(renew_window_));
     }
 }
 
-void CephS3LeaseClient::check_lease() {
-    while (true) {
+bool CephS3LeaseClient::check_lease_validity(const std::string& uuid) {
+    std::unique_lock<std::mutex> luk(lease_mtx_);
+    if (uuid != uuid_) {
+        return false;
+    } else {
         long now_time = static_cast<long>(time(NULL));
-        long sleep_time = 0;
         {
-            std::unique_lock<std::mutex> euk(expire_mtx_);
-            sleep_time = lease_expire_time_ - now_time;
-        }
-        boost::this_thread::sleep_for(boost::chrono::seconds(sleep_time));
-        if (check_lease_validity() == false) {
-            acquire_lease();
-        }
-    }
-}
-bool CephS3LeaseClient::check_lease_validity() {
-    long now_time = static_cast<long>(time(NULL));
-    {
-        std::unique_lock<std::mutex> luk(expire_mtx_);
-        if (lease_expire_time_ - now_time > validity_window_) {
-            return true;
-        } else {
-            return false;
+            if (lease_expire_time_ - now_time > validity_window_) {
+                return true;
+            } else {
+                return false;
+            }
         }
     }
 }
@@ -121,11 +98,8 @@ bool CephS3LeaseClient::check_lease_validity() {
 CephS3LeaseClient::~CephS3LeaseClient() {
     if (renew_thread_ptr_.get()) {
         renew_thread_ptr_->interrupt();
-        check_thread_ptr_->interrupt();
         renew_thread_ptr_->join();
-        check_thread_ptr_->join();
         renew_thread_ptr_.reset();
-        check_thread_ptr_.reset();
     }
 }
 
@@ -145,16 +119,23 @@ void CephS3LeaseServer::gc_task() {
         if (result == DRS_OK) {
             for (auto lease : leases) {
                 std::map<std::string, std::string> metadata;
-                s3Api_ptr_->head_object(lease.c_str(), &metadata);
-                long now_time = static_cast<long>(time(NULL));
-                //delete the expired lease
-                if (metadata.find("expire-time") != metadata.end()) {
-                    try {
-                        long expire_time = std::stol(metadata["expire-time"]);
-                        if (expire_time < now_time) {
-                            s3Api_ptr_->delete_object(lease.c_str());
+                RESULT result = s3Api_ptr_->head_object(lease.c_str(),
+                        &metadata);
+                if (result == DRS_OK) {
+                    if (metadata.find("expire-window") != metadata.end()) {
+                        try {
+                            long expire_window = std::stol(
+                                    metadata["expire-window"]);
+                            long last_modified = std::stol(
+                                    metadata["last-modified"]);
+                            long expire_time = last_modified + expire_window;
+                            long now_time = static_cast<long>(time(NULL));
+
+                            if (expire_time <= now_time) {
+                                s3Api_ptr_->delete_object(lease.c_str());
+                            }
+                        } catch (...) {
                         }
-                    } catch (...) {
                     }
                 }
             }
@@ -172,11 +153,14 @@ bool CephS3LeaseServer::check_lease_existance(const std::string& uuid) {
     if (result != DRS_OK) {
         return false;
     } else {
-        if (metadata.find("expire-time") != metadata.end()) {
-            long now_time = static_cast<long>(time(NULL));
+        if (metadata.find("expire-window") != metadata.end()) {
             try {
-                long expire_time = std::stol(metadata["expire-time"]);
-                if (expire_time < now_time) {
+                long expire_window = std::stol(metadata["expire-window"]);
+                long last_modified = std::stol(metadata["last-modified"]);
+                long expire_time = last_modified + expire_window;
+                long now_time = static_cast<long>(time(NULL));
+
+                if (expire_time <= now_time) {
                     return false;
                 } else {
                     return true;
@@ -197,3 +181,4 @@ CephS3LeaseServer::~CephS3LeaseServer() {
         gc_thread_ptr_.reset();
     }
 }
+

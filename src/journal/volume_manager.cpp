@@ -140,7 +140,8 @@ void VolumeManager::periodic_task()
     while(true)
     {
         boost::this_thread::sleep_for(boost::chrono::milliseconds(interval));
-        if(!lease_client->check_lease_validity())
+        std::string lease_uuid = lease_client->get_lease();
+        if(!lease_client->check_lease_validity(lease_uuid))
         {
             continue;
         }
@@ -151,12 +152,12 @@ void VolumeManager::periodic_task()
             std::string vol_id = iter->first;
             volume_ptr vol = iter->second;
             JournalWriter& writer = vol->get_writer();
-            if(!writer.get_writeable_journals(lease_client->get_lease(),journal_limit))
+            if(!writer.get_writeable_journals(lease_uuid,journal_limit))
             {
                 LOG_ERROR << "get_writeable_journals failed,vol_id:" << vol_id;
             }
 
-            if(!writer.seal_journals(lease_client->get_lease()))
+            if(!writer.seal_journals(lease_uuid))
             {
                 LOG_ERROR << "seal_journals failed,vol_id:" << vol_id;
             }

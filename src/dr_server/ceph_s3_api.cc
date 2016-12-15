@@ -48,6 +48,8 @@ S3Status responsePropertiesCallback(
             LOG_DEBUG << "object head meta:" << properties->metaData[i].name <<
                    ":" << properties->metaData[i].value;
         }
+        map->insert(std::make_pair("last-modified",
+                std::to_string(properties->lastModified)));
     }
     return S3StatusOK;
 }
