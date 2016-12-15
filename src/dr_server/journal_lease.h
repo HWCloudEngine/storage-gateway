@@ -1,10 +1,3 @@
-/*
- * journal_lease.h
- *
- *  Created on: 2016Äê8ÔÂ12ÈÕ
- *      Author: smile-luobin
- */
-
 #ifndef JOURNAL_LEASE_H_
 #define JOURNAL_LEASE_H_
 
@@ -19,13 +12,13 @@ private:
     virtual bool acquire_lease() = 0;
     virtual void renew_lease() = 0;
 public:
-    virtual ~LeaseClient(){};
-    virtual bool check_lease_validity() = 0;
+    virtual ~LeaseClient() {};
+    virtual bool check_lease_validity(const std::string&) = 0;
 };
 
 class LeaseServer {
 public:
-    virtual ~LeaseServer(){};
+    virtual ~LeaseServer() {};
     virtual bool check_lease_existance(const std::string&) = 0;
 };
 

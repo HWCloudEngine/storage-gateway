@@ -14,7 +14,6 @@ Volume::Volume(boost::asio::io_service& io_service)
      reader(read_queue, reply_queue),
      replayer("localhost:50051")
 {
-
 }
 
 Volume::~Volume()
@@ -23,7 +22,7 @@ Volume::~Volume()
     reader.deinit();
     pre_processor.deinit();
     connection.deinit();
-    
+
     if (buffer_pool != NULL)
     {
         nedalloc::neddestroypool(buffer_pool);
@@ -65,9 +64,9 @@ bool Volume::init(shared_ptr<ConfigParser> conf, shared_ptr<CephS3LeaseClient> l
         LOG_ERROR << "init journal writer failed,vol_id:" << vol_id_;
         return false;
     }
-   
+
     if (!replayer.init(vol_id_, vol_path_, idproxy, cacheproxy)) 
-	{
+    {
         LOG_ERROR << "init journal replayer failed,vol_id:" << vol_id_;
         return false;
     }
@@ -121,11 +120,11 @@ bool VolumeManager::init()
     access_key = conf->get_default("ceph_s3.access_key",access_key);
     secret_key = conf->get_default("ceph_s3.secret_key",secret_key);
     host = conf->get_default("ceph_s3.host",host);
-    int renew_window = conf->get_default("ceph_s3.renew_window",4);
-    int expire_window = conf->get_default("ceph_s3.expire_window",10);
-    int validity_window = conf->get_default("ceph_s3.validity_window",2);
+    int renew_window = conf->get_default("ceph_s3.lease_renew_window", 100);
+    int expire_window = conf->get_default("ceph_s3.lease_expire_window", 600);
+    int validity_window = conf->get_default("ceph_s3.lease_validity_window",150);
     bucket_name = conf->get_default("ceph_s3.bucket",bucket_name);
-    
+
     lease_client->init(access_key.c_str(), secret_key.c_str(),
         host.c_str(), bucket_name.c_str(), renew_window,
         expire_window, validity_window) ;
@@ -140,7 +139,8 @@ void VolumeManager::periodic_task()
     while(true)
     {
         boost::this_thread::sleep_for(boost::chrono::milliseconds(interval));
-        if(!lease_client->check_lease_validity())
+        std::string lease_uuid = lease_client->get_lease();
+        if(!lease_client->check_lease_validity(lease_uuid))
         {
             continue;
         }
@@ -151,12 +151,12 @@ void VolumeManager::periodic_task()
             std::string vol_id = iter->first;
             volume_ptr vol = iter->second;
             JournalWriter& writer = vol->get_writer();
-            if(!writer.get_writeable_journals(lease_client->get_lease(),journal_limit))
+            if(!writer.get_writeable_journals(lease_uuid,journal_limit))
             {
                 LOG_ERROR << "get_writeable_journals failed,vol_id:" << vol_id;
             }
 
-            if(!writer.seal_journals(lease_client->get_lease()))
+            if(!writer.seal_journals(lease_uuid))
             {
                 LOG_ERROR << "seal_journals failed,vol_id:" << vol_id;
             }
@@ -242,9 +242,8 @@ void VolumeManager::handle_send_reply(const boost::system::error_code& error)
     {
         ;
     }
-
 }
-    
+ 
 void VolumeManager::start(volume_ptr vol)
 {
     add_vol(vol);
