@@ -1,5 +1,6 @@
 noinst_PROGRAMS=dr_server
-AM_CPPFLAGS=-I$(top_srcdir)/src -I$(top_srcdir)/src/include -std=c++11
+AM_CPPFLAGS=-I$(top_srcdir)/src -I$(top_srcdir)/src/include \
+			-I$(top_srcdir)/src/rpc -std=c++11
 ACLOCAL_AMFLAGS=-I m4
 dr_server_SOURCES=dr_server.cc \
 				  consumer_service.cc \

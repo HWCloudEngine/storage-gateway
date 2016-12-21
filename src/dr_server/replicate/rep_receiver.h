@@ -19,9 +19,9 @@
 #include "../ceph_s3_meta.h"
 #include "rep_type.h"
 using std::string;
-using huawei::proto::ReplicateRequest;
-using huawei::proto::ReplicateResponse;
-using huawei::proto::Replicator;
+using huawei::proto::replication::ReplicateRequest;
+using huawei::proto::replication::ReplicateResponse;
+using huawei::proto::replication::Replicator;
 using grpc::ServerContext;
 using grpc::ServerReaderWriter;
 

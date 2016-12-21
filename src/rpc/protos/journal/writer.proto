@@ -2,8 +2,6 @@
 
 syntax = "proto3";
 import "common.proto";
-
-option objc_class_prefix = "DRS";
 package huawei.proto;
 
 service Writer {

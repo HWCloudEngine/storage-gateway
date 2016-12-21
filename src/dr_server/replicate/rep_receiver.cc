@@ -17,16 +17,14 @@
 using grpc::Server;
 using grpc::ServerBuilder;
 using grpc::Status;
-using huawei::proto::ReplicateRequest;
-using huawei::proto::ReplicateResponse;
 using google::protobuf::int64;
 using google::protobuf::int32;
-using huawei::proto::Replicator;
-using huawei::proto::ReplicateResponse;
-using huawei::proto::ReplicateRequest;
 using grpc::ServerContext;
 using grpc::ServerReaderWriter;
 using huawei::proto::JournalMeta;
+using huawei::proto::replication::START_CMD;
+using huawei::proto::replication::DATA_CMD;
+using huawei::proto::replication::FINISH_CMD;
 
 RepReceiver::RepReceiver(std::shared_ptr<CephS3Meta> meta,
         const string& path):meta_(meta),
@@ -44,10 +42,10 @@ Status RepReceiver::replicate(ServerContext* context,
     ReplicateResponse res;
     std::map<const Jkey,std::shared_ptr<std::ofstream>> js_map;
     while(stream->Read(&req)) {
-        if(huawei::proto::DATA_CMD == req.cmd()){
+        if(DATA_CMD == req.cmd()){
             write(req,std::ref(js_map));
         }
-        else if(huawei::proto::START_CMD == req.cmd()){ // create journal keys and journal files
+        else if(START_CMD == req.cmd()){ // create journal keys and journal files
             bool ret = init_journals(req,std::ref(js_map));
             res.set_id(req.id());
             if(ret)
@@ -60,7 +58,7 @@ Status RepReceiver::replicate(ServerContext* context,
                 break;
             }
         }
-        else if(huawei::proto::FINISH_CMD == req.cmd()){ // seal journals
+        else if(FINISH_CMD == req.cmd()){ // seal journals
             bool ret = seal_journals(req,std::ref(js_map));
             res.set_id(req.id());
             // TODO: if some writes failed, set res=-1 to let client retry the task?
