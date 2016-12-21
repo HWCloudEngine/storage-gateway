@@ -8,3 +8,24 @@ enum RESULT {
     INTERNAL_ERROR = 2;
     NO_SUCH_KEY = 3;
 }
+// define replication roles
+enum REP_ROLE{
+    REP_UNKNOWN = 0;
+    REP_PRIMARY = 1;
+    REP_SECONDARY = 2;
+}
+// define replication status
+enum REP_STATUS{
+    REP_UNKNOW = 0;
+    REP_CREATING = 1;
+    REP_ENABLING = 3;
+    REP_ENABLED = 4;
+    REP_DISABLING = 5;
+    REP_DISABLED = 6;
+    REP_FAILING_OVER = 7;
+    REP_FAILED_OVER = 8;
+    REP_REVERSING = 9;
+    REP_DELETING = 11;
+    REP_DELETED = 12;
+    REP_ERROR = 20;
+}

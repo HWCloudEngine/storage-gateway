@@ -12,23 +12,35 @@ echo "rm old grpc source files..."
 rm -f ${RPC_SOURCE_PATH}/*.pb.h ${RPC_SOURCE_PATH}/*.pb.cc
 echo "generate new grpc C++ source files to ${RPC_SOURCE_PATH} ..."
 
-#generate grpc
-$PROTOC -I $PROTO_PATH --grpc_out=$RPC_SOURCE_PATH \
-       --plugin=protoc-gen-grpc=`which grpc_cpp_plugin` \
-        ${PROTO_PATH}/writer.proto ${PROTO_PATH}/consumer.proto \
-        ${PROTO_PATH}/replicator.proto ${PROTO_PATH}/control.proto \
-        ${PROTO_PATH}/snapshot.proto
-
 #generate protocol
-$PROTOC -I $PROTO_PATH --cpp_out=$RPC_SOURCE_PATH \
-        ${PROTO_PATH}/writer.proto \
-        ${PROTO_PATH}/consumer.proto \
+$PROTOC -I ${PROTO_PATH} \
+        --cpp_out=$RPC_SOURCE_PATH \
         ${PROTO_PATH}/common.proto \
-        ${PROTO_PATH}/journal.proto \
-        ${PROTO_PATH}/message.proto \
-        ${PROTO_PATH}/replicator.proto \
-        ${PROTO_PATH}/control.proto \
-        ${PROTO_PATH}/snapshot.proto
+        ${PROTO_PATH}/journal/journal.proto \
+        ${PROTO_PATH}/journal/message.proto \
+        ${PROTO_PATH}/journal/writer.proto \
+        ${PROTO_PATH}/journal/consumer.proto \
+        ${PROTO_PATH}/inner_command/snapshot.proto \
+        ${PROTO_PATH}/inner_command/replicate_inner_control.proto \
+        ${PROTO_PATH}/replication/replicator.proto \
+        ${PROTO_PATH}/control_api/control.proto \
+        ${PROTO_PATH}/control_api/replicate_control.proto
+#generate grpc
+$PROTOC -I ${PROTO_PATH} \
+        --grpc_out=$RPC_SOURCE_PATH \
+        --plugin=protoc-gen-grpc=`which grpc_cpp_plugin` \
+        ${PROTO_PATH}/journal/writer.proto \
+        ${PROTO_PATH}/journal/consumer.proto \
+        ${PROTO_PATH}/inner_command/snapshot.proto \
+        ${PROTO_PATH}/inner_command/replicate_inner_control.proto \
+        ${PROTO_PATH}/replication/replicator.proto \
+        ${PROTO_PATH}/control_api/control.proto \
+        ${PROTO_PATH}/control_api/replicate_control.proto
+#make soft-link of source files to expected dir
+ln -n $RPC_SOURCE_PATH/journal/* $RPC_SOURCE_PATH/
+ln -n $RPC_SOURCE_PATH/inner_command/* $RPC_SOURCE_PATH/
+ln -n $RPC_SOURCE_PATH/replication/* $RPC_SOURCE_PATH/
+ln -n $RPC_SOURCE_PATH/control_api/* $RPC_SOURCE_PATH/
 
 #auto generate Makefiles
 touch NEWS README AUTHORS ChangeLog
@@ -67,6 +79,10 @@ rm -rf aclocal.m4 config.guess config.log configure depcomp \
 
 rm -rf build/
 rm -rf ${RPC_SOURCE_PATH}/*.h ${RPC_SOURCE_PATH}/*.cc
+rm -rf $RPC_SOURCE_PATH/inner_command
+rm -rf $RPC_SOURCE_PATH/journal
+rm -rf $RPC_SOURCE_PATH/control_api
+rm -rf $RPC_SOURCE_PATH/replication
 find . -name Makefile | xargs rm -f
 find . -name Makefile.in | xargs rm -f
 find . -name .deps | xargs rm -rf

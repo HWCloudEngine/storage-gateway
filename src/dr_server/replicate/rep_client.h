@@ -21,8 +21,8 @@
 #include "common/thread_pool.hpp"
 using huawei::proto::JournalMarker;
 using grpc::Channel;
-using huawei::proto::ReplicateRequest;
-using huawei::proto::ReplicateResponse;
+using huawei::proto::replication::ReplicateRequest;
+using huawei::proto::replication::ReplicateResponse;
 using grpc::ClientContext;
 using grpc::ClientReaderWriter;
 typedef grpc_connectivity_state ClientState;
@@ -38,7 +38,7 @@ private:
     std::atomic<uint64_t> seq_id_;
     std::mutex mtx_;
     std::shared_ptr<Channel> channel_;
-    std::unique_ptr<huawei::proto::Replicator::Stub> stub_;
+    std::unique_ptr<huawei::proto::replication::Replicator::Stub> stub_;
     std::unique_ptr<sg_threads::ThreadPool> task_pool_; 
     BlockingQueue<std::shared_ptr<RepTask>> task_que_;
     std::thread dispatch_thread_;

@@ -1,6 +1,5 @@
 syntax = "proto3";
-option objc_class_prefix = "DRS";
-package huawei.proto;
+package huawei.proto.replication;
 
 service Replicator {
     rpc replicate(stream ReplicateRequest) returns(stream ReplicateResponse) {}

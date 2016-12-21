@@ -2,8 +2,7 @@
 
 syntax = "proto3";
 import "common.proto";
-import "journal.proto";
-option objc_class_prefix = "DRS"; 
+import "journal/journal.proto";
 package huawei.proto;
 
 service Consumer {
