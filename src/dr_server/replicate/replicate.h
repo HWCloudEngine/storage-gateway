@@ -46,10 +46,6 @@ public:
     int add_volume(const std::string& vol_id);
     int remove_volume(const std::string& vol_id);
     void task_end_callback(std::shared_ptr<RepTask>);
-//    int enable_replicate();
-//    int disable_replicate();
-//    int disable_volume_replicate(const std::string& vol_id);
-//    int resume_volume_replicate(const std::string& vol_id);
 private:
     void recycle_tasks();
     void sync_markers();

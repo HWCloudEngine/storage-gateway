@@ -4,7 +4,8 @@ librpc_la_SOURCES=common.pb.cc \
                   journal.pb.cc  \
                   writer.grpc.pb.cc  writer.pb.cc \
                   message.pb.cc \
-				  replicator.pb.cc replicator.grpc.pb.cc
+		  replicator.pb.cc replicator.grpc.pb.cc \
+		  replicate_control.pb.cc replicate_control.grpc.pb.cc
 AM_CPPFLAGS=-std=c++11
 DEFS+=-D_GNU_SOURCE
 LIBS=-lpthread -lprotobuf -lpthread -ldl -lgrpc -lgrpc++
