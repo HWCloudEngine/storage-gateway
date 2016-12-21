@@ -27,6 +27,7 @@
 #include "replicate/rep_receiver.h"
 #include "replicate/replicate.h"
 #include "../snapshot/snapshot_mgr.h"
+#include "replicate/rep_ctrl_phase2.hpp"
 #define DEFAULT_META_SERVER_PORT 50051
 #define DEFAULT_REPLICATE_PORT 50061
 
@@ -142,6 +143,9 @@ int main(int argc, char** argv) {
     // init replicate client
     addr.append(":").append(std::to_string(port2));
     Replicate replicate(meta,mount_path,addr,grpc::InsecureChannelCredentials());
+    //init replicate control rpc server
+    RepCtrlPhase2 repControlsvr(replicate,meta);
+    repServer.register_service(&repControlsvr);
     // init gc thread
     GCTask::instance().init(meta);
 
