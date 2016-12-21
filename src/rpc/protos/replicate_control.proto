@@ -1,0 +1,77 @@
+// storage gateway rpc request/response
+
+syntax = "proto3";
+import "journal.proto";
+option objc_class_prefix = "DRS";
+package huawei.proto;
+
+/*northern oriented rpc service interface*/
+service ReplicateControl {
+    /*replicate control operations*/
+    rpc CreateReplication(CreateReplicationReq) returns(ReplicationCommonRes) {}
+    rpc EnableReplication(ReplicationCommonReq) returns(ReplicationCommonRes) {}
+    rpc DisableReplication(ReplicationCommonReq) returns(ReplicationCommonRes) {}
+    rpc FailoverReplication(ReplicationCommonReq) returns(ReplicationCommonRes) {}
+    rpc ReverseReplication(ReplicationCommonReq) returns(ReplicationCommonRes) {}
+    rpc QueryReplication(ReplicationCommonReq) returns(QueryReplicationRes) {}
+    rpc ListReplication(ListReplicationReq) returns(ListReplicationRes) {}
+    rpc DeleteReplication(ReplicationCommonReq) returns(ReplicationCommonRes) {}
+}
+enum REP_ROLE{
+    REP_UNKNOWN = 0;
+    REP_PRIMARY = 1;
+    REP_SECONDARY = 2;
+}
+enum REP_STATUS{
+    REP_UNKNOW = 0;
+    REP_CREATING = 1;
+    REP_ENABLING = 3;
+    REP_ENABLED = 4;
+    REP_DISABLING = 5;
+    REP_DISABLED = 6;
+    REP_FAILING_OVER = 7;
+    REP_FAILED_OVER = 8;
+    REP_REVERSING = 9;
+    REP_DELETING = 11;
+    REP_DELETED = 12;
+    REP_ERROR = 20;
+}
+
+message ReplicationCommonReq{
+    string operate_id = 1; // requere, unique uuid
+    string uuid = 2; // retrieve the replication via uuid
+//    string primary_volume = 3;
+    REP_ROLE role = 4;
+    JournalMarker marker = 5; //option, position of control request entry in journal,second phase requires
+}
+message CreateReplicationReq{
+    string operate_id = 1;
+    string uuid = 2; // replciation unique id
+    string primary_volume = 3;
+    string secondary_volume = 4;
+    REP_ROLE role = 5;
+}
+message ReplicationCommonRes{
+    int32 ret = 1;
+    string operate_id = 2;
+}
+
+message ReplicationElement{
+    string uuid = 1;
+    string primary_volume = 2;
+    string secondary_volume = 3;
+    REP_STATUS status = 4;
+}
+message QueryReplicationRes{
+    int32 ret = 1;
+    string operate_id = 2;
+    ReplicationElement element = 3;
+}
+message ListReplicationReq{
+    string operate_id = 1;
+}
+message ListReplicationRes{
+    int32 ret = 1;
+    string operate_id = 2;
+    repeated ReplicationElement tuple = 3;
+}
