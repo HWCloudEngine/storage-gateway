@@ -1,15 +1,16 @@
 noinst_PROGRAMS=dr_server
-AM_CPPFLAGS=-I$(top_srcdir)/src -I$(top_srcdir)/src/include -std=c++11
+AM_CPPFLAGS=-I$(top_srcdir)/src -I$(top_srcdir)/src/include \
+            -I$(top_srcdir)/src/rpc -std=c++11
 ACLOCAL_AMFLAGS=-I m4
 dr_server_SOURCES=dr_server.cc \
-				  consumer_service.cc \
-				  writer_service.cc \
-				  ceph_s3_meta.cc \
-				  ceph_s3_api.cc \
+                  consumer_service.cc \
+                  writer_service.cc \
+                  ceph_s3_meta.cc \
+                  ceph_s3_api.cc \
                   gc_task.cc \
-				  ceph_s3_lease.cc \
-				  replicate/replicate.cc \
-				  replicate/rep_receiver.cc \
+                  ceph_s3_lease.cc \
+                  replicate/replicate.cc \
+                  replicate/rep_receiver.cc \
                   replicate/rep_client.cc
 
 dr_server_LDADD=${top_srcdir}/src/rpc/librpc.la \

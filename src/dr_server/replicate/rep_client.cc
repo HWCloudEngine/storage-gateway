@@ -15,6 +15,9 @@
 using std::string;
 using grpc::Status;
 using google::protobuf::int32;
+using huawei::proto::replication::START_CMD;
+using huawei::proto::replication::DATA_CMD;
+using huawei::proto::replication::FINISH_CMD;
 std::string RepClient::get_printful_state(ClientState state){
     string str;
     switch(state){
@@ -49,7 +52,7 @@ bool RepClient::wait_for_state_change(const ClientState& state,
 }
 RepClient::RepClient(std::shared_ptr<Channel> channel,int max_tasks):
         channel_(channel),
-        stub_(huawei::proto::Replicator::NewStub(channel)),
+        stub_(huawei::proto::replication::Replicator::NewStub(channel)),
         task_pool_(new sg_threads::ThreadPool(max_tasks)),
         done_(false),
         seq_id_(0L),
@@ -113,7 +116,7 @@ void RepClient::do_replicate(std::shared_ptr<RepTask> task){
     _req.set_id(id); 
     _req.set_vol_id(task->vol_id);
     _req.set_state(task->info.is_opened? 1:0);
-    _req.set_cmd(huawei::proto::START_CMD);//start send flag
+    _req.set_cmd(START_CMD);//start send flag
     int64_t c;
     DR_ASSERT(true == dr_server::extract_counter_from_object_key(task->info.key,c));
     _req.set_current_counter(c);
@@ -160,7 +163,7 @@ void RepClient::do_replicate(std::shared_ptr<RepTask> task){
         DR_ASSERT(true == dr_server::extract_counter_from_object_key(task->info.key,counter));
         req.set_vol_id(task->vol_id);
         req.set_current_counter(counter);
-        req.set_cmd(huawei::proto::DATA_CMD);
+        req.set_cmd(DATA_CMD);
         // TODO: if journal files were created with zero padding, we should check
         // the replicate necessity of rest file data
         while (offset < task->info.end)
@@ -208,7 +211,7 @@ void RepClient::do_replicate(std::shared_ptr<RepTask> task){
         _req.set_id(++id);
         _req.set_offset(task->info.pos);
         _req.set_state(task->info.is_opened?1:0);
-        _req.set_cmd(huawei::proto::FINISH_CMD); // sent compeleted flag
+        _req.set_cmd(FINISH_CMD); // sent compeleted flag
         if(stream->Write(_req)){
             // wait for ack
             if(stream->Read(&res)){
