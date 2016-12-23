@@ -101,63 +101,29 @@ public:
     virtual int hashcode() = 0;
 };
 
-/*interface to read file*/
-class IReadFile : public IHashcode
+class File : public IHashcode
 {
 public:
     static int fid;
 public:
-    IReadFile() = default;
-    IReadFile(string file, off_t pos, bool eos);
-    virtual ~IReadFile(){}
+    File() = default;
+    File(string file, off_t pos, bool eos);
+    virtual ~File(){}
 
-    virtual int  open() = 0;
-    virtual void close() = 0;
-    virtual size_t read(off_t off, char* buf, size_t count) = 0;
-    virtual size_t write(off_t off, char* buf, size_t count) = 0;
+    int  open();
+    void close();
+    int  hashcode() override;
 
     /*call by cache or replayer*/
-    size_t read_entry(off_t off, shared_ptr<JournalEntry>& entry);
-    /*call by writer*/
-    size_t write_entry(off_t off, shared_ptr<JournalEntry>& entry);
+    ssize_t read_entry(off_t off, shared_ptr<JournalEntry>& entry);
 
 public:
     string m_file;  /*file name*/ 
     int    m_fd;    /*file descriptor*/
     size_t m_size;  /*file size*/
     off_t  m_pos;   /*valid data offset*/
-    bool   m_eos;   /*end of stream, true: can not get journal file from drserver*/
+    bool   m_eos;   /*end of stream, true: can not get journal file anymore*/
 };
-
-/*use synchronize read or pread */
-class SyncReadFile: public IReadFile
-{
-public:
-    SyncReadFile(string file, off_t pos, bool eos);
-    virtual ~SyncReadFile();
-   
-    virtual int open() override;
-    virtual void close() override;
-    virtual size_t read(off_t off, char* buf, size_t count) override;
-    virtual size_t write(off_t off, char* buf, size_t count) override;
-    virtual int hashcode() override;
-};
-
-/*use mmap read*/
-class MmapReadFile: public IReadFile
-{
-public:
-    MmapReadFile(string file, off_t pos, bool eos);
-    virtual ~MmapReadFile();
-
-    virtual int open() override;
-    virtual void close() override;
-    virtual size_t read(off_t off, char* buf, size_t count) override;
-    virtual size_t write(off_t off, char* buf, size_t count) override;
-    virtual int hashcode() override;
-private:
-    void* m_mmap_base{nullptr};
-}; 
 
 /*interface use to route or dispatch*/
 class IRoute

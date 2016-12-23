@@ -100,42 +100,27 @@ size_t CEntry::get_mem_size()const
     return size;
 }
 
-int IReadFile::fid = 0;
+int File::fid = 0;
 
-IReadFile::IReadFile(string file, off_t pos, bool eos)
+File::File(string file, off_t pos, bool eos)
     :m_file(file), m_pos(pos),m_eos(eos)
 {
+    fid++;
 }
 
-size_t IReadFile:: read_entry(off_t off, shared_ptr<JournalEntry>& entry)
+ssize_t File::read_entry(off_t off, shared_ptr<JournalEntry>& entry)
 {
     entry = make_shared<JournalEntry>();
     return entry->parse(m_fd, off);
 }
 
-size_t IReadFile::write_entry(off_t off, shared_ptr<JournalEntry>& entry)
-{
-   return entry->persist(m_fd, off);
-}
-
-SyncReadFile::SyncReadFile(string file, off_t pos, bool eos)
-    :IReadFile(file, pos, eos)
-{
-    fid++;
-}
-
-SyncReadFile::~SyncReadFile()
-{
-}
-
-int SyncReadFile::open()
+int File::open()
 {
     m_fd = ::open(m_file.c_str(), O_RDONLY);
     if(-1 == m_fd){
         LOG_ERROR << "open " << m_file.c_str() << "failed errno:" << errno;
         return -1;
     }
-    LOG_INFO << "open file:" << m_file;
     struct stat buf = {0};
     int ret = stat(m_file.c_str(), &buf);
     if(-1 == ret){
@@ -147,124 +132,15 @@ int SyncReadFile::open()
     return m_fd;
 }
 
-void SyncReadFile::close()
+void File::close()
 {
     if(-1 != m_fd){
         ::close(m_fd);
     } 
 }
 
-size_t SyncReadFile::read(off_t off, char* buf, size_t count)
-{
-    size_t left = count;
-    size_t read = 0;
-    while(left > 0){
-        int ret = pread(m_fd, buf+read, left, off+read);
-        if(ret == -1 || ret == 0){
-            LOG_ERROR << "syncreadfile pread fd:" << m_fd 
-                      << "left:" << left 
-                      << "ret:"  << ret
-                      << "errno:" << errno << endl; 
-            return ret;
-        } 
-        left -= ret;
-        read += ret;
-    }
-
-    m_pos += count;
-    return read;
-}
-
-size_t SyncReadFile::write(off_t off, char* buf, size_t count)
-{
-    size_t left  = count;
-    size_t write = 0;
-    while(left > 0){
-        int ret = pwrite(m_fd, buf+write, left, off+write);
-        if(ret == -1 || ret == 0){
-             LOG_ERROR << "syncreadfile pread fd:" << m_fd 
-                       << "left:" << left 
-                       << "ret:"  << ret
-                       << "errno:" << errno << endl; 
-            return ret;
-        }
-        left  -= ret;
-        write += ret;
-    }
-
-    return write;
-}
-
-int SyncReadFile::hashcode()
+int File::hashcode()
 {
     //todo: how to geneate hashcode of each file
     return fid;
 }
-
-MmapReadFile::MmapReadFile(string file, off_t pos, bool eos)
-    :IReadFile(file, pos, eos)
-{
-    fid++;
-}
-
-MmapReadFile::~MmapReadFile()
-{
-}
-
-int MmapReadFile::open()
-{
-    if(m_fd != -1){
-        LOG_INFO << "open " << m_file.c_str() << "already opened";
-        return m_fd;
-    }
-    m_fd = ::open(m_file.c_str(), O_RDONLY);
-    if(-1 == m_fd){
-        LOG_ERROR << "open " << m_file.c_str() << "failed errno:" << errno;
-        return -1;
-    }
-    struct stat buf = {0};
-    int ret = stat(m_file.c_str(), &buf);
-    if(-1 == ret){
-        LOG_ERROR << "stat " << m_file.c_str() << "failed errno:" << errno;
-        return -1;
-    }
-    m_size = buf.st_size;
-
-    m_mmap_base = mmap(NULL, m_size-m_pos, PROT_READ, MAP_SHARED, m_fd, m_pos);
-    if(m_mmap_base == MAP_FAILED){
-        LOG_ERROR << "mmap " << m_file.c_str() << "failed errno:" << errno;
-        return -1;
-    }
-    return 0;
-}
-
-void MmapReadFile::close()
-{
-    if(-1 != m_fd){
-        ::close(m_fd);
-    } 
-    if(m_mmap_base != MAP_FAILED){
-        munmap(m_mmap_base, m_size-m_pos);
-    }
-}
-
-size_t MmapReadFile::read(off_t off, char* buf, size_t count)
-{
-    size_t copy_size = std::min(count, m_size-off);
-    memcpy(buf, (char*)m_mmap_base+off-m_pos, copy_size);
-    return copy_size;
-}
-
-size_t MmapReadFile::write(off_t off, char* buf, size_t count)
-{    
-    size_t copy_size = std::min(count, m_size-off);
-    memcpy((char*)m_mmap_base+off-m_pos, buf, copy_size);
-    return copy_size;
-}
-
-int MmapReadFile::hashcode()
-{
-    //todo: how to geneate hashcode of each file
-    return fid;
-}
-

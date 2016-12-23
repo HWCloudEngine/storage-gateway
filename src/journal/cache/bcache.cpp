@@ -14,7 +14,46 @@
 using google::protobuf::Message;
 using huawei::proto::WriteMessage;
 
-//#define MIN(a, b) ((a) < (b) ? (a) :(b))
+Bkey::Bkey(off_t off, size_t len, IoVersion seq)
+{
+    m_off = off;
+    m_len = len;
+    m_seq = seq;
+}
+
+Bkey::Bkey(const Bkey& other)
+{
+    m_off = other.m_off;
+    m_len = other.m_len;
+    m_seq = other.m_seq;
+}
+
+Bkey::Bkey(Bkey&& other)
+{
+    m_off = std::move(other.m_off);
+    m_len = std::move(other.m_len);
+    m_seq = std::move(other.m_seq);
+}
+
+Bkey& Bkey::operator=(const Bkey& other)
+{
+    if(this != &other){
+        m_off = other.m_off;
+        m_len = other.m_len;
+        m_seq = other.m_seq;
+    } 
+    return *this;
+}
+
+Bkey& Bkey::operator=(Bkey&& other)
+{
+    if(this != &other){
+        m_off = std::move(other.m_off);
+        m_len = std::move(other.m_len);
+        m_seq = std::move(other.m_seq);
+    } 
+    return *this;
+}
 
 bool operator<(const Bkey& a, const Bkey& b)
 {
@@ -37,7 +76,6 @@ ostream& operator<<(ostream& cout, const Bkey& key)
 {
     LOG_INFO << "[off:" << key.m_off << " len:" << key.m_len \
              << " seq:" << key.m_seq << "]";
-
     return cout;
 }
 
@@ -49,6 +87,36 @@ bool BkeySeqCompare(const Bkey& a, const Bkey& b)
 bool BkeyOffsetCompare(const Bkey& a, const Bkey& b)
 {
     return a.m_off < b.m_off;
+}
+
+Bcache::Bcache(string bdev)
+{
+    m_blkdev = bdev;
+    init();
+    LOG_INFO << "Bcache create";
+}
+
+Bcache::~Bcache()
+{
+    m_bcache.clear();
+    fini();
+    LOG_INFO << "Bcache destroy";
+}
+
+void Bcache::init()
+{
+    const int bcache_mpool_size = 10*1024*1024;
+    m_buffer_pool = nedalloc::nedcreatepool(bcache_mpool_size, 1);
+    if(nullptr == m_buffer_pool){
+        LOG_ERROR << "Bcache init memory pool failed";
+    }
+}
+
+void Bcache::fini()
+{
+    if(m_buffer_pool){
+        nedalloc::neddestroypool(m_buffer_pool);
+    }
 }
 
 bool Bcache::add(Bkey key, shared_ptr<CEntry> value)
@@ -84,8 +152,8 @@ bool Bcache::update(Bkey key, shared_ptr<CEntry> value)
     if(it != m_bcache.end()){
         m_bcache.erase(it);
     }
-    std::pair<std::map<Bkey, shared_ptr<CEntry>>::iterator, bool> ret;
-    ret = m_bcache.insert(std::pair<Bkey, shared_ptr<CEntry>>(key, value));
+
+    auto ret = m_bcache.insert({key, value});
     if(ret.second == false){
         LOG_ERROR << "update key: " << key << "failed";
         return false;  
@@ -252,7 +320,7 @@ int Bcache::_cache_hit_read(off_t off, size_t len, char* buf,
             LOG_DEBUG << "hit read from journal";
             string journal_file = v->get_journal_file();
             off_t  journal_off  = v->get_journal_off();
-            IReadFile* rfile = new SyncReadFile(journal_file, journal_off, false);
+            File* rfile = new File(journal_file, journal_off, false);
             rfile->open();
             rfile->read_entry(journal_off, journal_entry);
             rfile->close();
