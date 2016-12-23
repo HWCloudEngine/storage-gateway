@@ -5,12 +5,33 @@ using google::protobuf::Message;
 using huawei::proto::WriteMessage;
 using huawei::proto::DiskPos;
 
+CacheProxy::CacheProxy(string blk_dev, shared_ptr<IDGenerator> id_maker)
+{
+    blkdev = blk_dev;
+    idproc = id_maker;
+    total_mem_size = 0;
+
+    start_cache_evict_thr();
+
+    jcache = new Jcache(blk_dev);
+    bcache = new Bcache(blk_dev);
+
+    LOG_INFO << "CacheProxy create";
+} 
+
+CacheProxy::~CacheProxy()
+{
+    stop_cache_evict_thr();
+    delete bcache;
+    delete jcache;
+    LOG_INFO << "CacheProxy destroy";
+}
+
 /*journal write call*/
 void CacheProxy::write(string journal_file, off_t journal_off, 
                        shared_ptr<JournalEntry> journal_entry)
 {
     int ret = 0;
-
     journal_event_type_t type = journal_entry->get_type();
 
     if(IO_WRITE == type){
@@ -18,24 +39,24 @@ void CacheProxy::write(string journal_file, off_t journal_off,
         shared_ptr<WriteMessage> write_message = dynamic_pointer_cast<WriteMessage>
                                                     (message);
         IoVersion io_seq  = idproc->get_version(journal_file);
-
-        LOG_INFO << " write journal_file:" << journal_file 
-                 << " journal_off:" << journal_off
-                 << " io_seq:" << io_seq;
-        
         int pos_num = write_message->pos_size();
+
         for(int i=0; i < pos_num; i++){
             DiskPos* pos = write_message->mutable_pos(i);
             off_t    off = pos->offset();
             size_t   len = pos->length(); 
-           if(isfull(len)){
+            LOG_INFO << " write journal_file:" << journal_file 
+                     << " journal_off:" << journal_off << " io_seq:" << io_seq 
+                     << " blk_off:" << off << " blk_len:" << len;
+
+            if(isfull(len)){
                 /*trigger bcache evict*/
                 trigger_cache_evict();
 
                 /*cache memory over threshold, cache point to journal file location*/
                 Bkey bkey(off, len, io_seq);
                 shared_ptr<CEntry> v(new CEntry(io_seq, off, len, 
-                                                journal_file,journal_off));
+                            journal_file,journal_off));
                 jcache->push(v);
                 ret = bcache->add(bkey, v);
                 if(!ret){
@@ -46,8 +67,8 @@ void CacheProxy::write(string journal_file, off_t journal_off,
                 /*cache memory in threshold, cache point to journal entry in memory*/
                 Bkey bkey(off, len, io_seq);
                 shared_ptr<CEntry> v(new CEntry(io_seq, off, len, 
-                                                journal_file, journal_off, 
-                                                journal_entry));
+                            journal_file, journal_off, 
+                            journal_entry));
                 jcache->push(v);
                 ret = bcache->add(bkey, v);
                 if(!ret){
@@ -124,8 +145,8 @@ bool CacheProxy::reclaim(shared_ptr<CEntry> entry)
 
 bool CacheProxy::isfull(size_t cur_io_size)
 {
-    LOG_INFO << " total_mem_size: " << total_mem_size 
-             << " cur_io_size:" << cur_io_size;
+    //LOG_INFO << " total_mem_size: " << total_mem_size 
+    //         << " cur_io_size:" << cur_io_size;
 
     if(total_mem_size + cur_io_size > MAX_CACHE_LIMIT)
         return true;
@@ -160,42 +181,47 @@ void CacheProxy::cache_evict_work()
         unique_lock<mutex> lock(evict_lock); 
         evict_cond.wait(lock); 
         int already_evit_size = 0;
-        BlockingQueue<shared_ptr<CEntry>>& jcache_queue = jcache->get_queue() ;
-
+        
         /*evict should start from the oldest entry in jcache*/
-        for(int i = 0; i < jcache_queue.entry_number(); i++){
-            shared_ptr<CEntry>& centry = jcache_queue[i];
+        Jcache::Iterator it = jcache->begin();
+        for(; it != jcache->end(); it++){
+            shared_ptr<CEntry> centry = it.second();
             int centry_mem_size = centry->get_mem_size();
-
+            
+            /*entry is in journal file*/
             if(centry->get_cache_type() == CEntry::IN_JOURANL){
                 continue;
             }
             
+            /*entry is control command*/
             if(centry->get_blk_off() == 0 && centry->get_blk_len() == 0){
                 continue;
             }
 
-            Bkey update_key(centry->get_blk_off(), 
-                            centry->get_blk_len(), 
-                            centry->get_io_seq());
+            /*CEntry point to journal file instead of ReplayEntry in memory*/
+            centry->set_cache_type(CEntry::IN_JOURANL);
+            centry->get_journal_entry().reset();
 
             LOG_INFO << "update key"
                      << " off:" << centry->get_blk_off() 
                      << " len:" << centry->get_blk_len() 
                      << " seq:" << centry->get_io_seq();
 
-            /*update jcache CEntry*/
-            /*CEntry point to journal file instead of ReplayEntry in memory*/
-            centry->set_cache_type(CEntry::IN_JOURANL);
-            centry->get_journal_entry().reset();
-
             /*update bcache Centry*/
-            bool ret = bcache->update(update_key, centry);
+            Bkey bkey(centry->get_blk_off(), centry->get_blk_len(), 
+                      centry->get_io_seq());
+            bool ret = bcache->update(bkey, centry);
+            
+            /*update jcache Centry*/
+            Jkey jkey(centry->get_io_seq());
+            ret &= jcache->update(jkey, centry);
+            
+            /*both update ok*/
             if(ret){
                 already_evit_size += centry_mem_size;
                 total_mem_size -= centry_mem_size;
             }
-
+            
             if(already_evit_size >= CACHE_EVICT_SIZE){
                 break;
             }
