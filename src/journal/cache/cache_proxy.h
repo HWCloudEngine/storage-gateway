@@ -18,21 +18,11 @@ using namespace std;
 
 class CacheProxy
 {
-    const static size_t MAX_CACHE_LIMIT  = (10 * 1024 * 1024); //100MBytes
-    const static size_t CACHE_EVICT_SIZE = (1 * 1024 * 1024);  //10MBytes
+    const static size_t MAX_CACHE_LIMIT  = (10 * 1024 * 1024);
+    const static size_t CACHE_EVICT_SIZE = (2 * 1024 * 1024);
 public:
-    CacheProxy(){}
-    explicit CacheProxy(string blk_dev, shared_ptr<IDGenerator> id_maker){
-        LOG_INFO << "CacheProxy create";
-        blkdev = blk_dev;
-        idproc = id_maker;
-        total_mem_size = 0;
-
-        start_cache_evict_thr();
-
-        jcache = new Jcache(blk_dev);
-        bcache = new Bcache(blk_dev);
-    } 
+    CacheProxy() = default;
+    explicit CacheProxy(string blk_dev, shared_ptr<IDGenerator> id_maker);
 
     /*each volume own a cproxy, disable copy constructor and operator=*/
     CacheProxy(const CacheProxy& other) = delete;
@@ -40,18 +30,13 @@ public:
     CacheProxy& operator=(const CacheProxy& other) = delete;
     CacheProxy& operator=(CacheProxy&& other) = delete;
 
-    ~CacheProxy(){
-        LOG_INFO << "CacheProxy destroy";
-        stop_cache_evict_thr();
-        delete bcache;
-        delete jcache;
-    }
+    ~CacheProxy();
   
-    /*journal writer or replayer add cache*/
+    /*journal writer or cache recover add cache*/
     void write(string journal_file, off_t  journal_off,
                shared_ptr<JournalEntry> journal_entry);
 
-    /*io hook read handle*/
+    /*io hook read*/
     int  read(off_t  off, size_t len, char*  buf); 
     
     /*journal replayer call*/
@@ -70,12 +55,6 @@ public:
     void stop_cache_evict_thr();
 
     /*debug*/
-    Bcache* get_bcache()const{
-        return bcache;
-    }
-    Jcache* get_jcache()const{
-        return jcache; 
-    }
     void trace();
 
 private:

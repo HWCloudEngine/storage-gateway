@@ -86,8 +86,6 @@ void JournalWriter::work()
             return; 
         }
 
-        LOG_INFO << "write seq:" << entry->get_sequence();
-        
         if (running_flag == false)
             return;
         
@@ -152,7 +150,7 @@ bool JournalWriter::get_journal()
     cur_lease_journal = std::make_pair("", "");
 
     {
-        std::unique_lock<std::mutex> journal_uk(journal_mtx_);
+        std::unique_lock<std::recursive_mutex> journal_uk(journal_mtx_);
         if(journal_queue.empty())
         {
             LOG_INFO << "journal_queue empty";
@@ -273,9 +271,9 @@ bool JournalWriter::get_writeable_journals(const std::string& uuid,const int32_t
 {
     std::list<std::string> journals;
     int32_t tmp = 0;
-
+    
     std::unique_lock<std::mutex> lk(rpc_mtx_);
-    std::unique_lock<std::mutex> journal_uk(journal_mtx_);
+    std::unique_lock<std::recursive_mutex> journal_uk(journal_mtx_);
 
     if(journal_queue.size() >= limit)
     {
