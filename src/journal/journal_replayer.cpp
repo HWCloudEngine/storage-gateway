@@ -44,12 +44,12 @@ bool JournalReplayer::init(const std::string& vol_id,
     cache_proxy_ptr_    = cache_proxy_ptr;
     snapshot_proxy_ptr_ = snapshot_proxy_ptr;
 
-    cache_recover_ptr_.reset(new CacheRecovery(device_, 
-                                rpc_client_ptr_, 
-                                id_maker_ptr_,
-                                cache_proxy_ptr_));
-    //start recover
+    cache_recover_ptr_.reset(new CacheRecovery(vol_id_, rpc_client_ptr_, 
+                                id_maker_ptr_, cache_proxy_ptr_));
     cache_recover_ptr_->start();
+    //block until recover finish
+    cache_recover_ptr_->stop(); 
+    cache_recover_ptr_.reset();
 
     update_ = false;
     vol_fd_ = open(device_.c_str(), O_WRONLY | O_DIRECT | O_SYNC);
@@ -76,7 +76,6 @@ bool JournalReplayer::deinit()
     update_thread_ptr_->interrupt();
     replay_thread_ptr_->join();
     update_thread_ptr_->join();
-    cache_recover_ptr_->stop();
     close(vol_fd_);
     return true;
 }
@@ -110,6 +109,11 @@ void JournalReplayer::replay_volume()
     while (true)
     {
         std::shared_ptr<CEntry> entry = cache_proxy_ptr_->pop();
+        if(entry == nullptr){
+            usleep(200);
+            continue;
+        }
+
         if (entry->get_cache_type() == 0)
         {
             //replay from memory
@@ -216,11 +220,9 @@ bool JournalReplayer::process_cache(std::shared_ptr<JournalEntry> entry)
         write_block_device(write_message);
     } else {
         /*other message type*/ 
-        if(handle_ctrl_cmd(entry.get())){
-            LOG_INFO << "replay succeed";
-            return true;
-        }
+        handle_ctrl_cmd(entry.get());
     }
+
     return true;
 }
 
@@ -228,8 +230,8 @@ bool JournalReplayer::process_cache(std::shared_ptr<JournalEntry> entry)
 bool JournalReplayer::process_file(const std::string& file_name, off_t off)
 {
     /*todo avoid open frequently*/
-    int src_fd = open(file_name.c_str(), O_RDONLY);
-    if (src_fd < 0){
+    int src_fd = ::open(file_name.c_str(), O_RDONLY);
+    if (src_fd == -1){
         LOG_ERROR << "open journal file failed";
         return false;
     }
@@ -246,13 +248,13 @@ bool JournalReplayer::process_file(const std::string& file_name, off_t off)
         write_block_device(write_message);
     } else {
         /*other message type*/ 
-        if(handle_ctrl_cmd(&entry)){
-            LOG_INFO << "replay succeed";
-            close(src_fd);
-            return true;
-        }
+        handle_ctrl_cmd(&entry);
     }
     
+    if(src_fd != -1){
+        ::close(src_fd); 
+    }
+
     return true;
 }
 

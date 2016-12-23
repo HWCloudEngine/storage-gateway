@@ -143,8 +143,8 @@ size_t JournalEntry::persist(int fd, off_t off)
     size_t write_ret  = pwritev(fd, iov, 4, off);
     assert(write_size == write_size);
     
-    LOG_INFO << "persist type:" << type << " length:" << length 
-             << " crc:" << crc << " ok";
+    //LOG_INFO << "persist type:" << type << " length:" << length 
+    //         << " crc:" << crc << " ok";
     return write_ret;
 }
 
@@ -178,8 +178,8 @@ size_t JournalEntry::persist(FILE* file, off_t off)
     
     fflush(file);
 
-    LOG_INFO << "persist type:" << type << " length:" << length 
-             << " crc:" << crc  << " ok";
+    //LOG_INFO << "persist type:" << type << " length:" << length 
+    //         << " crc:" << crc  << " ok";
     return buf_len;
 }
 

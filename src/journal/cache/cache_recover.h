@@ -79,15 +79,14 @@ public:
     void start() override;
     void stop()  override;
     void loop()  override;
-   
-    void enqueue(void* item);
+    void enqueue(void* item) override;
 
 private:
     /*read file and generate item to */
-    void process_file(IReadFile* file);
+    void process_file(File* file);
 
 private:
-    BlockingQueue<IReadFile*>*  m_que;
+    BlockingQueue<File*>*   m_que;
     shared_ptr<IDGenerator> m_id_generator;
     shared_ptr<CacheProxy>  m_cache_proxy;
 };
@@ -97,24 +96,26 @@ class SrcWorker: public IWorker
 {
 public:
     SrcWorker() = default;
-    SrcWorker(string vol, 
-              shared_ptr<ReplayerClient> rpc_cli, 
-              shared_ptr<JournalMarker> lastest_mark)
-                :m_volume(vol), m_grpc_client(rpc_cli), 
-                 m_latest_marker(lastest_mark){}
-    virtual ~SrcWorker(){}
+    SrcWorker(string vol,shared_ptr<ReplayerClient> rpc_cli)
+            :m_volume(vol), m_grpc_client(rpc_cli){
+    }
+
+    virtual ~SrcWorker(){
+    }
     
     void start() override;
     void stop() override;
-
     void loop() override;
-
     void enqueue(void* item) override;
+
+private:
+    /*notify consumer producer not provide element any more*/
+    void broadcast_consumer_exit();
 
 private:
     string m_volume;
     shared_ptr<ReplayerClient> m_grpc_client;
-    shared_ptr<JournalMarker>  m_latest_marker;
+    JournalMarker  m_latest_marker;
 };
 
 
@@ -123,23 +124,16 @@ class CacheRecovery
 {
 public:
     CacheRecovery() = default;
-    CacheRecovery(string volume, 
-                  shared_ptr<ReplayerClient> rpc_cli, 
+    CacheRecovery(string volume, shared_ptr<ReplayerClient> rpc_cli, 
                   shared_ptr<IDGenerator> id_maker,
                   shared_ptr<CacheProxy> cache_proxy){
         m_volume       = volume;
         m_grpc_client  = rpc_cli;
-
-        m_last_marker  = make_shared<JournalMarker>();
-        m_latest_marker = make_shared<JournalMarker>();
-
         m_id_generator = id_maker;
         m_cache_proxy  = cache_proxy;
-        LOG_DEBUG << "CacheRecovery create";
     }
 
     ~CacheRecovery(){
-        LOG_DEBUG << "CacheRecovery create";
     }
     
     /*start cache recover*/
@@ -148,15 +142,10 @@ public:
     void stop();
 
 private:
-    string  m_volume; //volume name 
-
-    shared_ptr<ReplayerClient> m_grpc_client; //grpc client
-
-    shared_ptr<JournalMarker>  m_last_marker;    //last marker
-    shared_ptr<JournalMarker>  m_latest_marker;  //latest marker
-
-    shared_ptr<IDGenerator>    m_id_generator;   //id generator 
-    shared_ptr<CacheProxy>     m_cache_proxy;    //cache proxy 
+    string  m_volume; 
+    shared_ptr<ReplayerClient> m_grpc_client;
+    shared_ptr<IDGenerator> m_id_generator;
+    shared_ptr<CacheProxy>  m_cache_proxy;
         
     /*
      ****************************************************************
@@ -166,9 +155,12 @@ private:
      ****************************************************************
      */
 
-    SrcWorker*     m_src_worker{nullptr}; //get journal files from drserver
-    ProcessWorker* m_processor{nullptr};  //read centry from file, add to cache
-    int            m_processor_num{3};    //processer concurrency
+    /*thread get journal file from drserver*/
+    SrcWorker*     m_src_worker{nullptr};
+    /*thread read entry from file and add to cache*/
+    ProcessWorker* m_processor{nullptr};
+    /*process worker concurrence*/
+    int            m_processor_num{3};
 };
 
 #endif
