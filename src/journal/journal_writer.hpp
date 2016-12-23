@@ -98,7 +98,7 @@ private:
     boost::shared_ptr<boost::thread> thread_ptr;
     std::queue<std::pair<std::string, std::string>> journal_queue;
     std::queue<std::pair<std::string, std::string>> seal_queue;
-    std::mutex journal_mtx_;
+    std::recursive_mutex journal_mtx_;
     std::mutex seal_mtx_;
     
     /*current operation journal file info*/
