@@ -1,4 +1,7 @@
-import grpc
+import sys 
+sys.path.append('control_api')
+sys.path.append('journal')
+import journal_pb2,common_pb2
 import replicate_control_pb2
 
 class RepliacteCtrl():

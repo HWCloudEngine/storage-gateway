@@ -53,7 +53,7 @@ message QueryReplicationReq{
 message DeleteReplicationReq{
     string operate_id = 1; // requere, unique operation uuid
     string uuid = 2; // retrieve the replication via uuid
-	REP_ROLE role = 3;
+    REP_ROLE role = 3;
 }
 message ReplicationCommonRes{
     int32 ret = 1;

@@ -9,12 +9,15 @@ then
     fi
     #generate grpc python source files from protos
     python -m grpc.tools.protoc -I${proto_path} --python_out=. \
-        --grpc_python_out=. ${proto_path}/control.proto \
-        ${proto_path}/replicate_control.proto \
-        ${proto_path}/journal.proto
+        --grpc_python_out=. ${proto_path}/control_api/control.proto \
+        ${proto_path}/control_api/replicate_control.proto \
+        ${proto_path}/journal/journal.proto \
+        ${proto_path}/common.proto
 elif [ "$1"a = "clean"a ]
 then
     rm *_pb2.py -rf
     rm *_pb2_grpc.py -rf
+    rm journal/ -rf
+    rm control_api/ -rf
     rm *.pyc -rf
 fi

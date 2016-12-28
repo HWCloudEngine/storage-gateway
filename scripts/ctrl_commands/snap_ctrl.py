@@ -1,4 +1,5 @@
-import grpc
+import sys
+sys.path.append('control_api')
 import control_pb2
 
 class SnapCtrl(control_pb2.CtrlRpcSvcStub):
@@ -7,14 +8,6 @@ class SnapCtrl(control_pb2.CtrlRpcSvcStub):
         self.stub = control_pb2.CtrlRpcSvcStub(channel)
 
     def do(self,args):
- #       results = {
- #           'create':self.CreateSnapshot(args),
- #           'delete':self.DeleteSnapshot(args),
- #           'list':self.ListSnapshot(args),
- #           'rollback':self.RollbackSnapshot(args),
- #           'diff':self.DiffSnapshot(args),
- #           'read':self.ReadSnapshot(args)
- #       }
         if args.action == 'create':
             res = self.CreateSnapshot(args)
         elif args.action == 'delete':
