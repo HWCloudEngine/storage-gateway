@@ -14,15 +14,15 @@ sg_client_SOURCES=$(top_srcdir)/src/common/crc32.c \
                        journal_writer.cpp   \
                        journal_replayer.cpp \
                        journal_reader.cpp   \ 
-                       pre_processor.cpp    \
+                       journal_preprocessor.cpp    \
                        volume_manager.cpp   \
                        server.cpp           \
                        main.cpp  
   
 sg_client_LDADD=${top_srcdir}/src/rpc/librpc.la \
-                     ${top_srcdir}/src/log/liblog.la \
-                     $(top_srcdir)/src/journal/cache/libcache.la \
-                     $(top_srcdir)/src/snapshot/libsnapshot.la
+                ${top_srcdir}/src/log/liblog.la \
+                $(top_srcdir)/src/journal/cache/libcache.la \
+                $(top_srcdir)/src/snapshot/libsnapshot.la
 
 sg_client_LDFLAGS=-D_GNU_SOURCE
 DEFS+=-D_GNU_SOURCE -DBOOST_ALL_DYN_LINK -DNDEBUG

@@ -4,9 +4,9 @@
 namespace Journal{
 
 Server::Server(const std::string& address, 
-                  const std::string& port,
-                  const std::string& file,
-                  uint32_t io_service_pool_size)
+               const std::string& port,
+               const std::string& file,
+               uint32_t io_service_pool_size)
     :io_service_pool_(io_service_pool_size),
     signals_(io_service_pool_.get_io_service()),
     #ifndef _USE_UNIX_DOMAIN

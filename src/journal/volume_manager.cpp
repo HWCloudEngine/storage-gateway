@@ -88,6 +88,11 @@ raw_socket& Volume::get_raw_socket()
     return raw_socket_;
 }
 
+shared_ptr<SnapshotProxy> Volume::get_snapshot_proxy()
+{
+    return snapshotproxy;
+}
+
 JournalWriter& Volume::get_writer()
 {
     return writer;

@@ -10,7 +10,7 @@
 #include "seq_generator.hpp"
 #include "cache/cache_proxy.h"
 #include "connection.hpp"
-#include "pre_processor.hpp"
+#include "journal_preprocessor.hpp"
 #include "journal_writer.hpp"
 #include "journal_reader.hpp"
 #include "journal_replayer.hpp"
@@ -27,23 +27,21 @@ class ControlService;
 
 namespace Journal{
 
-class Volume
-    :public boost::enable_shared_from_this<Volume>,
-     private boost::noncopyable
+class Volume : public boost::enable_shared_from_this<Volume>,
+               private boost::noncopyable
 {
 public:
     explicit Volume(boost::asio::io_service& io_service);
     virtual ~Volume();
-    JournalWriter& get_writer();
-    raw_socket& get_raw_socket();
+
     void start();
     void stop();
     bool init(shared_ptr<ConfigParser> conf, shared_ptr<CephS3LeaseClient> lease_client);
     void set_property(std::string vol_id,std::string vol_path);
 
-    shared_ptr<SnapshotProxy> get_snapshot_proxy(){
-        return snapshotproxy;
-    }
+    JournalWriter& get_writer();
+    raw_socket&    get_raw_socket();
+    shared_ptr<SnapshotProxy> get_snapshot_proxy();
 
 private:
     /*socket*/
@@ -51,9 +49,9 @@ private:
 
     /*queue */
     BlockingQueue<shared_ptr<JournalEntry>> entry_queue;  /*connection and preprocessor*/
-    BlockingQueue<struct IOHookReply*>  reply_queue;  /*connection*/
-    BlockingQueue<shared_ptr<JournalEntry>>   write_queue;  /*writer*/
-    BlockingQueue<struct IOHookRequest> read_queue;   /*reader*/
+    BlockingQueue<struct IOHookReply*>      reply_queue;  /*connection*/
+    BlockingQueue<shared_ptr<JournalEntry>> write_queue;  /*writer*/
+    BlockingQueue<struct IOHookRequest>     read_queue;   /*reader*/
     
     /*cache */
     shared_ptr<IDGenerator> idproxy;
@@ -61,7 +59,7 @@ private:
     
     /*work thread*/ 
     Connection   connection;    /*network receive and send*/
-    PreProcessor pre_processor; /*request merge and crc*/
+    JournalPreProcessor pre_processor; /*request merge and crc*/
     JournalWriter   writer;     /*append to journal */
     JournalReader   reader;     /*read io*/
     JournalReplayer replayer;   /*replay journal*/

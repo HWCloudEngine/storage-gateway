@@ -10,14 +10,13 @@
 
 namespace Journal{
 
-class Server
-    :private boost::noncopyable
+class Server : private boost::noncopyable
 {
 public:
     explicit Server(const std::string& address,
-                       const std::string& port,
-                       const std::string& file,
-                       uint32_t io_service_pool_size);
+                    const std::string& port,
+                    const std::string& file,
+                    uint32_t io_service_pool_size);
     void run();
 
 private:

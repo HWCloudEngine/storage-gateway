@@ -75,7 +75,6 @@ private:
     uint64_t req_seq;
 };
 
-typedef boost::shared_ptr<Connection> connection_ptr;
 }
 
 #endif
