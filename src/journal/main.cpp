@@ -13,7 +13,7 @@ int main(int argc, char* argv[])
     //todo read from config file
     uint32_t io_service_pool_size = 1;
     std::remove(argv[3]);
-    DRLog::log_init("journal_server.log");
+    DRLog::log_init("sg_client.log");
     try
     {
         Journal::Server server(argv[1], argv[2], argv[3], io_service_pool_size);

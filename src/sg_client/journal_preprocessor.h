@@ -1,5 +1,5 @@
-#ifndef JOURNAL_PREPROCESSOR_HPP
-#define JOURNAL_PREPROCESSOR_HPP
+#ifndef JOURNAL_PREPROCESSOR_H
+#define JOURNAL_PREPROCESSOR_H
 #include <memory>
 #include <mutex>
 #include <condition_variable>
@@ -13,8 +13,8 @@
 
 #include "../common/config_parser.h"
 #include "../common/blocking_queue.h"
-#include "message.hpp"
-#include "journal_entry.hpp"
+#include "message.h"
+#include "journal_entry.h"
 
 using namespace std;
 
@@ -25,13 +25,12 @@ struct PrePreocessorConf{
     checksum_type_t checksum_type;
 };
 
-class PreProcessor
-    :private boost::noncopyable
+class JournalPreProcessor : private boost::noncopyable
 {
 public:
-    explicit PreProcessor(BlockingQueue<shared_ptr<JournalEntry>>& entry_queue,
+    explicit JournalPreProcessor(BlockingQueue<shared_ptr<JournalEntry>>& entry_queue,
                           BlockingQueue<shared_ptr<JournalEntry>>& write_queue);
-    virtual ~PreProcessor();
+    virtual ~JournalPreProcessor();
 
     void work();
     bool init(std::shared_ptr<ConfigParser> conf);

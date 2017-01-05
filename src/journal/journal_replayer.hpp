@@ -21,42 +21,71 @@
 using google::protobuf::Message;
 using huawei::proto::WriteMessage;
 
+using namespace std;
+
 namespace Journal
 {
+
+class VolumeStatus;
 
 class JournalReplayer: private boost::noncopyable
 {
 public:
-    explicit JournalReplayer(const std::string& rpc_addr); 
+    explicit JournalReplayer(VolumeStatus& vol_status); 
 
-    bool init(const std::string& vol_id, 
-              const std::string& device,
-              std::shared_ptr<IDGenerator> id_maker_ptr,
-              std::shared_ptr<CacheProxy> cache_proxy_ptr,
-              std::shared_ptr<SnapshotProxy> snapshot_proxy_ptr);
+    bool init(const string& vol_id, 
+              const string& device,
+              const string& rpc_addr,
+              shared_ptr<IDGenerator> id_maker_ptr,
+              shared_ptr<CacheProxy> cache_proxy_ptr,
+              shared_ptr<SnapshotProxy> snapshot_proxy_ptr);
     bool deinit();
-private:
-    void replay_volume();
-    void update_marker();
-    bool write_block_device(shared_ptr<WriteMessage> write);
-    bool process_cache(std::shared_ptr<JournalEntry> r_entry);
-    bool process_file(const std::string& file_name, off_t off);
-    bool update_consumer_marker();
-    /*handle snapshot and other control command*/
-    bool handle_ctrl_cmd(JournalEntry* entry);
 
-    int vol_fd_;
-    bool update_;
-    std::mutex entry_mutex_;
-    std::string vol_id_;
-    std::string device_;
+private:
+    /*replay thread work function*/
+    void replay_volume_loop();
+    /*update marker thread work function*/
+    void update_marker_loop();
+    
+    /*replay when slave is only replicate*/
+    void replica_replay();
+    /*replay when failover on slave*/
+    void normal_replay();
+
+    bool replay_each_journal(const string& journal, const off_t& pos);
+
+    bool handle_io_cmd(shared_ptr<JournalEntry> entry);
+    bool handle_ctrl_cmd(shared_ptr<JournalEntry> entry);
+
+    bool process_journal_entry(shared_ptr<JournalEntry> entry);
+    
+    /*entry from memory*/
+    bool process_memory(shared_ptr<JournalEntry> entry);
+    /*entry from journal file*/
+    bool process_file(shared_ptr<CEntry> entry);
+
+    void update_consumer_marker(const string& journal, const off_t& off);
+    
+    /*volume id and block device path*/
+    string vol_id_;
+    string device_;
+
+    /*block device write fd*/ 
+    int  vol_fd_;
+    
+    /*volume status shared with Volume class*/
+    VolumeStatus& vol_status_;
+
+    /*consumer marker*/
+    std::mutex    journal_marker_mutex_;
     JournalMarker journal_marker_;
-    std::shared_ptr<CEntry> latest_entry_;
+    bool update_;
+    
     std::shared_ptr<ReplayerClient> rpc_client_ptr_;
 
-    /*actually replay thread*/
+    /*replay thread*/
     std::unique_ptr<boost::thread> replay_thread_ptr_;
-    /*mark update thread*/
+    /*update mark thread*/
     std::unique_ptr<boost::thread> update_thread_ptr_;
 
     /*cache for replay*/

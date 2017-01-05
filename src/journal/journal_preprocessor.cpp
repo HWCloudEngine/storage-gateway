@@ -1,4 +1,4 @@
-#include "pre_processor.hpp"
+#include "journal_preprocessor.hpp"
 #include "../common/crc32.h"
 #include "../common/xxhash.h"
 #include "../common/utils.h"
@@ -6,7 +6,7 @@
 
 namespace Journal{
 
-PreProcessor::PreProcessor(BlockingQueue<shared_ptr<JournalEntry>>& entry_queue,
+JournalPreProcessor::JournalPreProcessor(BlockingQueue<shared_ptr<JournalEntry>>& entry_queue,
                            BlockingQueue<shared_ptr<JournalEntry>>& write_queue)
     :entry_queue_(entry_queue),
      write_queue_(write_queue),
@@ -14,11 +14,11 @@ PreProcessor::PreProcessor(BlockingQueue<shared_ptr<JournalEntry>>& entry_queue,
 {
 }
 
-PreProcessor::~PreProcessor()
+JournalPreProcessor::~JournalPreProcessor()
 {
 }
 
-void PreProcessor::work()
+void JournalPreProcessor::work()
 {
     BlockingQueue<shared_ptr<JournalEntry>>::position pos;
 
@@ -39,7 +39,7 @@ void PreProcessor::work()
     }
 }
 
-bool PreProcessor::init(std::shared_ptr<ConfigParser> conf)
+bool JournalPreProcessor::init(std::shared_ptr<ConfigParser> conf)
 {
     running_flag = true;
 
@@ -52,12 +52,12 @@ bool PreProcessor::init(std::shared_ptr<ConfigParser> conf)
     config.thread_num = 3;
     for (int i=0;i < config.thread_num;i++)
     {
-        worker_threads.create_thread(boost::bind(&PreProcessor::work,this));
+        worker_threads.create_thread(boost::bind(&JournalPreProcessor::work,this));
     }
     return true;
 }
 
-bool PreProcessor::deinit()
+bool JournalPreProcessor::deinit()
 {
     running_flag = false;
     worker_threads.join_all();

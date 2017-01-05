@@ -10,10 +10,10 @@ case $1 in
     'start')
         echo "do start"
         export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
-        cd ${storage_gateway_src_path}/dr_server
+        cd ${storage_gateway_src_path}/sg_server
         ulimit -c unlimited
-        ./dr_server &
-        cd ${storage_gateway_src_path}/journal
+        ./sg_server &
+        cd ${storage_gateway_src_path}/sg_client
         ulimit -c unlimited
         ./sg_client ${server_ip} ${server_port} ${unix_domain_path} &
         #cd ${tgt_src_path}/usr
@@ -28,7 +28,7 @@ case $1 in
         service tgt stop
         pgrep -f tgtd | xargs kill -9
         pgrep -f sg_client | xargs kill -9
-        pgrep -f dr_server | xargs kill -9
+        pgrep -f sg_server | xargs kill -9
         ;;
     *)
         echo "not support"

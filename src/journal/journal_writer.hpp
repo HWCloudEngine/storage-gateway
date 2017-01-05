@@ -37,6 +37,8 @@
 #include "../rpc/clients/writer_client.hpp"
 #include "../dr_server/ceph_s3_lease.h"
 
+using namespace std;
+
 namespace Journal{
 
 struct JournalWriterConf{
@@ -51,17 +53,17 @@ struct JournalWriterConf{
 class JournalWriter :private boost::noncopyable
 {
 public:
-    explicit JournalWriter(std::string rpc_addr,
-                           BlockingQueue<shared_ptr<JournalEntry>>& write_queue,
+    explicit JournalWriter(BlockingQueue<shared_ptr<JournalEntry>>& write_queue,
                            BlockingQueue<struct IOHookReply*>& reply_queue);
     virtual ~JournalWriter();
     void work();
-    bool init(std::string& vol, 
-              std::shared_ptr<ConfigParser> conf,
-              std::shared_ptr<IDGenerator> id_proxy, 
-              std::shared_ptr<CacheProxy> cacheproxy,
-              std::shared_ptr<SnapshotProxy> snapshotproxy,
-              std::shared_ptr<CephS3LeaseClient> lease_client);
+    bool init(string vol, 
+              string rpc_addr,
+              shared_ptr<ConfigParser> conf,
+              shared_ptr<IDGenerator> id_proxy, 
+              shared_ptr<CacheProxy> cacheproxy,
+              shared_ptr<SnapshotProxy> snapshotproxy,
+              shared_ptr<CephS3LeaseClient> lease_client);
     bool deinit();
     //The following two function must be called in another thread,can't call in write thread
     //The write thread and another thread are single consumer/single producer module,communicate with lockfree queue
@@ -94,7 +96,7 @@ private:
 
     /*journal file prefetch and seal thread*/
     std::mutex rpc_mtx_;
-    WriterClient rpc_client;
+    shared_ptr<WriterClient> rpc_client;
     boost::shared_ptr<boost::thread> thread_ptr;
     std::queue<std::pair<std::string, std::string>> journal_queue;
     std::queue<std::pair<std::string, std::string>> seal_queue;
