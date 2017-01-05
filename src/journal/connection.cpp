@@ -24,7 +24,7 @@ using huawei::proto::DiskPos;
 
 namespace Journal{
 
-Connection::Connection(raw_socket& socket_, 
+Connection::Connection(raw_socket_t& socket_, 
                        BlockingQueue<shared_ptr<JournalEntry>>& entry_queue,
                        BlockingQueue<struct IOHookRequest>& read_queue,
                        BlockingQueue<struct IOHookReply*>&  reply_queue)
@@ -41,12 +41,12 @@ Connection::~Connection()
 
 }
 
-bool Connection::init(nedalloc::nedpool * buffer)
+bool Connection::init(nedalloc::nedpool* buffer)
 {
     buffer_pool = buffer;
     running_flag = true;
     req_seq = 0;
-    reply_thread_.reset(new boost::thread(boost::bind(&Connection::send_thread, this)));
+    reply_thread_.reset(new thread(bind(&Connection::send_thread, this)));
     return true;
 }
 
@@ -60,7 +60,7 @@ bool Connection::deinit()
 void Connection::start()
 {
     #ifndef _USE_UNIX_DOMAIN
-    raw_socket_.set_option(boost::asio::ip::tcp::no_delay(true));
+    raw_socket_->set_option(boost::asio::ip::tcp::no_delay(true));
     #endif
 
     /*read message head*/
@@ -71,16 +71,17 @@ void Connection::stop()
 {
     boost::system::error_code ignored_ec;
     #ifndef _USE_UNIX_DOMAIN
-    raw_socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both,ignored_ec);
+    raw_socket_->shutdown(boost::asio::ip::tcp::socket::shutdown_both,ignored_ec);
     #else
-    raw_socket_.shutdown(boost::asio::local::stream_protocol::socket::shutdown_both,ignored_ec);
+    raw_socket_->shutdown(boost::asio::local::stream_protocol::socket::shutdown_both,
+                          ignored_ec);
     #endif
 }
 
 void Connection::read_request_header()
 {
     /*asio read IoHookRequest and store into header_buffer_*/
-    boost::asio::async_read(raw_socket_,
+    boost::asio::async_read(*raw_socket_,
       boost::asio::buffer(header_buffer_, sizeof(struct IOHookRequest)),
         boost::bind(&Connection::handle_request_header, this,
                      boost::asio::placeholders::error));
@@ -142,7 +143,7 @@ void Connection::parse_write_request(IOHookRequest* header_ptr)
         if (buffer_ptr!=NULL)
         {
             /*asio read write data*/
-            boost::asio::async_read(raw_socket_,
+            boost::asio::async_read(*raw_socket_,
                 boost::asio::buffer(buffer_ptr, buffer_size),
                     boost::bind(&Connection::handle_write_request_body, 
                                 this, 
@@ -234,7 +235,7 @@ void Connection::send_reply(IOHookReply* reply)
         LOG_ERROR << "Invalid reply ptr";
         return;
     }
-    boost::asio::async_write(raw_socket_,
+    boost::asio::async_write(*raw_socket_,
     boost::asio::buffer(reply, sizeof(struct IOHookReply)),
     boost::bind(&Connection::handle_send_reply, this,reply,
                  boost::asio::placeholders::error));
@@ -246,7 +247,7 @@ void Connection::handle_send_reply(IOHookReply* reply,const boost::system::error
     {
         if(reply->len > 0)
         {
-            boost::asio::async_write(raw_socket_,boost::asio::buffer(reply->data, reply->len),
+            boost::asio::async_write(*raw_socket_,boost::asio::buffer(reply->data, reply->len),
                     boost::bind(&Connection::handle_send_data, this,reply,
                     boost::asio::placeholders::error));
         }

@@ -1,0 +1,98 @@
+#ifndef VOLUME_HPP
+#define VOLUME_HPP
+#include <atomic>
+#include <boost/asio.hpp>
+#include "nedmalloc.h"
+#include "journal_entry.hpp"
+#include "seq_generator.hpp"
+#include "cache/cache_proxy.h"
+#include "connection.hpp"
+#include "journal_preprocessor.hpp"
+#include "journal_writer.hpp"
+#include "journal_reader.hpp"
+#include "journal_replayer.hpp"
+#include "../common/config_parser.h"
+#include "../common/blocking_queue.h"
+#include "../dr_server/ceph_s3_lease.h"
+#include "../snapshot/snapshot_proxy.h"
+
+#define BUFFER_POOL_SIZE 1024*1024*64
+#define REQUEST_BODY_SIZE 512
+
+using namespace std; 
+
+namespace Journal{
+
+/*todo: volume status should sync with dr server */
+class VolumeStatus
+{
+public:
+    atomic_bool is_master_{true};     /*true: master false: slave*/
+    atomic_bool is_failover_{false};   /*true: fail over occur*/
+    atomic_bool is_ro_{false};         /*true: read only*/
+    atomic_bool is_rw_{false};         /*true: read and wrtie*/
+};
+
+class Volume 
+{
+public:
+    explicit Volume(raw_socket_t client_sock, 
+                    const string& vol_name, const string& dev_path,
+                    shared_ptr<ConfigParser> conf, 
+                    shared_ptr<CephS3LeaseClient> lease_client);
+
+    virtual ~Volume();
+    
+    Volume(const Volume& other) = delete;
+    Volume& operator=(const Volume& other) = delete;
+
+    bool init();
+    void fini();
+
+    void start();
+    void stop();
+
+    JournalWriter& get_writer()const;
+    shared_ptr<SnapshotProxy>& get_snapshot_proxy()const;
+    
+private:
+    /*socket*/
+    mutable raw_socket_t raw_socket_;
+    /*memory pool for receive io hook data from raw socket*/
+    nedalloc::nedpool* buffer_pool_;
+
+    std::string vol_id_;
+    std::string vol_path_;
+
+    shared_ptr<ConfigParser> conf_;
+    shared_ptr<CephS3LeaseClient> lease_client_;
+
+    /*queue */
+    BlockingQueue<shared_ptr<JournalEntry>> entry_queue_;  /*connection and preprocessor*/
+    BlockingQueue<struct IOHookReply*>      reply_queue_;  /*connection*/
+    BlockingQueue<shared_ptr<JournalEntry>> write_queue_;  /*writer*/
+    BlockingQueue<struct IOHookRequest>     read_queue_;   /*reader*/
+    
+    /*cache */
+    shared_ptr<IDGenerator> idproxy_;
+    shared_ptr<CacheProxy>  cacheproxy_;
+
+    /*snapshot relevant*/
+    mutable shared_ptr<SnapshotProxy> snapshotproxy_;
+    
+    /*todo: how to decide vol status, query from dr_server*/
+    VolumeStatus vol_status_;
+
+    /*work thread*/ 
+    shared_ptr<Connection>           connection_;    /*network receive and send*/
+    shared_ptr<JournalPreProcessor>  pre_processor_; /*request merge and crc*/
+    mutable shared_ptr<JournalWriter> writer_;        /*append to journal */
+    shared_ptr<JournalReader>         reader_;        /*read io*/
+    shared_ptr<JournalReplayer>       replayer_;      /*replay journal*/
+};
+
+typedef shared_ptr<Volume> volume_ptr;
+
+}
+
+#endif  

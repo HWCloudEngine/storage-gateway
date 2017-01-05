@@ -8,39 +8,29 @@
 
 using namespace std;
 
-//todo: how to recycle io sequence
+/*todo: how to recycle io sequence*/
 
-//id sequence 
+/*id sequence*/
 class IoVersion
 {
 public:
     IoVersion() = default;
 
-    IoVersion(uint32_t fid, uint64_t ioid){
-        m_fileid = fid;
-        m_ioseq  = ioid;
-    }
-    IoVersion(const IoVersion& other){
-        m_fileid = other.m_fileid;
-        m_ioseq  = other.m_ioseq;
-    }
-    IoVersion& operator=(const IoVersion& other){
-        if(this != &other){
-            m_fileid = other.m_fileid;
-            m_ioseq  = other.m_ioseq;
-        }
-        return *this;
-    }
+    IoVersion(uint32_t fid, uint64_t ioid);
+    IoVersion(const IoVersion& other);
+    IoVersion& operator=(const IoVersion& other);
     ~IoVersion(){}
 
     friend bool operator<(const IoVersion& a, const IoVersion& b);
     friend ostream& operator<<(ostream& out, const IoVersion& b);
-
-    uint64_t  m_fileid;  //journal file
-    uint64_t  m_ioseq;   //entry sequence in journal file
+    
+    /*journal file unique id*/
+    uint64_t  m_fileid;
+    /*journal entry unique id in file*/
+    uint64_t  m_ioseq;
 };
 
-//each volume own a id generator 
+/*each volume own a id generator */
 class IDGenerator
 {
     /*each volume index*/

@@ -25,13 +25,12 @@ struct PrePreocessorConf{
     checksum_type_t checksum_type;
 };
 
-class PreProcessor
-    :private boost::noncopyable
+class JournalPreProcessor : private boost::noncopyable
 {
 public:
-    explicit PreProcessor(BlockingQueue<shared_ptr<JournalEntry>>& entry_queue,
+    explicit JournalPreProcessor(BlockingQueue<shared_ptr<JournalEntry>>& entry_queue,
                           BlockingQueue<shared_ptr<JournalEntry>>& write_queue);
-    virtual ~PreProcessor();
+    virtual ~JournalPreProcessor();
 
     void work();
     bool init(std::shared_ptr<ConfigParser> conf);

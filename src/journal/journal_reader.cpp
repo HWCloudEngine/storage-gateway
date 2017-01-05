@@ -1,4 +1,3 @@
-#include <boost/bind.hpp>
 #include "journal_reader.hpp"
 #include "../log/log.h"
 
