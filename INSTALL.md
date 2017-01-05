@@ -73,7 +73,7 @@ create and edit /etc/storage-gateway/config.ini
 `remote_ip=x.x.x.x`  
 `port=x.x.x.x`  
 7. start rpc server, which manage all journal files meta data  
-`cd storage-gateway/src/dr_server`  
+`cd storage-gateway/src/sg_server`  
 `cp storage-gateway/lib/libs3.so /lib/libs3.so.trunk0`  
 `./rpc_server &`  
 8. start journal server  

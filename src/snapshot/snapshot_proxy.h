@@ -11,7 +11,7 @@
 #include <grpc++/grpc++.h>
 #include "../common/blocking_queue.h"
 #include "../log/log.h"
-#include "../journal/journal_entry.hpp"
+#include "../sg_client/journal_entry.h"
 #include "../rpc/control.pb.h"
 #include "../rpc/control.grpc.pb.h"
 #include "../rpc/snapshot.pb.h"

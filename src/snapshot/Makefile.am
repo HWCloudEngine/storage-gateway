@@ -1,9 +1,9 @@
 noinst_LTLIBRARIES=libsnapshot.la
-libsnapshot_la_SOURCES= block_store.cpp     \
-                        index_store.cpp     \
-                        snapshot_proxy.cpp  \
-                        snapshot_mgr.cpp    \
-                        snapshot_mds.cpp 
+libsnapshot_la_SOURCES= block_store.cc     \
+                        index_store.cc     \
+                        snapshot_proxy.cc  \
+                        snapshot_mgr.cc    \
+                        snapshot_mds.cc 
 AM_CPPFLAGS=-std=c++11 -g
 #set boost lib path
 LDFLAGS="-L/usr/lib/x86_64-linux-gnu -L/usr/local/lib"
