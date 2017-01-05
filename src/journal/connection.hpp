@@ -2,15 +2,13 @@
 #define JOURNAL_CONNECTION_HPP
 
 #include <mutex>
+#include <thread>
+#include <memory>
 #include <condition_variable>
 #include <chrono>
 #include <iostream>
 #include <boost/asio.hpp>
-#include <boost/noncopyable.hpp>
-#include <boost/shared_ptr.hpp>
-#include <boost/enable_shared_from_this.hpp>
 #include <boost/array.hpp>
-#include <boost/thread/thread.hpp>
 #include "../common/blocking_queue.h"
 #include "message.hpp"
 #include "journal_entry.hpp"
@@ -18,23 +16,30 @@
 #include "seq_generator.hpp"
 #include "cache/cache_proxy.h"
 
+using namespace std;
+
 #ifndef _USE_UNIX_DOMAIN
-typedef boost::asio::ip::tcp::socket raw_socket;
+typedef boost::asio::ip::tcp::socket socket_t;
+typedef shared_ptr<socket_t> raw_socket_t;
 #else
-typedef boost::asio::local::stream_protocol::socket raw_socket;  
+typedef boost::asio::local::stream_protocol::socket socket_t ;
+typedef shared_ptr<socket_t> raw_socket_t;  
 #endif
 
 namespace Journal{
 
-class Connection : public boost::enable_shared_from_this<Connection>,
-                   private boost::noncopyable
+class Connection 
 {
 public:
-    explicit Connection(raw_socket& socket_,
+    explicit Connection(raw_socket_t& socket_,
                         BlockingQueue<shared_ptr<JournalEntry>>& entry_queue,
                         BlockingQueue<struct IOHookRequest>& read_queue,
                         BlockingQueue<struct IOHookReply*>&  reply_queue);
     virtual ~Connection();
+
+    Connection(const Connection& c) = delete;
+    Connection& operator=(const Connection& c) = delete;
+
     bool init(nedalloc::nedpool * buffer);
     bool deinit();
     void start();
@@ -54,7 +59,7 @@ private:
     void handle_send_data(IOHookReply* reply,const boost::system::error_code& err);
     
     /*socket*/
-    raw_socket& raw_socket_;
+    raw_socket_t& raw_socket_;
     
     /*write io input queue*/
     BlockingQueue<shared_ptr<JournalEntry>>& entry_queue_;
@@ -69,13 +74,12 @@ private:
     
     /*reply thread*/
     bool running_flag;
-    boost::shared_ptr<boost::thread> reply_thread_;
+    shared_ptr<thread> reply_thread_;
     
     /*internal request sequence, use for multi thread keep order*/
     uint64_t req_seq;
 };
 
-typedef boost::shared_ptr<Connection> connection_ptr;
 }
 
 #endif

@@ -12,6 +12,8 @@
 #include <errno.h>
 #include <boost/bind.hpp>
 #include "journal_replayer.hpp"
+#include "volume.hpp"
+
 #include "../log/log.h"
 #include "../rpc/message.pb.h"
 
@@ -20,29 +22,32 @@ using huawei::proto::WriteMessage;
 using huawei::proto::SnapshotMessage;
 using huawei::proto::DiskPos;
 
+using namespace std;
+
 namespace Journal
 {
 
-JournalReplayer::JournalReplayer(const std::string& rpc_addr)
+JournalReplayer::JournalReplayer(VolumeStatus& vol_status)
+                :vol_status_(vol_status)
 {
-
-    rpc_client_ptr_.reset(
-            new ReplayerClient(
-                    grpc::CreateChannel(rpc_addr,
-                            grpc::InsecureChannelCredentials())));
 }
 
 bool JournalReplayer::init(const std::string& vol_id, 
                            const std::string& device,
+                           const std::string& rpc_addr,
                            std::shared_ptr<IDGenerator> id_maker_ptr,
                            std::shared_ptr<CacheProxy> cache_proxy_ptr,
-                           std::shared_ptr<SnapshotProxy> snapshot_proxy_ptr){
+                           std::shared_ptr<SnapshotProxy> snapshot_proxy_ptr)
+{
     vol_id_ = vol_id;
     device_ = device;
 
     id_maker_ptr_       = id_maker_ptr;
     cache_proxy_ptr_    = cache_proxy_ptr;
     snapshot_proxy_ptr_ = snapshot_proxy_ptr;
+
+    rpc_client_ptr_.reset(new ReplayerClient(grpc::CreateChannel(rpc_addr,
+                            grpc::InsecureChannelCredentials())));
 
     cache_recover_ptr_.reset(new CacheRecovery(vol_id_, rpc_client_ptr_, 
                                 id_maker_ptr_, cache_proxy_ptr_));
@@ -52,101 +57,202 @@ bool JournalReplayer::init(const std::string& vol_id,
     cache_recover_ptr_.reset();
 
     update_ = false;
-    vol_fd_ = open(device_.c_str(), O_WRONLY | O_DIRECT | O_SYNC);
-    if (vol_fd_ < 0)
-    {
+    vol_fd_ = ::open(device_.c_str(), O_WRONLY | O_DIRECT | O_SYNC);
+    if (vol_fd_ < 0){
         LOG_ERROR << "open volume failed";
         return false;
     }
+
     //start replay volume
     replay_thread_ptr_.reset(
             new boost::thread(
-                    boost::bind(&JournalReplayer::replay_volume, this)));
+                    boost::bind(&JournalReplayer::replay_volume_loop, this)));
     //start update marker
     update_thread_ptr_.reset(
             new boost::thread(
-                    boost::bind(&JournalReplayer::update_marker, this)));
+                    boost::bind(&JournalReplayer::update_marker_loop, this)));
 
     return true;
 }
 
 bool JournalReplayer::deinit()
 {
+    /*todo: here force exit, not rational*/
     replay_thread_ptr_->interrupt();
     update_thread_ptr_->interrupt();
     replay_thread_ptr_->join();
     update_thread_ptr_->join();
-    close(vol_fd_);
+    if(-1 != vol_fd_){
+        ::close(vol_fd_);
+    }
     return true;
 }
 
-//update marker
-void JournalReplayer::update_marker()
+void JournalReplayer::update_marker_loop()
 {
     //todo: read config ini
     int_least64_t update_interval = 60;
-    while (true)
-    {
+    while (true){
         boost::this_thread::sleep_for(boost::chrono::seconds(update_interval));
-        if (latest_entry_.get() && update_)
-        {
-            std::unique_lock < std::mutex > ul(entry_mutex_);
-            std::string file_name = latest_entry_->get_journal_file();
-            off_t off = latest_entry_->get_journal_off();
-            journal_marker_.set_cur_journal(file_name.c_str());
-            journal_marker_.set_pos(off);
-            update_consumer_marker();
+        if (update_){
+            rpc_client_ptr_->UpdateConsumerMarker(journal_marker_, vol_id_);
             LOG_INFO << "update marker succeed";
             update_ = false;
         }
     }
 }
 
-//replay volume
-void JournalReplayer::replay_volume()
+bool JournalReplayer::replay_each_journal(const string& journal, const off_t& pos)
 {
-    //todo: read config ini
-    while (true)
-    {
-        std::shared_ptr<CEntry> entry = cache_proxy_ptr_->pop();
+    bool retval = true;
+    int  fd = -1;
+
+    do {
+        fd = ::open(journal.c_str(), O_RDONLY);
+        if(-1 == fd){
+            LOG_ERROR << "open " << journal.c_str() << "failed errno:" << errno;
+            retval = false;
+            break;
+        }
+        struct stat buf = {0};
+        int ret = fstat(fd, &buf);
+        if(-1 == ret){
+            LOG_ERROR << "stat " << journal.c_str() << "failed errno:" << errno;
+            retval = false; 
+            break;
+        }
+
+        size_t size = buf.st_size;
+        if(size == 0){
+            break; 
+        }
+
+        off_t start = pos;
+        off_t end   = size;
+        LOG_INFO << "open file:" << journal<< " start:" << start 
+                 << " size:" << size;
+
+        while(start < end){
+            string journal_file = journal;
+            off_t  journal_off  = start;
+            shared_ptr<JournalEntry> journal_entry = make_shared<JournalEntry>();
+            start = journal_entry->parse(fd, start); 
+
+            process_journal_entry(journal_entry);
+
+            update_consumer_marker(journal_file, journal_off);
+        }
+
+    } while(0);
+    
+    if(-1 != fd){
+        ::close(fd); 
+    }
+    return retval;
+}
+
+void JournalReplayer::replica_replay()
+{
+    while(true){
+        JournalMarker latest_marker;
+        bool ret = rpc_client_ptr_->GetJournalMarker(vol_id_, latest_marker); 
+        if(!ret){
+            LOG_ERROR << "get journal marker failed";
+            return;
+        }
+        
+        /*replay journal marker point journal*/
+        string journal = latest_marker.cur_journal();
+        off_t  pos = latest_marker.pos();
+        replay_each_journal(journal, pos);    
+
+        /*get other journal file list */
+        constexpr int limit = 10;
+        list<string> journal_list; 
+        ret = rpc_client_ptr_->GetJournalList(vol_id_, latest_marker, 
+                                              limit, journal_list);
+        if(!ret || journal_list.empty()){
+            LOG_ERROR << "get journal list failed";
+            /*1. fail over occur 
+             *2. no journal file any more
+             *exist replica replay
+             */
+            if(vol_status_.is_failover_){
+                return; 
+            }
+            usleep(200);
+            continue;
+        }
+        
+        /*replay journal file*/
+        for(auto it : journal_list){
+            journal = "/mnt/cephfs" + it;
+            pos     = sizeof(journal_file_header_t);
+            replay_each_journal(journal, pos);    
+        }
+
+        if(limit == journal_list.size()){
+            /*more journal file again, renew latest marker*/ 
+            auto rit = journal_list.rbegin();
+            latest_marker.set_cur_journal(*rit);
+            latest_marker.set_pos(0);
+        } else {
+            usleep(200);
+            continue;
+        }
+    }    
+}
+
+void JournalReplayer::normal_replay()
+{
+    while (true){
+        shared_ptr<CEntry> entry = cache_proxy_ptr_->pop();
         if(entry == nullptr){
             usleep(200);
             continue;
         }
 
-        if (entry->get_cache_type() == 0)
-        {
+        if (entry->get_cache_type() == CEntry::IN_MEM){
             //replay from memory
             LOG_INFO << "replay from memory";
             bool succeed = process_cache(entry->get_journal_entry());
-            if (succeed)
-            {
-                std::unique_lock < std::mutex > ul(entry_mutex_);
-                latest_entry_ = entry;
+            if (succeed){
+                update_consumer_marker(entry->get_journal_file(), 
+                                       entry->get_journal_off());
                 cache_proxy_ptr_->reclaim(entry);
-                update_ = true;
             }
-        } 
-        else
-        {
+        } else {
             //replay from journal file
             LOG_INFO << "replay from journal file";
-            const std::string file_name = entry->get_journal_file();
-            const off_t off = entry->get_journal_off();
-            bool succeed = process_file(file_name, off);
-            if (succeed)
-            {
-                std::unique_lock < std::mutex > ul(entry_mutex_);
-                latest_entry_ = entry;
+            bool succeed = process_file(entry);
+            if (succeed){
+                update_consumer_marker(entry->get_journal_file(), 
+                                       entry->get_journal_off());
                 cache_proxy_ptr_->reclaim(entry);
-                update_ = true;
             }
         }
     }
 }
 
-bool JournalReplayer::write_block_device(shared_ptr<WriteMessage> write)
+void JournalReplayer::replay_volume_loop()
 {
+    while (true){
+        if(!vol_status_.is_master_ && !vol_status_.is_failover_){
+            /*slave and no failover occur*/ 
+            replica_replay();
+        } else {
+            /*1. master 
+             *2. slave and failover occur*/
+            normal_replay();
+        }
+    }
+}
+
+bool JournalReplayer::handle_io_cmd(shared_ptr<JournalEntry> entry)
+{
+    shared_ptr<Message> message = entry->get_message();
+    shared_ptr<WriteMessage> write = dynamic_pointer_cast<WriteMessage>(message);
+
     int pos_num = write->pos_size();
     char* data = (char*)write->data().c_str();
 
@@ -175,7 +281,7 @@ bool JournalReplayer::write_block_device(shared_ptr<WriteMessage> write)
     return true;
 }
 
-bool JournalReplayer::handle_ctrl_cmd(JournalEntry* entry)
+bool JournalReplayer::handle_ctrl_cmd(shared_ptr<JournalEntry> entry)
 {
     /*handle snapshot*/
     int type = entry->get_type();
@@ -210,25 +316,28 @@ bool JournalReplayer::handle_ctrl_cmd(JournalEntry* entry)
     return false;
 }
 
-bool JournalReplayer::process_cache(std::shared_ptr<JournalEntry> entry)
+bool JournalReplayer::process_journal_entry(shared_ptr<JournalEntry> entry)
 {
     journal_event_type_t type = entry->get_type();
     if(IO_WRITE == type){
-        shared_ptr<Message> message = entry->get_message();
-        shared_ptr<WriteMessage> write_message = dynamic_pointer_cast
-                                                    <WriteMessage>(message);
-        write_block_device(write_message);
+        handle_io_cmd(entry);
     } else {
-        /*other message type*/ 
-        handle_ctrl_cmd(entry.get());
+        handle_ctrl_cmd(entry);
     }
 
     return true;
 }
 
-//todo: unify this function, get ReplayEntry from journal file
-bool JournalReplayer::process_file(const std::string& file_name, off_t off)
+bool JournalReplayer::process_cache(std::shared_ptr<JournalEntry> entry)
 {
+   return process_journal_entry(entry);
+}
+
+bool JournalReplayer::process_file(shared_ptr<CEntry> entry)
+{
+    string file_name = entry->get_journal_file();
+    off_t  off = entry->get_journal_off();
+
     /*todo avoid open frequently*/
     int src_fd = ::open(file_name.c_str(), O_RDONLY);
     if (src_fd == -1){
@@ -236,37 +345,23 @@ bool JournalReplayer::process_file(const std::string& file_name, off_t off)
         return false;
     }
     
-    /*get journal entry from file*/
-    JournalEntry entry;
-    entry.parse(src_fd, off);
-    journal_event_type_t type = entry.get_type();
-
-    if(IO_WRITE == type){
-        shared_ptr<Message> message = entry.get_message();
-        shared_ptr<WriteMessage> write_message = dynamic_pointer_cast
-                                                    <WriteMessage>(message);
-        write_block_device(write_message);
-    } else {
-        /*other message type*/ 
-        handle_ctrl_cmd(&entry);
-    }
-    
+    shared_ptr<JournalEntry> jentry = make_shared<JournalEntry>();
+    jentry->parse(src_fd, off);
+       
     if(src_fd != -1){
         ::close(src_fd); 
     }
-
-    return true;
+    
+    return process_journal_entry(jentry);
 }
 
-bool JournalReplayer::update_consumer_marker()
+void JournalReplayer::update_consumer_marker(const string& journal,
+                                             const off_t&  off)
 {
-    if (rpc_client_ptr_->UpdateConsumerMarker(journal_marker_, vol_id_))
-    {
-        return true;
-    } else
-    {
-        return false;
-    }
+    std::unique_lock<std::mutex> ul(journal_marker_mutex_);
+    journal_marker_.set_cur_journal(journal.c_str());
+    journal_marker_.set_pos(off);
+    update_ = true;
 }
 
 }

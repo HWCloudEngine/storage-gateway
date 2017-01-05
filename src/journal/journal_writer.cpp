@@ -5,16 +5,14 @@
 
 namespace Journal{
 
-JournalWriter::JournalWriter(std::string rpc_addr,
-                        BlockingQueue<shared_ptr<JournalEntry>>& write_queue,
-                        BlockingQueue<struct IOHookReply*>& reply_queue)
-    :rpc_client(grpc::CreateChannel(rpc_addr, grpc::InsecureChannelCredentials())),
-    thread_ptr(),
-    write_queue_(write_queue),
-    reply_queue_(reply_queue),
-    cur_file_ptr(NULL),
-    cur_journal_size(0),
-    cur_lease_journal("", "")
+JournalWriter::JournalWriter(BlockingQueue<shared_ptr<JournalEntry>>& write_queue,
+                             BlockingQueue<struct IOHookReply*>& reply_queue)
+    :thread_ptr(),
+     write_queue_(write_queue),
+     reply_queue_(reply_queue),
+     cur_file_ptr(NULL),
+     cur_journal_size(0),
+     cur_lease_journal("", "")
 {
 }
 
@@ -35,12 +33,13 @@ JournalWriter::~JournalWriter()
 }
 
 
-bool JournalWriter::init(std::string& vol,
-                         std::shared_ptr<ConfigParser> conf,
-                         std::shared_ptr<IDGenerator> idproxy,
-                         std::shared_ptr<CacheProxy> cacheproxy,
-                         std::shared_ptr<SnapshotProxy> snapshotproxy,
-                         std::shared_ptr<CephS3LeaseClient> lease_client)
+bool JournalWriter::init(string vol,
+                         string rpc_addr,
+                         shared_ptr<ConfigParser> conf,
+                         shared_ptr<IDGenerator> idproxy,
+                         shared_ptr<CacheProxy> cacheproxy,
+                         shared_ptr<SnapshotProxy> snapshotproxy,
+                         shared_ptr<CephS3LeaseClient> lease_client)
  
 {
     vol_id = vol;
@@ -50,6 +49,9 @@ bool JournalWriter::init(std::string& vol,
     running_flag = true;
     lease_client_ = lease_client;
     cur_journal_size = 0;
+
+    rpc_client.reset(new WriterClient(grpc::CreateChannel(rpc_addr, 
+                        grpc::InsecureChannelCredentials())));
 
     std::string mnt = "/mnt/cephfs";
     config.journal_max_size = conf->get_default<int>("journal_writer.journal_max_size",32 * 1024 * 1024);
@@ -283,7 +285,7 @@ bool JournalWriter::get_writeable_journals(const std::string& uuid,const int32_t
     {
         tmp = limit - journal_queue.size();
     }
-    if(!rpc_client.GetWriteableJournals(uuid,vol_id,tmp,journals))
+    if(!rpc_client->GetWriteableJournals(uuid,vol_id,tmp,journals))
     {
         LOG_ERROR << "get journal file failed";
         return false;
@@ -319,7 +321,7 @@ bool JournalWriter::seal_journals(const std::string& uuid)
 
     if (!journals.empty())
     {
-        if(!rpc_client.SealJournals(uuid, vol_id, journals))
+        if(!rpc_client->SealJournals(uuid, vol_id, journals))
         {
             LOG_ERROR << "SealJournals failed";
             for (auto k: backup)

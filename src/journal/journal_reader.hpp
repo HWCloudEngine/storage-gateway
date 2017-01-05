@@ -3,14 +3,7 @@
 
 #include <memory>
 #include <thread>
-
-#include <boost/noncopyable.hpp>
-#include <boost/system/error_code.hpp>
-#include <boost/asio.hpp>
-#include <boost/lockfree/queue.hpp>
-
 #include "../common/blocking_queue.h"
-
 #include "message.hpp"
 #include "cache/cache_proxy.h"
 
@@ -18,12 +11,15 @@ using namespace std;
 
 namespace Journal{
 
-class JournalReader : private boost::noncopyable
+class JournalReader
 {
 public:
     explicit JournalReader(BlockingQueue<struct IOHookRequest>& read_queue, 
                            BlockingQueue<struct IOHookReply*>&  reply_queue); 
     virtual ~JournalReader();
+    
+    JournalReader(const JournalReader& r) = delete;
+    JournalReader& operator=(const JournalReader& r) = delete;
 
     bool init(shared_ptr<CacheProxy> cacheproxy);
     bool deinit();

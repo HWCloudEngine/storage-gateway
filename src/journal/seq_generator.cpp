@@ -1,4 +1,26 @@
+#include "../log/log.h"
 #include "seq_generator.hpp"
+
+IoVersion::IoVersion(uint32_t fid, uint64_t ioid)
+{
+    m_fileid = fid;
+    m_ioseq  = ioid;
+}
+
+IoVersion::IoVersion(const IoVersion& other)
+{
+    m_fileid = other.m_fileid;
+    m_ioseq  = other.m_ioseq;
+}
+
+IoVersion& IoVersion::operator=(const IoVersion& other)
+{
+    if(this != &other){
+        m_fileid = other.m_fileid;
+        m_ioseq  = other.m_ioseq;
+    }
+    return *this;
+}
 
 bool operator<(const IoVersion& a, const IoVersion& b)
 {
@@ -24,7 +46,7 @@ void IDGenerator::add_file(string jfile)
 {
     auto it = m_journal_files.find(jfile);
     if(it != m_journal_files.end()){
-        cout << "IDGenerator add " << jfile << "failed existed" << endl;
+        LOG_ERROR << "IDGenerator add " << jfile << "failed existed";
         return;
     }
     uint64_t fid = (s_volume_idx << 30) | (m_journal_files_num);
@@ -44,7 +66,7 @@ IoVersion IDGenerator::get_version(string file)
 {
     auto it = m_journal_files.find(file);
     if(it == m_journal_files.end()){
-        cout << "IIDGenerator get_id failed" << endl;
+        LOG_ERROR<< "IIDGenerator get_id failed";
         return IoVersion(-1,-1);
     }
 
