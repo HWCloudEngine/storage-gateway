@@ -2,7 +2,7 @@
 #include <string>
 #include <iostream>
 //#include <boost/test/unit_test.hpp> // boost.test header
-#include "../rpc/clients/control_client.h"
+#include "../rpc/clients/snapshot_ctrl_client.h"
 
 using namespace std;
 
@@ -14,7 +14,7 @@ int main(int argc, char** argv)
     int ret     = 0;
     char* op    = argv[1];
 
-    ControlClient* snap_client = new ControlClient(grpc::CreateChannel(
+    SnapCtrlClient* snap_client = new SnapCtrlClient(grpc::CreateChannel(
                 "127.0.0.1:1111", 
                 grpc::InsecureChannelCredentials()));
 
@@ -57,6 +57,12 @@ int main(int argc, char** argv)
              << " off:" << off
              << " len:" << len
              << " ret:" << ret << endl;
+    } else if(strcmp(op, "query") == 0){
+        int snap_id = atoi(argv[2]);
+        string snap_name = "test_volume_snap_" + to_string(snap_id);
+        SnapStatus snap_status;
+        ret = snap_client->QuerySnapshot(vol_name, snap_name, snap_status);
+        cout << "query snapshot: "  << snap_name << " status:" << snap_status << endl;
     }
 
     //snap_name = "test_volume_snap_1";

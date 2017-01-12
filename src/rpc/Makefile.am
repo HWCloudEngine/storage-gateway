@@ -5,8 +5,8 @@ librpc_la_SOURCES=common.pb.cc \
                   writer.grpc.pb.cc  writer.pb.cc \
                   replicator.pb.cc replicator.grpc.pb.cc \
                   message.pb.cc  \
-                  control.grpc.pb.cc control.pb.cc    \
-                  snapshot.grpc.pb.cc snapshot.pb.cc  \
+                  snapshot_control.grpc.pb.cc snapshot_control.pb.cc    \
+                  snapshot_inner_control.grpc.pb.cc snapshot_inner_control.pb.cc  \
                   replicate_control.pb.cc replicate_control.grpc.pb.cc \
                   replicate_inner_control.pb.cc replicate_inner_control.grpc.pb.cc
 AM_CPPFLAGS=-std=c++11

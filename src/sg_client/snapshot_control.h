@@ -1,5 +1,5 @@
-#ifndef CONTROL_SERVICE_H_
-#define CONTROL_SERVICE_H_
+#ifndef SNAPSHOT_CONTROL_H_
+#define SNAPSHOT_CONTROL_H_
 
 #include <map>
 #include <memory>
@@ -7,44 +7,44 @@
 #include <thread>
 #include <functional>
 #include <grpc++/grpc++.h>
-#include "../rpc/control.pb.h"
-#include "../rpc/control.grpc.pb.h"
+#include "../rpc/common.pb.h"
+#include "../rpc/snapshot_control.pb.h"
+#include "../rpc/snapshot_control.grpc.pb.h"
 #include "../log/log.h"
 #include "../snapshot/snapshot_proxy.h"
-#include "volume_manager.h"
+#include "volume.h"
 
 using grpc::Server;
 using grpc::ServerBuilder;
 using grpc::ServerContext;
 using grpc::Status;
 
-using huawei::proto::CtrlRpcSvc;
-
-using huawei::proto::CreateSnapshotReq;
-using huawei::proto::CreateSnapshotAck;
-using huawei::proto::ListSnapshotReq;
-using huawei::proto::ListSnapshotAck;
-using huawei::proto::RollbackSnapshotReq;
-using huawei::proto::RollbackSnapshotAck;
-using huawei::proto::DeleteSnapshotReq;
-using huawei::proto::DeleteSnapshotAck;
-using huawei::proto::DiffSnapshotReq;
-using huawei::proto::DiffSnapshotAck;
-using huawei::proto::ReadSnapshotReq;
-using huawei::proto::ReadSnapshotAck;
+using huawei::proto::control::SnapshotControl;
+using huawei::proto::control::CreateSnapshotReq;
+using huawei::proto::control::CreateSnapshotAck;
+using huawei::proto::control::ListSnapshotReq;
+using huawei::proto::control::ListSnapshotAck;
+using huawei::proto::control::RollbackSnapshotReq;
+using huawei::proto::control::RollbackSnapshotAck;
+using huawei::proto::control::DeleteSnapshotReq;
+using huawei::proto::control::DeleteSnapshotAck;
+using huawei::proto::control::DiffSnapshotReq;
+using huawei::proto::control::DiffSnapshotAck;
+using huawei::proto::control::ReadSnapshotReq;
+using huawei::proto::control::ReadSnapshotAck;
 
 using namespace std;
 using namespace Journal;
 
 /*snapshot and other service service as northern interface for all volume*/
-class ControlService final: public CtrlRpcSvc::Service { 
+class SnapshotControlImpl final: public SnapshotControl::Service { 
 
 public:
-    ControlService(map<string, shared_ptr<Volume>>& volumes)
+    SnapshotControlImpl(map<string, shared_ptr<Volume>>& volumes)
         :m_volumes(volumes){
     }
 
-    virtual ~ControlService(){
+    virtual ~SnapshotControlImpl(){
     }
 
     Status CreateSnapshot(ServerContext* context, 
@@ -54,6 +54,10 @@ public:
     Status ListSnapshot(ServerContext* context, 
                         const ListSnapshotReq* req, 
                         ListSnapshotAck* ack) override;
+    
+    Status QuerySnapshot(ServerContext* contex,
+                         const QuerySnapshotReq* req,
+                         QuerySnapshotAck* ack) override;
 
     Status DeleteSnapshot(ServerContext* context, 
                           const DeleteSnapshotReq* req, 

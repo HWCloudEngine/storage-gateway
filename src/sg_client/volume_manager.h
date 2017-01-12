@@ -10,8 +10,7 @@
 
 using namespace std; 
 
-/*forward declaration SnapshotSvc*/                                              
-class ControlService;  
+class SnapshotControlImpl;
 
 namespace Journal{
 
@@ -67,8 +66,8 @@ private:
  
     shared_ptr<ConfigParser> conf;
     
-    /*ctrl rpc service*/
-    ControlService* ctrl_service{nullptr};
+    /*snapshot ctrl rpc service*/
+    SnapshotControlImpl* ctrl_service{nullptr};
     /*rpc server receive ctrl command from sg controller */
     RpcServer* ctrl_rpc_server{nullptr};
 };

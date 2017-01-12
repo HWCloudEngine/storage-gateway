@@ -144,3 +144,29 @@ IndexStore::SimpleIteratorPtr RocksDbIndexStore::db_iterator()
     return make_shared<IteratorImpl>(m_db->NewIterator(rocksdb::ReadOptions()));
 }
 
+void RocksDbIndexStore::RocksTransactionImpl::put(const string& key, 
+                                                  const string& val)  
+{
+   batch_.Put(rocksdb::Slice(key), rocksdb::Slice(val)); 
+}
+
+void RocksDbIndexStore::RocksTransactionImpl::del(const string& key) 
+{
+    batch_.Delete(key);
+}
+
+IndexStore::Transaction RocksDbIndexStore::fetch_transaction()
+{
+    return make_shared<RocksTransactionImpl>();
+}
+
+int RocksDbIndexStore::submit_transaction(Transaction t)
+{
+    RocksTransactionImpl* trc = reinterpret_cast<RocksTransactionImpl*>(t.get());
+    rocksdb::WriteOptions wop;
+    rocksdb::Status s = m_db->Write(wop, &(trc->batch_));
+    return s.ok()? 0 : -1;
+}
+
+
+

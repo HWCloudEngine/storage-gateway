@@ -23,7 +23,8 @@ public:
     virtual int    db_put(string key, string value) = 0;
     virtual string db_get(string key) = 0;
     virtual int    db_del(string key) = 0;
-    
+   
+    /*iterator*/
     class SimpleIterator 
     {
     public:
@@ -40,8 +41,19 @@ public:
         virtual string value() = 0;
     };
     typedef shared_ptr<SimpleIterator> SimpleIteratorPtr;    
-
     virtual SimpleIteratorPtr db_iterator()= 0;
+
+    /*transaction*/
+    class TransactionImpl
+    {
+    public:
+        virtual void put(const string& key, const string& val) = 0;
+        virtual void del(const string& key) = 0;
+    };
+    typedef shared_ptr<TransactionImpl> Transaction;
+
+    virtual  Transaction fetch_transaction() = 0;
+    virtual  int submit_transaction(Transaction t) = 0;
 };
 
 class RocksDbIndexStore : public IndexStore
@@ -86,10 +98,21 @@ public:
      
     virtual SimpleIteratorPtr db_iterator() override;
 
+    class RocksTransactionImpl : public IndexStore::TransactionImpl
+    {
+    public:
+        virtual void put(const string& key, const string& val) override;
+        virtual void del(const string& key) override;
+        rocksdb::WriteBatch batch_;
+    };
+
+    virtual  Transaction fetch_transaction() override;
+    virtual  int submit_transaction(Transaction t) override;
+
 private:
     string  m_db_path;
     rocksdb::Options m_db_option;
-    rocksdb::DB*     m_db;
+    rocksdb::DB* m_db;
 };
 
 #endif
