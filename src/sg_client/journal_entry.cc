@@ -5,6 +5,7 @@
 #include "journal_entry.h"
 #include "../rpc/message.pb.h"
 using huawei::proto::WriteMessage;
+using huawei::proto::SnapshotMessage;
 
 JournalEntry::JournalEntry()
 {
@@ -212,11 +213,21 @@ size_t JournalEntry::parse(int fd, off_t off)
     start += read_ret;
 
     /*message parse*/
-    if(type == IO_WRITE){
+    switch(type)
+    {
+    case IO_WRITE:
         message = make_shared<WriteMessage>(); 
-    } else {
-        ; 
+        break;
+    case SNAPSHOT_CREATE:
+    case SNAPSHOT_DELETE:
+    case SNAPSHOT_ROLLBACK:
+        message = make_shared<SnapshotMessage>(); 
+        break;
+    default:
+        assert(0);
+        break;
     }
+
     message->ParseFromArray(data, length);
 
     /*check crc */
@@ -263,11 +274,21 @@ size_t JournalEntry::parse(FILE* file, off_t off)
     start += sizeof(crc);
 
     /*message parse*/
-    if(type == IO_WRITE){
+    switch(type)
+    {
+    case IO_WRITE:
         message = make_shared<WriteMessage>(); 
-    } else {
-        ; 
+        break;
+    case SNAPSHOT_CREATE:
+    case SNAPSHOT_DELETE:
+    case SNAPSHOT_ROLLBACK:
+        message = make_shared<SnapshotMessage>(); 
+        break;
+    default:
+        assert(0);
+        break;
     }
+
     message->ParseFromArray(data, length);
 
     /*check crc */

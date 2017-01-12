@@ -119,10 +119,10 @@ int main(int argc, char** argv) {
     RpcServer metaServer(ip1,port1,grpc::InsecureServerCredentials());
     WriterServiceImpl writerSer(meta);
     ConsumerServiceImpl consumerSer(meta);
-    SnapshotMgr snapshot_mgr;
+    SnapshotMgr snapMgr;
     metaServer.register_service(&writerSer);
     metaServer.register_service(&consumerSer);
-    metaServer.register_service(&snapshot_mgr);
+    metaServer.register_service(&snapMgr);
     LOG_INFO << "meta server listening on " << ip1 << ":" << port1;
     if(!metaServer.run()){
         LOG_FATAL << "start meta server failed!";

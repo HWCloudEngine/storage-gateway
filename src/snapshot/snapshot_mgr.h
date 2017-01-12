@@ -4,9 +4,9 @@
 #include <string>
 #include <map>
 #include <memory>
-
 #include <grpc++/grpc++.h>
-#include "../rpc/snapshot.grpc.pb.h"
+#include "../rpc/common.pb.h"
+#include "../rpc/snapshot_inner_control.grpc.pb.h"
 #include "snapshot_mds.h"
 
 using grpc::Server;
@@ -14,32 +14,34 @@ using grpc::ServerBuilder;
 using grpc::ServerContext;
 using grpc::Status;
 
-using huawei::proto::SnapshotRpcSvc;
+using huawei::proto::inner::SnapshotInnerControl;
+using huawei::proto::inner::CreateReq;
+using huawei::proto::inner::CreateAck;
+using huawei::proto::inner::ListReq;
+using huawei::proto::inner::ListAck;
+using huawei::proto::inner::QueryReq;
+using huawei::proto::inner::QueryAck;
+using huawei::proto::inner::DeleteReq;
+using huawei::proto::inner::DeleteAck;
+using huawei::proto::inner::RollbackReq;
+using huawei::proto::inner::RollbackAck;
+using huawei::proto::inner::UpdateReq;
+using huawei::proto::inner::UpdateAck;
+using huawei::proto::inner::CowReq;
+using huawei::proto::inner::CowAck;
+using huawei::proto::inner::CowUpdateReq;
+using huawei::proto::inner::CowUpdateAck;
+using huawei::proto::inner::DiffReq;
+using huawei::proto::inner::DiffAck;
+using huawei::proto::inner::ReadReq;
+using huawei::proto::inner::ReadAck;
+using huawei::proto::inner::SyncReq;
+using huawei::proto::inner::SyncAck;
 
-using huawei::proto::CreateReq;
-using huawei::proto::CreateAck;
-using huawei::proto::ListReq;
-using huawei::proto::ListAck;
-using huawei::proto::DeleteReq;
-using huawei::proto::DeleteAck;
-using huawei::proto::RollbackReq;
-using huawei::proto::RollbackAck;
-using huawei::proto::UpdateReq;
-using huawei::proto::UpdateAck;
-using huawei::proto::CowReq;
-using huawei::proto::CowAck;
-using huawei::proto::CowUpdateReq;
-using huawei::proto::CowUpdateAck;
-using huawei::proto::DiffReq;
-using huawei::proto::DiffAck;
-using huawei::proto::ReadReq;
-using huawei::proto::ReadAck;
-using huawei::proto::SyncReq;
-using huawei::proto::SyncAck;
 using namespace std;
 
 /*work on storage gateway server, all snapshot api gateway */
-class SnapshotMgr final: public SnapshotRpcSvc::Service {
+class SnapshotMgr final: public SnapshotInnerControl::Service {
 
 public:
     SnapshotMgr(){
@@ -65,6 +67,10 @@ public:
     grpc::Status List(ServerContext* context, 
                       const ListReq* req, 
                       ListAck* ack) override;
+
+    grpc::Status Query(ServerContext* context, 
+                       const QueryReq* req, 
+                       QueryAck* ack) override;
 
     grpc::Status Delete(ServerContext* context, 
                         const DeleteReq* req, 

@@ -3,34 +3,41 @@
 #include <string>
 #include <mutex>
 #include <grpc++/grpc++.h>
-#include "../rpc/snapshot.pb.h"
-#include "../rpc/snapshot.grpc.pb.h"
+#include "../rpc/common.pb.h"
+#include "../rpc/snapshot_inner_control.pb.h"
+#include "../rpc/snapshot_inner_control.grpc.pb.h"
 #include "../log/log.h"
 
 #include "snapshot_type.h"
 #include "block_store.h"
 #include "index_store.h"
 
-using huawei::proto::CreateReq;
-using huawei::proto::CreateAck;
-using huawei::proto::ListReq;
-using huawei::proto::ListAck;
-using huawei::proto::DeleteReq;
-using huawei::proto::DeleteAck;
-using huawei::proto::RollbackReq;
-using huawei::proto::RollbackAck;
-using huawei::proto::UpdateReq;
-using huawei::proto::UpdateAck;
-using huawei::proto::CowReq;
-using huawei::proto::CowAck;
-using huawei::proto::CowUpdateReq;
-using huawei::proto::CowUpdateAck;
-using huawei::proto::DiffReq;
-using huawei::proto::DiffAck;
-using huawei::proto::ReadReq;
-using huawei::proto::ReadAck;
-using huawei::proto::SyncReq;
-using huawei::proto::SyncAck;
+using huawei::proto::StatusCode;
+using huawei::proto::SnapStatus;
+using huawei::proto::SnapReqHead;
+
+using huawei::proto::inner::CreateReq;
+using huawei::proto::inner::CreateAck;
+using huawei::proto::inner::ListReq;
+using huawei::proto::inner::ListAck;
+using huawei::proto::inner::QueryReq;
+using huawei::proto::inner::QueryAck;
+using huawei::proto::inner::DeleteReq;
+using huawei::proto::inner::DeleteAck;
+using huawei::proto::inner::RollbackReq;
+using huawei::proto::inner::RollbackAck;
+using huawei::proto::inner::UpdateReq;
+using huawei::proto::inner::UpdateAck;
+using huawei::proto::inner::CowReq;
+using huawei::proto::inner::CowAck;
+using huawei::proto::inner::CowUpdateReq;
+using huawei::proto::inner::CowUpdateAck;
+using huawei::proto::inner::DiffReq;
+using huawei::proto::inner::DiffAck;
+using huawei::proto::inner::ReadReq;
+using huawei::proto::inner::ReadAck;
+using huawei::proto::inner::SyncReq;
+using huawei::proto::inner::SyncAck;
 
 /*helper function to handle db persist key*/
 class DbUtil
@@ -40,10 +47,10 @@ public:
     static void   split_key(const string& raw, string& prefix, string& key); 
     static string spawn_latest_id_key();
     static string spawn_latest_name_key();
-    static string spawn_ids_map_key(const string& snap_name);
-    static void   split_ids_map_key(const string& raw_key, string& snap_name);
-    static string spawn_status_map_key(const string& snap_name);
-    static void   split_status_map_key(const string& raw_key, string& snap_name);
+    static string spawn_attr_map_key(const string& snap_name);
+    static void   split_attr_map_key(const string& raw_key, string& snap_name);
+    static string spawn_attr_map_val(const snap_attr_t& snap_attr);
+    static void   split_attr_map_val(const string& raw_key, snap_attr_t& snap_attr);
     static string spawn_cow_block_map_key(const snapid_t& snap_id,
                                           const block_t& block_id);
     static void   split_cow_block_map_key(const string& raw_key, 
@@ -64,22 +71,23 @@ public:
     ~SnapshotMds();   
 
     /*storage client sync snapshot status*/ 
-    int sync(const SyncReq* req, SyncAck* ack);
+    StatusCode sync(const SyncReq* req, SyncAck* ack);
 
     /*snapshot common operation*/
-    int create_snapshot(const CreateReq* req, CreateAck* ack);
-    int delete_snapshot(const DeleteReq* req, DeleteAck* ack);
-    int rollback_snapshot(const RollbackReq* req, RollbackAck* ack);
-    int list_snapshot(const ListReq* req, ListAck* ack);
-    int diff_snapshot(const DiffReq* req, DiffAck* ack);    
-    int read_snapshot(const ReadReq* req, ReadAck* ack);
+    StatusCode create_snapshot(const CreateReq* req, CreateAck* ack);
+    StatusCode delete_snapshot(const DeleteReq* req, DeleteAck* ack);
+    StatusCode rollback_snapshot(const RollbackReq* req, RollbackAck* ack);
+    StatusCode list_snapshot(const ListReq* req, ListAck* ack);
+    StatusCode query_snapshot(const QueryReq* req, QueryAck* ack);
+    StatusCode diff_snapshot(const DiffReq* req, DiffAck* ack);    
+    StatusCode read_snapshot(const ReadReq* req, ReadAck* ack);
     
     /*snapshot status*/
-    int update(const UpdateReq* req, UpdateAck* ack);
+    StatusCode update(const UpdateReq* req, UpdateAck* ack);
     
     /*cow*/
-    int cow_op(const CowReq* req, CowAck* ack);
-    int cow_update(const CowUpdateReq* req, CowUpdateAck* ack);
+    StatusCode cow_op(const CowReq* req, CowAck* ack);
+    StatusCode cow_update(const CowUpdateReq* req, CowUpdateAck* ack);
     
     /*crash recover*/
     int recover();
@@ -90,9 +98,12 @@ private:
     snapid_t get_snapshot_id(string snap_name);
     string   get_snapshot_name(snapid_t snap_id);
     
+    /*accord local and remote to mapping snapshot pair*/
+    string mapping_snap_name(const SnapReqHead& shead, const string& sname);
+   
     /*maintain snapshot status*/
-    int created_update_status(string snap_name);
-    int deleted_update_status(string snap_name);
+    StatusCode created_update_status(string snap_name);
+    StatusCode deleted_update_status(string snap_name);
 
     /*helper to generate cow object name*/
     string spawn_cow_object_name(const snapid_t snap_id, const block_t blk_id);
@@ -109,10 +120,9 @@ private:
     /*the latest snapshot id*/
     snapid_t m_latest_snapid;
     string   m_latest_snapname;
-    /*snapshot and status map*/
-    map<string, snapshot_status_t> m_snapshots_status;
-    /*snapshot name and snapshot id map*/
-    map<string, snapid_t> m_snapshots_ids;
+
+    /*snapshot and attr map*/
+    map<string, snap_attr_t> m_snapshots;
    /*snapshot id and snapshot cow block map*/
     map<snapid_t, map<block_t, cow_object_t>> m_cow_block_map;
     /*cow object and snapshot referece map*/
