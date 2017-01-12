@@ -19,7 +19,7 @@ struct journal_file_header
 };
 typedef struct journal_file_header journal_file_header_t;
 
-/*journal evnet type*/
+/*journal event type*/
 enum journal_event_type
 {
     /*comon write io*/

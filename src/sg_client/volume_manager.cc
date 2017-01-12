@@ -2,7 +2,7 @@
 #include <boost/bind.hpp>
 #include <algorithm>
 #include "../log/log.h"
-#include "control_service.h"
+#include "snapshot_control.h"
 
 namespace Journal{
 
@@ -44,7 +44,7 @@ bool VolumeManager::init()
                                      grpc::InsecureServerCredentials());
     assert(ctrl_rpc_server!= nullptr);
 
-    ctrl_service = new ControlService(volumes); 
+    ctrl_service = new SnapshotControlImpl(volumes); 
     assert(ctrl_service!= nullptr);
 
     ctrl_rpc_server->register_service(ctrl_service);

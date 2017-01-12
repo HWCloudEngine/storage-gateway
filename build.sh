@@ -20,10 +20,10 @@ $PROTOC -I ${PROTO_PATH} \
         ${PROTO_PATH}/journal/message.proto \
         ${PROTO_PATH}/journal/writer.proto \
         ${PROTO_PATH}/journal/consumer.proto \
-        ${PROTO_PATH}/inner_command/snapshot.proto \
+        ${PROTO_PATH}/inner_command/snapshot_inner_control.proto \
         ${PROTO_PATH}/inner_command/replicate_inner_control.proto \
         ${PROTO_PATH}/replication/replicator.proto \
-        ${PROTO_PATH}/control_api/control.proto \
+        ${PROTO_PATH}/control_api/snapshot_control.proto \
         ${PROTO_PATH}/control_api/replicate_control.proto
 #generate grpc
 $PROTOC -I ${PROTO_PATH} \
@@ -31,11 +31,12 @@ $PROTOC -I ${PROTO_PATH} \
         --plugin=protoc-gen-grpc=`which grpc_cpp_plugin` \
         ${PROTO_PATH}/journal/writer.proto \
         ${PROTO_PATH}/journal/consumer.proto \
-        ${PROTO_PATH}/inner_command/snapshot.proto \
+        ${PROTO_PATH}/inner_command/snapshot_inner_control.proto \
         ${PROTO_PATH}/inner_command/replicate_inner_control.proto \
         ${PROTO_PATH}/replication/replicator.proto \
-        ${PROTO_PATH}/control_api/control.proto \
+        ${PROTO_PATH}/control_api/snapshot_control.proto \
         ${PROTO_PATH}/control_api/replicate_control.proto
+
 #make soft-link of source files to expected dir
 ln -n $RPC_SOURCE_PATH/journal/* $RPC_SOURCE_PATH/
 ln -n $RPC_SOURCE_PATH/inner_command/* $RPC_SOURCE_PATH/

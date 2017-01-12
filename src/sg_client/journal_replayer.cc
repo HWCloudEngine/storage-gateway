@@ -286,34 +286,36 @@ bool JournalReplayer::handle_ctrl_cmd(shared_ptr<JournalEntry> entry)
 {
     /*handle snapshot*/
     int type = entry->get_type();
-    if(type == SNAPSHOT_CREATE){
+    if(type == SNAPSHOT_CREATE || type == SNAPSHOT_DELETE ||
+       type == SNAPSHOT_ROLLBACK){
         shared_ptr<Message> message = entry->get_message();
         shared_ptr<SnapshotMessage> snap_message = dynamic_pointer_cast
                                                     <SnapshotMessage>(message);
+        SnapReqHead shead;
+        shead.set_replication_uuid(snap_message->replication_uuid());
+        shead.set_checkpoint_uuid(snap_message->checkpoint_uuid());
+        shead.set_snap_type(snap_message->snap_type());
         string snap_name = snap_message->snap_name();
-        LOG_INFO << "journal_replayer create snapshot:" << snap_name;
-        snapshot_proxy_ptr_->create_transaction(snap_name);
-        return true;
-    } else if(type == SNAPSHOT_DELETE){
-        shared_ptr<Message> message = entry->get_message();
-        shared_ptr<SnapshotMessage> snap_message = dynamic_pointer_cast
-                                                    <SnapshotMessage>(message);
-        string snap_name = snap_message->snap_name();
-        LOG_INFO << "journal_replayer delete snapshot:" << snap_name;
-        snapshot_proxy_ptr_->delete_transaction(snap_name);
-        return true;
-    } else if(type == SNAPSHOT_ROLLBACK) {
-        shared_ptr<Message> message = entry->get_message();
-        shared_ptr<SnapshotMessage> snap_message = dynamic_pointer_cast
-                                                    <SnapshotMessage>(message);
-        string snap_name = snap_message->snap_name();
-        LOG_INFO << "journal_replayer rollback snapshot:" << snap_name;
-        snapshot_proxy_ptr_->rollback_transaction(snap_name);
+        switch(type){
+            case SNAPSHOT_CREATE:
+                LOG_INFO << "journal_replayer create snapshot:" << snap_name;
+                snapshot_proxy_ptr_->create_transaction(shead, snap_name);
+                break;
+            case SNAPSHOT_DELETE:
+                LOG_INFO << "journal_replayer delete snapshot:" << snap_name;
+                snapshot_proxy_ptr_->delete_transaction(shead, snap_name);
+                break;
+            case SNAPSHOT_ROLLBACK:
+                LOG_INFO << "journal_replayer rollback snapshot:" << snap_name;
+                snapshot_proxy_ptr_->rollback_transaction(shead, snap_name);
+                break;
+            default:
+                break;
+        }
         return true;
     } else {
-        ;
-    }
-
+    
+    } 
     return false;
 }
 

@@ -2,8 +2,8 @@
 #define _SNAP_TYPE_H
 #include <string>
 #include <set>
-#include "../rpc/snapshot.pb.h"
-
+#include "../rpc/common.pb.h"
+using huawei::proto::SnapStatus;
 using namespace std;
 
 /*snapshot id*/
@@ -16,30 +16,28 @@ typedef string cow_object_t;
 /*cow data object snapshot reference list*/
 typedef set<snapid_t> cow_object_ref_t;
 
-/*snapshot internal status*/
-enum snapshot_status {
-    SNAPSHOT_CREATING  = 0,
-    SNAPSHOT_CREATED   = 1,
-    SNAPSHOT_DELETING  = 2,
-    SNAPSHOT_DELETED   = 3, 
-    SNAPSHOT_ROLLBACKING = 4,
-    SNAPSHOT_ROLLBACKED  = 5,
-    SNAPSHOT_INVALID     = 10, 
+/*snapshot type*/
+enum snap_type {
+    LOCAL  = 0,
+    REMOTE = 1,
 };
-typedef enum snapshot_status snapshot_status_t;
+typedef snap_type snap_type_t;
 
-/*status code*/
-enum snapshot_error_code {
-    SNAPSHOT_OK  = 0,
-    SNAPSHOT_ERR = 1,
-    SNAPSHOT_EXIST   = 10,
-    SNAPSHOT_NOEXIST = 11
+/*snapshot attribution*/
+struct snap_attr {
+    string replication_uuid;
+    string checkpoint_uuid;
+    string volume_uuid;
+
+    snap_type_t snap_type;
+    string      snap_name;
+    snapid_t    snap_id;
+    SnapStatus  snap_status;
 };
-typedef snapshot_error_code snapshot_error_code_t;
+typedef struct snap_attr snap_attr_t;
 
 /*cow block splited by COW_BLOCK_SIZE*/
-struct cow_block
-{
+struct cow_block {
     off_t   off;
     size_t  len;
     block_t blk_no;

@@ -4,7 +4,7 @@ libsnapshot_la_SOURCES= block_store.cc     \
                         snapshot_proxy.cc  \
                         snapshot_mgr.cc    \
                         snapshot_mds.cc 
-AM_CPPFLAGS=-std=c++11 -g
+AM_CPPFLAGS= -I$(top_srcdir)/src/rpc -std=c++11 -g
 #set boost lib path
 LDFLAGS="-L/usr/lib/x86_64-linux-gnu -L/usr/local/lib"
 DEFS+=-D_GNU_SOURCE -DBOOST_ALL_DYN_LINK

@@ -18,6 +18,10 @@ message WriteMessage {
 
 /*snapshot(create, delete , rollback)*/
 message SnapshotMessage {
-    string snap_name = 1;
+    string replication_uuid = 1;
+    string checkpoint_uuid =2 ;
+    string vol_name  = 3;
+    int32  snap_type = 4;
+    string snap_name = 5;
 }
 
