@@ -1,13 +1,12 @@
-// storage gateway rpc request/response
-
 syntax = "proto3";
-
-package huawei.proto;
+import "common.proto";
+package huawei.proto.inner;
 
 /*snapshot rpc service storage client and storage gateway server*/
-service SnapshotRpcSvc {
+service SnapshotInnerControl {
     rpc Create(CreateReq) returns (CreateAck){}
     rpc List(ListReq) returns (ListAck){}
+    rpc Query(QueryReq) returns (QueryAck){}
     rpc Delete(DeleteReq) returns (DeleteAck){}
     rpc Rollback(RollbackReq) returns (RollbackAck){}
 
@@ -26,44 +25,60 @@ service SnapshotRpcSvc {
 }
 
 message CreateReq {
-    string vol_name  = 1;
-    string snap_name = 2;
+    SnapReqHead header = 1;
+    string vol_name = 2;
+    string snap_name = 3;
 }
 
 message CreateAck {
-    int32  ret     = 1;
+    SnapAckHead header = 1;
 }
 
 message UpdateReq {
-    string vol_name  = 1;
-    string snap_name = 2;
+    SnapReqHead header = 1;
+    string vol_name = 2;
+    string snap_name = 3;
 }
 
 message UpdateAck {
-    int32 ret = 1; 
+    SnapAckHead header = 1;
 }
 
 message ListReq {
-    string vol_name = 1;
+    SnapReqHead header = 1;
+    string vol_name = 2;
 }
 
 message ListAck {
-    int32 ret = 1;
+    SnapAckHead header = 1;
     repeated string snap_name = 2;
 }
 
+message QueryReq {
+    SnapReqHead header = 1;
+    string vol_name = 2;
+    string snap_name = 3;
+}
+
+message QueryAck {
+    SnapAckHead header = 1;
+    SnapStatus snap_status = 2;
+}
+
 message DeleteReq {
-    string vol_name = 1;
-    string snap_name = 2;
+    SnapReqHead header = 1;
+    string vol_name = 2;
+    string snap_name = 3;
 }
 
 message DeleteAck {
-    int32 ret = 1;
+    SnapAckHead header = 1;
 }
 
 message RollbackReq {
-    string vol_name = 1;
-    string snap_name = 2;
+    SnapReqHead header = 1;
+    string vol_name = 2;
+    string snap_name = 3;
 }
 
 /*indicate which block will be rollback*/
@@ -73,14 +88,15 @@ message RollBlock {
 }
 
 message RollbackAck {
-    int32 ret = 1; 
+    SnapAckHead header = 1;
     repeated RollBlock roll_blocks = 2;
 }
 
 message DiffReq {
-    string vol_name = 1;
-    string first_snap_name = 2;
-    string laste_snap_name = 3;
+    SnapReqHead header = 1;
+    string vol_name = 2;
+    string first_snap_name = 3;
+    string laste_snap_name = 4;
 }
 
 /*indicate which blocks diff*/
@@ -91,15 +107,16 @@ message DiffBlocks {
 }
 
 message DiffAck {
-    int32 ret = 1;
+    SnapAckHead header = 1;
     repeated DiffBlocks diff_blocks = 2;
 } 
 
 message ReadReq {
-    string vol_name  = 1;
-    string snap_name = 2;
-    uint64 off       = 3;
-    uint64 len       = 4;
+    SnapReqHead header = 1;
+    string vol_name  = 2;
+    string snap_name = 3;
+    uint64 off       = 4;
+    uint64 len       = 5;
 }
 
 /*indicate which block should read from block store, 
@@ -111,41 +128,44 @@ message ReadBlock {
 }
 
 message ReadAck {
-    int32 ret = 1;
+    SnapAckHead header = 1;
     repeated ReadBlock read_blocks = 2;
 }
 
 /*batch or one by one*/
 message CowReq {
-    string vol_name  = 1;
-    string snap_name = 2;
-    uint64 blk_no    = 3;
+    SnapReqHead header = 1;
+    string vol_name = 2;
+    string snap_name = 3;
+    uint64 blk_no = 4;
 }
 
 message CowAck {
-    int32 ret = 1;
+    SnapAckHead header = 1;
     /*cow/direct overlap/other*/
-    int32 op  = 2;
+    int32 op = 2;
     string cow_blk_object = 3;  /*cow data write to blk object*/
 }
 
 /*after cow, then update snapshot index in dr server*/
 message CowUpdateReq {
-    string vol_name  = 1;
-    string snap_name = 2;
-    uint64 blk_no    = 3;
-    string cow_blk_object = 4;
+    SnapReqHead header = 1;
+    string vol_name  = 2;
+    string snap_name = 3;
+    uint64 blk_no    = 4;
+    string cow_blk_object = 5;
 }
 
 message CowUpdateAck {
-    int32 ret = 1;
+    SnapAckHead header = 1;
 }
 
 message SyncReq {
-    string vol_name = 1;
+    SnapReqHead header = 1;
+    string vol_name = 2;
 }
 
 message SyncAck {
-    int32 ret = 1;
-    string latest_snap_name = 3;
+    SnapAckHead header = 1;
+    string latest_snap_name = 2;
 }

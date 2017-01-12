@@ -8,12 +8,53 @@ enum RESULT {
     INTERNAL_ERROR = 2;
     NO_SUCH_KEY = 3;
 }
+
+//all status code
+enum StatusCode {
+    sOk = 0;
+    sSnapAlreadyExist = 100;
+    sSnapNotExist = 101;
+    sSnapPersitError = 102;
+    sSnapTransactionError = 103;
+}
+
+//snapshot requst header
+message SnapReqHead {
+    /*sequence id*/
+    int64  seq_id = 1;
+    /*remote or local*/
+    int32  snap_type = 2;
+    /*cacsing volume replication pair uuid*/
+    string replication_uuid = 3;
+    /*cacsing volume replication checkpoint uuid*/
+    string checkpoint_uuid = 4;
+}
+
+message SnapAckHead {
+    /*sequence id*/
+    int64 seq_id = 1;
+    /*status code*/
+    StatusCode status = 2;
+}
+
+//snapshot status
+enum SnapStatus{
+    SNAP_CREATING  = 0;
+    SNAP_CREATED   = 1;
+    SNAP_DELETING  = 2;
+    SNAP_DELETED   = 3; 
+    SNAP_ROLLBACKING = 4;
+    SNAP_ROLLBACKED  = 5;
+    SNAP_INVALID = 10;
+}
+
 // define replication roles
 enum REP_ROLE{
     REP_UNKNOWN = 0;
     REP_PRIMARY = 1;
     REP_SECONDARY = 2;
 }
+
 // define replication status
 enum REP_STATUS{
     REP_UNKNOW = 0;

@@ -1,9 +1,9 @@
-#ifndef CONTROL_CLIENT_HPP_
-#define CONTROL_CLIENT_HPP_
+#ifndef SNAPSHOT_CONTROL_CLIENT_H_
+#define SNAPSHOT_CONTROL_CLIENT_H_
 #include <string>
 #include <memory>
 #include <grpc++/grpc++.h>
-#include "../control.grpc.pb.h"
+#include "../snapshot_control.grpc.pb.h"
 
 using namespace std;
 
@@ -11,29 +11,31 @@ using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
 
-using huawei::proto::CtrlRpcSvc;
-
-using huawei::proto::CreateSnapshotReq;
-using huawei::proto::CreateSnapshotAck;
-using huawei::proto::ListSnapshotReq;
-using huawei::proto::ListSnapshotAck;
-using huawei::proto::DeleteSnapshotReq;
-using huawei::proto::DeleteSnapshotAck;
-using huawei::proto::RollbackSnapshotReq;
-using huawei::proto::RollbackSnapshotAck;
-using huawei::proto::DiffSnapshotReq;
-using huawei::proto::DiffSnapshotAck;
-using huawei::proto::ReadSnapshotReq;
-using huawei::proto::ReadSnapshotAck;
+using huawei::proto::SnapStatus;
+using huawei::proto::control::SnapshotControl;
+using huawei::proto::control::CreateSnapshotReq;
+using huawei::proto::control::CreateSnapshotAck;
+using huawei::proto::control::ListSnapshotReq;
+using huawei::proto::control::ListSnapshotAck;
+using huawei::proto::control::QuerySnapshotReq;
+using huawei::proto::control::QuerySnapshotAck;
+using huawei::proto::control::DeleteSnapshotReq;
+using huawei::proto::control::DeleteSnapshotAck;
+using huawei::proto::control::RollbackSnapshotReq;
+using huawei::proto::control::RollbackSnapshotAck;
+using huawei::proto::control::DiffSnapshotReq;
+using huawei::proto::control::DiffSnapshotAck;
+using huawei::proto::control::ReadSnapshotReq;
+using huawei::proto::control::ReadSnapshotAck;
 
 /*snapshot and other control rpc client*/
-class ControlClient {
+class SnapCtrlClient {
 public:
-    ControlClient(shared_ptr<Channel> channel) 
-        :m_ctrl_stub(CtrlRpcSvc::NewStub(channel)){
+    SnapCtrlClient(shared_ptr<Channel> channel) 
+        :m_ctrl_stub(SnapshotControl::NewStub(channel)){
     } 
 
-    ~ControlClient(){
+    ~SnapCtrlClient(){
 
     }
 
@@ -44,7 +46,7 @@ public:
         CreateSnapshotAck ack;
         ClientContext context;
         Status status = m_ctrl_stub->CreateSnapshot(&context, req, &ack);
-        return ack.ret();
+        return (int)ack.header().status();
     }
 
     int ListSnapshot(const string& vol_name, set<string>& snap_set){
@@ -58,9 +60,21 @@ public:
             cout << "ListSnapshot snapshot:" << ack.snap_name(i) << endl;
             snap_set.insert(ack.snap_name(i));
         }
-        return ack.ret();
+        return (int)ack.header().status();
     }
     
+    int QuerySnapshot(const string& vol_name, const string& snap_name, 
+                      SnapStatus& snap_status) {
+        QuerySnapshotReq req;
+        req.set_vol_name(vol_name);
+        req.set_snap_name(snap_name);
+        QuerySnapshotAck ack;
+        ClientContext context;
+        Status status = m_ctrl_stub->QuerySnapshot(&context, req, &ack);
+        snap_status = ack.snap_status();
+        return (int)ack.header().status();
+    }
+
     int DeleteSnapshot(const string& vol_name, const string& snap_name){
         DeleteSnapshotReq req;
         req.set_vol_name(vol_name);
@@ -68,7 +82,7 @@ public:
         DeleteSnapshotAck ack;
         ClientContext context;
         Status status = m_ctrl_stub->DeleteSnapshot(&context, req, &ack);
-        return ack.ret();
+        return (int)ack.header().status();
     }
 
     int RollbackSnapshot(const string& vol_name, const string& snap_name){
@@ -78,7 +92,7 @@ public:
         RollbackSnapshotAck ack;
         ClientContext context;
         Status status = m_ctrl_stub->RollbackSnapshot(&context, req, &ack);
-        return ack.ret();
+        return (int)ack.header().status();
     }
 
     int DiffSnapshot(const string& vol_name, 
@@ -91,7 +105,7 @@ public:
         DiffSnapshotAck ack;
         ClientContext context;
         Status status = m_ctrl_stub->DiffSnapshot(&context, req, &ack);
-        return ack.ret();
+        return (int)ack.header().status();
     }
 
     int ReadSnapshot(const string& vol_name, 
@@ -107,11 +121,11 @@ public:
         ReadSnapshotAck ack;
         ClientContext context;
         Status status = m_ctrl_stub->ReadSnapshot(&context, req, &ack);
-        return ack.ret();
+        return (int)ack.header().status();
     }
 
 private:
-    unique_ptr<CtrlRpcSvc::Stub> m_ctrl_stub;
+    unique_ptr<SnapshotControl::Stub> m_ctrl_stub;
 };
 
 #endif 

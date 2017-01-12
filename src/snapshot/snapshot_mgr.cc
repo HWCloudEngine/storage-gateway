@@ -4,6 +4,8 @@
 #include "../log/log.h"
 #include "snapshot_mgr.h"
 
+using huawei::proto::StatusCode;
+
 void SnapshotMgr::init()
 {
     /*todo parallel optimize*/
@@ -46,7 +48,7 @@ grpc::Status SnapshotMgr::Sync(ServerContext* context,
         return grpc::Status::CANCELLED;
     }
 
-    int ret = it->second->sync(req, ack);
+    StatusCode ret = it->second->sync(req, ack);
     if(ret){
         LOG_INFO << "SnapshotMgr sync" << " vname:" << vname << " failed";
         return grpc::Status::CANCELLED;
@@ -74,7 +76,7 @@ grpc::Status SnapshotMgr:: Create(ServerContext*   context,
 
 create:
     LOG_INFO << "SnapshotMgr create" << " vname:" << vname;
-    int ret = volume->create_snapshot(req, ack);
+    StatusCode ret = volume->create_snapshot(req, ack);
     if(ret){
         LOG_INFO << "SnapshotMgr create" << " vname:" << vname << " failed";
         return grpc::Status::CANCELLED;
@@ -91,16 +93,36 @@ grpc::Status SnapshotMgr::List(ServerContext* context,
     string vname = req->vol_name();
     auto it = m_volumes.find(vname);
     if(it == m_volumes.end()){
-        LOG_ERROR << "SnapshotMgr list failed vname:" << vname;
+        LOG_ERROR << "SnapshotMgr list vname:" << vname << " failed";
         return grpc::Status::CANCELLED;
     }
     LOG_INFO << "SnapshotMgr list" << " vname:" << vname;
-    int ret = it->second->list_snapshot(req, ack);
+    StatusCode ret = it->second->list_snapshot(req, ack);
     if(ret){
         LOG_INFO << "SnapshotMgr list" << " vname:" << vname << " failed";
         return grpc::Status::CANCELLED;
     }
     LOG_INFO << "SnapshotMgr list" << " vname:" << vname << " ok";
+    return grpc::Status::OK;
+}
+
+grpc::Status SnapshotMgr::Query(ServerContext* context, 
+                                const QueryReq* req, 
+                                QueryAck*       ack)
+{
+    string vname = req->vol_name();
+    auto it = m_volumes.find(vname);
+    if(it == m_volumes.end()){
+        LOG_ERROR << "SnapshotMgr query vname:" << vname << " failed";
+        return grpc::Status::CANCELLED;
+    }
+    LOG_INFO << "SnapshotMgr query" << " vname:" << vname;
+    StatusCode ret = it->second->query_snapshot(req, ack);
+    if(ret){
+        LOG_INFO << "SnapshotMgr query" << " vname:" << vname << " failed";
+        return grpc::Status::CANCELLED;
+    }
+    LOG_INFO << "SnapshotMgr query" << " vname:" << vname << " ok";
     return grpc::Status::OK;
 }
 
@@ -120,7 +142,7 @@ grpc::Status SnapshotMgr::Delete(ServerContext*   context,
     LOG_INFO << "SnapshotMgr delete" << " vname:" << vname 
              << " snap_name:" << snap_name;
 
-    int ret = it->second->delete_snapshot(req, ack);
+    StatusCode ret = it->second->delete_snapshot(req, ack);
     if(ret){
         LOG_INFO << "SnapshotMgr delete" << " vname:" << vname
                  << " snap_name:" << snap_name << " failed";
@@ -141,7 +163,7 @@ grpc::Status SnapshotMgr::Rollback(ServerContext*     context,
         return grpc::Status::CANCELLED;
     }
     LOG_INFO << "SnapshotMgr Rollback" << " vname:" << vname;
-    int ret = it->second->rollback_snapshot(req, ack);
+    StatusCode ret = it->second->rollback_snapshot(req, ack);
     if(ret){
         LOG_INFO << "SnapshotMgr Rollback" << " vname:" << vname << " failed";
         return grpc::Status::CANCELLED;
@@ -160,7 +182,7 @@ grpc::Status SnapshotMgr::Update(ServerContext* context,
         return grpc::Status::CANCELLED;
     }
     LOG_INFO << "SnapshotMgr update" << " vname:" << vname;
-    int ret = it->second->update(req, ack);
+    StatusCode ret = it->second->update(req, ack);
     if(ret){
         LOG_INFO << "SnapshotMgr update" << " vname:" << vname << " failed";
         return grpc::Status::CANCELLED;
@@ -179,7 +201,7 @@ grpc::Status SnapshotMgr::CowOp(ServerContext* context,
         return grpc::Status::CANCELLED;
     }
     LOG_INFO << "SnapshotMgr Cow" << " vname:" << vname;
-    int ret = it->second->cow_op(req, ack);
+    StatusCode ret = it->second->cow_op(req, ack);
     LOG_INFO << "SnapshotMgr Cow" << " vname:" << vname << " ok";
     return grpc::Status::OK;
 }
@@ -194,7 +216,7 @@ grpc::Status SnapshotMgr::CowUpdate(ServerContext* context,
         return grpc::Status::CANCELLED;
     }
     LOG_INFO << "SnapshotMgr CowUpdate vname:" << vname;
-    int ret = it->second->cow_update(req, ack);
+    StatusCode ret = it->second->cow_update(req, ack);
     LOG_INFO << "SnapshotMgr CowUpdate vname:" << vname << " ok";
     return grpc::Status::OK;
 }
@@ -209,7 +231,7 @@ grpc::Status SnapshotMgr::Diff(ServerContext* context,
         return grpc::Status::CANCELLED;
     }
     LOG_INFO << "SnapshotMgr Diff vname:" << vname;
-    int ret = it->second->diff_snapshot(req, ack);
+    StatusCode ret = it->second->diff_snapshot(req, ack);
     LOG_INFO << "SnapshotMgr Diff vname:" << vname << " ok";
     return grpc::Status::OK;
 }
@@ -224,7 +246,7 @@ grpc::Status SnapshotMgr::Read(ServerContext* context,
         return grpc::Status::CANCELLED;
     }
     LOG_INFO << "SnapshotMgr Read vname:" << vname;
-    int ret = it->second->read_snapshot(req, ack);
+    StatusCode ret = it->second->read_snapshot(req, ack);
     LOG_INFO << "SnapshotMgr Read vname:" << vname << " ok";
     return grpc::Status::OK;
 }
