@@ -13,71 +13,57 @@ service ReplicateInnerControl {
     rpc DisableReplication(DisableReplicationInnerReq) returns(ReplicationInnerCommonRes) {}
     rpc FailoverReplication(FailoverReplicationInnerReq) returns(ReplicationInnerCommonRes) {}
     rpc ReverseReplication(ReverseReplicationInnerReq) returns(ReplicationInnerCommonRes) {}
-    rpc QueryReplication(QueryReplicationInnerReq) returns(QueryReplicationInnerRes) {}
-    rpc ListReplication(ListReplicationInnerReq) returns(ListReplicationInnerRes) {}
     rpc DeleteReplication(DeleteReplicationInnerReq) returns(ReplicationInnerCommonRes) {}
+    // report a replication checkpoint
+    rpc ReportCheckpoint(ReportCheckpointReq) returns(ReportCheckpointRes) {}
 }
 
 message CreateReplicationInnerReq{
     string operate_id = 1;
-    string uuid = 2; // replciation unique id
-    string primary_volume = 3;
-    string secondary_volume = 4;
+    string rep_uuid = 2; // replciation unique id
+    string local_volume = 3;
+    repeated string peer_volumes = 4;
     REP_ROLE role = 5;
+    JournalMarker marker = 6; //optional,position of control snapshot entry in journal
 }
 message EnableReplicationInnerReq{
-    string operate_id = 1; // requere, unique uuid
-    string uuid = 2; // retrieve the replication via uuid
+    string operate_id = 1; // require, unique operation uuid,used both for snap uuid?
+    string vol_id = 2; // retrieve the replication via volume id
     REP_ROLE role = 3;
-    JournalMarker marker = 4; //position of control request entry in journal
+    JournalMarker marker = 4; //position of control snapshot entry in journal
 }
 message DisableReplicationInnerReq{
-    string operate_id = 1; // requere, unique uuid
-    string uuid = 2; // retrieve the replication via uuid
+    string operate_id = 1; // require, operation uuid,used both for snap uuid?
+    string vol_id = 2;
     REP_ROLE role = 3;
-    JournalMarker marker = 4; //position of control request entry in journal
+    JournalMarker marker = 4; //position of control snapshot entry in journal
 }
 message FailoverReplicationInnerReq{
-    string operate_id = 1; // requere, unique uuid
-    string uuid = 2; // retrieve the replication via uuid
+    string operate_id = 1; // require, operation uuid,used both for snap uuid?
+    string vol_id = 2; // retrieve the replication via uuid
     REP_ROLE role = 3;
+    JournalMarker marker = 4; //required for primary,ending position of replication
 }
 message ReverseReplicationInnerReq{
-    string operate_id = 1; // requere, unique uuid
-    string uuid = 2; // retrieve the replication via uuid
+    string operate_id = 1; // require, unique uuid
+    string vol_id = 2; // retrieve the replication via uuid
     REP_ROLE role = 3;
     JournalMarker marker = 4; //position of control request entry in journal
 }
-message QueryReplicationInnerReq{
-    string operate_id = 1; // requere, unique uuid
-    string uuid = 2; // retrieve the replication via uuidl
-}
 message DeleteReplicationInnerReq{
-    string operate_id = 1; // requere, unique uuid
-    string uuid = 2; // retrieve the replication via uuid
+    string operate_id = 1; // require, unique uuid
+    string vol_id = 2; // retrieve the replication via uuid
     REP_ROLE role = 3;
 }
 message ReplicationInnerCommonRes{
-    int32 ret = 1;
-    string operate_id = 2;
+    StatusCode status = 1;
 }
-
-message ReplicationInnerElement{
-    string uuid = 1;
-    string primary_volume = 2;
-    string secondary_volume = 3;
-    REP_STATUS status = 4;
-}
-message QueryReplicationInnerRes{
-    int32 ret = 1;
-    string operate_id = 2;
-    ReplicationInnerElement element = 3;
-}
-message ListReplicationInnerReq{
+message ReportCheckpointReq{
     string operate_id = 1;
+    string vol_id = 2;
+    REP_ROLE role = 3;
 }
-message ListReplicationInnerRes{
-    int32 ret = 1;
-    string operate_id = 2;
-    repeated ReplicationInnerElement tuple = 3;
+message ReportCheckpointRes{
+    StatusCode status = 1;
+    bool drop_snap = 2;
 }

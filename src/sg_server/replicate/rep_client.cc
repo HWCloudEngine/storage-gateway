@@ -85,10 +85,11 @@ bool RepClient::sync_marker(const std::string& vol,const JournalMarker& marker){
     ClientContext context;
     ReplicateResponse res;
     Status status = stub_->sync_marker(&context,req,&res);
-    if(status.ok() && res.res() == 0)
+    if(status.ok() && !res.status())
         return true;
     else{
-        LOG_ERROR << "sync marker failed, rpc status," << status.error_message();
+        LOG_ERROR << "sync marker failed, rpc status:" << status.error_message()
+            << "; sync result:" << res.status();
         return false;
     }
 }
@@ -131,7 +132,7 @@ void RepClient::do_replicate(std::shared_ptr<RepTask> task){
     ReplicateResponse res;
     if(stream->Read(&res)){
         DR_ASSERT(res.id() == _req.id());
-        if(res.res() != 0){
+        if(!res.status()){
             LOG_ERROR << "destination start rep task failed, taskid: "<< task->id;
             task->status = T_ERROR;
             return;
@@ -216,7 +217,7 @@ void RepClient::do_replicate(std::shared_ptr<RepTask> task){
             // wait for ack
             if(stream->Read(&res)){
                 DR_ASSERT(res.id() == _req.id());
-                if(res.res() != 0){
+                if(!res.status()){
                     task->status = T_ERROR;
                 }
             }

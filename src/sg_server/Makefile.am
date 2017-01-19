@@ -9,9 +9,11 @@ sg_server_SOURCES=dr_server.cc \
                   ceph_s3_api.cc \
                   gc_task.cc \
                   ceph_s3_lease.cc \
+                  volume_inner_control.cc \
                   replicate/replicate.cc \
                   replicate/rep_receiver.cc \
-                  replicate/rep_client.cc
+                  replicate/rep_client.cc \
+                  replicate/rep_inner_ctrl.cc
 
 sg_server_LDADD=${top_srcdir}/src/rpc/librpc.la \
                  ${top_srcdir}/src/log/liblog.la \

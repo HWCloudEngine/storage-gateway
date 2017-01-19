@@ -319,6 +319,7 @@ RESULT CephS3Api::list_objects(const char*prefix, const char*marker, const char*
     response.retries = MAX_RETRIES;
     response.retrySleepInterval = SLEEP_UNITS_PER_SECOND;
     response.keyCount = 0;
+    response.isTruncated = 0;
     if(NULL!=marker && 0!=marker[0]){
         snprintf(response.nextMarker, sizeof(response.nextMarker), "%s", marker);
     }

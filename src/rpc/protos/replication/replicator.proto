@@ -1,5 +1,6 @@
 syntax = "proto3";
 package huawei.proto.replication;
+import "common.proto";
 
 service Replicator {
     rpc replicate(stream ReplicateRequest) returns(stream ReplicateResponse) {}
@@ -17,7 +18,7 @@ message ReplicateRequest {
 }
 message ReplicateResponse {
     int64 id = 1;
-    int32 res = 2;
+    StatusCode status = 2;
 }
 enum CMD_TYPE {
 	UNKNOWN_CMD = 0;
