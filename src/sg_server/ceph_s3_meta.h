@@ -16,19 +16,16 @@
 #include "common/libs3.h" // require ceph-libs3
 #include "journal_meta_manager.h"
 #include "journal_gc_manager.h"
+#include "volume_meta_manager.h"
 #include "ceph_s3_api.h"
 using huawei::proto::JournalMeta;
 using huawei::proto::JournalArray;
-using huawei::proto::DRS_OK;
-using huawei::proto::INTERNAL_ERROR;
-using huawei::proto::NO_SUCH_KEY;
-using huawei::proto::OPENED;
-using huawei::proto::SEALED;
-using huawei::proto::REPLAYER;
-using huawei::proto::REPLICATER;
 using google::protobuf::int64;
-
-class CephS3Meta:public JournalMetaManager,public JournalGCManager{
+using huawei::proto::VolumeMeta;
+using huawei::proto::VolumeInfo;
+class CephS3Meta:public JournalMetaManager,
+        public JournalGCManager,
+        public VolumeMetaManager {
 private:    
     std::unique_ptr<CephS3Api> s3Api_ptr_;
     string mount_path_;
@@ -43,33 +40,40 @@ private:
 public:
     CephS3Meta();
     ~CephS3Meta();
+    virtual RESULT get_producer_marker(const string& vol_id,
+            const CONSUMER_TYPE& type, JournalMarker& marker);
+    // journal meta management
     virtual RESULT create_journals(const string& uuid,const string& vol_id,
             const int& limit, std::list<string> &list);
     virtual RESULT create_journals_by_given_keys(const string& uuid,
             const string& vol_id,const std::list<string> &list);
     virtual RESULT seal_volume_journals(const string& uuid,const string& vol_id,
             const string journals[],const int& count);
-    virtual RESULT get_journal_marker(const string& uuid,const string& vol_id,
-            const CONSUMER_TYPE& type,JournalMarker* marker,
-            const bool is_consumer=true);
-    virtual RESULT update_journal_marker(const string& uuid, const string& vol_id,
-            const CONSUMER_TYPE& type,const JournalMarker& marker,
-            const bool is_consumer=true);
-    virtual RESULT get_consumable_journals(const string& uuid,const string& vol_id,
-            const JournalMarker& marker,const int& limit, std::list<string> &list);
-    // gc manager
-    virtual RESULT get_sealed_and_consumed_journals(const string& vol_id,
-            const int& limit, std::list<string> &list);
+    virtual RESULT get_consumer_marker(const string& vol_id,
+            const CONSUMER_TYPE& type,JournalMarker& marker);
+    virtual RESULT update_consumer_marker(const string& vol_id,
+            const CONSUMER_TYPE& type,const JournalMarker& marker);
+    virtual RESULT get_consumable_journals(const string& vol_id,
+            const JournalMarker& marker,const int& limit, std::list<string> &list,
+            const CONSUMER_TYPE& type);
+    virtual RESULT set_producer_marker(const string& vol_id,
+            const JournalMarker& marker);
+    // gc management
+    virtual RESULT get_sealed_and_consumed_journals(
+            const string& vol_id, const CONSUMER_TYPE& type,const int& limit,
+            std::list<string> &list);
     virtual RESULT recycle_journals(const string& vol_id,
-            const std::list<string>& journals);
-    virtual RESULT get_recycled_journals(const string& vol_id,
-            const int& limit, std::list<string>& list);
-    virtual RESULT delete_journals(const string& vol_id,
             const std::list<string>& journals);
     virtual RESULT get_producer_id(const string& vol_id,
             std::list<string>& list);
     virtual RESULT seal_opened_journals(const string& vol_id,
             const string& uuid);
     virtual RESULT list_volumes(std::list<string>& list);
+    // volume managment
+    virtual RESULT list_volume_meta(std::list<VolumeMeta> &list);
+    virtual RESULT read_volume_meta(const string& vol_id,VolumeMeta& meta);
+    virtual RESULT update_volume_meta(const VolumeMeta& meta);
+    virtual RESULT create_volume(const VolumeMeta& meta);
+    virtual RESULT delete_volume(const string& vol_id);
 };
 #endif

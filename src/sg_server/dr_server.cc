@@ -28,6 +28,7 @@
 #include "replicate/replicate.h"
 #include "../snapshot/snapshot_mgr.h"
 #include "replicate/rep_inner_ctrl.h"
+#include "volume_inner_control.h"
 #define DEFAULT_META_SERVER_PORT 50051
 #define DEFAULT_REPLICATE_PORT 50061
 
@@ -119,17 +120,13 @@ int main(int argc, char** argv) {
     RpcServer metaServer(ip1,port1,grpc::InsecureServerCredentials());
     WriterServiceImpl writerSer(meta);
     ConsumerServiceImpl consumerSer(meta);
+    VolInnerCtrl volInnerCtrl(meta);
     SnapshotMgr snapMgr;
     metaServer.register_service(&writerSer);
     metaServer.register_service(&consumerSer);
+    metaServer.register_service(&volInnerCtrl);
     metaServer.register_service(&snapMgr);
-    LOG_INFO << "meta server listening on " << ip1 << ":" << port1;
-    if(!metaServer.run()){
-        LOG_FATAL << "start meta server failed!";
-        std::cerr << "start meta server failed!" << std::endl;
-        return -1;
-    }
-    
+
     // init replicate receiver
     RpcServer repServer(ip2,port2,grpc::InsecureServerCredentials());
     RepReceiver repReceiver(meta,mount_path);
@@ -140,24 +137,21 @@ int main(int argc, char** argv) {
         std::cerr << "start replicate server failed!" << std::endl;
         return -1;
     }
-    // init replicate client
+    // init replicate sender
     addr.append(":").append(std::to_string(port2));
     Replicate replicate(meta,mount_path,addr,grpc::InsecureChannelCredentials());
-    //init replicate control rpc server
+    //init replicate control rpc service
     RepInnerCtrl repControl(replicate,meta);
-    repServer.register_service(&repControl);
+    metaServer.register_service(&repControl);
+	// start meta server
+    LOG_INFO << "meta server listening on " << ip1 << ":" << port1;
+    if(!metaServer.run()){
+        LOG_FATAL << "start meta server failed!";
+        std::cerr << "start meta server failed!" << std::endl;
+        return -1;
+    }
     // init gc thread
     GCTask::instance().init(meta);
-
-    // config volumes
-    // TODO: this config is for test only, drserver may read volume configs from its meta later
-    std::vector<string> vols;
-    if(parser->get_array<string>("volumes.primary",vols)){
-        for(auto vol:vols){
-            replicate.add_volume(vol);
-            GCTask::instance().add_volume(vol);
-        }
-    }
     parser.reset();
     metaServer.join();
     repServer.join();

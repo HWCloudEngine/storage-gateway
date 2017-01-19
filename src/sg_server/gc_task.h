@@ -14,9 +14,12 @@
 #include <string>
 #include <thread>
 #include <mutex>
+#include <map>
 #include <set>
+#include <atomic>
 #include "ceph_s3_lease.h"
 #include "journal_gc_manager.h"
+
 class GCTask{
 private:
     std::shared_ptr<JournalGCManager> meta_ptr_;
@@ -24,25 +27,26 @@ private:
     std::string mount_path_;
     std::unique_ptr<std::thread> thread_GC_;
     int tick_;
+    // scaning all volume journals for garbage collection at this regular interval
     int GC_window_;
+    // check volumes leases at this regular interval
     int lease_check_window_;
     bool GC_running_;
-    std::set<string> vols_;
-    std::set<string> vol_to_add_;
-    std::set<string> vol_to_remove_;
-    std::mutex add_mutex_;
-    std::mutex remove_mutex_;
+    std::map<string,CONSUMER_TYPE> vols_; // volumes that need do GC & lease validation
     std::mutex mtx_;
 public:
     int init(std::shared_ptr<JournalGCManager> meta);
-    int add_volume(const std::string &vol_id);
-    int remove_volume(const std::string &vol_id);
     static GCTask& instance(){
         static GCTask task;
         return task;
     };
     GCTask(GCTask&) = delete;
     GCTask& operator=(GCTask const&) = delete;
+    void register_(const std::string& vol_id,const CONSUMER_TYPE& type);
+    void unregister(const std::string& vol_id,const CONSUMER_TYPE& type);
+    int add_volume(const std::string &vol_id,
+            const CONSUMER_TYPE& type = ::huawei::proto::CONSUMER_NONE);
+    int remove_volume(const std::string &vol_id);
 private:
     GCTask(){};
     ~GCTask(){
@@ -52,6 +56,5 @@ private:
     };
     void do_GC();
     void lease_check_task();
-    void update_volume_set();
 };
 #endif

@@ -1,13 +1,14 @@
 noinst_PROGRAMS=sg_client
 AM_CPPFLAGS=-I$(top_srcdir)/src -I$(top_srcdir)/src/include \
-			-I$(top_srcdir)/src/rpc -std=c++11
+            -I$(top_srcdir)/src/rpc -std=c++11
 ACLOCAL_AMFLAGS=-I m4
 sg_client_SOURCES=$(top_srcdir)/src/common/crc32.c \
                   $(top_srcdir)/src/common/xxhash.c \
                   $(top_srcdir)/src/common/utils.c \
                   $(top_srcdir)/src/sg_server/ceph_s3_lease.cc \
                   $(top_srcdir)/src/sg_server/ceph_s3_api.cc   \
-				  snapshot_control.cc \
+                  snapshot_control.cc \
+                  replicate_control.cc \
                   connection.cc       \
                   io_service_pool.cc  \
                   seq_generator.cc    \

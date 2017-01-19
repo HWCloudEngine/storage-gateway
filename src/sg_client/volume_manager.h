@@ -7,6 +7,7 @@
 #include <boost/thread/thread.hpp>
 #include "volume.h"
 #include "common/rpc_server.h"
+#include "replicate_control.h"
 
 using namespace std; 
 
@@ -70,6 +71,7 @@ private:
     SnapshotControlImpl* ctrl_service{nullptr};
     /*rpc server receive ctrl command from sg controller */
     RpcServer* ctrl_rpc_server{nullptr};
+    ReplicateCtrl* rep_ctrl;
 };
 
 }
