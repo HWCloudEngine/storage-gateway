@@ -36,7 +36,7 @@ using huawei::proto::RESULT;
 using huawei::proto::DRS_OK;
 using huawei::proto::INTERNAL_ERROR;
 using huawei::proto::CONSUMER_TYPE;
-using huawei::proto::REPLICATER;
+using huawei::proto::REPLICATOR;
 using huawei::proto::REPLAYER;
 using std::string;
 
@@ -263,28 +263,28 @@ BOOST_AUTO_TEST_CASE(case5){// test case without fixture
     string vol("test_vol_xvde");
     string uuid("node1_pid_234");
     JournalMarker marker;
-    RESULT res = consumer.GetJournalMarker(vol,uuid,REPLICATER,marker);
+    RESULT res = consumer.GetJournalMarker(vol,uuid,REPLICATOR,marker);
     if(res != DRS_OK){
         BOOST_ERROR("get journal marker failed!"); // increase boost error case count and output an error message
         string key = "/journals/" + vol + "/00000000";
         marker.set_cur_journal(key);
         marker.set_pos(0);
-        res = consumer.UpdateConsumerMarker(vol,uuid,REPLICATER,marker);
+        res = consumer.UpdateConsumerMarker(vol,uuid,REPLICATOR,marker);
         BOOST_REQUIRE(res == DRS_OK);
     }
     
     std::list<string> list;
-    res = consumer.GetJournalList(vol,uuid,REPLICATER,marker,list);
+    res = consumer.GetJournalList(vol,uuid,REPLICATOR,marker,list);
     if(res != DRS_OK){
         BOOST_FAIL("get journal list failed!"); // assert and output message to boost log
     }
     if(list.size() > 0){
         marker.set_cur_journal(list.back());
         marker.set_pos(10240);
-        res = consumer.UpdateConsumerMarker(vol,uuid,REPLICATER,marker);
+        res = consumer.UpdateConsumerMarker(vol,uuid,REPLICATOR,marker);
         BOOST_REQUIRE(res == DRS_OK);
         JournalMarker __marker;
-        res = consumer.GetJournalMarker(vol,uuid,REPLICATER,__marker);
+        res = consumer.GetJournalMarker(vol,uuid,REPLICATOR,__marker);
         BOOST_REQUIRE(res == DRS_OK);
         BOOST_CHECK_MESSAGE(__marker.IsInitialized(),"current journal is not init!");
         BOOST_REQUIRE_EQUAL(marker.pos(),__marker.pos());

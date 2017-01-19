@@ -48,6 +48,10 @@ bool VolumeManager::init()
     assert(ctrl_service!= nullptr);
 
     ctrl_rpc_server->register_service(ctrl_service);
+
+    rep_ctrl = new ReplicateCtrl(ctrl_service);
+    ctrl_rpc_server->register_service(rep_ctrl);
+
     if(!ctrl_rpc_server->run()){
         LOG_FATAL << "start ctrl rpc server failed!";
         return false;

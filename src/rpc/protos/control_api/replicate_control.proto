@@ -3,7 +3,6 @@
 
 syntax = "proto3";
 import "common.proto";
-option objc_class_prefix = "DRS";
 package huawei.proto.control;
 
 /*northern oriented rpc service interface*/
@@ -14,67 +13,41 @@ service ReplicateControl {
     rpc DisableReplication(DisableReplicationReq) returns(ReplicationCommonRes) {}
     rpc FailoverReplication(FailoverReplicationReq) returns(ReplicationCommonRes) {}
     rpc ReverseReplication(ReverseReplicationReq) returns(ReplicationCommonRes) {}
-    rpc QueryReplication(QueryReplicationReq) returns(QueryReplicationRes) {}
-    rpc ListReplication(ListReplicationReq) returns(ListReplicationRes) {}
     rpc DeleteReplication(DeleteReplicationReq) returns(ReplicationCommonRes) {}
 }
 
 message CreateReplicationReq{
     string operate_id = 1;
-    string uuid = 2; // replciation unique id
-    string primary_volume = 3;
-    string secondary_volume = 4;
+    string rep_uuid = 2; // replciation unique id
+    string local_volume = 3;
+    repeated string peer_volume = 4;
     REP_ROLE role = 5;
 }
 message EnableReplicationReq{
-    string operate_id = 1; // requere, unique operation uuid
-    string uuid = 2; // retrieve the replication via uuid
-    REP_ROLE role = 3;
+    string vol_id = 1;// require, primary volume id
+    REP_ROLE role = 2;
+    string operate_id = 3;
 }
 message DisableReplicationReq{
-    string operate_id = 1; // requere, unique operation uuid
-    string uuid = 2; // retrieve the replication via uuid
-    REP_ROLE role = 3;
+    string vol_id = 1;// require, primary volume id
+    REP_ROLE role = 2;
+    string operate_id = 3;
 }
 message FailoverReplicationReq{
-    string operate_id = 1; // requere, unique operation uuid
-    string uuid = 2; // retrieve the replication via uuid
-    REP_ROLE role = 3; // default:SECONDARY
+    string vol_id = 1;// require, primary volume id
+    REP_ROLE role = 2; // default:SECONDARY
+    string operate_id = 3;
 }
 message ReverseReplicationReq{
-    string operate_id = 1; // requere, unique operation uuid
-    string uuid = 2; // retrieve the replication via uuid
-    REP_ROLE role = 3;
-}
-message QueryReplicationReq{
-    string operate_id = 1; // requere, unique operation uuid
-    string uuid = 2; // retrieve the replication via uuid
+    string vol_id = 1;// require, primary volume id
+    REP_ROLE role = 2;
+    string operate_id = 3;
 }
 message DeleteReplicationReq{
-    string operate_id = 1; // requere, unique operation uuid
-    string uuid = 2; // retrieve the replication via uuid
-    REP_ROLE role = 3;
+    string vol_id = 1;// require, primary volume id
+    REP_ROLE role = 2;
+    string operate_id = 3;
 }
 message ReplicationCommonRes{
-    int32 ret = 1;
-    string operate_id = 2;
-}
-message ReplicationElement{
-    string uuid = 1;
-    string primary_volume = 2;
-    string secondary_volume = 3;
-    REP_STATUS status = 4;
-}
-message QueryReplicationRes{
-    int32 ret = 1;
-    string operate_id = 2;
-    ReplicationElement element = 3;
-}
-message ListReplicationReq{
-    string operate_id = 1;
-}
-message ListReplicationRes{
-    int32 ret = 1;
-    string operate_id = 2;
-    repeated ReplicationElement tuple = 3;
+    StatusCode status = 1;
 }

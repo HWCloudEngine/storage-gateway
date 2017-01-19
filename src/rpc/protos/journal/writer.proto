@@ -2,6 +2,7 @@
 
 syntax = "proto3";
 import "common.proto";
+import "journal/journal.proto";
 package huawei.proto;
 
 service Writer {
@@ -9,6 +10,8 @@ service Writer {
     rpc GetWriteableJournals(GetWriteableJournalsRequest) returns (GetWriteableJournalsResponse) {}
     // seal the journal when the file is full
     rpc SealJournals(SealJournalsRequest) returns(SealJournalsResponse) {}
+    // update producer marker
+    rpc UpdateProducerMarker(UpdateProducerMarkerRequest) returns(UpdateProducerMarkerResponse) {}
     // get the writeable journals of multiple volumes
     rpc GetMultiWriteableJournals(GetMultiWriteableJournalsRequest) returns(GetMultiWriteableJournalsResponse) {}
     // seal journals of volumes
@@ -38,6 +41,14 @@ message SealJournalsRequest {
 message SealJournalsResponse {
     RESULT result = 1 ;
 }
+message UpdateProducerMarkerRequest {
+    string uuid = 1;
+    string vol_id = 2;
+    JournalMarker marker = 3;
+}
+message UpdateProducerMarkerResponse {
+    RESULT result = 1;
+}
 
 message GetMultiWriteableJournalsRequest {
     // uuid indicator the helder of journal files
@@ -47,7 +58,7 @@ message GetMultiWriteableJournalsRequest {
     message VolumeAndLimits {
         string vol_id = 1;
         int32 limits = 2; // limits the max count of journals
-   	}
+    }
     repeated VolumeAndLimits volumes = 2;
 }
 message JournalArray {

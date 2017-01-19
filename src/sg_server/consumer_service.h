@@ -23,18 +23,38 @@ using huawei::proto::GetJournalListRequest;
 using huawei::proto::GetJournalListResponse;
 using huawei::proto::UpdateConsumerMarkerRequest;
 using huawei::proto::UpdateConsumerMarkerResponse;
-
+using huawei::proto::CONSUMER_TYPE;
+using huawei::proto::RESULT;
+using huawei::proto::JournalMarker;
 class ConsumerServiceImpl final : public Consumer::Service {
 private:
     std::shared_ptr<JournalMetaManager> _meta;
 public:
     ConsumerServiceImpl(std::shared_ptr<JournalMetaManager> meta);
-    Status GetJournalMarker(ServerContext* context, const GetJournalMarkerRequest* request,
+    // rpc APIs, consumers could call the APIs remotely
+    Status GetJournalMarker(ServerContext* context,
+            const GetJournalMarkerRequest* request,
             GetJournalMarkerResponse* reply) override;
-    Status GetJournalList(ServerContext* context, const GetJournalListRequest* request,
+    Status GetJournalList(ServerContext* context,
+            const GetJournalListRequest* request,
             GetJournalListResponse* response) override;
     // update consumer maker when time out or comsumed a batch of logs
     Status UpdateConsumerMarker(ServerContext* context,
-            const UpdateConsumerMarkerRequest* request, UpdateConsumerMarkerResponse* response) override;
+            const UpdateConsumerMarkerRequest* request,
+            UpdateConsumerMarkerResponse* response) override;
+
+    // local APIs, consumers could call these API locally
+    RESULT get_journal_marker(const std::string& vol,
+            const CONSUMER_TYPE& type,
+            JournalMarker& marker);
+    RESULT get_journal_list(const std::string& vol,
+            const JournalMarker& marker,
+            const int& limit,
+            std::list<std::string> list,
+            const CONSUMER_TYPE& type);
+    RESULT update_consumer_marker(const std::string& vol,
+            const CONSUMER_TYPE& type,
+            const JournalMarker& marker);
+    
 };
 #endif

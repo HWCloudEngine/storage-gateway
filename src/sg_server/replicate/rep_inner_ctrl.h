@@ -1,7 +1,7 @@
 /**********************************************
 * Copyright (c) 2016 Huawei Technologies Co., Ltd. All rights reserved.
 * 
-* File name:    rep_inner_ctrl.hpp
+* File name:    rep_inner_ctrl.h
 * Author: 
 * Date:         2016/12/16
 * Version:      1.0
@@ -13,81 +13,61 @@
 #include "replicate.h"
 #include "../ceph_s3_meta.h"
 #include "rpc/replicate_inner_control.grpc.pb.h"
+#include "common/thread_pool.h"
 using huawei::proto::inner::CreateReplicationInnerReq;
 using huawei::proto::inner::EnableReplicationInnerReq;
 using huawei::proto::inner::DisableReplicationInnerReq;
 using huawei::proto::inner::FailoverReplicationInnerReq;
 using huawei::proto::inner::ReverseReplicationInnerReq;
-using huawei::proto::inner::QueryReplicationInnerReq;
 using huawei::proto::inner::DeleteReplicationInnerReq;
-using huawei::proto::inner::ListReplicationInnerReq;
 using huawei::proto::inner::ReplicationInnerCommonRes;
-using huawei::proto::inner::QueryReplicationInnerRes;
-using huawei::proto::inner::ListReplicationInnerRes;
-using huawei::proto::REP_STATUS;
+using huawei::proto::inner::ReportReplicationCPReq;
+using huawei::proto::inner::ReportReplicationCPRes;
+using huawei::proto::REP_PRIMARY;
+using huawei::proto::REP_SECONDARY;
 using grpc::ClientContext;
+using grpc::ServerContext;
+#define TASK_THREAD_CNT 10
 // TODO:implement
 class RepInnerCtrl:public huawei::proto::inner::ReplicateInnerControl::Service{
     //rpc replicate controls
-    grpc::Status CreateReplication(ClientContext* context,
-            const CreateReplicationInnerReq& request,
-            ReplicationInnerCommonRes* response){
-        grpc::Status status(grpc::INTERNAL,"not implement.");
-        return status;
-    }
-    grpc::Status EnableReplication(ClientContext* context,
-            const EnableReplicationInnerReq& request,
-            ReplicationInnerCommonRes* response){
-        grpc::Status status(grpc::INTERNAL,"not implement.");
-        return status;
-    }
-    grpc::Status DisableReplication(ClientContext* context,
-            const DisableReplicationInnerReq& request,
-            ReplicationInnerCommonRes* response){
-        grpc::Status status(grpc::INTERNAL,"not implement.");
-        return status;
-    }
-    grpc::Status FailoverReplication(ClientContext* context,
-            const FailoverReplicationInnerReq& request,
-            ReplicationInnerCommonRes* response){
-        grpc::Status status(grpc::INTERNAL,"not implement.");
-        return status;
-    }
+    grpc::Status CreateReplication(ServerContext* context,
+            const CreateReplicationInnerReq* request,
+            ReplicationInnerCommonRes* response);
+    grpc::Status EnableReplication(ServerContext* context,
+            const EnableReplicationInnerReq* request,
+            ReplicationInnerCommonRes* response);
+    grpc::Status DisableReplication(ServerContext* context,
+            const DisableReplicationInnerReq* request,
+            ReplicationInnerCommonRes* response);
+    grpc::Status FailoverReplication(ServerContext* context,
+            const FailoverReplicationInnerReq* request,
+            ReplicationInnerCommonRes* response);
     grpc::Status ReverseReplication(ClientContext* context,
-            const ReverseReplicationInnerReq& request,
-            ReplicationInnerCommonRes* response){
-        grpc::Status status(grpc::INTERNAL,"not implement.");
-        return status;
-    }
-    grpc::Status QueryReplication(ClientContext* context,
-            const QueryReplicationInnerReq& request,
-            QueryReplicationInnerRes* response){
-        grpc::Status status(grpc::INTERNAL,"not implement.");
-        return status;
-    }
-    grpc::Status ListReplication(ClientContext* context,
-            const ListReplicationInnerReq& request,
-            ListReplicationInnerRes* response){
-        return grpc::Status::OK;
-    }
-    grpc::Status DeleteReplication(ClientContext* context,
-            const DeleteReplicationInnerReq& request,
-            ReplicationInnerCommonRes* response){
-        grpc::Status status(grpc::INTERNAL,"not implement.");
-        return status;
-    }
+            const ReverseReplicationInnerReq* request,
+            ReplicationInnerCommonRes* response);
+    grpc::Status DeleteReplication(ServerContext* context,
+            const DeleteReplicationInnerReq* request,
+            ReplicationInnerCommonRes* response);
+    grpc::Status ReportReplicationCP(ServerContext* context,
+            const ReportReplicationCPReq* request,
+            ReportReplicationCPRes* response);
+    void init();
+    void notify_rep_state_changed(const string& vol);
+    bool validate_replicate_operation(const REP_STATUS& status,
+            const REPLICATION_OPERATION& op);
 public:
     RepInnerCtrl(Replicate& rep,
-        std::shared_ptr<CephS3Meta> meta):
-        replicate_(rep),meta_(meta){
+            std::shared_ptr<CephS3Meta> meta):
+            replicate_(rep),meta_(meta),running_(true){
+        init();
     }
     ~RepInnerCtrl(){
+        running_ = false;
     }
 private:
     Replicate& replicate_;
     std::shared_ptr<CephS3Meta> meta_;
-    void notify_replication_state(const string& vol,
-        const REP_STATUS& state){
-    }
+    bool running_;
 };
 #endif
