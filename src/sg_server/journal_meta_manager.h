@@ -30,13 +30,14 @@ public:
             const int& limit, std::list<string> &list) = 0;
     virtual RESULT seal_volume_journals(const string& uuid,const string& vol_id,
             const string journals[],const int& count) = 0;
-    virtual RESULT get_journal_marker(const string& uuid,const string& vol_id,
-            const CONSUMER_TYPE& type,JournalMarker* marker,
-            const bool is_consumer=true) = 0;
-    virtual RESULT update_journal_marker(const string& uuid, const string& vol_id,
-            const CONSUMER_TYPE& type,const JournalMarker& marker,
-            const bool is_consumer=true) = 0;
-    virtual RESULT get_consumable_journals(const string& uuid,const string& vol_id,
-            const JournalMarker& marker,const int& limit, std::list<string> &list) = 0;
+    virtual RESULT get_consumer_marker(const string& vol_id,
+            const CONSUMER_TYPE& type,JournalMarker& marker) = 0;
+    virtual RESULT update_consumer_marker(const string& vol_id,
+            const CONSUMER_TYPE& type,const JournalMarker& marker) = 0;
+    virtual RESULT get_consumable_journals(const string& vol_id,
+            const JournalMarker& marker,const int& limit, std::list<string> &list,
+            const CONSUMER_TYPE& type) = 0;
+    virtual RESULT set_producer_marker(const string& vol_id,
+            const JournalMarker& marker) = 0;
 };
 #endif

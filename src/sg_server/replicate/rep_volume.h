@@ -20,7 +20,7 @@
 #include "log/log.h"
 #include "rpc/consumer.pb.h"
 using huawei::proto::JournalMarker;
-using huawei::proto::REPLICATER;
+using huawei::proto::REPLICATOR;
 using std::chrono::system_clock;
 
 class RepVolume{
@@ -143,8 +143,8 @@ public:
         }
         if(pending_journals_.size() < max_pending_tasks_/2){// pre-fetch journals to promote priority
             std::list<std::string> list;
-            RESULT res = meta_->get_consumable_journals(uuid_,vol_id_,
-                max_consuming_marker_,max_pending_tasks_,list);
+            RESULT res = meta_->get_consumable_journals(vol_id_,
+                max_consuming_marker_,max_pending_tasks_,list,REPLICATOR);
             if(DRS_OK != res){
                 LOG_ERROR << "get consumbale_journals failed" << vol_id_;
                 return nullptr;
@@ -177,8 +177,8 @@ public:
                 && task->info.end > consuming_marker_.pos())){
             consuming_marker_.set_cur_journal(task->info.key);
             consuming_marker_.set_pos(task->info.end);
-            RESULT res = meta_->update_journal_marker(uuid_,task->vol_id,
-                REPLICATER,consuming_marker_);
+            RESULT res = meta_->update_consumer_marker(task->vol_id,
+                REPLICATOR,consuming_marker_);
             if(res != DRS_OK){
                 LOG_WARN << "update marker failed" << consuming_marker_.cur_journal();
             }
@@ -229,7 +229,7 @@ public:
 private:
     bool init_markers(){
         RESULT res;
-        res = meta_->get_journal_marker(uuid_,vol_id_,REPLICATER,&consuming_marker_);
+        res = meta_->get_consumer_marker(vol_id_,REPLICATOR,consuming_marker_);
         if(res != DRS_OK)
             return false;
         max_consuming_marker_.CopyFrom(consuming_marker_);
