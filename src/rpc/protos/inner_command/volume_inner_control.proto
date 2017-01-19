@@ -1,0 +1,44 @@
+// storage gateway inner control commands of rpc request/response
+// sg client send the control commands to sg server
+
+syntax = "proto3";
+import "common.proto";
+package huawei.proto.inner;
+
+/*northern oriented rpc service interface*/
+service VolumeInnerControl {
+    /*volume operations*/
+    rpc CreateVolumeMeta(CreateVolumeMetaReq) returns(CreateVolumeMetaRes) {}
+    rpc UpdateVolumeStatus(UpdateVolumeStatusReq) returns(UpdateVolumeStatusRes) {}
+    rpc ReadVolumeMeta(ReadVolumeMetaReq) returns(ReadVolumeMetaRes) {}
+    rpc ListVolumeMeta(ListVolumeMetaReq) returns(ListVolumeMetaRes) {}
+}
+message CreateVolumeMetaReq{
+    string vol_id = 1;
+    string path = 2;
+    VOLUME_STATUS status = 3;
+    uint64 size = 4;
+}
+message CreateVolumeMetaRes{
+    int32 ret = 1;
+}
+message UpdateVolumeStatusReq{
+    string vol_id = 1;
+    VOLUME_STATUS status = 2;
+}
+message UpdateVolumeStatusRes{
+    int32 ret = 1;
+}
+message ReadVolumeMetaReq{
+    string vol_id = 1;
+}
+message ReadVolumeMetaRes{
+    int32 ret = 1;
+    VolumeInfo info = 2;
+}
+message ListVolumeMetaReq{
+}
+message ListVolumeMetaRes{
+    int32 ret = 1;
+    repeated VolumeInfo volumes = 2;
+}
