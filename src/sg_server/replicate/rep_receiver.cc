@@ -25,6 +25,7 @@ using huawei::proto::JournalMeta;
 using huawei::proto::replication::START_CMD;
 using huawei::proto::replication::DATA_CMD;
 using huawei::proto::replication::FINISH_CMD;
+using huawei::proto::REPLICATOR;
 
 RepReceiver::RepReceiver(std::shared_ptr<CephS3Meta> meta,
         const string& path):meta_(meta),
@@ -79,38 +80,61 @@ grpc::Status RepReceiver::sync_marker(ServerContext* context,
         const ReplicateRequest* req,
         ReplicateResponse* res){
     LOG_DEBUG << "sync_marker " << req->vol_id() << "," << req->current_counter();
-    string key = dr_server::construct_journal_key(req->vol_id(),req->current_counter());
-    auto it = markers_.find(req->vol_id());
-    if(it == markers_.end()){
-        JournalMarker marker;
-        RESULT result = meta_->get_journal_marker(uuid_,req->vol_id(),REPLICATER,
-            &marker,false);
-        if(DRS_OK != result){
-            LOG_ERROR << "get " << req->vol_id() << " producing marker failed!";
-            res->set_res(-1);
-            res->set_id(req->id());
-            return Status::OK;
+    int flag = 0;
+    JournalMarker marker;
+    do {
+        string key = dr_server::construct_journal_key(req->vol_id(),req->current_counter());
+        auto it = markers_.find(req->vol_id());
+        if(it == markers_.end()){
+            RESULT result = meta_->get_producer_marker(req->vol_id(),REPLICATOR,
+                marker);
+            if(NO_SUCH_KEY == result){ // not init, need update
+                marker.set_pos(req->offset());
+                marker.set_cur_journal(key);
+                flag = 1;
+                break;
+            }
+            else if(DRS_OK != result){
+                LOG_ERROR << "get " << req->vol_id() << " producing marker failed!";
+                flag = -1;
+                break;
+            }
         }
-        markers_.insert(std::pair<std::string,JournalMarker>(req->vol_id(),marker));
-        it = markers_.find(req->vol_id());
-    }
-    JournalMarker& marker = it->second;
-    if(marker.cur_journal().compare(key) < 0
-        || (marker.cur_journal().compare(key)==0 && marker.pos() < req->offset())){
+
+        if(marker.cur_journal().compare(key) < 0
+            || (marker.cur_journal().compare(key)==0 && marker.pos() < req->offset())){
             marker.set_pos(req->offset());
             marker.set_cur_journal(key);
-            RESULT res = meta_->update_journal_marker(uuid_,req->vol_id(),REPLICATER,
-                marker,false);
-            DR_ASSERT(res == DRS_OK);
-            LOG_INFO << "update producer marker " << marker.cur_journal()
-                << ":" << marker.pos();
+            flag = 1; // need to update to a bigger marker
+            break;
+        }
+        else{
+            flag = 0;
+            LOG_WARN << "producer marker " << key << ":" << req->offset()
+                << " not updated, " << marker.cur_journal() << ":" << marker.pos();
+            break;
+        }
+    }while(0);
+    if(flag < 0){ // an error occered
+        res->set_res(-1);
     }
-    else{
-        LOG_WARN << "producer marker " << key << ":" << req->offset()
-            << " not updated, " << marker.cur_journal() << ":" << marker.pos();
+    else if(flag > 0){ // update marker and update cache
+        RESULT result = meta_->set_producer_marker(req->vol_id(),marker);
+        DR_ASSERT(result == DRS_OK);
+        auto it = markers_.find(req->vol_id());
+        if(it == markers_.end()){
+            markers_.insert(std::pair<std::string,JournalMarker>(req->vol_id(),marker));
+        }
+        else{
+            it->second.CopyFrom(marker);
+        }
+        LOG_INFO << "update producer marker " << marker.cur_journal()
+            << ":" << marker.pos();
+        res->set_res(0);
     }
-    res->set_res(0);
-    res->set_id(req->id());
+    else{ // no need to update marker
+        res->set_res(0);
+    }
     return Status::OK;
 }
 

@@ -26,20 +26,27 @@ using huawei::proto::GetMultiWriteableJournalsRequest;
 using huawei::proto::GetMultiWriteableJournalsResponse;
 using huawei::proto::SealMultiJournalsRequest;
 using huawei::proto::SealMultiJournalsResponse;
-
+using huawei::proto::UpdateProducerMarkerRequest;
+using huawei::proto::UpdateProducerMarkerResponse;
 class WriterServiceImpl final : public Writer::Service {
 private:
     std::shared_ptr <JournalMetaManager> _meta;
 public:
     WriterServiceImpl(std::shared_ptr<JournalMetaManager> meta);
-    Status GetWriteableJournals(ServerContext* context, const GetWriteableJournalsRequest* request,
-                  GetWriteableJournalsResponse* reply);
-    Status SealJournals(ServerContext* context, const SealJournalsRequest* request,
+    Status GetWriteableJournals(ServerContext* context,
+            const GetWriteableJournalsRequest* request,
+            GetWriteableJournalsResponse* reply);
+    Status SealJournals(ServerContext* context,
+            const SealJournalsRequest* request,
             SealJournalsResponse* response);
+    Status UpdateProducerMarker(ServerContext* context,
+            const UpdateProducerMarkerRequest* request,
+            UpdateProducerMarkerResponse* response);
     Status GetMultiWriteableJournals(ServerContext* context, 
             const GetMultiWriteableJournalsRequest* request,
             GetMultiWriteableJournalsResponse* response);
-    Status SealMultiJournals(ServerContext* context, const SealMultiJournalsRequest* request,
+    Status SealMultiJournals(ServerContext* context,
+            const SealMultiJournalsRequest* request,
             SealMultiJournalsResponse* response);    
 };
 

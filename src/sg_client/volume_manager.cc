@@ -3,6 +3,7 @@
 #include <algorithm>
 #include "../log/log.h"
 #include "snapshot_control.h"
+#include "replicate_control.h"
 
 namespace Journal{
 
@@ -48,6 +49,10 @@ bool VolumeManager::init()
     assert(ctrl_service!= nullptr);
 
     ctrl_rpc_server->register_service(ctrl_service);
+
+    ReplicateCtrl rep_ctrl(ctrl_service);
+    ctrl_rpc_server->register_service(&rep_ctrl);
+
     if(!ctrl_rpc_server->run()){
         LOG_FATAL << "start ctrl rpc server failed!";
         return false;
