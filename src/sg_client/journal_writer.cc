@@ -125,7 +125,10 @@ void JournalWriter::work()
                entry->get_type() == SNAPSHOT_DELETE ||
                entry->get_type() == SNAPSHOT_ROLLBACK){
                 LOG_INFO << "journal write reply snapshot command";
-                snapshot_proxy_->cmd_persist_notify(); 
+                JournalMarker cur_write_mark;
+                cur_write_mark.set_cur_journal(cur_lease_journal.second);
+                cur_write_mark.set_pos(journal_off);
+                snapshot_proxy_->cmd_persist_notify(cur_write_mark); 
             }
 
             /*add to cache*/

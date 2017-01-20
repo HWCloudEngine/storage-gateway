@@ -111,17 +111,17 @@ StatusCode SnapshotProxy::sync_state()
     return StatusCode::sOk;
 }
 
-int SnapshotProxy::cmd_persist_wait()
+void SnapshotProxy::cmd_persist_wait()
 {
-    unique_lock<std::mutex> ulock(m_cmd_persit_lock);
-    m_cmd_persit_cond.wait(ulock);
-    return 0;
+    unique_lock<std::mutex> ulock(m_cmd_persist_lock);
+    m_cmd_persist_cond.wait(ulock);
 }
 
-void SnapshotProxy::cmd_persist_notify()
+void SnapshotProxy::cmd_persist_notify(const JournalMarker& mark)
 {
-    unique_lock<std::mutex> ulock(m_cmd_persit_lock);
-    m_cmd_persit_cond.notify_all();
+    unique_lock<std::mutex> ulock(m_cmd_persist_lock);
+    m_cmd_persist_mark = mark;
+    m_cmd_persist_cond.notify_all();
 }
 
 StatusCode SnapshotProxy::create_snapshot(const CreateSnapshotReq* req, 
@@ -147,6 +147,9 @@ StatusCode SnapshotProxy::create_snapshot(const CreateSnapshotReq* req,
 
     /*todo: wait journal writer persist journal entry ok and ack*/
     cmd_persist_wait();
+    LOG_INFO << "create_snapshot vname:" << vname << " sname:" << sname
+             << " journal:" << m_cmd_persist_mark.cur_journal() 
+             << " pos:" << m_cmd_persist_mark.pos();
 
     /*rpc with dr_server */
     ret_code = do_create(req->header(), sname);
@@ -832,3 +835,4 @@ StatusCode SnapshotProxy::read_snapshot(const ReadSnapshotReq* req,
              << " off:" << off << " len:" << len << " ok";
     return StatusCode::sOk; 
 }
+
