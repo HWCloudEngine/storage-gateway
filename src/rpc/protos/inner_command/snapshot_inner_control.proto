@@ -1,5 +1,6 @@
 syntax = "proto3";
 import "common.proto";
+import "journal/journal.proto";
 package huawei.proto.inner;
 
 /*snapshot rpc service storage client and storage gateway server*/
@@ -28,6 +29,8 @@ message CreateReq {
     SnapReqHead header = 1;
     string vol_name = 2;
     string snap_name = 3;
+    /*use for replication enable and disable*/
+    JournalMarker mark = 4;
 }
 
 message CreateAck {

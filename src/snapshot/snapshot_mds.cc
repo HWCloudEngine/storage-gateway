@@ -62,6 +62,10 @@ string DbUtil::spawn_attr_map_val(const snap_attr_t& snap_attr)
     key += to_string(snap_attr.snap_id);
     key.append(FS);
     key += to_string(snap_attr.snap_status);
+    key.append(FS);
+    key += snap_attr.journal_file;
+    key.append(FS);
+    key += to_string(snap_attr.journal_pos);
     return key;
 }
 
@@ -103,6 +107,16 @@ void DbUtil::split_attr_map_val(const string& raw_key, snap_attr_t& snap_attr)
     string remain6;
     split_key(remain5, snap_status, remain6);
     snap_attr.snap_status = (SnapStatus)atoi(snap_status.c_str());
+    
+    string journal_file;
+    string remain7;
+    split_key(remain6, journal_file, remain7);
+    snap_attr.journal_file = journal_file;
+
+    string journal_pos;
+    string remain8;
+    split_key(remain7, journal_pos, remain8);
+    snap_attr.journal_pos = (off_t)atol(journal_pos.c_str());
 }
  
 string DbUtil::spawn_cow_block_map_key(const snapid_t& snap_id,
@@ -262,6 +276,8 @@ StatusCode SnapshotMds::create_snapshot(const CreateReq* req, CreateAck* ack)
     cur_snap_attr.snap_type = (snap_type_t)req->header().snap_type();
     cur_snap_attr.snap_name = snap_name;
     cur_snap_attr.snap_status = SnapStatus::SNAP_CREATING;
+    cur_snap_attr.journal_file = req->mark().cur_journal();
+    cur_snap_attr.journal_pos = req->mark().pos();
 
     /*in db update snapshot status*/
     string pkey = DbUtil::spawn_attr_map_key(snap_name);

@@ -7,7 +7,7 @@
 #include <grpc++/grpc++.h>
 #include "../rpc/common.pb.h"
 #include "../rpc/snapshot_inner_control.grpc.pb.h"
-#include "snapshot_mds.h"
+#include "snapshot_vol.h"
 
 using grpc::Server;
 using grpc::ServerBuilder;
@@ -101,8 +101,8 @@ public:
                       ReadAck* ack) override;
 
 private:
-    /*each volume has a snapshotmds*/
-    map<string, shared_ptr<SnapshotMds>> m_volumes;
+    /*each volume has a snapshotvol*/
+    map<string, shared_ptr<SnapshotVol>> m_vols;
 };
 
 #endif

@@ -13,6 +13,7 @@
 #include "../log/log.h"
 #include "../sg_client/journal_entry.h"
 #include "../rpc/common.pb.h"
+#include "../rpc/journal.pb.h"
 #include "../rpc/snapshot_control.pb.h"
 #include "../rpc/snapshot_control.grpc.pb.h"
 #include "../rpc/snapshot_inner_control.pb.h"
@@ -27,6 +28,8 @@ using grpc::Status;
 using huawei::proto::StatusCode;
 using huawei::proto::SnapStatus;
 using huawei::proto::SnapReqHead;
+
+using huawei::proto::JournalMarker;
 
 using huawei::proto::control::CreateSnapshotReq;
 using huawei::proto::control::CreateSnapshotAck;
@@ -92,14 +95,17 @@ public:
 
     /*rpc with dr server*/
     StatusCode do_create(const SnapReqHead& shead, const string& sname);
+    StatusCode do_create(const SnapReqHead& shead, 
+                         const string& sname, 
+                         const JournalMarker& mark);
     StatusCode do_delete(const SnapReqHead& shead, const string& sname);
     StatusCode do_cow(const off_t& off, const size_t& size, char* buf, bool rollback);
     StatusCode do_update(const SnapReqHead& shead, const string& sname);
     StatusCode do_rollback(const SnapReqHead& shead, const string& sname);
 
     /*make sure journal writer persist ok then ack to client*/
-    int  cmd_persist_wait();
-    void cmd_persist_notify();
+    void cmd_persist_wait();
+    void cmd_persist_notify(const JournalMarker& mark);
     
 private:
     /*split io into fixed size block*/
@@ -116,6 +122,10 @@ private:
 
     /*common transaction mechanism*/
     StatusCode transaction(const SnapReqHead& shead, const string& snap_name); 
+   
+    /*todo: promise and future only can use once, once used should renew one*/
+    void sync_tool_enable();
+    void sync_tool_disable();
 
 private:
     /*volume name*/
@@ -129,8 +139,9 @@ private:
     BlockingQueue<shared_ptr<JournalEntry>>& m_entry_queue;
     
     /*sync between writer and proxy*/
-    mutex  m_cmd_persit_lock;
-    condition_variable m_cmd_persit_cond;
+    mutex              m_cmd_persist_lock;
+    condition_variable m_cmd_persist_cond;
+    JournalMarker      m_cmd_persist_mark;
 
     /*local store snapshot attribute*/
     map<string, SnapStatus> m_snapshots;
