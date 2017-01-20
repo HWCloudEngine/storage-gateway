@@ -26,8 +26,8 @@ service SnapshotInnerControl {
 
 message CreateReq {
     SnapReqHead header = 1;
-    string vol_name = 2;
-    string snap_name = 3;
+    string vol_name    = 2;
+    string snap_name   = 3;
 }
 
 message CreateAck {
@@ -36,8 +36,8 @@ message CreateAck {
 
 message UpdateReq {
     SnapReqHead header = 1;
-    string vol_name = 2;
-    string snap_name = 3;
+    string vol_name    = 2;
+    string snap_name   = 3;
 }
 
 message UpdateAck {
@@ -46,29 +46,29 @@ message UpdateAck {
 
 message ListReq {
     SnapReqHead header = 1;
-    string vol_name = 2;
+    string vol_name    = 2;
 }
 
 message ListAck {
-    SnapAckHead header = 1;
+    SnapAckHead header        = 1;
     repeated string snap_name = 2;
 }
 
 message QueryReq {
     SnapReqHead header = 1;
-    string vol_name = 2;
-    string snap_name = 3;
+    string vol_name    = 2;
+    string snap_name   = 3;
 }
 
 message QueryAck {
-    SnapAckHead header = 1;
+    SnapAckHead header     = 1;
     SnapStatus snap_status = 2;
 }
 
 message DeleteReq {
     SnapReqHead header = 1;
-    string vol_name = 2;
-    string snap_name = 3;
+    string vol_name    = 2;
+    string snap_name   = 3;
 }
 
 message DeleteAck {
@@ -77,13 +77,13 @@ message DeleteAck {
 
 message RollbackReq {
     SnapReqHead header = 1;
-    string vol_name = 2;
-    string snap_name = 3;
+    string vol_name    = 2;
+    string snap_name   = 3;
 }
 
 /*indicate which block will be rollback*/
 message RollBlock {
-    uint64 blk_no = 1;
+    uint64 blk_no     = 1;
     string blk_object = 2; /*rollback data from object*/
 }
 
@@ -94,14 +94,14 @@ message RollbackAck {
 
 message DiffReq {
     SnapReqHead header = 1;
-    string vol_name = 2;
+    string vol_name    = 2;
     string first_snap_name = 3;
     string laste_snap_name = 4;
 }
 
 /*indicate which blocks diff*/
 message DiffBlocks {
-    string vol_name = 1;
+    string vol_name  = 1;
     string snap_name = 2;
     repeated uint64 diff_block_no = 3;
 }
@@ -135,9 +135,9 @@ message ReadAck {
 /*batch or one by one*/
 message CowReq {
     SnapReqHead header = 1;
-    string vol_name = 2;
-    string snap_name = 3;
-    uint64 blk_no = 4;
+    string vol_name    = 2;
+    string snap_name   = 3;
+    uint64 blk_no      = 4;
 }
 
 message CowAck {
