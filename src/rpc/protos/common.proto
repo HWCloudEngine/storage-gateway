@@ -20,16 +20,28 @@ enum StatusCode {
     sSnapMetaPersistError = 105;
 }
 
+//snapshot use scenario
+enum SnapScene {
+    /*common snapshot*/
+    FOR_NORMAL = 0;
+    /*interal snapshot for replication disable and enable*/
+    FOR_REPLICATION = 1;
+    /*interal snapshot for backup*/
+    FOR_BACKUP = 2;
+}
+
 //snapshot requst header
 message SnapReqHead {
     /*sequence id*/
     int64  seq_id = 1;
+    /*use scene*/
+    SnapScene scene = 2;
     /*remote or local*/
-    int32  snap_type = 2;
+    int32  snap_type = 3;
     /*cacsing volume replication pair uuid*/
-    string replication_uuid = 3;
+    string replication_uuid = 4;
     /*cacsing volume replication checkpoint uuid*/
-    string checkpoint_uuid = 4;
+    string checkpoint_uuid = 5;
 }
 
 message SnapAckHead {
