@@ -39,55 +39,30 @@ using huawei::proto::inner::ReadAck;
 using huawei::proto::inner::SyncReq;
 using huawei::proto::inner::SyncAck;
 
-/*helper function to handle db persist key*/
-class DbUtil
-{
-public:
-    static string spawn_key(const string& prefix, const string& value);
-    static void   split_key(const string& raw, string& prefix, string& key); 
-    static string spawn_latest_id_key();
-    static string spawn_latest_name_key();
-    static string spawn_attr_map_key(const string& snap_name);
-    static void   split_attr_map_key(const string& raw_key, string& snap_name);
-    static string spawn_attr_map_val(const snap_attr_t& snap_attr);
-    static void   split_attr_map_val(const string& raw_key, snap_attr_t& snap_attr);
-    static string spawn_cow_block_map_key(const snapid_t& snap_id,
-                                          const block_t& block_id);
-    static void   split_cow_block_map_key(const string& raw_key, 
-                                          snapid_t& snap_id, 
-                                          block_t& block_id);
-    static string spawn_cow_object_map_key(const string& obj_name);
-    static void   split_cow_object_map_key(const string& raw_key, string& obj_name);
-    static string spawn_cow_object_map_val(const cow_object_ref_t& obj_ref);
-    static void   split_cow_object_map_val(const string& raw_val, 
-                                           cow_object_ref_t& obj_ref);
-};
-
-/*work on storage gateway server, hold each volume snapshot meta data*/
 class SnapshotMds
 {
 public:
     SnapshotMds(string vol_name);
-    ~SnapshotMds();   
+    virtual ~SnapshotMds();   
 
     /*storage client sync snapshot status*/ 
     StatusCode sync(const SyncReq* req, SyncAck* ack);
 
     /*snapshot common operation*/
-    StatusCode create_snapshot(const CreateReq* req, CreateAck* ack);
-    StatusCode delete_snapshot(const DeleteReq* req, DeleteAck* ack);
-    StatusCode rollback_snapshot(const RollbackReq* req, RollbackAck* ack);
-    StatusCode list_snapshot(const ListReq* req, ListAck* ack);
-    StatusCode query_snapshot(const QueryReq* req, QueryAck* ack);
-    StatusCode diff_snapshot(const DiffReq* req, DiffAck* ack);    
-    StatusCode read_snapshot(const ReadReq* req, ReadAck* ack);
+    virtual StatusCode create_snapshot(const CreateReq* req, CreateAck* ack);
+    virtual StatusCode delete_snapshot(const DeleteReq* req, DeleteAck* ack);
+    virtual StatusCode rollback_snapshot(const RollbackReq* req, RollbackAck* ack);
+    virtual StatusCode list_snapshot(const ListReq* req, ListAck* ack);
+    virtual StatusCode query_snapshot(const QueryReq* req, QueryAck* ack);
+    virtual StatusCode diff_snapshot(const DiffReq* req, DiffAck* ack);    
+    virtual StatusCode read_snapshot(const ReadReq* req, ReadAck* ack);
     
     /*snapshot status*/
-    StatusCode update(const UpdateReq* req, UpdateAck* ack);
+    virtual StatusCode update(const UpdateReq* req, UpdateAck* ack);
     
     /*cow*/
-    StatusCode cow_op(const CowReq* req, CowAck* ack);
-    StatusCode cow_update(const CowUpdateReq* req, CowUpdateAck* ack);
+    virtual StatusCode cow_op(const CowReq* req, CowAck* ack);
+    virtual StatusCode cow_update(const CowUpdateReq* req, CowUpdateAck* ack);
     
     /*crash recover*/
     int recover();
