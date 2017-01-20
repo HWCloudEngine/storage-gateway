@@ -33,6 +33,10 @@ struct snap_attr {
     string      snap_name;
     snapid_t    snap_id;
     SnapStatus  snap_status;
+
+    /*for replication disable and enable*/
+    string journal_file;
+    off_t  journal_pos;
 };
 typedef struct snap_attr snap_attr_t;
 

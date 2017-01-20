@@ -8,11 +8,13 @@
 #include <string>
 #include <condition_variable>
 #include <atomic>
+#include <future>
 #include <grpc++/grpc++.h>
 #include "../common/blocking_queue.h"
 #include "../log/log.h"
 #include "../sg_client/journal_entry.h"
 #include "../rpc/common.pb.h"
+#include "../rpc/journal.pb.h"
 #include "../rpc/snapshot_control.pb.h"
 #include "../rpc/snapshot_control.grpc.pb.h"
 #include "../rpc/snapshot_inner_control.pb.h"
@@ -27,6 +29,8 @@ using grpc::Status;
 using huawei::proto::StatusCode;
 using huawei::proto::SnapStatus;
 using huawei::proto::SnapReqHead;
+
+using huawei::proto::JournalMarker;
 
 using huawei::proto::control::CreateSnapshotReq;
 using huawei::proto::control::CreateSnapshotAck;
@@ -60,10 +64,11 @@ public:
         m_entry_queue(entry_queue){
         LOG_INFO << "SnapshotProxy create vid:" << volume_id  \
                  << " blk:" << block_device;
+        m_future = m_promise.get_future();
         init();
     }
 
-    ~SnapshotProxy(){
+    virtual ~SnapshotProxy(){
         LOG_INFO << "SnapshotProxy destroy vid:" << m_volume_id \
                  << " blk:" << m_block_device;
         fini();
@@ -73,33 +78,36 @@ public:
     bool fini();
     
     /*crash recover, synchronize snapshot status with dr_server*/
-    StatusCode sync_state();
+    virtual StatusCode sync_state();
 
     /*called by control layer*/
-    StatusCode create_snapshot(const CreateSnapshotReq* req, CreateSnapshotAck* ack);
-    StatusCode delete_snapshot(const DeleteSnapshotReq* req, DeleteSnapshotAck* ack);
-    StatusCode rollback_snapshot(const RollbackSnapshotReq* req, RollbackSnapshotAck* ack);
-    StatusCode list_snapshot(const ListSnapshotReq* req, ListSnapshotAck* ack);
-    StatusCode query_snapshot(const QuerySnapshotReq* req, QuerySnapshotAck* ack);
-    StatusCode diff_snapshot(const DiffSnapshotReq* req, DiffSnapshotAck* ack);
-    StatusCode read_snapshot(const ReadSnapshotReq* req, ReadSnapshotAck* ack);
+    virtual StatusCode create_snapshot(const CreateSnapshotReq* req, CreateSnapshotAck* ack);
+    virtual StatusCode delete_snapshot(const DeleteSnapshotReq* req, DeleteSnapshotAck* ack);
+    virtual StatusCode rollback_snapshot(const RollbackSnapshotReq* req, RollbackSnapshotAck* ack);
+    virtual StatusCode list_snapshot(const ListSnapshotReq* req, ListSnapshotAck* ack);
+    virtual StatusCode query_snapshot(const QuerySnapshotReq* req, QuerySnapshotAck* ack);
+    virtual StatusCode diff_snapshot(const DiffSnapshotReq* req, DiffSnapshotAck* ack);
+    virtual StatusCode read_snapshot(const ReadSnapshotReq* req, ReadSnapshotAck* ack);
 
     /*call by journal replayer*/
-    StatusCode create_transaction(const SnapReqHead& shead, const string& snap_name);
-    StatusCode delete_transaction(const SnapReqHead& shead, const string& snap_name);
-    StatusCode rollback_transaction(const SnapReqHead& shead, const string& snap_name);
+    virtual StatusCode create_transaction(const SnapReqHead& shead, const string& snap_name);
+    virtual StatusCode delete_transaction(const SnapReqHead& shead, const string& snap_name);
+    virtual StatusCode rollback_transaction(const SnapReqHead& shead, const string& snap_name);
     bool check_exist_snapshot()const;
 
     /*rpc with dr server*/
-    StatusCode do_create(const SnapReqHead& shead, const string& sname);
-    StatusCode do_delete(const SnapReqHead& shead, const string& sname);
-    StatusCode do_cow(const off_t& off, const size_t& size, char* buf, bool rollback);
-    StatusCode do_update(const SnapReqHead& shead, const string& sname);
-    StatusCode do_rollback(const SnapReqHead& shead, const string& sname);
+    virtual StatusCode do_create(const SnapReqHead& shead, const string& sname);
+    virtual StatusCode do_create(const SnapReqHead& shead, 
+                                 const string& sname, 
+                                 const JournalMarker& mark);
+    virtual StatusCode do_delete(const SnapReqHead& shead, const string& sname);
+    virtual StatusCode do_cow(const off_t& off, const size_t& size, char* buf, bool rollback);
+    virtual StatusCode do_update(const SnapReqHead& shead, const string& sname);
+    virtual StatusCode do_rollback(const SnapReqHead& shead, const string& sname);
 
     /*make sure journal writer persist ok then ack to client*/
-    int  cmd_persist_wait();
-    void cmd_persist_notify();
+    JournalMarker cmd_persist_wait();
+    void cmd_persist_notify(const JournalMarker& mark);
     
 private:
     /*split io into fixed size block*/
@@ -129,8 +137,8 @@ private:
     BlockingQueue<shared_ptr<JournalEntry>>& m_entry_queue;
     
     /*sync between writer and proxy*/
-    mutex  m_cmd_persit_lock;
-    condition_variable m_cmd_persit_cond;
+    promise<JournalMarker> m_promise;
+    future<JournalMarker>  m_future;
 
     /*local store snapshot attribute*/
     map<string, SnapStatus> m_snapshots;

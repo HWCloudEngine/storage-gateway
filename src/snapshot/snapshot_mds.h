@@ -68,26 +68,26 @@ class SnapshotMds
 {
 public:
     SnapshotMds(string vol_name);
-    ~SnapshotMds();   
+    virtual ~SnapshotMds();   
 
     /*storage client sync snapshot status*/ 
     StatusCode sync(const SyncReq* req, SyncAck* ack);
 
     /*snapshot common operation*/
-    StatusCode create_snapshot(const CreateReq* req, CreateAck* ack);
-    StatusCode delete_snapshot(const DeleteReq* req, DeleteAck* ack);
-    StatusCode rollback_snapshot(const RollbackReq* req, RollbackAck* ack);
-    StatusCode list_snapshot(const ListReq* req, ListAck* ack);
-    StatusCode query_snapshot(const QueryReq* req, QueryAck* ack);
-    StatusCode diff_snapshot(const DiffReq* req, DiffAck* ack);    
-    StatusCode read_snapshot(const ReadReq* req, ReadAck* ack);
+    virtual StatusCode create_snapshot(const CreateReq* req, CreateAck* ack);
+    virtual StatusCode delete_snapshot(const DeleteReq* req, DeleteAck* ack);
+    virtual StatusCode rollback_snapshot(const RollbackReq* req, RollbackAck* ack);
+    virtual StatusCode list_snapshot(const ListReq* req, ListAck* ack);
+    virtual StatusCode query_snapshot(const QueryReq* req, QueryAck* ack);
+    virtual StatusCode diff_snapshot(const DiffReq* req, DiffAck* ack);    
+    virtual StatusCode read_snapshot(const ReadReq* req, ReadAck* ack);
     
     /*snapshot status*/
-    StatusCode update(const UpdateReq* req, UpdateAck* ack);
+    virtual StatusCode update(const UpdateReq* req, UpdateAck* ack);
     
     /*cow*/
-    StatusCode cow_op(const CowReq* req, CowAck* ack);
-    StatusCode cow_update(const CowUpdateReq* req, CowUpdateAck* ack);
+    virtual StatusCode cow_op(const CowReq* req, CowAck* ack);
+    virtual StatusCode cow_update(const CowUpdateReq* req, CowUpdateAck* ack);
     
     /*crash recover*/
     int recover();

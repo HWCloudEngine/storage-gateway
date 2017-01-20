@@ -111,17 +111,15 @@ StatusCode SnapshotProxy::sync_state()
     return StatusCode::sOk;
 }
 
-int SnapshotProxy::cmd_persist_wait()
+JournalMarker SnapshotProxy::cmd_persist_wait()
 {
-    unique_lock<std::mutex> ulock(m_cmd_persit_lock);
-    m_cmd_persit_cond.wait(ulock);
-    return 0;
+    m_future.wait();
+    return m_future.get();
 }
 
-void SnapshotProxy::cmd_persist_notify()
+void SnapshotProxy::cmd_persist_notify(const JournalMarker& mark)
 {
-    unique_lock<std::mutex> ulock(m_cmd_persit_lock);
-    m_cmd_persit_cond.notify_all();
+    m_promise.set_value(mark);
 }
 
 StatusCode SnapshotProxy::create_snapshot(const CreateSnapshotReq* req, 
@@ -146,7 +144,9 @@ StatusCode SnapshotProxy::create_snapshot(const CreateSnapshotReq* req,
     m_snapshots.insert({sname, cur_snap_status}) ;
 
     /*todo: wait journal writer persist journal entry ok and ack*/
-    cmd_persist_wait();
+    JournalMarker snap_mark= cmd_persist_wait();
+    LOG_INFO << "create_snapshot vname:" << vname << " sname:" << sname
+             << " journal:" << snap_mark.cur_journal() << " pos:" << snap_mark.pos();
 
     /*rpc with dr_server */
     ret_code = do_create(req->header(), sname);
@@ -432,6 +432,27 @@ StatusCode SnapshotProxy::do_create(const SnapReqHead& shead, const string& snam
     ireq.mutable_header()->CopyFrom(shead);
     ireq.set_vol_name(m_volume_id);
     ireq.set_snap_name(sname);
+    CreateAck iack;
+    Status st = m_rpc_stub->Create(&context, ireq, &iack);
+    if(!st.ok()){
+        return iack.header().status();
+    }
+        
+    LOG_INFO << "SnapshotProxy do_create" << " snap_name:" << sname << " ok";
+    return StatusCode::sOk;
+}
+
+StatusCode SnapshotProxy::do_create(const SnapReqHead& shead, const string& sname,
+                                    const JournalMarker& mark)
+{
+    LOG_INFO << "SnapshotProxy do_create" << " snap_name:" << sname;
+
+    ClientContext context;
+    CreateReq ireq;
+    ireq.mutable_header()->CopyFrom(shead);
+    ireq.set_vol_name(m_volume_id);
+    ireq.set_snap_name(sname);
+    ireq.mutable_mark()->CopyFrom(mark);
     CreateAck iack;
     Status st = m_rpc_stub->Create(&context, ireq, &iack);
     if(!st.ok()){
