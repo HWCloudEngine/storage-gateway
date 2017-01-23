@@ -9,7 +9,7 @@ then
     fi
     #generate grpc python source files from protos
     python -m grpc.tools.protoc -I${proto_path} --python_out=. \
-        --grpc_python_out=. ${proto_path}/control_api/control.proto \
+        --grpc_python_out=. ${proto_path}/control_api/snapshot_control.proto \
         ${proto_path}/control_api/replicate_control.proto \
         ${proto_path}/journal/journal.proto \
         ${proto_path}/common.proto
