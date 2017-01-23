@@ -6,18 +6,20 @@ import snap_ctrl,replicate_ctrl
 def snap(args,cp):
     print ('action: %s' % args.action)
     print ('volume: %s'%args.vol_id)
-    ip = cp.get('replicate','local_ip')
-    print ('local ip: %s' % ip)
-    params = {'ip':ip,'port':'1111'}
+    #host = cp.get('replicate','local_ip')
+    host = '127.0.0.1'
+    print ('rpc server host: %s' % host)
+    params = {'host':host,'port':'1111'}
     ctrl = snap_ctrl.SnapCtrl(params)
     ctrl.do(args)
 
 def replicate(args,cp):
     print('operation uuid: %s' %args.op_id)
     print('replicate (%s)' % args)
-    ip = cp.get('replicate','local_ip')
-    print ('local ip: %s' % ip)
-    params = {'ip':ip,'port':'1111'}
+    #host = cp.get('replicate','local_ip')
+    host = '127.0.0.1'
+    print ('rpc server host: %s' % host)
+    params = {'host':host,'port':'1111'}
     ctrl = replicate_ctrl.RepliacteCtrl(params)
     ctrl.do(args)
 
@@ -40,18 +42,26 @@ def run():
     parser_snap.add_argument('--second_snap',help='snapshot id',dest='snap_id2')
     parser_snap.add_argument('-o','--off',dest='offset')
     parser_snap.add_argument('-l','--len',dest='length')
+    parser_snap.add_argument('--seq',help='sequence id',dest='seq_id')
+    parser_snap.add_argument('--snap_type',dest='type')
+    parser_snap.add_argument('--rep_uuid',help='uuid for replication',\
+                            dest='rep_uuid')
+    parser_snap.add_argument('--checkpoint',help='uuid for checkpoint',\
+                            dest='cp_uuid')
     parser_snap.set_defaults(func=snap)
+
     #replicate args
     parser_replicate = sub_parsers.add_parser('replicate')
     parser_replicate.add_argument('-a','--action',\
                               choices=('create','enable','disable','failover',\
-                              'reverse','query','list'),
+                              'reverse'),
                               required=True)
-    parser_replicate.add_argument('-i','--replication_uuid',required=True,\
+    parser_replicate.add_argument('-i','--replication_uuid',\
                               dest='uuid')
     parser_replicate.add_argument('-o','--operation_uuid',dest='op_id',\
                               default=uuid.uuid1().hex)
-    parser_replicate.add_argument('-v','--volume',help='volume id',dest='vol_id')
+    parser_replicate.add_argument('-v','--volume',help='volume id',\
+                              required=True,dest='vol_id')
     parser_replicate.add_argument('--second_volume',help='volume id',
                               dest='vol_id2')
     parser_replicate.add_argument('-r','--role',help='replication\
