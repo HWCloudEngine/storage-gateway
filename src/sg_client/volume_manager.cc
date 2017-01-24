@@ -4,6 +4,9 @@
 #include "../log/log.h"
 #include "snapshot_control.h"
 
+using huawei::proto::VolumeInfo;
+using huawei::proto::StatusCode;
+
 namespace Journal{
 
 VolumeManager::~VolumeManager()
@@ -22,6 +25,10 @@ VolumeManager::~VolumeManager()
 
     if(rep_ctrl){
         delete rep_ctrl;
+    }
+
+    if(vol_ctrl){
+        delete vol_ctrl;
     }
 }
 
@@ -55,6 +62,17 @@ bool VolumeManager::init()
 
     rep_ctrl = new ReplicateCtrl(ctrl_service);
     ctrl_rpc_server->register_service(rep_ctrl);
+
+    std::string default_ip("127.0.0.1");
+    std::string svr_ip = conf->get_default("meta_server.ip", default_ip);
+    int svr_port = conf->get_default("meta_server.port", 50051);
+    svr_ip += ":" + std::to_string(svr_port);
+    vol_inner_client_.reset(
+            new VolInnerCtrlClient(
+                    grpc::CreateChannel(svr_ip,
+                            grpc::InsecureChannelCredentials())));
+    vol_ctrl = new VolumeControlImpl(host_, port_,vol_inner_client_);
+    ctrl_rpc_server->register_service(vol_ctrl);
 
     if(!ctrl_rpc_server->run()){
         LOG_FATAL << "start ctrl rpc server failed!";
@@ -130,20 +148,31 @@ void VolumeManager::read_req_body_cbt(raw_socket_t client_sock,
                               (const_cast<char*>(req_body_buffer));
     std::string vol_name = std::string(body_ptr->volume_name);
     std::string dev_path = std::string(body_ptr->device_path);
-    /*create volume*/
-    shared_ptr<Volume> vol = make_shared<Volume>(client_sock, vol_name, 
-                                                 dev_path, conf, lease_client);
-    /*add to map*/
-    std::unique_lock<std::mutex> lk(mtx);
-    volumes.insert(std::pair<std::string,volume_ptr>(vol_name,vol));
 
-    /*reply to tgt client*/
-    send_reply(client_sock, req_head_buffer, req_body_buffer, true);
-    
-    /*volume init*/
-    vol->init();
-    /*volume start, start receive io from network*/
-    vol->start();
+    VolumeInfo volume_info;
+    StatusCode ret = vol_inner_client_->get_volume(vol_name, volume_info);
+    if (ret == StatusCode::sOk)
+    {
+        /*create volume*/
+        shared_ptr<Volume> vol = make_shared<Volume>(client_sock, vol_name,
+                dev_path, conf, lease_client);
+        /*add to map*/
+        std::unique_lock<std::mutex> lk(mtx);
+        volumes.insert(std::pair<std::string,volume_ptr>(vol_name,vol));
+
+        /*reply to tgt client*/
+        send_reply(client_sock, req_head_buffer, req_body_buffer, true);
+
+        /*volume init*/
+        vol->init();
+        /*volume start, start receive io from network*/
+        vol->start();
+    }
+    else
+    {
+        /*reply to tgt client*/
+        send_reply(client_sock, req_head_buffer, req_body_buffer, false);
+    }
 }
 
 void VolumeManager::send_reply(raw_socket_t client_sock, 

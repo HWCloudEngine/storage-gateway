@@ -9,6 +9,7 @@ sg_client_SOURCES=$(top_srcdir)/src/common/crc32.c \
                   $(top_srcdir)/src/sg_server/ceph_s3_api.cc   \
                   snapshot_control.cc \
                   replicate_control.cc \
+                  volume_control.cc   \
                   connection.cc       \
                   io_service_pool.cc  \
                   seq_generator.cc    \
