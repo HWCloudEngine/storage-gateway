@@ -8,6 +8,8 @@
 #include "volume.h"
 #include "common/rpc_server.h"
 #include "replicate_control.h"
+#include "volume_control.h"
+#include "../rpc/clients/volume_inner_ctrl_client.h"
 
 using namespace std; 
 
@@ -18,7 +20,8 @@ namespace Journal{
 class VolumeManager
 {
 public:
-    VolumeManager() = default;
+    VolumeManager(const std::string& host, const std::string& port):
+        host_(host), port_(port){};
     virtual ~VolumeManager();
 
     VolumeManager(const VolumeManager& other) = delete;
@@ -72,6 +75,11 @@ private:
     /*rpc server receive ctrl command from sg controller */
     RpcServer* ctrl_rpc_server{nullptr};
     ReplicateCtrl* rep_ctrl;
+
+    std::string host_;
+    std::string port_;
+    VolumeControlImpl* vol_ctrl;
+    std::shared_ptr<VolInnerCtrlClient> vol_inner_client_;
 };
 
 }
