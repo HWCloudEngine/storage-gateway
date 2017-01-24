@@ -1,0 +1,59 @@
+syntax = "proto3";
+import "common.proto";
+package huawei.proto.control;
+
+/*northern oriented rpc service interface*/
+service VolumeControl {
+    rpc ListDevices(ListDevicesReq) returns (ListDevicesRes) {}
+    rpc EnableSG(EnableSGReq) returns (EnableSGRes) {}
+    rpc DisableSG(DisableSGReq) returns (DisableSGRes) {}
+    rpc UpdateVolumeStatus(UpdateVolumeStatusReq) returns (UpdateVolumeStatusRes) {}
+    rpc GetVolume(GetVolumeReq) returns (GetVolumeRes) {}
+    rpc ListVolumes(ListVolumesReq) returns (ListVolumesRes) {}
+}
+
+message ListDevicesReq {
+}
+
+message ListDevicesRes {
+    StatusCode status = 1;
+    repeated string devices = 2;
+}
+
+message EnableSGReq {
+    string volume_id = 1;
+    uint64 size = 2;
+    string device = 3;
+    string target_iqn = 4;
+}
+
+message EnableSGRes {
+    StatusCode status = 1;
+}
+
+message DisableSGReq {
+    string volume_id = 1;
+    string target_iqn = 2;
+}
+
+message DisableSGRes {
+    StatusCode status = 1;
+}
+
+message GetVolumeReq {
+    string volume_id = 1;
+}
+
+message GetVolumeRes {
+    StatusCode status = 1;
+    VolumeInfo volume = 2;
+}
+
+message ListVolumesReq {
+}
+
+message ListVolumesRes {
+    StatusCode status = 1;
+    repeated VolumeInfo volumes = 2;
+}
+
