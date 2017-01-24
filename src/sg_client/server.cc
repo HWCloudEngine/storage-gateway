@@ -16,7 +16,7 @@ Server::Server(const std::string& address,
     #else
     acceptor_(io_service_pool_.get_io_service(), boost::asio::local::stream_protocol::endpoint(file)),
     #endif
-    volume_manager_()
+    volume_manager_(address, port)
 {
     signals_.add(SIGINT);
     signals_.add(SIGTERM);
