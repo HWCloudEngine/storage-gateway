@@ -11,6 +11,7 @@ librpc_la_SOURCES=common.pb.cc   \
                   snapshot_inner_control.grpc.pb.cc snapshot_inner_control.pb.cc  \
                   replicate_control.pb.cc replicate_control.grpc.pb.cc \
                   replicate_inner_control.pb.cc replicate_inner_control.grpc.pb.cc \
+                  volume_control.pb.cc volume_control.grpc.pb.cc  \
                   volume_inner_control.pb.cc volume_inner_control.grpc.pb.cc  \
                   backup_control.pb.cc backup_control.grpc.pb.cc  \
                   backup_inner_control.pb.cc backup_inner_control.grpc.pb.cc 

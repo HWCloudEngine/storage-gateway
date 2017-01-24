@@ -10,6 +10,7 @@ sg_client_SOURCES=$(top_srcdir)/src/common/crc32.c  \
                   control/control_snapshot.cc  \
                   control/control_backup.cc    \
                   control/control_replicate.cc \
+                  control/control_volume.cc \
                   connection.cc       \
                   io_service_pool.cc  \
                   seq_generator.cc    \

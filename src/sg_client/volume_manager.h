@@ -7,12 +7,14 @@
 #include <boost/thread/thread.hpp>
 #include "volume.h"
 #include "common/rpc_server.h"
+#include "../rpc/clients/volume_inner_ctrl_client.h"
 
 using namespace std; 
 
 /*forward declaration*/
 class SnapshotControlImpl;
 class BackupControlImpl;
+class VolumeControlImpl;
 class ReplicateCtrl;
 
 namespace Journal{
@@ -20,7 +22,8 @@ namespace Journal{
 class VolumeManager
 {
 public:
-    VolumeManager() = default;
+    VolumeManager(const std::string& host, const std::string& port):
+        host_(host), port_(port){};
     virtual ~VolumeManager();
 
     VolumeManager(const VolumeManager& other) = delete;
@@ -75,6 +78,11 @@ private:
     SnapshotControlImpl* snapshot_ctrl{nullptr};
     BackupControlImpl*   backup_ctrl{nullptr};
     ReplicateCtrl*       rep_ctrl{nullptr};
+    VolumeControlImpl* vol_ctrl{nullptr};
+
+    std::string host_;
+    std::string port_;
+    std::shared_ptr<VolInnerCtrlClient> vol_inner_client_;
 };
 
 }

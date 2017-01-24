@@ -29,7 +29,8 @@ $PROTOC -I ${PROTO_PATH} \
         ${PROTO_PATH}/replication/transfer.proto \
         ${PROTO_PATH}/control_api/snapshot_control.proto \
         ${PROTO_PATH}/control_api/replicate_control.proto \
-        ${PROTO_PATH}/control_api/backup_control.proto
+        ${PROTO_PATH}/control_api/backup_control.proto \
+        ${PROTO_PATH}/control_api/volume_control.proto
 
 #generate grpc
 $PROTOC -I ${PROTO_PATH} \
@@ -44,7 +45,8 @@ $PROTOC -I ${PROTO_PATH} \
         ${PROTO_PATH}/replication/transfer.proto \
         ${PROTO_PATH}/control_api/snapshot_control.proto  \
         ${PROTO_PATH}/control_api/replicate_control.proto \
-        ${PROTO_PATH}/control_api/backup_control.proto
+        ${PROTO_PATH}/control_api/backup_control.proto \
+        ${PROTO_PATH}/control_api/volume_control.proto
 
 #make soft-link of source files to expected dir
 ln -n $RPC_SOURCE_PATH/journal/* $RPC_SOURCE_PATH/
