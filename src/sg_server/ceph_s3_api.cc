@@ -320,6 +320,7 @@ RESULT CephS3Api::list_objects(const char*prefix, const char*marker, const char*
     response.retrySleepInterval = SLEEP_UNITS_PER_SECOND;
     response.keyCount = 0;
     response.isTruncated = 0;
+    response.match_end_marker = false;
     if(NULL!=marker && 0!=marker[0]){
         snprintf(response.nextMarker, sizeof(response.nextMarker), "%s", marker);
     }
@@ -343,7 +344,10 @@ RESULT CephS3Api::list_objects(const char*prefix, const char*marker, const char*
         LOG_ERROR << "list object failed: " << S3_get_status_name(response.status);
         return INTERNAL_ERROR;
     }
-    if(NULL!=end_marker && 0!=end_marker[0] && !response.match_end_marker)
+    // marker was not match 
+    if(NULL!=end_marker && 0!=end_marker[0] && !response.match_end_marker){
         list->clear();
+        return INTERNAL_ERROR;
+    }
     return DRS_OK;
 }

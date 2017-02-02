@@ -20,23 +20,33 @@ using huawei::proto::JOURNAL_STATUS;
 using huawei::proto::CONSUMER_TYPE;
 using huawei::proto::JournalMarker;
 using huawei::proto::RESULT;
-using huawei::proto::JournalMeta;
+using huawei::proto::JournalElement;
 using std::string;
 
 class JournalMetaManager {
 public:
     virtual ~JournalMetaManager() {}
-    virtual RESULT create_journals(const string& uuid,const string& vol_id,
+
+    virtual RESULT create_journals(const string& uuid,
+            const string& vol_id,
             const int& limit, std::list<string> &list) = 0;
-    virtual RESULT seal_volume_journals(const string& uuid,const string& vol_id,
+
+    virtual RESULT seal_volume_journals(const string& uuid,
+            const string& vol_id,
             const string journals[],const int& count) = 0;
+
     virtual RESULT get_consumer_marker(const string& vol_id,
             const CONSUMER_TYPE& type,JournalMarker& marker) = 0;
+
     virtual RESULT update_consumer_marker(const string& vol_id,
-            const CONSUMER_TYPE& type,const JournalMarker& marker) = 0;
+            const CONSUMER_TYPE& type,
+            const JournalMarker& marker) = 0;
+
     virtual RESULT get_consumable_journals(const string& vol_id,
-            const JournalMarker& marker,const int& limit, std::list<string> &list,
+            const JournalMarker& marker,const int& limit,
+            std::list<JournalElement> &list,
             const CONSUMER_TYPE& type) = 0;
+
     virtual RESULT set_producer_marker(const string& vol_id,
             const JournalMarker& marker) = 0;
 };

@@ -132,7 +132,7 @@ void RepClient::do_replicate(std::shared_ptr<RepTask> task){
     ReplicateResponse res;
     if(stream->Read(&res)){
         DR_ASSERT(res.id() == _req.id());
-        if(!res.status()){
+        if(res.status()){
             LOG_ERROR << "destination start rep task failed, taskid: "<< task->id;
             task->status = T_ERROR;
             return;
@@ -217,7 +217,7 @@ void RepClient::do_replicate(std::shared_ptr<RepTask> task){
             // wait for ack
             if(stream->Read(&res)){
                 DR_ASSERT(res.id() == _req.id());
-                if(!res.status()){
+                if(res.status()){
                     task->status = T_ERROR;
                 }
             }

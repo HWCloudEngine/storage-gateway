@@ -26,6 +26,7 @@ using huawei::proto::UpdateConsumerMarkerResponse;
 using huawei::proto::CONSUMER_TYPE;
 using huawei::proto::RESULT;
 using huawei::proto::JournalMarker;
+using huawei::proto::JournalElement;
 class ConsumerServiceImpl final : public Consumer::Service {
 private:
     std::shared_ptr<JournalMetaManager> _meta;
@@ -50,7 +51,7 @@ public:
     RESULT get_journal_list(const std::string& vol,
             const JournalMarker& marker,
             const int& limit,
-            std::list<std::string> list,
+            std::list<JournalElement> list,
             const CONSUMER_TYPE& type);
     RESULT update_consumer_marker(const std::string& vol,
             const CONSUMER_TYPE& type,

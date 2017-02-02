@@ -169,7 +169,7 @@ void JournalReplayer::replica_replay()
 
         /*get other journal file list */
         constexpr int limit = 10;
-        list<string> journal_list; 
+        list<JournalElement> journal_list; 
         ret = rpc_client_ptr_->GetJournalList(vol_id_, replay_consumer_mark, 
                                               limit, journal_list);
         if(!ret || journal_list.empty()){
@@ -187,7 +187,7 @@ void JournalReplayer::replica_replay()
         
         /*replay journal file*/
         for(auto it : journal_list){
-            journal = "/mnt/cephfs" + it;
+            journal = "/mnt/cephfs" + it.journal();
             pos     = sizeof(journal_file_header_t);
             replay_each_journal(journal, pos);    
         }
@@ -195,7 +195,7 @@ void JournalReplayer::replica_replay()
         if(limit == journal_list.size()){
             /*more journal file again, renew latest marker*/ 
             auto rit = journal_list.rbegin();
-            replay_consumer_mark.set_cur_journal(*rit);
+            replay_consumer_mark.set_cur_journal(rit->journal());
             replay_consumer_mark.set_pos(0);
         } else {
             usleep(200);

@@ -124,62 +124,82 @@ string construct_write_open_index(const string& m_key,
 string construct_volume_meta_key(const string& uuid){
     return g_volume_prefix + uuid;
 }
-RESULT init_cephs3_api(std::unique_ptr<CephS3Api>& s3Api,string& mount_path){
-    string access_key;
-    string secret_key;
-    string host;
-    string bucket_name;
-    std::unique_ptr<ConfigParser> parser(new ConfigParser(DEFAULT_CONFIG_FILE));
-    if(false == parser->get<string>("ceph_s3.access_key",access_key)){
-        LOG_FATAL << "config parse ceph_s3.access_key error!";
-        return INTERNAL_ERROR;
-    }
-    if(false == parser->get<string>("ceph_s3.secret_key",secret_key)){
-        LOG_FATAL << "config parse ceph_s3.secret_key error!";
-        return INTERNAL_ERROR;
-    }
-    // port number is necessary if not using default 80/443
-    if(false == parser->get<string>("ceph_s3.host",host)){
-        LOG_FATAL << "config parse ceph_s3.host error!";
-        return INTERNAL_ERROR;
-    }
-    if(false == parser->get<string>("ceph_s3.bucket",bucket_name)){
-        LOG_FATAL << "config parse ceph_s3.bucket error!";
-        return INTERNAL_ERROR;
-    }
-    s3Api.reset(new CephS3Api(access_key.c_str(),
-            secret_key.c_str(),host.c_str(),bucket_name.c_str()));
-    string type;
-    if(false == parser->get<string>("journal_storage.type",type)){
-        LOG_FATAL << "config parse journal_storage.type error!";
-        return INTERNAL_ERROR;
-    }
-    if(type.compare("ceph_fs") == 0){        
-        if(false == parser->get<string>("ceph_fs.mount_point",mount_path)){
-            LOG_FATAL << "config parse ceph_fs.mount_point error!";
-            return INTERNAL_ERROR;
-        }
-    }
-    else
-        DR_ERROR_OCCURED();
-    return DRS_OK;
-}
 
-RESULT CephS3Meta::get_journal_meta(const string& key, JournalMeta& meta) {
-    auto it = kv_map_.find(key);
-    if(it != kv_map_.end()){
-        meta.CopyFrom(it->second);
-        return DRS_OK;
-    }
+bool CephS3Meta::_get_journal_meta(const string& key, JournalMeta& meta){
     string value;
     RESULT res = s3Api_ptr_->get_object(key.c_str(),&value);
     if(res != DRS_OK)
-        return res;
+        return false;
     if(true != meta.ParseFromString(value)){
         LOG_ERROR << "parser journal " << key <<" 's meta failed!";
-        return INTERNAL_ERROR;
+        return false;
     }
-    return DRS_OK; // set meta key same as journal path
+    return true;
+}
+
+bool CephS3Meta::_get_replayer_producer_marker(const string& key,
+        JournalMarker& marker){
+    return get_marker(key,REPLAYER,marker,false);
+}
+bool  CephS3Meta::_get_replayer_consumer_marker(const string& key,
+        JournalMarker& marker){
+    return get_marker(key,REPLAYER,marker,true);
+}
+bool CephS3Meta::_get_replicator_producer_marker(const string& key,
+        JournalMarker& marker){
+    return get_marker(key,REPLICATOR,marker,false);
+}
+bool CephS3Meta::_get_replicator_consumer_marker(const string& key,
+        JournalMarker& marker){
+    return get_marker(key,REPLICATOR,marker,true);
+}
+bool CephS3Meta::_get_volume_meta(const string& id,VolumeMeta& meta){
+    string key = construct_volume_meta_key(id);
+    string value;
+    RESULT res = s3Api_ptr_->get_object(key.c_str(),&value);
+    if(DRS_OK != res){
+        LOG_ERROR << "get volume meta failed:" << key;
+        return false;
+    }
+    return meta.ParseFromString(value);
+}
+
+bool CephS3Meta::get_marker(const string& vol_id,
+        const CONSUMER_TYPE& type, JournalMarker& marker,bool is_consumer){
+    string key = assemble_journal_marker_key(vol_id,type,is_consumer);
+    string value;
+    RESULT res = s3Api_ptr_->get_object(key.c_str(),&value);
+    if(DRS_OK == res){
+        return marker.ParseFromString(value);
+    }
+    else if(NO_SUCH_KEY == res && is_consumer == true){
+    // if the consumer failed without init the marker yet? maybe the dr server
+    // should init the marker if it's not init, or the restarted consumer may not know where to start 
+        LOG_WARN << vol_id << " 's consumer marker is not initialized!";
+        std::list<string> list;
+        res = s3Api_ptr_->list_objects((g_key_prefix+vol_id).c_str(),nullptr,nullptr,1,&list);
+        if(DRS_OK != res){
+            LOG_ERROR << "list volume " << vol_id << " journals failed!";
+            return false;
+        }
+        if(list.size() <= 0){
+            return false;
+        }
+        else{
+            marker.set_cur_journal(list.front());
+            marker.set_pos(0L);
+            return true;
+        }
+    }
+    return false;
+}
+
+RESULT CephS3Meta::get_journal_meta(const string& key, JournalMeta& meta) {
+    if(m_kv_cache_.get(key,meta)){
+        return DRS_OK;
+    }
+    else
+        return INTERNAL_ERROR;
 }
 
 RESULT CephS3Meta::init_journal_key_counter(const string& vol_id,int64_t& cnt){
@@ -238,15 +258,58 @@ RESULT CephS3Meta::set_journal_key_counter(const string& vol_id,
 }
 
 // cephS3Meta member functions
-CephS3Meta::CephS3Meta() {
+CephS3Meta::CephS3Meta():
+    m_kv_cache_(1000,std::bind(&CephS3Meta::_get_journal_meta,this,std::placeholders::_1,std::placeholders::_2)),
+    replayer_Pmarker_cache_(128,std::bind(&CephS3Meta::_get_replayer_producer_marker,this,std::placeholders::_1,std::placeholders::_2)),
+    replicator_Pmarker_cache_(128,std::bind(&CephS3Meta::_get_replicator_producer_marker,this,std::placeholders::_1,std::placeholders::_2)),
+    replayer_Cmarker_cache_(128,std::bind(&CephS3Meta::_get_replayer_consumer_marker,this,std::placeholders::_1,std::placeholders::_2)),
+    replicator_Cmarker_cache_(128,std::bind(&CephS3Meta::_get_replicator_consumer_marker,this,std::placeholders::_1,std::placeholders::_2)),
+    vol_cache_(128,std::bind(&CephS3Meta::_get_volume_meta,this,std::placeholders::_1,std::placeholders::_2)) {
     init();
 }
 CephS3Meta::~CephS3Meta() {
 }
-RESULT CephS3Meta::init() {   
-    RESULT res = init_cephs3_api(s3Api_ptr_,mount_path_);
-    if(DRS_OK != res)
-        return res;
+
+RESULT CephS3Meta::init() {
+    string access_key;
+    string secret_key;
+    string host;
+    string bucket_name;
+    std::unique_ptr<ConfigParser> parser(new ConfigParser(DEFAULT_CONFIG_FILE));
+    if(false == parser->get<string>("ceph_s3.access_key",access_key)){
+        LOG_FATAL << "config parse ceph_s3.access_key error!";
+        return INTERNAL_ERROR;
+    }
+    if(false == parser->get<string>("ceph_s3.secret_key",secret_key)){
+        LOG_FATAL << "config parse ceph_s3.secret_key error!";
+        return INTERNAL_ERROR;
+    }
+    // port number is necessary if not using default 80/443
+    if(false == parser->get<string>("ceph_s3.host",host)){
+        LOG_FATAL << "config parse ceph_s3.host error!";
+        return INTERNAL_ERROR;
+    }
+    if(false == parser->get<string>("ceph_s3.bucket",bucket_name)){
+        LOG_FATAL << "config parse ceph_s3.bucket error!";
+        return INTERNAL_ERROR;
+    }
+    s3Api_ptr_.reset(new CephS3Api(access_key.c_str(),
+            secret_key.c_str(),host.c_str(),bucket_name.c_str()));
+    string type;
+    if(false == parser->get<string>("journal_storage.type",type)){
+        LOG_FATAL << "config parse journal_storage.type error!";
+        return INTERNAL_ERROR;
+    }
+    if(type.compare("ceph_fs") == 0){        
+        if(false == parser->get<string>("ceph_fs.mount_point",mount_path_)){
+            LOG_FATAL << "config parse ceph_fs.mount_point error!";
+            return INTERNAL_ERROR;
+        }
+    }
+    else
+        DR_ERROR_OCCURED();
+    max_journal_size_ = parser->get_default<int>(
+        "journal_writer.journal_max_size",32 * 1024 * 1024);
     return mkdir_if_not_exist((mount_path_+g_key_prefix).c_str(),S_IRWXG|S_IRWXU|S_IRWXO);
 }
 
@@ -289,6 +352,7 @@ RESULT CephS3Meta::create_journals(const string& uuid,const string& vol_id,
             LOG_ERROR << "update journal " << journals[i] << " opened status failed!";
             break;
         }
+        m_kv_cache_.put(journals[i],meta);
         string o_key = construct_write_open_index(journals[i],vol_id,uuid);
         res = s3Api_ptr_->put_object(o_key.c_str(),nullptr,nullptr);
         if(DRS_OK != res){
@@ -339,15 +403,14 @@ RESULT CephS3Meta::create_journals_by_given_keys(const string& uuid,
         << counter << ",to " << next;
 
     for(auto it=list.begin();it!=list.end();++it) {
-        auto it2 = kv_map_.find(*it); // cached kv to reduce remote calls to meta server(ceph,etc)
-        if(it2 != kv_map_.end())// journal existed
+        JournalMeta meta;
+        if(m_kv_cache_.get(*it,meta))// journal existed
             continue;
         if(true != dr_server::extract_counter_from_object_key(*it,next)){
             res = INTERNAL_ERROR;
             break;
         }
         string filename = get_journal_filename(vol_id,next);
-        JournalMeta meta;
         meta.set_path(filename);
         meta.set_status(OPENED);
         string meta_s;
@@ -361,6 +424,8 @@ RESULT CephS3Meta::create_journals_by_given_keys(const string& uuid,
             LOG_ERROR << "create journal " << *it << " failed!";
             break;
         }
+        // update cache
+        m_kv_cache_.put(*it,meta);
         count++;
         string o_key = construct_write_open_index(*it,vol_id,uuid);
         res = s3Api_ptr_->put_object(o_key.c_str(),nullptr,nullptr);
@@ -409,6 +474,7 @@ RESULT CephS3Meta::seal_volume_journals(const string& uuid, const string& vol_id
             LOG_ERROR << "update journal " << journals[i] << " sealed status failed!";
             break;
         }
+        m_kv_cache_.put(journals[i],meta); // update cache
         string s_key = construct_sealed_index(journals[i]);
         res = s3Api_ptr_->put_object(s_key.c_str(),nullptr,nullptr); // add journal sealed index key
         if(DRS_OK != res){
@@ -422,43 +488,30 @@ RESULT CephS3Meta::seal_volume_journals(const string& uuid, const string& vol_id
             // no break, continue trying to delete in GC thread
         }
     }
+    // set producer marker if it's ahead of the last sealed journal
+    JournalMarker marker;
+    marker.set_cur_journal(journals[count-1]);
+    marker.set_pos(max_journal_size_);
+    set_producer_marker(vol_id,marker);
     return res;
 }
 
 RESULT CephS3Meta::get_consumer_marker(const string& vol_id,
         const CONSUMER_TYPE& type, JournalMarker& marker){
-    string key = assemble_journal_marker_key(vol_id,type,true);
-    unique_ptr<string> p(new string());
-    string *value = p.get();
-    RESULT res = s3Api_ptr_->get_object(key.c_str(),value);
-    // if the consumer failed without init the marker yet? maybe the dr server
-    // should init the marker if it's not init, or the restarted consumer may not know where to start    
-    if(DRS_OK != res){
-        if(NO_SUCH_KEY == res){
-            LOG_WARN << vol_id << " 's marker is not initialized!";
-            std::list<string> list;
-            res = s3Api_ptr_->list_objects((g_key_prefix+vol_id).c_str(),nullptr,nullptr,1,&list);
-            if(DRS_OK != res){
-                LOG_ERROR << "list volume " << vol_id << " journals failed!";
+    switch(type){
+        case REPLAYER:
+            if(!replayer_Cmarker_cache_.get(vol_id,marker))
                 return INTERNAL_ERROR;
-            }
-            if(list.size() <= 0){
-                return NO_SUCH_KEY;
-            }
-            else
-                marker.set_cur_journal(list.front());
-            marker.set_pos(0L);
-        }
-        else{
-            LOG_ERROR << "get consumer marker of volume " << vol_id << " failed,"
-                << "marker type:" << type;
-            return res;
-        }
+            break;
+        case REPLICATOR:
+            if(!replicator_Cmarker_cache_.get(vol_id,marker))
+                return INTERNAL_ERROR;
+            break;
+        default:
+            return INTERNAL_ERROR;
     }
-    else{
-        marker.ParseFromString(*value);
-    }
-    LOG_INFO << "get marker:" << key << "\n " << marker.cur_journal()
+
+    LOG_INFO << "get marker:" << vol_id << "\n " << marker.cur_journal()
             << ":" << marker.pos();
     return DRS_OK;
 }
@@ -476,83 +529,147 @@ RESULT CephS3Meta::update_consumer_marker(const string& vol_id,
         LOG_ERROR << "update_journal_marker of volume " << vol_id << " failed!";
         return res;
     }
+    if(REPLAYER == type){
+        replayer_Cmarker_cache_.put(vol_id,marker);
+    }
+    else if(REPLICATOR == type){
+        replicator_Cmarker_cache_.put(vol_id,marker);
+    }
+
     return DRS_OK;
 }
 
 RESULT CephS3Meta::set_producer_marker(const string& vol_id,
         const JournalMarker& marker){
+    LOG_DEBUG << "set producer marker" << marker.cur_journal()
+        << ":" << marker.pos();
+    // if new marker is ahead of the old marker, drop it
+    JournalMarker old_marker;
+    if(replayer_Pmarker_cache_.get(vol_id,old_marker)){
+        int c = old_marker.cur_journal().compare(marker.cur_journal());
+        if(c > 0 || (c==0 && old_marker.pos() >= marker.pos())){
+            LOG_DEBUG << "new marker is invalid:" << old_marker.cur_journal();
+            return DRS_OK;
+        }
+    }
+
     string marker_s;
     if(false==marker.SerializeToString(&marker_s)){
         LOG_ERROR << vol_id << " serialize marker failed!";
         return INTERNAL_ERROR;
     }
     // update replayer producer marker
-    string key = assemble_journal_marker_key(vol_id,REPLAYER,true);
+    string key = assemble_journal_marker_key(vol_id,REPLAYER,false);
     RESULT res = s3Api_ptr_->put_object(key.c_str(),&marker_s,nullptr);
     if(DRS_OK != res){
         LOG_ERROR << "set replayer producer marker of volume "
             << vol_id << " failed!";
         return res;
     }
-    // TODO: cache
+    replayer_Pmarker_cache_.put(vol_id,marker);
+
     // update replicator producer marker, but not in some cases
     VolumeMeta meta;
     res = read_volume_meta(vol_id,meta);
     DR_ASSERT(DRS_OK == res);
     if(REP_ENABLED == meta.info().rep_status()
         && REP_PRIMARY == meta.info().role()){
-        assemble_journal_marker_key(vol_id,REPLICATOR,true);
+        key = assemble_journal_marker_key(vol_id,REPLICATOR,false);
         RESULT res = s3Api_ptr_->put_object(key.c_str(),&marker_s,nullptr);
         if(DRS_OK != res){
             LOG_ERROR << "set replicator producer marker of volume "
                 << vol_id << " failed!";
             return res;
         }
+        replicator_Pmarker_cache_.put(vol_id,marker);
     }
     return DRS_OK;
 }
 
 RESULT CephS3Meta::get_producer_marker(const string& vol_id,
         const CONSUMER_TYPE& type, JournalMarker& marker){
-    string key = assemble_journal_marker_key(vol_id,type,false);
-    unique_ptr<string> p(new string());
-    string *value = p.get();
-    RESULT res = s3Api_ptr_->get_object(key.c_str(),value);
-    if(DRS_OK == res){
-        marker.ParseFromString(*value);
-        LOG_INFO << "get marker:" << key << "\n " << marker.cur_journal()
-            << ":" << marker.pos();
+    switch(type){
+        case REPLAYER:
+            if(replayer_Pmarker_cache_.get(vol_id,marker))
+                return DRS_OK;
+            break;
+        case REPLICATOR:
+            if(replicator_Pmarker_cache_.get(vol_id,marker))
+                return DRS_OK;
+            break;
+        default:
+            break;
     }
-    return res;
+    return INTERNAL_ERROR;
 }
 
 RESULT CephS3Meta::get_consumable_journals(const string& vol_id,
-        const JournalMarker& marker, const int& limit, std::list<string> &list,
+        const JournalMarker& marker, const int& limit,
+        std::list<JournalElement> &list,
         const CONSUMER_TYPE& type) {
     if(!marker.IsInitialized()) {
         LOG_ERROR << vol_id << " 's marker is not initialized!";
         return INTERNAL_ERROR;
     }
     char* end_marker = nullptr;
-    JournalMarker producing_marker;
-    RESULT res = get_producer_marker(vol_id,type,producing_marker);
+    JournalMarker producer_marker;
+    RESULT res = get_producer_marker(vol_id,type,producer_marker);
     if(NO_SUCH_KEY == res){
         return DRS_OK;
     }
     else if(DRS_OK != res){
+        LOG_ERROR << "get producer marker failed:" << vol_id;
         return res;
     }
     else{
-        end_marker = const_cast<char*>(producing_marker.cur_journal().c_str());
+        end_marker = const_cast<char*>(producer_marker.cur_journal().c_str());
+        LOG_INFO << "producer marker:" << type << ":" << end_marker;
     }
-    const char* marker_key = marker.cur_journal().c_str();
-    string prefix = g_key_prefix+vol_id;
-    res = s3Api_ptr_->list_objects(prefix.c_str(),marker_key,end_marker,limit,&list);
-    if(DRS_OK != res){
-        LOG_ERROR << "list volume " << vol_id << " journals failed!";
-        return INTERNAL_ERROR;
+    if(marker.cur_journal().compare(producer_marker.cur_journal()) == 0){
+        DR_ASSERT(marker.pos() <= producer_marker.pos());
+        if(marker.pos() == producer_marker.pos())
+            return DRS_OK;
+        JournalElement e;
+        e.set_journal(marker.cur_journal());
+        e.set_off(marker.pos());
+        e.set_len(producer_marker.pos() - marker.pos());
+        list.push_back(e);
     }
-    // TODO: add journals of consumer marker & producer marker into consumable list
+    else{
+        const char* marker_key = marker.cur_journal().c_str();
+        string prefix = g_key_prefix+vol_id;
+        std::list<string> journal_list;
+        res = s3Api_ptr_->list_objects(prefix.c_str(),marker_key,
+                end_marker,0,&journal_list);
+        if(DRS_OK != res){
+            LOG_ERROR << "list volume " << vol_id << " journals failed!";
+            return INTERNAL_ERROR;
+        }
+        JournalElement beg;
+        beg.set_journal(marker.cur_journal());
+        beg.set_off(marker.pos());
+        beg.set_len(max_journal_size_);
+        list.push_back(beg);
+        LOG_DEBUG << "get consumable journal 1:" << marker.cur_journal();
+        for(string key:journal_list){
+            JournalElement e;
+            e.set_journal(key);
+            e.set_off(0);
+            e.set_len(max_journal_size_);
+            list.push_back(e);
+            LOG_DEBUG << "get consumable journal:" << key;
+            // if have enough journals,return
+            if(list.size() >= limit)
+                return DRS_OK;
+        }
+        // add the last consumer journal
+        JournalElement end;
+        end.set_journal(producer_marker.cur_journal());
+        end.set_off(0);
+        end.set_len(producer_marker.pos());
+        list.push_back(end);
+        LOG_DEBUG << "get consumable journal end:" << producer_marker.cur_journal();
+    }
     return DRS_OK;
 }
 
@@ -685,8 +802,7 @@ RESULT CephS3Meta::list_volumes(std::list<string>& list){
     });
     return DRS_OK;
 }
-//replication
-// TODO: cache volume meta
+
 RESULT CephS3Meta::list_volume_meta(std::list<VolumeMeta> &list){
     std::list<string> reps;
     RESULT res = s3Api_ptr_->list_objects(g_volume_prefix.c_str(),
@@ -695,15 +811,10 @@ RESULT CephS3Meta::list_volume_meta(std::list<VolumeMeta> &list){
         return INTERNAL_ERROR;
     }
     for(string rep:reps){
-        string value;
-        res = s3Api_ptr_->get_object(rep.c_str(),&value);
-        if(DRS_OK != res){
-            LOG_ERROR << "get " << rep << " failed!";
-            return INTERNAL_ERROR;
-        }
+        string key = rep.substr(g_volume_prefix.length());
         VolumeMeta meta;
-        if(meta.ParseFromString(value)){
-            LOG_ERROR << "deserailize replication meta failed!";
+        if(DRS_OK != read_volume_meta(key,meta)){
+             LOG_ERROR << "get " << key << " failed!";
             return INTERNAL_ERROR;
         }
         list.push_back(meta);
@@ -711,16 +822,10 @@ RESULT CephS3Meta::list_volume_meta(std::list<VolumeMeta> &list){
     return DRS_OK;
 }
 RESULT CephS3Meta::read_volume_meta(const string& id,VolumeMeta& meta){
-    string key = construct_volume_meta_key(id);
-    string value;
-    RESULT res = s3Api_ptr_->get_object(key.c_str(),&value);
-    if(DRS_OK != res)
-        return res;
-    if(meta.ParseFromString(value)){
-        LOG_ERROR << "deserailize volume meta failed!";
+    if(vol_cache_.get(id,meta))
+        return DRS_OK;
+    else
         return INTERNAL_ERROR;
-    }
-    return DRS_OK;
 }
 RESULT CephS3Meta::create_volume(const VolumeMeta& meta){
     string key = construct_volume_meta_key(meta.info().vol_id());
@@ -729,7 +834,11 @@ RESULT CephS3Meta::create_volume(const VolumeMeta& meta){
         LOG_ERROR << "serailize replication meta failed!";
         return INTERNAL_ERROR;
     }
-    return s3Api_ptr_->put_object(key.c_str(),&value,nullptr);
+    if(DRS_OK == s3Api_ptr_->put_object(key.c_str(),&value,nullptr)){
+        vol_cache_.put(meta.info().vol_id(),meta);
+        return DRS_OK;
+    }
+    return INTERNAL_ERROR;
 }
 RESULT CephS3Meta::update_volume_meta(const VolumeMeta& meta){
     string key = construct_volume_meta_key(meta.info().vol_id());
@@ -742,6 +851,7 @@ RESULT CephS3Meta::update_volume_meta(const VolumeMeta& meta){
 }
 RESULT CephS3Meta::delete_volume(const string& id){
     string key = construct_volume_meta_key(id);
+    vol_cache_.delete_key(id);
     return  s3Api_ptr_->delete_object(key.c_str());
 }
 
