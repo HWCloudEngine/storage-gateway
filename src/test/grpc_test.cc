@@ -26,6 +26,7 @@ using huawei::proto::SealJournalsRequest;
 using huawei::proto::SealJournalsResponse;
 using huawei::proto::Consumer;
 using huawei::proto::JournalMarker;
+using huawei::proto::JournalElement;
 using huawei::proto::GetJournalMarkerRequest;
 using huawei::proto::GetJournalMarkerResponse;
 using huawei::proto::GetJournalListRequest;
@@ -137,7 +138,7 @@ public:
         return INTERNAL_ERROR;
     }
     RESULT GetJournalList(const string vol,const string uuid,const CONSUMER_TYPE type,
-            const JournalMarker marker,std::list<string> &list){
+            const JournalMarker marker,std::list<JournalElement> &list){
         GetJournalListRequest req;
         ClientContext context;
         GetJournalListResponse res;
@@ -239,13 +240,13 @@ BOOST_AUTO_TEST_CASE(case4){// test case without fixture
         res = consumer.UpdateConsumerMarker(vol,uuid,REPLAYER,marker);
         BOOST_REQUIRE(res == DRS_OK);
     }
-    std::list<string> list;
+    std::list<JournalElement> list;
     res = consumer.GetJournalList(vol,uuid,REPLAYER,marker,list);
     if(res != DRS_OK){
         BOOST_FAIL("get journal list failed!"); // assert and output message to boost log
     }
     if(list.size() > 0){
-        marker.set_cur_journal(list.back());
+        marker.set_cur_journal(list.back().journal());
         marker.set_pos(10240);
         res = consumer.UpdateConsumerMarker(vol,uuid,REPLAYER,marker);
         BOOST_REQUIRE(res == DRS_OK);
@@ -273,13 +274,13 @@ BOOST_AUTO_TEST_CASE(case5){// test case without fixture
         BOOST_REQUIRE(res == DRS_OK);
     }
     
-    std::list<string> list;
+    std::list<JournalElement> list;
     res = consumer.GetJournalList(vol,uuid,REPLICATOR,marker,list);
     if(res != DRS_OK){
         BOOST_FAIL("get journal list failed!"); // assert and output message to boost log
     }
     if(list.size() > 0){
-        marker.set_cur_journal(list.back());
+        marker.set_cur_journal(list.back().journal());
         marker.set_pos(10240);
         res = consumer.UpdateConsumerMarker(vol,uuid,REPLICATOR,marker);
         BOOST_REQUIRE(res == DRS_OK);

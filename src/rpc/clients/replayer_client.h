@@ -28,6 +28,7 @@ using huawei::proto::CONSUMER_TYPE;
 using huawei::proto::REPLAYER;
 using huawei::proto::DRS_OK;
 using huawei::proto::JournalMarker;
+using huawei::proto::JournalElement;
 
 class ReplayerClient {
 public:
@@ -55,7 +56,7 @@ public:
         }
     }
     bool GetJournalList(const std::string& vol_id, const JournalMarker& marker,
-            int limit, std::list<std::string>& journal_list_) {
+            int limit, std::list<JournalElement>& journal_list_) {
         GetJournalListRequest request;
         request.set_limit(limit);
         request.set_vol_id(vol_id);

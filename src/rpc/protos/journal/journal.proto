@@ -22,5 +22,11 @@ message JournalMarker {
     // the latest journal file in consumed files
     string cur_journal = 1;
     uint64 pos = 2 ;
-
+}
+message JournalElement {
+    string journal = 1;
+    // start offset
+    uint64 start_offset = 2;
+    // end offset of valid data
+    uint64 end_offset = 3;
 }
