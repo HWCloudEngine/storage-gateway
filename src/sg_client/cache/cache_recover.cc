@@ -140,7 +140,7 @@ void SrcWorker::loop()
     while(m_run){
         /*get journal file list from drserver*/
         int limit = 10;
-        list<string> journal_list; 
+        list<JournalElement> journal_list; 
         bool ret = m_grpc_client->GetJournalList(m_volume, m_latest_marker, 
                                                 limit, journal_list);
         if(!ret || journal_list.empty()){
@@ -152,7 +152,7 @@ void SrcWorker::loop()
        
         /*dispatch file to next chain*/
         for(auto it : journal_list){
-            name = "/mnt/cephfs" + it;
+            name = "/mnt/cephfs" + it.journal();
             pos  = sizeof(journal_file_header_t);
             File* file = new File(name, pos, false); 
             cidx = m_router->route(file->fid, m_consumer.size());
@@ -162,7 +162,7 @@ void SrcWorker::loop()
         if(limit == journal_list.size()){
             /*more journal file again, renew latest marker*/ 
             auto rit = journal_list.rbegin();
-            m_latest_marker.set_cur_journal(*rit);
+            m_latest_marker.set_cur_journal(rit->journal());
             m_latest_marker.set_pos(0);
         } else {
             /*notify next chain that here no file any more*/

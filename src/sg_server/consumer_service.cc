@@ -12,7 +12,6 @@
 #include <iostream>
 #include "consumer_service.h"
 #include "log/log.h"
-using huawei::proto::JournalMarker;
 using huawei::proto::DRS_OK;
 using huawei::proto::INTERNAL_ERROR;
 
@@ -27,7 +26,7 @@ RESULT ConsumerServiceImpl::get_journal_marker(const std::string& vol,
 RESULT ConsumerServiceImpl::get_journal_list(const std::string& vol,
         const JournalMarker& marker,
         const int& limit,
-        std::list<std::string> list,
+        std::list<JournalElement> list,
         const CONSUMER_TYPE& type){
     return _meta->get_consumable_journals(vol,marker,limit,list,type);
 }
@@ -62,7 +61,7 @@ Status ConsumerServiceImpl::GetJournalList(ServerContext* context,
         const GetJournalListRequest* request,
         GetJournalListResponse* reply) {
     const JournalMarker marker = request->marker();
-    std::list<string> list;
+    std::list<JournalElement> list;
     const std::string& uuid = request->uuid();
     const std::string& vol = request->vol_id();
     const CONSUMER_TYPE& type = request->type();
@@ -75,8 +74,10 @@ Status ConsumerServiceImpl::GetJournalList(ServerContext* context,
     }
     else {
         reply->set_result(DRS_OK);
-        for(auto it=list.begin();it!=list.end();++it)
-            reply->add_journals(*it);
+        for(auto it=list.begin();it!=list.end();++it){
+            JournalElement* e = reply->add_journals();
+            e->CopyFrom(*it);
+        }
     }    
     return Status::OK;
 }

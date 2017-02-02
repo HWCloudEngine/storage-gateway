@@ -53,7 +53,7 @@ Status RepInnerCtrl::CreateReplication(ServerContext* context,
         LOG_INFO << "\t peer volume: " << vol;
     }
     meta.mutable_info()->set_role(role);
-    meta.mutable_info()->set_rep_status(REP_CREATING);
+    meta.mutable_info()->set_rep_status(REP_ENABLED);// TODO:
     meta.mutable_info()->set_rep_enable(true);
     meta.clear_records();
     OperationRecord* record = meta.add_records();

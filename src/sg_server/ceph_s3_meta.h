@@ -18,6 +18,7 @@
 #include "journal_gc_manager.h"
 #include "volume_meta_manager.h"
 #include "ceph_s3_api.h"
+#include "lru_cache.h"
 using huawei::proto::JournalMeta;
 using huawei::proto::JournalArray;
 using google::protobuf::int64;
@@ -29,14 +30,39 @@ class CephS3Meta:public JournalMetaManager,
 private:    
     std::unique_ptr<CephS3Api> s3Api_ptr_;
     string mount_path_;
-    std::map<string,std::shared_ptr<std::atomic<int64_t>>> counter_map_; // volume journal_name counters
-    std::map<string,JournalMeta> kv_map_; // major key value cache
+    // volume journal_name counters
+    std::map<string,std::shared_ptr<std::atomic<int64_t>>> counter_map_;
+    // major key value cache
+    LruCache<string,JournalMeta> m_kv_cache_;
+    // produer marker cache
+    LruCache<string,JournalMarker> replayer_Pmarker_cache_;
+    LruCache<string,JournalMarker> replicator_Pmarker_cache_;
+    // consumer marker cache
+    LruCache<string,JournalMarker> replayer_Cmarker_cache_;
+    LruCache<string,JournalMarker> replicator_Cmarker_cache_;
+    // volume cache
+    LruCache<string,VolumeMeta> vol_cache_;
+    // max journal size
+    int max_journal_size_;
     RESULT init_journal_key_counter(const string& vol_id,int64_t& cnt);
     RESULT get_journal_key_counter(const string& vol_id,int64_t& cnt);
     RESULT set_journal_key_counter(const string& vol_id,
             int64_t& expected,const int64_t& val);
     RESULT get_journal_meta(const string& key, JournalMeta& meta);
+    bool get_marker(const string& vol_id,
+        const CONSUMER_TYPE& type, JournalMarker& marker,bool is_consumer);
     RESULT init();
+    // default get function for LruCaches
+    bool _get_journal_meta(const string& key, JournalMeta& meta);
+    bool _get_replayer_producer_marker(const string& key,
+            JournalMarker& marker);
+    bool  _get_replayer_consumer_marker(const string& key,
+            JournalMarker& marker);
+    bool _get_replicator_producer_marker(const string& key,
+            JournalMarker& marker);
+    bool _get_replicator_consumer_marker(const string& key,
+            JournalMarker& marker);
+    bool _get_volume_meta(const string& key,VolumeMeta& info);
 public:
     CephS3Meta();
     ~CephS3Meta();
@@ -47,14 +73,16 @@ public:
             const int& limit, std::list<string> &list);
     virtual RESULT create_journals_by_given_keys(const string& uuid,
             const string& vol_id,const std::list<string> &list);
-    virtual RESULT seal_volume_journals(const string& uuid,const string& vol_id,
+    virtual RESULT seal_volume_journals(const string& uuid,
+            const string& vol_id,
             const string journals[],const int& count);
     virtual RESULT get_consumer_marker(const string& vol_id,
             const CONSUMER_TYPE& type,JournalMarker& marker);
     virtual RESULT update_consumer_marker(const string& vol_id,
             const CONSUMER_TYPE& type,const JournalMarker& marker);
     virtual RESULT get_consumable_journals(const string& vol_id,
-            const JournalMarker& marker,const int& limit, std::list<string> &list,
+            const JournalMarker& marker,const int& limit,
+            std::list<JournalElement> &list,
             const CONSUMER_TYPE& type);
     virtual RESULT set_producer_marker(const string& vol_id,
             const JournalMarker& marker);
