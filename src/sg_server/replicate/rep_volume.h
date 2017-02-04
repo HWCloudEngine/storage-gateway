@@ -22,7 +22,7 @@
 using huawei::proto::JournalMarker;
 using huawei::proto::REPLICATOR;
 using std::chrono::system_clock;
-
+using huawei::proto::JournalElement;
 class RepVolume{
     // TODO: replace task windows with general sequential queue
     class TaskWindow{
@@ -120,6 +120,7 @@ public:
                 time_ = task->tp;
                 task_window_.add_task(task);
             }
+//            LOG_DEBUG << "@@@@@@3:" << task->info.key;
             return task;
         }
         // if last replicating journal is opened, this journal may be appended writes
@@ -142,21 +143,23 @@ public:
             return task;
         }
         if(pending_journals_.size() < max_pending_tasks_/2){// pre-fetch journals to promote priority
-            std::list<std::string> list;
+            std::list<JournalElement> list;
             RESULT res = meta_->get_consumable_journals(vol_id_,
                 max_consuming_marker_,max_pending_tasks_,list,REPLICATOR);
             if(DRS_OK != res){
-                LOG_ERROR << "get consumbale_journals failed" << vol_id_;
+                LOG_ERROR << "get consumbale_journals failed:" << vol_id_;
                 return nullptr;
             }
-            for(std::string& s:list){
-                pending_journals_.push_back(std::move(s));
+            for(JournalElement e:list){
+                LOG_DEBUG << "@add to replicating list:" << e.journal();
+                pending_journals_.push_back(e.journal());
             }
             if(!pending_journals_.empty())
                 max_consuming_marker_.set_cur_journal(pending_journals_.back());
         }
-        if(pending_journals_.empty())
+        if(pending_journals_.empty()){
             return nullptr;
+        }
         std::shared_ptr<RepTask> task = construct_task(pending_journals_.front());
         if(task){
             task->id = ++seq_id_;
@@ -230,8 +233,9 @@ private:
     bool init_markers(){
         RESULT res;
         res = meta_->get_consumer_marker(vol_id_,REPLICATOR,consuming_marker_);
-        if(res != DRS_OK)
+        if(res != DRS_OK){
             return false;
+        }
         max_consuming_marker_.CopyFrom(consuming_marker_);
         pending_journals_.clear();
         // TODO: producer marker, to avoid excessive reading if end marker is set??

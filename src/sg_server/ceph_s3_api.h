@@ -27,9 +27,7 @@ typedef struct s3_call_response{
     int retrySleepInterval;
     int isTruncated;
     int keyCount;
-    int match_end_marker;
     char nextMarker[1024];
-    char endMarker[1024];
     void *pdata;
 }s3_call_response_t;
 
@@ -45,9 +43,10 @@ public:
             const char* bucket_name);
     ~CephS3Api();
     RESULT create_bucket_if_not_exists(const char* bucket_name);
-    RESULT put_object(const char* obj_name, const string* value, const std::map<string,string>* meta);
+    RESULT put_object(const char* obj_name, const string* value,
+            const std::map<string,string>* meta);
     RESULT delete_object(const char* key);
-    RESULT list_objects(const char*prefix, const char*marker, const char* end_marker,
+    RESULT list_objects(const char*prefix, const char*marker,
             int maxkeys, std::list<string>* list, const char* delimiter=NULL);
     RESULT get_object(const char* key, string* value);
     RESULT head_object(const char* key, std::map<string,string>* meta);

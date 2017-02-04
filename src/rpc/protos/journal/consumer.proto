@@ -39,8 +39,8 @@ message GetJournalListRequest {
 }
 message GetJournalListResponse {
     RESULT result = 1;
-    // the journal paths
-    repeated string journals = 2;
+    // the journal elments
+    repeated JournalElement journals = 2;
 }
 message UpdateConsumerMarkerRequest {
     string uuid = 1;

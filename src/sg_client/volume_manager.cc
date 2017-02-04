@@ -19,6 +19,10 @@ VolumeManager::~VolumeManager()
     if(ctrl_service){
         delete ctrl_service; 
     }
+
+    if(rep_ctrl){
+        delete rep_ctrl;
+    }
 }
 
 bool VolumeManager::init()

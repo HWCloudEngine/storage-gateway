@@ -115,7 +115,7 @@ RESULT CephS3LeaseServer::init(const char* access_key, const char* secret_key,
 void CephS3LeaseServer::gc_task() {
     while (true) {
         std::list<std::string> leases;
-        RESULT result = s3Api_ptr_->list_objects(NULL, NULL, NULL, -1, &leases);
+        RESULT result = s3Api_ptr_->list_objects(NULL, NULL, -1, &leases);
         if (result == DRS_OK) {
             for (auto lease : leases) {
                 std::map<std::string, std::string> metadata;
