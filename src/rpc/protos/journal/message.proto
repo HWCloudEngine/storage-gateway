@@ -20,8 +20,10 @@ message WriteMessage {
 message SnapshotMessage {
     string replication_uuid = 1;
     string checkpoint_uuid =2 ;
-    string vol_name  = 3;
-    int32  snap_type = 4;
-    string snap_name = 5;
+    string vol_name   = 3;
+    /*0: normal 1: replication 2:backup*/
+    int32  snap_scene = 4;
+    int32  snap_type  = 5;
+    string snap_name  = 6;
 }
 

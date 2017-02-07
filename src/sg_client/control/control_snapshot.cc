@@ -1,4 +1,4 @@
-#include "snapshot_control.h"
+#include "control_snapshot.h"
 
 using huawei::proto::StatusCode;
 
@@ -165,6 +165,8 @@ Status SnapshotControlImpl::ReadSnapshot(ServerContext* context,
         return Status::CANCELLED;
     }
 
-    LOG_INFO << "RPC ReadSnapshot vname:" << vname << " ok"; 
+    LOG_INFO << "RPC ReadSnapshot vname:" << vname 
+             << "data size:" << ack->data().size() 
+             << "data_len:" << ack->data().length() << " ok"; 
     return Status::OK;
 }

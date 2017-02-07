@@ -21,6 +21,7 @@ using google::protobuf::Message;
 using huawei::proto::WriteMessage;
 using huawei::proto::SnapshotMessage;
 using huawei::proto::DiskPos;
+using huawei::proto::SnapScene;
 
 using namespace std;
 
@@ -45,6 +46,7 @@ bool JournalReplayer::init(const std::string& vol_id,
     id_maker_ptr_       = id_maker_ptr;
     cache_proxy_ptr_    = cache_proxy_ptr;
     snapshot_proxy_ptr_ = snapshot_proxy_ptr;
+    backup_decorator_ptr_.reset(new BackupDecorator(vol_id, snapshot_proxy_ptr));
 
     rpc_client_ptr_.reset(new ReplayerClient(grpc::CreateChannel(rpc_addr,
                             grpc::InsecureChannelCredentials())));
@@ -294,28 +296,45 @@ bool JournalReplayer::handle_ctrl_cmd(shared_ptr<JournalEntry> entry)
         SnapReqHead shead;
         shead.set_replication_uuid(snap_message->replication_uuid());
         shead.set_checkpoint_uuid(snap_message->checkpoint_uuid());
+        shead.set_scene((SnapScene)snap_message->snap_scene());
         shead.set_snap_type(snap_message->snap_type());
         string snap_name = snap_message->snap_name();
-        switch(type){
-            case SNAPSHOT_CREATE:
-                LOG_INFO << "journal_replayer create snapshot:" << snap_name;
-                snapshot_proxy_ptr_->create_transaction(shead, snap_name);
-                break;
-            case SNAPSHOT_DELETE:
-                LOG_INFO << "journal_replayer delete snapshot:" << snap_name;
-                snapshot_proxy_ptr_->delete_transaction(shead, snap_name);
-                break;
-            case SNAPSHOT_ROLLBACK:
-                LOG_INFO << "journal_replayer rollback snapshot:" << snap_name;
-                snapshot_proxy_ptr_->rollback_transaction(shead, snap_name);
-                break;
-            default:
-                break;
+        SnapScene scene  = (SnapScene)snap_message->snap_scene();
+        
+        if(scene == SnapScene::FOR_NORMAL){
+            switch(type){
+                case SNAPSHOT_CREATE:
+                    LOG_INFO << "journal_replayer create snapshot:" << snap_name;
+                    snapshot_proxy_ptr_->create_transaction(shead, snap_name);
+                    break;
+                case SNAPSHOT_DELETE:
+                    LOG_INFO << "journal_replayer delete snapshot:" << snap_name;
+                    snapshot_proxy_ptr_->delete_transaction(shead, snap_name);
+                    break;
+                case SNAPSHOT_ROLLBACK:
+                    LOG_INFO << "journal_replayer rollback snapshot:" << snap_name;
+                    snapshot_proxy_ptr_->rollback_transaction(shead, snap_name);
+                    break;
+                default:
+                    break;
+            }
+        } else if(scene == SnapScene::FOR_BACKUP){
+            switch(type){
+                case SNAPSHOT_CREATE:
+                    LOG_INFO << "journal_replayer create snapshot:" << snap_name;
+                    snapshot_proxy_ptr_->create_transaction(shead, snap_name);
+                    break;
+                default:
+                    break;
+            }
+        } else {
+        
         }
         return true;
     } else {
     
     } 
+
     return false;
 }
 

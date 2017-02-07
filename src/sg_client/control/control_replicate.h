@@ -8,12 +8,12 @@
 * Description:
 * 
 ************************************************/
-#ifndef REPLICATE_CONTROL_H_
-#define REPLICATE_CONTROL_H_
+#ifndef CONTROL_REPLICATE_H_
+#define CONTROL_REPLICATE_H_
 #include <memory>
-#include "../rpc/clients/replicate_inner_ctrl_client.h"
-#include "../rpc/replicate_control.grpc.pb.h"
-#include "snapshot_control.h"
+#include "../../rpc/clients/replicate_inner_ctrl_client.h"
+#include "../../rpc/replicate_control.grpc.pb.h"
+#include "control_snapshot.h"
 using grpc::ServerContext;
 using grpc::Status;
 using huawei::proto::control::CreateReplicationReq;

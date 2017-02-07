@@ -1,5 +1,5 @@
 syntax = "proto3";
-import "common.proto";
+import "snapshot.proto";
 package huawei.proto.inner;
 
 /*snapshot rpc service storage client and storage gateway server*/
@@ -7,8 +7,10 @@ service SnapshotInnerControl {
     rpc Create(CreateReq) returns (CreateAck){}
     rpc List(ListReq) returns (ListAck){}
     rpc Query(QueryReq) returns (QueryAck){}
-    rpc Delete(DeleteReq) returns (DeleteAck){}
     rpc Rollback(RollbackReq) returns (RollbackAck){}
+    rpc Delete(DeleteReq) returns (DeleteAck){}
+    rpc Diff(DiffReq) returns(DiffAck){}
+    rpc Read(ReadReq) returns(ReadAck){}
 
     /*update snapshot status(creating, created, deleted)*/
     rpc Update(UpdateReq) returns (UpdateAck){} 
@@ -17,9 +19,6 @@ service SnapshotInnerControl {
     rpc CowOp(CowReq) returns (CowAck){}
     rpc CowUpdate(CowUpdateReq) returns (CowUpdateAck) {}
     
-    rpc Diff(DiffReq) returns(DiffAck){}
-    rpc Read(ReadReq) returns(ReadAck){}
-    
     /*gateway client crash, sync snapshot state with dr_server*/
     rpc Sync(SyncReq) returns(SyncAck){}
 }
@@ -27,20 +26,11 @@ service SnapshotInnerControl {
 message CreateReq {
     SnapReqHead header = 1;
     string vol_name    = 2;
-    string snap_name   = 3;
+    uint64 vol_size    = 3;
+    string snap_name   = 4;
 }
 
 message CreateAck {
-    SnapAckHead header = 1;
-}
-
-message UpdateReq {
-    SnapReqHead header = 1;
-    string vol_name    = 2;
-    string snap_name   = 3;
-}
-
-message UpdateAck {
     SnapAckHead header = 1;
 }
 
@@ -50,8 +40,8 @@ message ListReq {
 }
 
 message ListAck {
-    SnapAckHead header        = 1;
-    repeated string snap_name = 2;
+    SnapAckHead header          = 1;
+    repeated string snap_name   = 2;
 }
 
 message QueryReq {
@@ -61,18 +51,8 @@ message QueryReq {
 }
 
 message QueryAck {
-    SnapAckHead header     = 1;
-    SnapStatus snap_status = 2;
-}
-
-message DeleteReq {
-    SnapReqHead header = 1;
-    string vol_name    = 2;
-    string snap_name   = 3;
-}
-
-message DeleteAck {
-    SnapAckHead header = 1;
+    SnapAckHead  header      = 1;
+    SnapStatus   snap_status = 2;
 }
 
 message RollbackReq {
@@ -92,18 +72,21 @@ message RollbackAck {
     repeated RollBlock roll_blocks = 2;
 }
 
+message DeleteReq {
+    SnapReqHead header = 1;
+    string vol_name    = 2;
+    string snap_name   = 3;
+}
+
+message DeleteAck {
+    SnapAckHead header = 1;
+}
+
 message DiffReq {
     SnapReqHead header = 1;
     string vol_name    = 2;
     string first_snap_name = 3;
-    string laste_snap_name = 4;
-}
-
-/*indicate which blocks diff*/
-message DiffBlocks {
-    string vol_name  = 1;
-    string snap_name = 2;
-    repeated uint64 diff_block_no = 3;
+    string last_snap_name = 4;
 }
 
 message DiffAck {
@@ -130,6 +113,24 @@ message ReadBlock {
 message ReadAck {
     SnapAckHead header = 1;
     repeated ReadBlock read_blocks = 2;
+}
+
+enum UpdateEvent {
+    CREATE_EVENT   = 0;
+    DELETE_EVENT   = 1;
+    ROLLBACK_EVENT = 2;
+}
+
+message UpdateReq {
+    SnapReqHead header = 1;
+    string vol_name    = 2;
+    string snap_name   = 3;
+    UpdateEvent snap_event = 4;
+}
+
+message UpdateAck {
+    SnapAckHead header = 1;
+    string latest_snap_name = 2;
 }
 
 /*batch or one by one*/
