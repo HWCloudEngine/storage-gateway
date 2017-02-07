@@ -12,6 +12,8 @@
 #include "../rpc/message.pb.h"
 #include "snapshot_proxy.h"
 
+using huawei::proto::SnapshotMessage;
+
 using huawei::proto::inner::CreateReq;
 using huawei::proto::inner::CreateAck;
 using huawei::proto::inner::ListReq;
@@ -34,11 +36,8 @@ using huawei::proto::inner::ReadReq;
 using huawei::proto::inner::ReadAck;
 using huawei::proto::inner::SyncReq;
 using huawei::proto::inner::SyncAck;
-using huawei::proto::inner::DiffBlocks;
 using huawei::proto::inner::ReadBlock;
 using huawei::proto::inner::RollBlock;
-using huawei::proto::SnapshotMessage;
-using huawei::proto::SnapStatus;
 
 bool SnapshotProxy::init()
 {        
@@ -658,31 +657,20 @@ StatusCode SnapshotProxy::diff_snapshot(const DiffSnapshotReq* req,
     ireq.mutable_header()->CopyFrom(req->header());
     ireq.set_vol_name(vname);
     ireq.set_first_snap_name(first_snap_name);
-    ireq.set_laste_snap_name(last_snap_name);
+    ireq.set_last_snap_name(last_snap_name);
     DiffAck iack;
     Status st = m_rpc_stub->Diff(&context, ireq, &iack);
     if(!st.ok()){
         return iack.header().status();
     }
+
     int diff_blocks_num = iack.diff_blocks_size();
     for(int i = 0; i < diff_blocks_num; i++){
-        DiffBlocks diffblock = iack.diff_blocks(i); 
-        ExtDiffBlocks* ext_diff_blocks = ack->add_diff_blocks();
-        ext_diff_blocks->set_vol_name(diffblock.vol_name());
-        ext_diff_blocks->set_snap_name(diffblock.snap_name());
-
-        LOG_INFO << "diff_snapshot snapname:" << diffblock.snap_name();
-        int block_num = diffblock.diff_block_no_size(); 
-        for(int j = 0; j < block_num; j++){
-           uint64_t blk_no = diffblock.diff_block_no(j); 
-           LOG_INFO << "diff_snapshot snapname:" << diffblock.snap_name()
-                    << " blk_no:" << blk_no;
-           ExtDiffBlock* ext_diff_block = ext_diff_blocks->add_diff_block();
-           ext_diff_block->set_off(blk_no * COW_BLOCK_SIZE);
-           ext_diff_block->set_len(COW_BLOCK_SIZE);
-        }
+        DiffBlocks  idiff_blocks= iack.diff_blocks(i); 
+        DiffBlocks* odiff_blocks = ack->add_diff_blocks();
+        odiff_blocks->CopyFrom(idiff_blocks);
     }
-    
+
     LOG_INFO << "diff_snapshot vname:" << vname
              << " first_snap:" << first_snap_name
              << " last_snap:"  << last_snap_name

@@ -2,7 +2,10 @@
 #define SNAPSHOT_CONTROL_CLIENT_H_
 #include <string>
 #include <memory>
+#include <set>
+#include <vector>
 #include <grpc++/grpc++.h>
+#include "../snapshot.pb.h"
 #include "../snapshot_control.grpc.pb.h"
 
 using namespace std;
@@ -12,6 +15,8 @@ using grpc::ClientContext;
 using grpc::Status;
 
 using huawei::proto::SnapStatus;
+using huawei::proto::DiffBlocks;
+
 using huawei::proto::control::SnapshotControl;
 using huawei::proto::control::CreateSnapshotReq;
 using huawei::proto::control::CreateSnapshotAck;
@@ -29,17 +34,17 @@ using huawei::proto::control::ReadSnapshotReq;
 using huawei::proto::control::ReadSnapshotAck;
 
 /*snapshot and other control rpc client*/
-class SnapCtrlClient {
+class SnapCtrlClient 
+{
 public:
     SnapCtrlClient(shared_ptr<Channel> channel) 
         :m_ctrl_stub(SnapshotControl::NewStub(channel)){
     } 
 
     ~SnapCtrlClient(){
-
     }
 
-    int CreateSnapshot(const std::string& vol_name, const string& snap_name){
+    int CreateSnapshot(const string& vol_name, const string& snap_name){
         CreateSnapshotReq req;
         req.set_vol_name(vol_name);
         req.set_snap_name(snap_name);
@@ -97,7 +102,8 @@ public:
 
     int DiffSnapshot(const string& vol_name, 
                      const string& first_snap_name, 
-                     const string& last_snap_name){
+                     const string& last_snap_name,
+                     vector<DiffBlocks>& diff){
         DiffSnapshotReq req;
         req.set_vol_name(vol_name);
         req.set_first_snap_name(first_snap_name);
@@ -105,14 +111,16 @@ public:
         DiffSnapshotAck ack;
         ClientContext context;
         Status status = m_ctrl_stub->DiffSnapshot(&context, req, &ack);
+        
+        int count = ack.diff_blocks_size();
+        for(int i = 0; i < count; i++){
+            diff.push_back(ack.diff_blocks(i)); 
+        }
         return (int)ack.header().status();
     }
 
-    int ReadSnapshot(const string& vol_name, 
-                     const string& snap_name,
-                     const char*  buf,
-                     const size_t len,
-                     const off_t  off){
+    int ReadSnapshot(const string& vol_name, const string& snap_name,
+                     const char* buf, const size_t len, const off_t off){
         ReadSnapshotReq req;
         req.set_vol_name(vol_name);
         req.set_snap_name(snap_name);
@@ -121,6 +129,7 @@ public:
         ReadSnapshotAck ack;
         ClientContext context;
         Status status = m_ctrl_stub->ReadSnapshot(&context, req, &ack);
+        memcpy((char*)buf, ack.data().data(), len);
         return (int)ack.header().status();
     }
 

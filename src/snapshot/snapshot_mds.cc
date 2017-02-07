@@ -7,7 +7,7 @@
 #include "snapshot_util.h"
 #include "snapshot_mds.h"
 
-using huawei::proto::inner::DiffBlocks;
+using huawei::proto::DiffBlocks;
 using huawei::proto::inner::ReadBlock;
 using huawei::proto::inner::RollBlock;
 
@@ -576,7 +576,7 @@ StatusCode SnapshotMds::diff_snapshot(const DiffReq* req, DiffAck* ack)
 {
     string  vname = req->vol_name();
     string  first_snap = req->first_snap_name();
-    string  last_snap  = req->laste_snap_name();
+    string  last_snap  = req->last_snap_name();
 
     LOG_INFO << "diff snapshot vname:" << vname 
              << " first_snap:" << first_snap << " last_snap:"  << last_snap;

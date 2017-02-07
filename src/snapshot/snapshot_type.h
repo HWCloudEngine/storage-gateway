@@ -2,7 +2,7 @@
 #define _SNAP_TYPE_H
 #include <string>
 #include <set>
-#include "../rpc/common.pb.h"
+#include "../rpc/snapshot.pb.h"
 using huawei::proto::SnapStatus;
 using namespace std;
 

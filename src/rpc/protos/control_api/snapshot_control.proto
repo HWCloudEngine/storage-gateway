@@ -1,5 +1,6 @@
 syntax = "proto3";
-import "common.proto";
+import "snapshot.proto";
+import "backup.proto";
 package huawei.proto.control;
 
 /*northern oriented rpc service interface*/
@@ -15,8 +16,12 @@ service SnapshotControl {
 
 message CreateSnapshotReq {
     SnapReqHead header = 1;
-    string vol_name = 2;
-    string snap_name = 3;
+    string vol_name    = 2;
+    string snap_name   = 3;
+
+    /*for backup*/
+    string          backup_name       = 4;
+    BackupOption    backup_option     = 7;
 }
 
 message CreateSnapshotAck {
@@ -25,23 +30,29 @@ message CreateSnapshotAck {
 
 message ListSnapshotReq {
     SnapReqHead header = 1;
-    string vol_name = 2;
+    string vol_name    = 2;
 }
 
 message ListSnapshotAck {
-    SnapAckHead header = 1;
-    repeated string snap_name = 2;
+    SnapAckHead header          = 1;
+    repeated string snap_name   = 2;
+    /*for backup*/
+    repeated string bakcup_name = 3;
 }
 
 message QuerySnapshotReq {
     SnapReqHead header = 1;
-    string vol_name = 2;
-    string snap_name = 3;
+    string vol_name    = 2;
+    string snap_name   = 3;
+    /*for backup*/
+    string backup_name = 4;
 }
 
 message QuerySnapshotAck {
-    SnapAckHead header = 1;
-    SnapStatus snap_status = 2;
+    SnapAckHead  header        = 1;
+    SnapStatus   snap_status   = 2;
+    /*for backup*/
+    BackupStatus backup_status = 3;
 }
 
 message RollbackSnapshotReq {
@@ -56,8 +67,10 @@ message RollbackSnapshotAck {
 
 message DeleteSnapshotReq {
     SnapReqHead header = 1;
-    string vol_name = 2;
-    string snap_name = 3;
+    string vol_name    = 2;
+    string snap_name   = 3;
+    /*for backup*/
+    string backup_name = 4;
 }
 
 message DeleteSnapshotAck {
@@ -71,20 +84,9 @@ message DiffSnapshotReq {
     string last_snap_name = 4;
 }
 
-message ExtDiffBlock {
-    uint64 off = 1;
-    uint64 len = 2;
-}
-
-message ExtDiffBlocks {
-    string vol_name  = 1;
-    string snap_name = 2;
-    repeated ExtDiffBlock diff_block = 3;
-}
-
 message DiffSnapshotAck {
     SnapAckHead header = 1;
-    repeated ExtDiffBlocks diff_blocks = 2;
+    repeated DiffBlocks diff_blocks = 2;
 } 
 
 message ReadSnapshotReq {

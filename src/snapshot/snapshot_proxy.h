@@ -13,6 +13,7 @@
 #include "../log/log.h"
 #include "../sg_client/journal_entry.h"
 #include "../rpc/common.pb.h"
+#include "../rpc/snapshot.pb.h"
 #include "../rpc/journal.pb.h"
 #include "../rpc/snapshot_control.pb.h"
 #include "../rpc/snapshot_control.grpc.pb.h"
@@ -28,8 +29,8 @@ using grpc::Status;
 using huawei::proto::StatusCode;
 using huawei::proto::SnapStatus;
 using huawei::proto::SnapReqHead;
-
 using huawei::proto::JournalMarker;
+using huawei::proto::DiffBlocks; 
 
 using huawei::proto::control::CreateSnapshotReq;
 using huawei::proto::control::CreateSnapshotAck;
@@ -45,8 +46,6 @@ using huawei::proto::control::DiffSnapshotReq;
 using huawei::proto::control::DiffSnapshotAck;
 using huawei::proto::control::ReadSnapshotReq;
 using huawei::proto::control::ReadSnapshotAck;
-using huawei::proto::control::ExtDiffBlock;
-using huawei::proto::control::ExtDiffBlocks; 
 
 using huawei::proto::inner::SnapshotInnerControl;
 

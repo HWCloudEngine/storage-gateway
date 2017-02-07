@@ -1,0 +1,59 @@
+syntax = "proto3";
+import "common.proto";
+import "backup.proto";
+package huawei.proto.control;
+
+service BackupControl {
+    rpc CreateBackup(CreateBackupReq) returns(CreateBackupAck){}
+    rpc DeleteBackup(DeleteBackupReq) returns(DeleteBackupAck){}
+    rpc RestoreBackup(RestoreBackupReq) returns(RestoreBackupAck){}
+    rpc QueryBackup(QueryBackupReq) returns(QueryBackupAck){}
+    rpc ListBackups(ListBackupsReq) returns(ListBackupsAck){}
+}
+
+message CreateBackupReq {
+    string vol_name = 1; 
+    string backup_name = 2;
+    BackupOption backup_option = 3;
+}
+
+message CreateBackupAck {
+    StatusCode status = 1;
+}
+
+message DeleteBackupReq {
+    string vol_name = 1; 
+    string backup_name = 2;
+}
+
+message DeleteBackupAck {
+    StatusCode status = 1;
+}
+
+message RestoreBackupReq {
+    string vol_name = 1; 
+    string backup_name = 2;
+}
+
+message RestoreBackupAck {
+    StatusCode status = 1;
+}
+
+message QueryBackupReq {
+    string vol_name = 1; 
+    string backup_name = 2;
+}
+
+message QueryBackupAck {
+    StatusCode status = 1;
+    BackupStatus backup_status = 2;
+}
+
+message ListBackupsReq {
+    string vol_name = 1; 
+}
+
+message ListBackupsAck {
+    StatusCode status = 1;
+    repeated string backup_name = 2;
+}
