@@ -1,0 +1,35 @@
+syntax = "proto3";
+package huawei.proto;
+
+enum BackupMode {
+    /*full backup*/
+    BACKUP_FULL = 0;
+    /*increment backup*/
+    BACKUP_INCR = 1;
+    /*differential backup(reserved)*/
+    BACKUP_DIFF = 2;
+}
+
+enum BackupStoreMode {
+    /*backup store on local or distribute file system*/
+    BACKUP_FILE   = 0;
+    /*backup store on s3 or swift like object system*/
+    BACKPU_OBJECT = 1;
+}
+
+message BackupOption {
+    BackupMode backup_mode = 1;
+    BackupStoreMode store_mode = 2;
+    uint32 chunk_size = 3;
+    string backup_path = 4;
+}
+
+enum BackupStatus {
+    BACKUP_CREATING  = 0;
+    BACKUP_CREATED    = 1;
+    BACKUP_DELETING   = 2;
+    BACKUP_DELETED    = 3;
+    BACKUP_RESTORING = 4;
+    BACKUP_RESTORED   = 5;
+}
+

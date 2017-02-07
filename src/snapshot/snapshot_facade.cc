@@ -2,6 +2,8 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include "../log/log.h"
+#include "snapshot_mds.h"
+#include "backup_mds.h"
 #include "snapshot_facade.h"
 
 using huawei::proto::StatusCode;
@@ -42,30 +44,35 @@ do {                               \
     switch(req->header().scene())  \
     {                              \
     case SnapScene::FOR_NORMAL:         \
-        ret = m_snap_mds->op(req, ack); \
+        ret = m_snapshot_mds->op(req, ack); \
         break;                          \
     case SnapScene::FOR_REPLICATION:    \
     case SnapScene::FOR_BACKUP:         \
+        ret = m_backup_mds->op(req, ack); \
         break;                          \
     default:                            \
         break;                          \
     }                                   \
 }while(0)
 
-SnapshotFacade::SnapshotFacade(const string vol_name)
+SnapshotFacade::SnapshotFacade(const string& vol_name, const size_t& vol_size)
 {
     m_vol_name = vol_name;
-    m_snap_mds = new SnapshotMds(vol_name);
+    m_vol_size = vol_size;
+    m_snapshot_mds = new SnapshotMds(vol_name, vol_size);
+    m_backup_mds   = new BackupMds(vol_name, vol_size, m_snapshot_mds);
 }
 
 SnapshotFacade::~SnapshotFacade()
 {
-    delete m_snap_mds;
+    delete m_backup_mds;
+    delete m_snapshot_mds;
 }
 
 int SnapshotFacade::recover()
 {
-    m_snap_mds->recover();
+    m_snapshot_mds->recover();
+    m_backup_mds->recover();
     return 0;
 }
 

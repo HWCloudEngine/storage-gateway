@@ -2,6 +2,7 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include "../log/log.h"
+#include "snapshot_type.h"
 #include "snapshot_mgr.h"
 
 using huawei::proto::StatusCode;
@@ -46,34 +47,28 @@ do {                                   \
     ret = it->second->op(req, ack);    \
 }while(0);
 
-
-void SnapshotMgr::init()
+StatusCode SnapshotMgr::add_volume(const string& vol_name, const size_t& vol_size)
 {
-    /*todo parallel optimize*/
-    DIR* pdir = nullptr;
-    struct dirent* pdentry = nullptr;
-    pdir = opendir(DB_DIR);
-    while((pdentry = readdir(pdir)) != nullptr){
-        if(strcmp(pdentry->d_name, ".") == 0 || 
-           strcmp(pdentry->d_name, "..") == 0){
-            continue; 
-        }
-        /*get volume name*/
-        string vname = pdentry->d_name;
-        /*create snapshot mds for volume*/
-        shared_ptr<SnapshotFacade> snap_facade;
-        snap_facade.reset(new SnapshotFacade(vname));
-        m_snap_facades.insert({vname, snap_facade});
-        /*snapshot mds recover*/
-        snap_facade->recover();
+    std::lock_guard<std::mutex> lock(m_mutex);
+    auto it = m_snap_facades.find(vol_name);
+    if(it != m_snap_facades.end()){
+        LOG_INFO << "add volume:" << vol_name << "failed, already exist";
+        return StatusCode::sVolumeAlreadyExist; 
     }
 
-    closedir(pdir);
+    shared_ptr<SnapshotFacade> snap_facade;
+    snap_facade.reset(new SnapshotFacade(vol_name, vol_size));
+    m_snap_facades.insert({vol_name, snap_facade});
+    snap_facade->recover();
+
+    return StatusCode::sOk;
 }
 
-void SnapshotMgr::fini()
+StatusCode SnapshotMgr::del_volume(const string& vol_name)
 {
-    m_snap_facades.clear();
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_snap_facades.erase(vol_name);
+    return StatusCode::sOk;
 }
 
 grpc::Status SnapshotMgr::Sync(ServerContext* context, 
@@ -94,16 +89,15 @@ grpc::Status SnapshotMgr::Create(ServerContext*   context,
 {
     grpc::Status ret;
     string vname = req->vol_name();
-
+    size_t vsize = req->vol_size();
     auto it = m_snap_facades.find(vname);
     shared_ptr<SnapshotFacade> snap_facade;
     if(it != m_snap_facades.end()){
         snap_facade = it->second;
         goto create;
     }
-    
-    /*create snapshotmds for each volume*/
-    snap_facade.reset(new SnapshotFacade(vname));
+    /*(todo debug only)create snapshotmds for each volume*/
+    snap_facade.reset(new SnapshotFacade(vname, vsize));
     m_snap_facades.insert({vname, snap_facade});
 
 create:
@@ -220,4 +214,3 @@ grpc::Status SnapshotMgr::Read(ServerContext* context,
     CMD_DO(vname, Read, req, ack);
     CMD_POST(vname, "Read", ret);
 }
-

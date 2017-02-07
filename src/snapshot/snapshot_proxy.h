@@ -13,6 +13,7 @@
 #include "../log/log.h"
 #include "../sg_client/journal_entry.h"
 #include "../rpc/common.pb.h"
+#include "../rpc/snapshot.pb.h"
 #include "../rpc/journal.pb.h"
 #include "../rpc/snapshot_control.pb.h"
 #include "../rpc/snapshot_control.grpc.pb.h"
@@ -28,8 +29,8 @@ using grpc::Status;
 using huawei::proto::StatusCode;
 using huawei::proto::SnapStatus;
 using huawei::proto::SnapReqHead;
-
 using huawei::proto::JournalMarker;
+using huawei::proto::DiffBlocks; 
 
 using huawei::proto::control::CreateSnapshotReq;
 using huawei::proto::control::CreateSnapshotAck;
@@ -45,8 +46,6 @@ using huawei::proto::control::DiffSnapshotReq;
 using huawei::proto::control::DiffSnapshotAck;
 using huawei::proto::control::ReadSnapshotReq;
 using huawei::proto::control::ReadSnapshotAck;
-using huawei::proto::control::ExtDiffBlock;
-using huawei::proto::control::ExtDiffBlocks; 
 
 using huawei::proto::inner::SnapshotInnerControl;
 
@@ -94,11 +93,11 @@ public:
     bool check_exist_snapshot()const;
 
     /*rpc with dr server*/
-    StatusCode do_create(const SnapReqHead& shead, const string& sname);
-    StatusCode do_delete(const SnapReqHead& shead, const string& sname);
+    StatusCode do_create(const CreateSnapshotReq* req);
+    StatusCode do_delete(const DeleteSnapshotReq* req);
     StatusCode do_cow(const off_t& off, const size_t& size, char* buf, bool rollback);
     StatusCode do_update(const SnapReqHead& shead, const string& sname);
-    StatusCode do_rollback(const SnapReqHead& shead, const string& sname);
+    StatusCode do_rollback(const RollbackSnapshotReq* req);
 
     /*make sure journal writer persist ok then ack to client*/
     void cmd_persist_wait();

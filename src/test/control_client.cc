@@ -40,7 +40,8 @@ int main(int argc, char** argv)
         int last_snap_id  = atoi(argv[3]);
         string first_snap_name = "test_volume_snap_" + to_string(first_snap_id);
         string last_snap_name  = "test_volume_snap_" + to_string(last_snap_id);
-        ret = snap_client->DiffSnapshot(vol_name, first_snap_name, last_snap_name);
+        vector<DiffBlocks> diff;
+        ret = snap_client->DiffSnapshot(vol_name, first_snap_name, last_snap_name, diff);
         cout << "diff snapshot " << "first_snap_name:" << first_snap_name 
              << " last_snap_name:" << last_snap_name << " ret:" << ret << endl;
     } else if(strcmp(op, "read") == 0){

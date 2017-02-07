@@ -7,7 +7,7 @@
 #include <grpc++/grpc++.h>
 #include "../rpc/common.pb.h"
 #include "../rpc/snapshot_inner_control.grpc.pb.h"
-#include "snapshot_mds.h"
+#include "abstract_mds.h"
 
 using grpc::Server;
 using grpc::ServerBuilder;
@@ -43,7 +43,7 @@ using namespace std;
 class SnapshotFacade
 {
 public:
-    SnapshotFacade(const string vol_name);
+    SnapshotFacade(const string& vol_name, const size_t& vol_size);
     ~SnapshotFacade();
     
     int recover();
@@ -62,12 +62,12 @@ public:
 
 private:
     string m_vol_name;
+    size_t m_vol_size;
     /*manage normal snapshot*/
-    SnapshotMds*  m_snap_mds;
-    
-    /*manage replication (decorator of SnapshotMds)*/
-
+    AbstractMds*  m_snapshot_mds;
     /*manage backup (decorator of SnapshotMds)*/
+    AbstractMds*  m_backup_mds;
+    /*manage replication (decorator of SnapshotMds)*/
 };
 
 #endif

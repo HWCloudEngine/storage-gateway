@@ -4,68 +4,45 @@
 #include <mutex>
 #include <grpc++/grpc++.h>
 #include "../rpc/common.pb.h"
+#include "../rpc/snapshot.pb.h"
 #include "../rpc/snapshot_inner_control.pb.h"
 #include "../rpc/snapshot_inner_control.grpc.pb.h"
 #include "../log/log.h"
-
 #include "snapshot_type.h"
 #include "block_store.h"
 #include "index_store.h"
+#include "abstract_mds.h"
 
-using huawei::proto::StatusCode;
 using huawei::proto::SnapStatus;
 using huawei::proto::SnapReqHead;
 
-using huawei::proto::inner::CreateReq;
-using huawei::proto::inner::CreateAck;
-using huawei::proto::inner::ListReq;
-using huawei::proto::inner::ListAck;
-using huawei::proto::inner::QueryReq;
-using huawei::proto::inner::QueryAck;
-using huawei::proto::inner::DeleteReq;
-using huawei::proto::inner::DeleteAck;
-using huawei::proto::inner::RollbackReq;
-using huawei::proto::inner::RollbackAck;
-using huawei::proto::inner::UpdateReq;
-using huawei::proto::inner::UpdateAck;
-using huawei::proto::inner::CowReq;
-using huawei::proto::inner::CowAck;
-using huawei::proto::inner::CowUpdateReq;
-using huawei::proto::inner::CowUpdateAck;
-using huawei::proto::inner::DiffReq;
-using huawei::proto::inner::DiffAck;
-using huawei::proto::inner::ReadReq;
-using huawei::proto::inner::ReadAck;
-using huawei::proto::inner::SyncReq;
-using huawei::proto::inner::SyncAck;
-
-class SnapshotMds
+class SnapshotMds : public AbstractMds
 {
 public:
-    SnapshotMds(string vol_name);
+    SnapshotMds(const string& vol_name, const size_t& vol_size);
     virtual ~SnapshotMds();   
 
     /*storage client sync snapshot status*/ 
-    StatusCode sync(const SyncReq* req, SyncAck* ack);
+    StatusCode sync(const SyncReq* req, SyncAck* ack) override;
 
     /*snapshot common operation*/
-    virtual StatusCode create_snapshot(const CreateReq* req, CreateAck* ack);
-    virtual StatusCode delete_snapshot(const DeleteReq* req, DeleteAck* ack);
-    virtual StatusCode rollback_snapshot(const RollbackReq* req, RollbackAck* ack);
-    virtual StatusCode list_snapshot(const ListReq* req, ListAck* ack);
-    virtual StatusCode query_snapshot(const QueryReq* req, QueryAck* ack);
-    virtual StatusCode diff_snapshot(const DiffReq* req, DiffAck* ack);    
-    virtual StatusCode read_snapshot(const ReadReq* req, ReadAck* ack);
+    StatusCode create_snapshot(const CreateReq* req, CreateAck* ack) override;
+    StatusCode delete_snapshot(const DeleteReq* req, DeleteAck* ack) override;
+    StatusCode rollback_snapshot(const RollbackReq* req, RollbackAck* ack) override;
+    StatusCode list_snapshot(const ListReq* req, ListAck* ack) override;
+    StatusCode query_snapshot(const QueryReq* req, QueryAck* ack) override;
+    StatusCode diff_snapshot(const DiffReq* req, DiffAck* ack) override;    
+    StatusCode read_snapshot(const ReadReq* req, ReadAck* ack) override;
     
     /*snapshot status*/
-    virtual StatusCode update(const UpdateReq* req, UpdateAck* ack);
+    StatusCode update(const UpdateReq* req, UpdateAck* ack) override;
     
     /*cow*/
-    virtual StatusCode cow_op(const CowReq* req, CowAck* ack);
-    virtual StatusCode cow_update(const CowUpdateReq* req, CowUpdateAck* ack);
+    StatusCode cow_op(const CowReq* req, CowAck* ack) override;
+    StatusCode cow_update(const CowUpdateReq* req, CowUpdateAck* ack) override;
     
     /*crash recover*/
-    int recover();
+    int recover() override;
 
 private:
     /*common helper*/
@@ -90,6 +67,7 @@ private:
 private:
     /*volume name*/
     string m_volume_name;
+    size_t m_volume_size;
     /*lock*/
     mutex m_mutex;
     /*the latest snapshot id*/

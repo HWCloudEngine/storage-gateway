@@ -4,6 +4,8 @@
 #include <string>
 #include <map>
 #include <memory>
+#include <mutex>
+
 #include <grpc++/grpc++.h>
 #include "../rpc/common.pb.h"
 #include "../rpc/snapshot_inner_control.grpc.pb.h"
@@ -13,7 +15,7 @@ using grpc::Server;
 using grpc::ServerBuilder;
 using grpc::ServerContext;
 using grpc::Status;
-
+using huawei::proto::StatusCode;
 using huawei::proto::inner::SnapshotInnerControl;
 using huawei::proto::inner::CreateReq;
 using huawei::proto::inner::CreateAck;
@@ -45,63 +47,34 @@ class SnapshotMgr final: public SnapshotInnerControl::Service {
 
 public:
     SnapshotMgr(){
-        init();
+        m_snap_facades.clear();
     }
 
     virtual ~SnapshotMgr(){
-        fini();
+        m_snap_facades.clear();
     }
 
 public:
-    void init();
-    void fini();
-
-    grpc::Status Sync(ServerContext* context, 
-                      const SyncReq* req, 
-                      SyncAck* ack) override;
-
-    grpc::Status Create(ServerContext* context, 
-                        const CreateReq* req, 
-                        CreateAck* ack) override;
-
-    grpc::Status List(ServerContext* context, 
-                      const ListReq* req, 
-                      ListAck* ack) override;
-
-    grpc::Status Query(ServerContext* context, 
-                       const QueryReq* req, 
-                       QueryAck* ack) override;
-
-    grpc::Status Delete(ServerContext* context, 
-                        const DeleteReq* req, 
-                        DeleteAck* ack) override;
-
-    grpc::Status Rollback(ServerContext* context, 
-                          const RollbackReq* req, 
-                          RollbackAck* ack) override;
-
-    grpc::Status Update(ServerContext* context,
-                        const UpdateReq* req,
-                        UpdateAck* ack) override;
+    /*call by sgserver when add and delete volume*/
+    StatusCode add_volume(const string& vol_name, const size_t& vol_size);
+    StatusCode del_volume(const string& vol_name);
     
-    grpc::Status CowOp(ServerContext* context,
-                       const CowReq*  req,
-                       CowAck* ack) override;
-
-    grpc::Status CowUpdate(ServerContext* context,
-                           const CowUpdateReq* req,
-                           CowUpdateAck* ack) override;
-
-    grpc::Status Diff(ServerContext* context, 
-                      const DiffReq* req, 
-                      DiffAck* ack) override;
-
-    grpc::Status Read(ServerContext* context, 
-                      const ReadReq* req, 
-                      ReadAck* ack) override;
+    /*rpc interface*/
+    grpc::Status Sync(ServerContext* context, const SyncReq* req, SyncAck* ack) override;
+    grpc::Status Create(ServerContext* context, const CreateReq* req, CreateAck* ack) override;
+    grpc::Status List(ServerContext* context, const ListReq* req, ListAck* ack) override;
+    grpc::Status Query(ServerContext* context, const QueryReq* req, QueryAck* ack) override;
+    grpc::Status Delete(ServerContext* context, const DeleteReq* req, DeleteAck* ack) override;
+    grpc::Status Rollback(ServerContext* context, const RollbackReq* req, RollbackAck* ack) override;
+    grpc::Status Update(ServerContext* context, const UpdateReq* req, UpdateAck* ack) override;
+    grpc::Status CowOp(ServerContext* context, const CowReq* req, CowAck* ack) override;
+    grpc::Status CowUpdate(ServerContext* context, const CowUpdateReq* req, CowUpdateAck* ack) override;
+    grpc::Status Diff(ServerContext* context, const DiffReq* req, DiffAck* ack) override;
+    grpc::Status Read(ServerContext* context, const ReadReq* req, ReadAck* ack) override;
 
 private:
     /*each volume has a snapshot delegate*/
+    mutex m_mutex;
     map<string, shared_ptr<SnapshotFacade>> m_snap_facades;
 };
 

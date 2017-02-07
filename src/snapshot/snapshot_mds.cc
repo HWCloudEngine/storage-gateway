@@ -7,13 +7,15 @@
 #include "snapshot_util.h"
 #include "snapshot_mds.h"
 
-using huawei::proto::inner::DiffBlocks;
+using huawei::proto::DiffBlocks;
 using huawei::proto::inner::ReadBlock;
 using huawei::proto::inner::RollBlock;
 
-SnapshotMds::SnapshotMds(string vol_name)
+SnapshotMds::SnapshotMds(const string& vol_name, const size_t& vol_size)
 {
-    m_volume_name   = vol_name;
+    m_volume_name = vol_name;
+    m_volume_size = vol_size;
+
     m_latest_snapid = 0;
     m_snapshots.clear();
     m_cow_block_map.clear();
@@ -22,12 +24,11 @@ SnapshotMds::SnapshotMds(string vol_name)
     m_block_store = new CephBlockStore();
 
     /*todo: read from configure file*/
-    string db_path = DB_DIR + vol_name;
+    string db_path = DB_DIR + vol_name + "/snapshot";
     if(access(db_path.c_str(), F_OK)){
         int ret = mkdir(db_path.c_str(), 0777); 
         assert(ret == 0);
     }
-
     m_index_store = IndexStore::create("rocksdb", db_path);
     m_index_store->db_open();
 }
@@ -576,7 +577,7 @@ StatusCode SnapshotMds::diff_snapshot(const DiffReq* req, DiffAck* ack)
 {
     string  vname = req->vol_name();
     string  first_snap = req->first_snap_name();
-    string  last_snap  = req->laste_snap_name();
+    string  last_snap  = req->last_snap_name();
 
     LOG_INFO << "diff snapshot vname:" << vname 
              << " first_snap:" << first_snap << " last_snap:"  << last_snap;

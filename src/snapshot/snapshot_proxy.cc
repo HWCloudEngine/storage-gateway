@@ -12,6 +12,8 @@
 #include "../rpc/message.pb.h"
 #include "snapshot_proxy.h"
 
+using huawei::proto::SnapshotMessage;
+
 using huawei::proto::inner::CreateReq;
 using huawei::proto::inner::CreateAck;
 using huawei::proto::inner::ListReq;
@@ -34,11 +36,8 @@ using huawei::proto::inner::ReadReq;
 using huawei::proto::inner::ReadAck;
 using huawei::proto::inner::SyncReq;
 using huawei::proto::inner::SyncAck;
-using huawei::proto::inner::DiffBlocks;
 using huawei::proto::inner::ReadBlock;
 using huawei::proto::inner::RollBlock;
-using huawei::proto::SnapshotMessage;
-using huawei::proto::SnapStatus;
 
 bool SnapshotProxy::init()
 {        
@@ -152,7 +151,7 @@ StatusCode SnapshotProxy::create_snapshot(const CreateSnapshotReq* req,
              << " pos:" << m_cmd_persist_mark.pos();
 
     /*rpc with dr_server */
-    ret_code = do_create(req->header(), sname);
+    ret_code = do_create(req);
     if(ret_code){
         LOG_INFO << "create_snapshot vname:" << vname << " sname:" << sname
                  << " failed rpc error";
@@ -231,7 +230,7 @@ StatusCode SnapshotProxy::delete_snapshot(const DeleteSnapshotReq* req,
 
     cmd_persist_wait();
     /*rpc with dr_server */
-    ret_code = do_delete(req->header(),sname);
+    ret_code = do_delete(req);
     if(ret_code){
         LOG_INFO << "delete_snapshot vname:" << vname << " sname:" << sname
                  << " failed rpc error";
@@ -265,7 +264,7 @@ StatusCode SnapshotProxy::rollback_snapshot(const RollbackSnapshotReq* req,
     m_snapshots.insert({sname, cur_snap_status}) ;
         /*wait journal writer persist journal entry ok and ack*/
     cmd_persist_wait();
-    ret_code = do_rollback(req->header(), sname);
+    ret_code = do_rollback(req);
     if(ret_code){
         LOG_INFO << "rollback_snapshot vname:" << vname << " sname:" << sname
                  << " failed rpc error";
@@ -390,7 +389,8 @@ shared_ptr<JournalEntry> SnapshotProxy::spawn_journal_entry(
     shared_ptr<SnapshotMessage> message = make_shared<SnapshotMessage>();
     message->set_replication_uuid(shead.replication_uuid());
     message->set_checkpoint_uuid(shead.checkpoint_uuid());
-    message->set_vol_name(m_volume_id);
+    message->set_vol_name(m_volume_id); 
+    message->set_snap_scene(shead.scene());
     message->set_snap_type(shead.snap_type());
     message->set_snap_name(sname); 
 
@@ -426,45 +426,50 @@ bool SnapshotProxy::check_exist_snapshot()const
     return (!m_active_snapshot.empty() && m_exist_snapshot) ? true : false;
 }
 
-StatusCode SnapshotProxy::do_create(const SnapReqHead& shead, const string& sname)
+StatusCode SnapshotProxy::do_create(const CreateSnapshotReq* req)
 {
-    LOG_INFO << "SnapshotProxy do_create" << " snap_name:" << sname;
+    LOG_INFO << "SnapshotProxy do_create" << " snap_name:" << req->snap_name();
 
     ClientContext context;
     CreateReq ireq;
-    ireq.mutable_header()->CopyFrom(shead);
-    ireq.set_vol_name(m_volume_id);
-    ireq.set_snap_name(sname);
+    ireq.mutable_header()->CopyFrom(req->header());
+    ireq.set_vol_name(req->vol_name());
+    ireq.set_snap_name(req->snap_name());
+    ireq.set_backup_name(req->backup_name());
+    ireq.mutable_backup_option()->CopyFrom(req->backup_option());
+
     CreateAck iack;
     Status st = m_rpc_stub->Create(&context, ireq, &iack);
     if(!st.ok()){
         return iack.header().status();
     }
         
-    LOG_INFO << "SnapshotProxy do_create" << " snap_name:" << sname << " ok";
+    LOG_INFO << "SnapshotProxy do_create" << " snap_name:" << req->snap_name()<< " ok";
     return StatusCode::sOk;
 }
 
-StatusCode SnapshotProxy::do_delete(const SnapReqHead& shead, const string& sname)
+StatusCode SnapshotProxy::do_delete(const DeleteSnapshotReq* req)
 {
-    LOG_INFO << "do_delete snap_name:" << sname;
+    LOG_INFO << "do_delete snap_name:" << req->snap_name();
     
     /*really tell dr server delete snapshot*/
     ClientContext context;
     DeleteReq ireq;
-    ireq.mutable_header()->CopyFrom(shead);
-    ireq.set_vol_name(m_volume_id);
-    ireq.set_snap_name(sname);
+    ireq.mutable_header()->CopyFrom(req->header());
+    ireq.set_vol_name(req->vol_name());
+    ireq.set_snap_name(req->snap_name());
+    ireq.set_backup_name(req->backup_name());
+
     DeleteAck iack;
     Status st = m_rpc_stub->Delete(&context, ireq, &iack);
     if(!st.ok()){
         return iack.header().status();
     }
-    LOG_INFO << "do_delete snap_name:" << sname << " ok";
+    LOG_INFO << "do_delete snap_name:" << req->snap_name() << " ok";
     return StatusCode::sOk;
 }
 
-StatusCode SnapshotProxy::do_rollback(const SnapReqHead& shead, const string& sname)
+StatusCode SnapshotProxy::do_rollback(const RollbackSnapshotReq* req)
 {
     return StatusCode::sOk;
 }
@@ -658,31 +663,20 @@ StatusCode SnapshotProxy::diff_snapshot(const DiffSnapshotReq* req,
     ireq.mutable_header()->CopyFrom(req->header());
     ireq.set_vol_name(vname);
     ireq.set_first_snap_name(first_snap_name);
-    ireq.set_laste_snap_name(last_snap_name);
+    ireq.set_last_snap_name(last_snap_name);
     DiffAck iack;
     Status st = m_rpc_stub->Diff(&context, ireq, &iack);
     if(!st.ok()){
         return iack.header().status();
     }
+
     int diff_blocks_num = iack.diff_blocks_size();
     for(int i = 0; i < diff_blocks_num; i++){
-        DiffBlocks diffblock = iack.diff_blocks(i); 
-        ExtDiffBlocks* ext_diff_blocks = ack->add_diff_blocks();
-        ext_diff_blocks->set_vol_name(diffblock.vol_name());
-        ext_diff_blocks->set_snap_name(diffblock.snap_name());
-
-        LOG_INFO << "diff_snapshot snapname:" << diffblock.snap_name();
-        int block_num = diffblock.diff_block_no_size(); 
-        for(int j = 0; j < block_num; j++){
-           uint64_t blk_no = diffblock.diff_block_no(j); 
-           LOG_INFO << "diff_snapshot snapname:" << diffblock.snap_name()
-                    << " blk_no:" << blk_no;
-           ExtDiffBlock* ext_diff_block = ext_diff_blocks->add_diff_block();
-           ext_diff_block->set_off(blk_no * COW_BLOCK_SIZE);
-           ext_diff_block->set_len(COW_BLOCK_SIZE);
-        }
+        DiffBlocks  idiff_blocks= iack.diff_blocks(i); 
+        DiffBlocks* odiff_blocks = ack->add_diff_blocks();
+        odiff_blocks->CopyFrom(idiff_blocks);
     }
-    
+
     LOG_INFO << "diff_snapshot vname:" << vname
              << " first_snap:" << first_snap_name
              << " last_snap:"  << last_snap_name
