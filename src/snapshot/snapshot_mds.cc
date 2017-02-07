@@ -7,13 +7,16 @@
 #include "snapshot_util.h"
 #include "snapshot_mds.h"
 
-using huawei::proto::inner::DiffBlocks;
+using huawei::proto::DiffBlocks;
+using huawei::proto::inner::UpdateEvent;
 using huawei::proto::inner::ReadBlock;
 using huawei::proto::inner::RollBlock;
 
-SnapshotMds::SnapshotMds(string vol_name)
+SnapshotMds::SnapshotMds(const string& vol_name, const size_t& vol_size)
 {
-    m_volume_name   = vol_name;
+    m_volume_name = vol_name;
+    m_volume_size = vol_size;
+
     m_latest_snapid = 0;
     m_snapshots.clear();
     m_cow_block_map.clear();
@@ -22,12 +25,11 @@ SnapshotMds::SnapshotMds(string vol_name)
     m_block_store = new CephBlockStore();
 
     /*todo: read from configure file*/
-    string db_path = DB_DIR + vol_name;
+    string db_path = DB_DIR + vol_name + "/snapshot";
     if(access(db_path.c_str(), F_OK)){
         int ret = mkdir(db_path.c_str(), 0777); 
         assert(ret == 0);
     }
-
     m_index_store = IndexStore::create("rocksdb", db_path);
     m_index_store->db_open();
 }
@@ -239,11 +241,15 @@ StatusCode SnapshotMds::rollback_snapshot(const RollbackReq* req, RollbackAck* a
     return StatusCode::sOk;
 }
 
-StatusCode SnapshotMds::created_update_status(string snap_name)
+StatusCode SnapshotMds::create_update_status(string snap_name)
 {   
     auto it = m_snapshots.find(snap_name);
     if(it == m_snapshots.end()){
         return StatusCode::sSnapNotExist; 
+    }
+    
+    if(it->second.snap_status != SnapStatus::SNAP_CREATING){
+        return StatusCode::sSnapAlreadyExist; 
     }
     
     /*generate snapshot id*/
@@ -282,13 +288,18 @@ StatusCode SnapshotMds::created_update_status(string snap_name)
     return StatusCode::sOk;
 }
 
-StatusCode SnapshotMds::deleted_update_status(string snap_name)
+StatusCode SnapshotMds::delete_update_status(string snap_name)
 {
     lock_guard<std::mutex> lock(m_mutex);
     auto it = m_snapshots.find(snap_name);
     if(it == m_snapshots.end()){
         return StatusCode::sSnapNotExist; 
     }
+    
+    if(it->second.snap_status == SnapStatus::SNAP_DELETED){
+        return StatusCode::sSnapNotExist;
+    }
+
     snapid_t snap_id = it->second.snap_id;
     auto snap_it = m_cow_block_map.find(snap_id);
     if(snap_it == m_cow_block_map.end()){
@@ -383,6 +394,7 @@ StatusCode SnapshotMds::update(const UpdateReq* req, UpdateAck* ack)
 {
     string vol_name  = req->vol_name();
     string snap_name = req->snap_name();
+    UpdateEvent snap_event = req->snap_event();
 
     LOG_INFO << "update vname:" << vol_name << " sname:" << snap_name;
 
@@ -399,21 +411,20 @@ StatusCode SnapshotMds::update(const UpdateReq* req, UpdateAck* ack)
             ret = StatusCode::sSnapNotExist; 
             break; 
         }
-
-        SnapStatus cur_snap_status = it->second.snap_status;
-        switch(cur_snap_status){
-            case SnapStatus::SNAP_CREATING:
-                created_update_status(cur_snap_name);
+       
+        switch(snap_event)
+        {
+            case UpdateEvent::CREATE_EVENT:
+                create_update_status(cur_snap_name);
                 break;
-            case SnapStatus::SNAP_DELETING:
-            case SnapStatus::SNAP_ROLLBACKING:
-                deleted_update_status(cur_snap_name);
+            case UpdateEvent::DELETE_EVENT:
+            case UpdateEvent::ROLLBACK_EVENT:
+                delete_update_status(cur_snap_name);
                 break;
             default:
                 ret = StatusCode::sSnapUpdateError;
                 break;
         }
-
     } while(0);
 
     ack->mutable_header()->set_status(ret);
@@ -576,7 +587,7 @@ StatusCode SnapshotMds::diff_snapshot(const DiffReq* req, DiffAck* ack)
 {
     string  vname = req->vol_name();
     string  first_snap = req->first_snap_name();
-    string  last_snap  = req->laste_snap_name();
+    string  last_snap  = req->last_snap_name();
 
     LOG_INFO << "diff snapshot vname:" << vname 
              << " first_snap:" << first_snap << " last_snap:"  << last_snap;

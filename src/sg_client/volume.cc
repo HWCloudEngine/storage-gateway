@@ -92,6 +92,11 @@ shared_ptr<SnapshotProxy>& Volume::get_snapshot_proxy() const
     return snapshotproxy_;
 }
 
+shared_ptr<BackupProxy>& Volume::get_backup_proxy() const
+{
+    return backupproxy_;
+}
+
 JournalWriter& Volume::get_writer() const
 {
     return *(writer_.get());

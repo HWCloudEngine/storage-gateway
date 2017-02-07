@@ -9,9 +9,9 @@
 * 
 ************************************************/
 #include <string>
-#include "replicate_control.h"
+#include "control_replicate.h"
 #include "common/config_parser.h"
-#include "log/log.h"
+#include "../../log/log.h"
 using std::string;
 using huawei::proto::sOk;
 using huawei::proto::sInternalError;

@@ -20,7 +20,7 @@ enum StatusCode {
     sSnapTransactionError = 103;
     sSnapUpdateError = 104;
     sSnapMetaPersistError = 105;
-
+    
     // status for replicate
     sReplicationNotExist = 201;
     sReplicationMetaPersistError = 205;
@@ -30,48 +30,12 @@ enum StatusCode {
     sVolumeAlreadyExist = 300;
     sVolumeNotExist = 301;
     sVolumeMetaPersistError = 305;
-}
 
-//snapshot use scenario
-enum SnapScene {
-    /*common snapshot*/
-    FOR_NORMAL = 0;
-    /*interal snapshot for replication disable and enable*/
-    FOR_REPLICATION = 1;
-    /*interal snapshot for backup*/
-    FOR_BACKUP = 2;
-}
-
-//snapshot requst header
-message SnapReqHead {
-    /*sequence id*/
-    int64  seq_id = 1;
-    /*use scene*/
-    SnapScene scene = 2;
-    /*remote or local*/
-    int32  snap_type = 3;
-    /*cacsing volume replication pair uuid*/
-    string replication_uuid = 4;
-    /*cacsing volume replication checkpoint uuid*/
-    string checkpoint_uuid = 5;
-}
-
-message SnapAckHead {
-    /*sequence id*/
-    int64 seq_id = 1;
-    /*status code*/
-    StatusCode status = 2;
-}
-
-//snapshot status
-enum SnapStatus{
-    SNAP_CREATING  = 0;
-    SNAP_CREATED   = 1;
-    SNAP_DELETING  = 2;
-    SNAP_DELETED   = 3; 
-    SNAP_ROLLBACKING = 4;
-    SNAP_ROLLBACKED  = 5;
-    SNAP_INVALID = 10;
+    // status for backup
+    sBackupAlreadyExist = 400;
+    sBackupNotExist     = 401;
+    sBackupNoFullbackupExist = 402;
+    sBackupCanNotDelete      = 403;
 }
 
 // define replication roles
