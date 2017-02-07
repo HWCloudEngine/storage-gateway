@@ -9,8 +9,12 @@
 #include <set>
 #include <chrono>
 #include "../common/interval_set.h"
+#include "../common/utils.h"
 #include "../rpc/message.pb.h"
 #include "snapshot_proxy.h"
+
+using huawei::proto::SnapshotMessage;
+using huawei::proto::SnapScene;
 
 using huawei::proto::inner::CreateReq;
 using huawei::proto::inner::CreateAck;
@@ -34,19 +38,22 @@ using huawei::proto::inner::ReadReq;
 using huawei::proto::inner::ReadAck;
 using huawei::proto::inner::SyncReq;
 using huawei::proto::inner::SyncAck;
-using huawei::proto::inner::DiffBlocks;
 using huawei::proto::inner::ReadBlock;
 using huawei::proto::inner::RollBlock;
-using huawei::proto::SnapshotMessage;
-using huawei::proto::SnapStatus;
+using huawei::proto::inner::UpdateEvent;
 
 bool SnapshotProxy::init()
 {        
-    /*rpc connect*/
+    /*snapshot inner rpc client stub*/
     m_rpc_stub = SnapshotInnerControl::NewStub(grpc::CreateChannel(
                 "127.0.0.1:50051", 
                 grpc::InsecureChannelCredentials()));
-    
+   
+    /*backup inner rpc client */
+    m_backup_inner_rpc_client = new BackupInnerCtrlClient(grpc::CreateChannel(
+                                "127.0.0.1:50051", 
+                                grpc::InsecureChannelCredentials()));
+
     /*open block device*/
     m_block_fd = open(m_block_device.c_str(), O_RDWR | O_DIRECT | O_SYNC);
     if(m_block_fd == -1){
@@ -61,7 +68,7 @@ bool SnapshotProxy::init()
     /*snapshot block store*/
     m_block_store = new CephBlockStore();
     
-    m_snapshots.clear();
+    m_sync_table.clear();
     m_active_snapshot.clear();
     m_exist_snapshot = false;
     
@@ -73,7 +80,7 @@ bool SnapshotProxy::init()
 
 bool SnapshotProxy::fini()
 {
-    m_snapshots.clear();
+    m_sync_table.clear();
     m_active_snapshot.clear();
     m_exist_snapshot = false;
  
@@ -94,7 +101,7 @@ StatusCode SnapshotProxy::sync_state()
 
     ClientContext context;
     SyncReq ireq;
-    ireq.set_vol_name(m_volume_id);
+    ireq.set_vol_name(m_vol_name);
     SyncAck iack;
     Status st = m_rpc_stub->Sync(&context, ireq, &iack);
     if(!st.ok()) {
@@ -124,6 +131,24 @@ void SnapshotProxy::cmd_persist_notify(const JournalMarker& mark)
     m_cmd_persist_cond.notify_all();
 }
 
+void SnapshotProxy::add_sync(const string& actor, const string& action)
+{
+    m_sync_table.insert({actor, action});
+}
+
+void SnapshotProxy::del_sync(const string& actor)
+{
+    m_sync_table.erase(actor);
+}
+
+bool SnapshotProxy::check_sync_on(const string& actor)
+{
+    auto it = m_sync_table.find(actor);
+    if(it == m_sync_table.end())
+        return false;
+    return true;
+}
+
 StatusCode SnapshotProxy::create_snapshot(const CreateSnapshotReq* req, 
                                           CreateSnapshotAck* ack)
 {
@@ -142,8 +167,8 @@ StatusCode SnapshotProxy::create_snapshot(const CreateSnapshotReq* req,
     m_entry_queue.push(entry);
     
     StatusCode ret_code = StatusCode::sOk;
-    SnapStatus cur_snap_status = SnapStatus::SNAP_CREATING;
-    m_snapshots.insert({sname, cur_snap_status}) ;
+    /*sync begin*/
+    add_sync(sname, "snapshot on creating");
 
     /*todo: wait journal writer persist journal entry ok and ack*/
     cmd_persist_wait();
@@ -156,12 +181,15 @@ StatusCode SnapshotProxy::create_snapshot(const CreateSnapshotReq* req,
     if(ret_code){
         LOG_INFO << "create_snapshot vname:" << vname << " sname:" << sname
                  << " failed rpc error";
-        m_snapshots.erase(sname);
+        m_sync_table.erase(sname);
         return ret_code;
     }
 
     LOG_INFO << "create_snapshot vname:" << vname << " sname:" << sname << " ok";
-    m_snapshots.erase(sname);
+    /*sync end*/
+    del_sync(sname);
+    
+    ack->mutable_header()->set_status(ret_code);
     return ret_code;
 }
 
@@ -226,21 +254,20 @@ StatusCode SnapshotProxy::delete_snapshot(const DeleteSnapshotReq* req,
     m_entry_queue.push(entry);
     
     StatusCode ret_code = StatusCode::sOk;
-    SnapStatus cur_snap_status = SnapStatus::SNAP_DELETING;
-    m_snapshots.insert({sname, cur_snap_status}) ;
+    add_sync(sname, "snapshot on deleting") ;
 
     cmd_persist_wait();
     /*rpc with dr_server */
-    ret_code = do_delete(req->header(),sname);
+    ret_code = do_delete(req->header(), sname);
     if(ret_code){
         LOG_INFO << "delete_snapshot vname:" << vname << " sname:" << sname
                  << " failed rpc error";
-        m_snapshots.erase(sname);
+        m_sync_table.erase(sname);
         return ret_code;
     }
 
     LOG_INFO << "delete_snapshot vname:" << vname << " sname:" << sname << " ok";
-    m_snapshots.erase(sname);
+    del_sync(sname);
     return ret_code;
 }
 
@@ -261,20 +288,19 @@ StatusCode SnapshotProxy::rollback_snapshot(const RollbackSnapshotReq* req,
     m_entry_queue.push(entry);
     
     StatusCode ret_code = StatusCode::sOk;
-    SnapStatus cur_snap_status = SnapStatus::SNAP_ROLLBACKING;
-    m_snapshots.insert({sname, cur_snap_status}) ;
-        /*wait journal writer persist journal entry ok and ack*/
+    add_sync(sname, "snapshot on rollbacking") ;
+    /*wait journal writer persist journal entry ok and ack*/
     cmd_persist_wait();
     ret_code = do_rollback(req->header(), sname);
     if(ret_code){
         LOG_INFO << "rollback_snapshot vname:" << vname << " sname:" << sname
                  << " failed rpc error";
-        m_snapshots.erase(sname);
+        m_sync_table.erase(sname);
         return ret_code;
     }
 
     LOG_INFO << "rollback_snapshot vname:" << vname << " sname:" << sname << " ok";
-    m_snapshots.erase(sname);
+    del_sync(sname);
     return ret_code;
 }
 
@@ -282,12 +308,12 @@ StatusCode SnapshotProxy::create_transaction(const SnapReqHead& shead,
                                              const string& snap_name)
 {
     LOG_INFO << "create transaction begin";
-    StatusCode ret = transaction(shead, snap_name);
+    StatusCode ret = transaction(shead, snap_name, UpdateEvent::CREATE_EVENT);
     if(ret){
         LOG_ERROR << "create transaction failed";
         return ret;
     }
-
+    
     m_active_snapshot = snap_name;
     m_exist_snapshot  = true;
     LOG_INFO << "create transaction end";
@@ -298,7 +324,7 @@ StatusCode SnapshotProxy::delete_transaction(const SnapReqHead& shead,
                                              const string& snap_name)
 {
     LOG_INFO << "delete transaction begin";
-    StatusCode ret = transaction(shead, snap_name);
+    StatusCode ret = transaction(shead, snap_name, UpdateEvent::DELETE_EVENT);
     if(ret){
         LOG_ERROR << "delete transaction failed";
         return ret;
@@ -317,7 +343,7 @@ StatusCode SnapshotProxy::rollback_transaction(const SnapReqHead& shead,
                                                const string& snap_name)
 {
     LOG_INFO << "rollback transaction begin";
-    StatusCode ret = transaction(shead, snap_name);
+    StatusCode ret = transaction(shead, snap_name, UpdateEvent::ROLLBACK_EVENT);
     if(ret){
         LOG_ERROR << "rollback transaction failed";
         return ret;
@@ -326,7 +352,7 @@ StatusCode SnapshotProxy::rollback_transaction(const SnapReqHead& shead,
     ClientContext context;
     RollbackReq ireq;
     ireq.mutable_header()->CopyFrom(shead);
-    ireq.set_vol_name(m_volume_id);
+    ireq.set_vol_name(m_vol_name);
     ireq.set_snap_name(snap_name);
     RollbackAck iack;
     Status st = m_rpc_stub->Rollback(&context, ireq, &iack);
@@ -371,7 +397,7 @@ StatusCode SnapshotProxy::rollback_transaction(const SnapReqHead& shead,
     }
     
     /*dr server to delete rollback snapshot*/
-    ret = do_update(shead, snap_name);
+    ret = do_update(shead, snap_name, UpdateEvent::ROLLBACK_EVENT);
 
     if(m_active_snapshot.compare(snap_name) == 0){
         m_exist_snapshot  = false;
@@ -390,7 +416,8 @@ shared_ptr<JournalEntry> SnapshotProxy::spawn_journal_entry(
     shared_ptr<SnapshotMessage> message = make_shared<SnapshotMessage>();
     message->set_replication_uuid(shead.replication_uuid());
     message->set_checkpoint_uuid(shead.checkpoint_uuid());
-    message->set_vol_name(m_volume_id);
+    message->set_vol_name(m_vol_name); 
+    message->set_snap_scene(shead.scene());
     message->set_snap_type(shead.snap_type());
     message->set_snap_name(sname); 
 
@@ -402,19 +429,16 @@ shared_ptr<JournalEntry> SnapshotProxy::spawn_journal_entry(
 }
 
 StatusCode SnapshotProxy::transaction(const SnapReqHead& shead, 
-                                      const string& snap_name) 
+                                      const string&      sname,
+                                      const UpdateEvent& sevent) 
 {
     StatusCode ret = StatusCode::sOk;
-    auto it = m_snapshots.find(snap_name);
-
-    while(it != m_snapshots.end())
-    {
+    while(check_sync_on(sname)){
         usleep(200);
-        it = m_snapshots.find(snap_name);
     }        
 
     /*trigger dr server update snapshot status*/
-    ret = do_update(shead, snap_name);
+    ret = do_update(shead, sname, sevent);
     if(ret){
         return StatusCode::sSnapTransactionError; 
     }
@@ -428,20 +452,22 @@ bool SnapshotProxy::check_exist_snapshot()const
 
 StatusCode SnapshotProxy::do_create(const SnapReqHead& shead, const string& sname)
 {
-    LOG_INFO << "SnapshotProxy do_create" << " snap_name:" << sname;
+    LOG_INFO << "do_create" << " snap_name:" << sname;
 
     ClientContext context;
     CreateReq ireq;
     ireq.mutable_header()->CopyFrom(shead);
-    ireq.set_vol_name(m_volume_id);
+    ireq.set_vol_name(m_vol_name);
     ireq.set_snap_name(sname);
+
     CreateAck iack;
     Status st = m_rpc_stub->Create(&context, ireq, &iack);
     if(!st.ok()){
+        LOG_ERROR << "do_create" << " snap_name:" << sname << " failed";
         return iack.header().status();
     }
         
-    LOG_INFO << "SnapshotProxy do_create" << " snap_name:" << sname << " ok";
+    LOG_INFO << "do_create" << " snap_name:" << sname << " ok";
     return StatusCode::sOk;
 }
 
@@ -453,11 +479,13 @@ StatusCode SnapshotProxy::do_delete(const SnapReqHead& shead, const string& snam
     ClientContext context;
     DeleteReq ireq;
     ireq.mutable_header()->CopyFrom(shead);
-    ireq.set_vol_name(m_volume_id);
+    ireq.set_vol_name(m_vol_name);
     ireq.set_snap_name(sname);
+
     DeleteAck iack;
     Status st = m_rpc_stub->Delete(&context, ireq, &iack);
     if(!st.ok()){
+        LOG_ERROR << "do_delete snap_name:" << sname << " failed";
         return iack.header().status();
     }
     LOG_INFO << "do_delete snap_name:" << sname << " ok";
@@ -469,14 +497,16 @@ StatusCode SnapshotProxy::do_rollback(const SnapReqHead& shead, const string& sn
     return StatusCode::sOk;
 }
 
-StatusCode SnapshotProxy::do_update(const SnapReqHead& shead, const string& sname)
+StatusCode SnapshotProxy::do_update(const SnapReqHead& shead, const string& sname, 
+                                    const UpdateEvent& sevent)
 {
-    LOG_INFO << "do_update snap_name: " << sname;
+    LOG_INFO << "do_update snap_name:" << sname;
     ClientContext context;
     UpdateReq ireq;
     ireq.mutable_header()->CopyFrom(shead);
-    ireq.set_vol_name(m_volume_id);
+    ireq.set_vol_name(m_vol_name);
     ireq.set_snap_name(sname);
+    ireq.set_snap_event(sevent);
     UpdateAck iack;
     Status st = m_rpc_stub->Update(&context, ireq, &iack);
     if(!st.ok()){
@@ -573,7 +603,7 @@ StatusCode SnapshotProxy::do_cow(const off_t& off, const size_t& size, char* buf
         Status status;
         CowReq cow_req;
         CowAck cow_ack;
-        cow_req.set_vol_name(m_volume_id);
+        cow_req.set_vol_name(m_vol_name);
         cow_req.set_snap_name(m_active_snapshot);
         cow_req.set_blk_no(cow_block.blk_no);
         status = m_rpc_stub->CowOp(&ctx1, cow_req, &cow_ack);
@@ -626,7 +656,7 @@ StatusCode SnapshotProxy::do_cow(const off_t& off, const size_t& size, char* buf
         ClientContext ctx2;
         CowUpdateReq update_req;
         CowUpdateAck update_ack;
-        update_req.set_vol_name(m_volume_id);
+        update_req.set_vol_name(m_vol_name);
         update_req.set_snap_name(m_active_snapshot);
         update_req.set_blk_no(cow_block.blk_no);
         update_req.set_cow_blk_object(cow_object);
@@ -658,31 +688,20 @@ StatusCode SnapshotProxy::diff_snapshot(const DiffSnapshotReq* req,
     ireq.mutable_header()->CopyFrom(req->header());
     ireq.set_vol_name(vname);
     ireq.set_first_snap_name(first_snap_name);
-    ireq.set_laste_snap_name(last_snap_name);
+    ireq.set_last_snap_name(last_snap_name);
     DiffAck iack;
     Status st = m_rpc_stub->Diff(&context, ireq, &iack);
     if(!st.ok()){
         return iack.header().status();
     }
+
     int diff_blocks_num = iack.diff_blocks_size();
     for(int i = 0; i < diff_blocks_num; i++){
-        DiffBlocks diffblock = iack.diff_blocks(i); 
-        ExtDiffBlocks* ext_diff_blocks = ack->add_diff_blocks();
-        ext_diff_blocks->set_vol_name(diffblock.vol_name());
-        ext_diff_blocks->set_snap_name(diffblock.snap_name());
-
-        LOG_INFO << "diff_snapshot snapname:" << diffblock.snap_name();
-        int block_num = diffblock.diff_block_no_size(); 
-        for(int j = 0; j < block_num; j++){
-           uint64_t blk_no = diffblock.diff_block_no(j); 
-           LOG_INFO << "diff_snapshot snapname:" << diffblock.snap_name()
-                    << " blk_no:" << blk_no;
-           ExtDiffBlock* ext_diff_block = ext_diff_blocks->add_diff_block();
-           ext_diff_block->set_off(blk_no * COW_BLOCK_SIZE);
-           ext_diff_block->set_len(COW_BLOCK_SIZE);
-        }
+        DiffBlocks  idiff_blocks= iack.diff_blocks(i); 
+        DiffBlocks* odiff_blocks = ack->add_diff_blocks();
+        odiff_blocks->CopyFrom(idiff_blocks);
     }
-    
+
     LOG_INFO << "diff_snapshot vname:" << vname
              << " first_snap:" << first_snap_name
              << " last_snap:"  << last_snap_name
@@ -713,6 +732,7 @@ StatusCode SnapshotProxy::read_snapshot(const ReadSnapshotReq* req,
     if(!st.ok()){
         return iack.header().status(); 
     }
+
     char* read_buf = nullptr;
     int ret = posix_memalign((void**)&read_buf, 512, len);
     assert(ret == 0 && read_buf != nullptr);
@@ -825,14 +845,14 @@ StatusCode SnapshotProxy::read_snapshot(const ReadSnapshotReq* req,
     }
     
     ack->mutable_header()->set_status(StatusCode::sOk);
-    string* data = ack->add_data();
-    data->copy(read_buf, len);
+    ack->set_data(read_buf, len);
     if(read_buf){
         free(read_buf);
     }
 
     LOG_INFO << "read_snapshot vname:" << vname << " sname:" << sname 
-             << " off:" << off << " len:" << len << " ok";
+             << " off:" << off << " len:" << len 
+             << " data size:" << ack->data().size() 
+             << " data_len:"  << ack->data().length() << " ok";
     return StatusCode::sOk; 
 }
-

@@ -48,7 +48,6 @@ int CephBlockStore::init()
         return false;
     }
 
-    LOG_INFO << "CephBlockStore init ok";
     return 0;
 }
 
@@ -57,40 +56,27 @@ int CephBlockStore::fini()
     rados_ioctx_destroy(m_io_ctx);
     rados_shutdown(m_cluster_ctx);
 
-    LOG_INFO << "CephBlockStore fini ok";
     return 0;
 }
 
 int CephBlockStore::create(string object)
 {
-    LOG_INFO << "CephBlockStore create"
-             << " object:" << object;
     return 0;
 }
 
 int CephBlockStore::remove(string object)
 {
-    LOG_INFO << "CephBlockStore remove"
-             << " object:" << object;
     return rados_remove(m_io_ctx, object.c_str());
 }
 
 int CephBlockStore::write(string object, char* buf, size_t len, off_t off)
 {
-    LOG_INFO << "CephBlockStore write"
-             << " object:" << object
-             << " len:"    << len
-             << " off:"    << off;
     /*success return 0*/
     return rados_write(m_io_ctx, object.c_str(), buf, len, off);
 }
 
 int CephBlockStore::read(string object, char* buf, size_t len, off_t off)
 {    
-    LOG_INFO << "CephBlockStore read"
-             << " object:" << object
-             << " len:"    << len
-             << " off:"    << off;
     /*return read size if success*/
     return rados_read(m_io_ctx, object.c_str(), buf, len, off);
 }

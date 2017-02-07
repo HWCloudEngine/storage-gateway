@@ -2,7 +2,7 @@
 #define _SNAP_TYPE_H
 #include <string>
 #include <set>
-#include "../rpc/common.pb.h"
+#include "../rpc/snapshot.pb.h"
 using huawei::proto::SnapStatus;
 using namespace std;
 
@@ -52,13 +52,18 @@ enum cow_op {
 typedef enum cow_op cow_op_t;
 
 /*mininum cow block size*/
-#define COW_BLOCK_SIZE (4096UL)
+#define COW_BLOCK_SIZE (1*1024*1024UL)
 
 /*io alignment*/
 #define ALIGN_UP(v,align) (((v)+(align)-1) & ~((align)-1))
 
-/*index db store path*/
+/*index db store path (disk layout)
+ * DB_DIR/volume/snapshot
+ *              /backup
+ */
 #define DB_DIR  "/var/tmp/"
+#define SNAPSHOT_META  "/snapshot"
+#define BACKUP_META    "/backup"
 
 /*use spawn cow object name*/
 #define FS  "@"
