@@ -1,0 +1,64 @@
+syntax = "proto3";
+import "common.proto";
+import "backup.proto";
+package huawei.proto.inner;
+
+service BackupInnerControl {
+    rpc Create(CreateBackupInReq) returns(CreateBackupInAck){}
+    rpc Delete(DeleteBackupInReq) returns(DeleteBackupInAck){}
+    rpc Restore(RestoreBackupInReq) returns(RestoreBackupInAck){}
+    rpc Query(QueryBackupInReq) returns(QueryBackupInAck){}
+    rpc List(ListBackupInReq) returns(ListBackupInAck){}
+}
+
+message CreateBackupInReq {
+    string vol_name = 1; 
+    uint64 vol_size = 2;
+    string backup_name = 3;
+    BackupOption backup_option = 4;
+}
+
+message CreateBackupInAck {
+    StatusCode status = 1;
+}
+
+message DeleteBackupInReq {
+    string vol_name = 1; 
+    string backup_name = 2;
+}
+
+message DeleteBackupInAck {
+    StatusCode status = 1;
+}
+
+message RestoreBackupInReq {
+    string vol_name = 1; 
+    string backup_name = 2;
+    string new_vol_name = 3;
+    uint64 new_vol_size = 4;
+    string new_block_device = 5;
+}
+
+message RestoreBackupInAck {
+    StatusCode status = 1;
+    repeated RestoreBlocks restore_blocks = 2;
+}
+
+message QueryBackupInReq {
+    string vol_name = 1; 
+    string backup_name = 2;
+}
+
+message QueryBackupInAck {
+    StatusCode status = 1;
+    BackupStatus backup_status = 2;
+}
+
+message ListBackupInReq {
+    string vol_name = 1; 
+}
+
+message ListBackupInAck {
+    StatusCode status = 1;
+    repeated string backup_name = 2;
+}

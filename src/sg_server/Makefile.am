@@ -17,7 +17,9 @@ sg_server_SOURCES=dr_server.cc \
 
 sg_server_LDADD=${top_srcdir}/src/rpc/librpc.la \
                  ${top_srcdir}/src/log/liblog.la \
-                 ${top_srcdir}/src/snapshot/libsnapshot.la
+                 ${top_srcdir}/src/snapshot/libsnapshot.la \
+                 ${top_srcdir}/src/backup/libbackup.la
+
 sg_server_LDFLAGS=-D_GNU_SOURCE
 DEFS+=-D_GNU_SOURCE -DBOOST_ALL_DYN_LINK
 LDFLAGS="-L$(top_srcdir)/lib" "-L/usr/lib/x86_64-linux-gnu/"

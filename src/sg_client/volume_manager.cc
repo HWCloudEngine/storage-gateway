@@ -2,7 +2,9 @@
 #include <boost/bind.hpp>
 #include <algorithm>
 #include "../log/log.h"
-#include "snapshot_control.h"
+#include "control/control_snapshot.h"
+#include "control/control_backup.h"
+#include "control/control_replicate.h"
 
 namespace Journal{
 
@@ -16,12 +18,12 @@ VolumeManager::~VolumeManager()
         delete ctrl_rpc_server;
     }
 
-    if(ctrl_service){
-        delete ctrl_service; 
+    if(snapshot_ctrl){
+        delete snapshot_ctrl; 
     }
 
-    if(rep_ctrl){
-        delete rep_ctrl;
+    if(backup_ctrl){
+        delete backup_ctrl; 
     }
 }
 
@@ -48,12 +50,15 @@ bool VolumeManager::init()
                                      grpc::InsecureServerCredentials());
     assert(ctrl_rpc_server!= nullptr);
 
-    ctrl_service = new SnapshotControlImpl(volumes); 
-    assert(ctrl_service!= nullptr);
+    snapshot_ctrl = new SnapshotControlImpl(volumes); 
+    assert(snapshot_ctrl != nullptr);
+    ctrl_rpc_server->register_service(snapshot_ctrl);
 
-    ctrl_rpc_server->register_service(ctrl_service);
+    backup_ctrl = new BackupControlImpl(volumes); 
+    assert(backup_ctrl != nullptr);
+    ctrl_rpc_server->register_service(backup_ctrl);
 
-    rep_ctrl = new ReplicateCtrl(ctrl_service);
+    rep_ctrl = new ReplicateCtrl(snapshot_ctrl);
     ctrl_rpc_server->register_service(rep_ctrl);
 
     if(!ctrl_rpc_server->run()){

@@ -7,11 +7,13 @@
 #include <boost/thread/thread.hpp>
 #include "volume.h"
 #include "common/rpc_server.h"
-#include "replicate_control.h"
 
 using namespace std; 
 
+/*forward declaration*/
 class SnapshotControlImpl;
+class BackupControlImpl;
+class ReplicateCtrl;
 
 namespace Journal{
 
@@ -66,12 +68,13 @@ private:
     boost::shared_ptr<boost::thread> thread_ptr;
  
     shared_ptr<ConfigParser> conf;
-    
-    /*snapshot ctrl rpc service*/
-    SnapshotControlImpl* ctrl_service{nullptr};
+   
     /*rpc server receive ctrl command from sg controller */
     RpcServer* ctrl_rpc_server{nullptr};
-    ReplicateCtrl* rep_ctrl;
+
+    SnapshotControlImpl* snapshot_ctrl{nullptr};
+    BackupControlImpl*   backup_ctrl{nullptr};
+    ReplicateCtrl*       rep_ctrl{nullptr};
 };
 
 }

@@ -32,6 +32,10 @@ bool Volume::init()
     idproxy_.reset(new IDGenerator());
     cacheproxy_.reset(new CacheProxy(vol_path_, idproxy_));
     snapshotproxy_.reset(new SnapshotProxy(vol_id_, vol_path_, entry_queue_)); 
+    
+    //todo get volume size from control layer
+    vol_size_ = 100*1024*1024UL;
+    backupproxy_.reset(new BackupProxy(vol_id_, vol_size_, snapshotproxy_));
 
     connection_.reset(new Connection(raw_socket_, 
                                      entry_queue_, read_queue_, reply_queue_));
@@ -90,6 +94,11 @@ void Volume::fini()
 shared_ptr<SnapshotProxy>& Volume::get_snapshot_proxy() const
 {
     return snapshotproxy_;
+}
+
+shared_ptr<BackupProxy>& Volume::get_backup_proxy() const
+{
+    return backupproxy_;
 }
 
 JournalWriter& Volume::get_writer() const
