@@ -27,6 +27,7 @@
 #include "replicate/rep_receiver.h"
 #include "replicate/replicate.h"
 #include "../snapshot/snapshot_mgr.h"
+#include "../backup/backup_mgr.h"
 #include "replicate/rep_inner_ctrl.h"
 #include "volume_inner_control.h"
 #define DEFAULT_META_SERVER_PORT 50051
@@ -122,11 +123,12 @@ int main(int argc, char** argv) {
     ConsumerServiceImpl consumerSer(meta);
     VolInnerCtrl volInnerCtrl(meta);
     SnapshotMgr snapMgr;
+    BackupMgr backupMgr;
     metaServer.register_service(&writerSer);
     metaServer.register_service(&consumerSer);
     metaServer.register_service(&volInnerCtrl);
     metaServer.register_service(&snapMgr);
-
+    metaServer.register_service(&backupMgr);
     // init replicate receiver
     RpcServer repServer(ip2,port2,grpc::InsecureServerCredentials());
     RepReceiver repReceiver(meta,mount_path);

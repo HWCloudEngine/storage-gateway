@@ -2,6 +2,7 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include "../log/log.h"
+#include "snapshot_type.h"
 #include "snapshot_mgr.h"
 
 using huawei::proto::StatusCode;
@@ -25,7 +26,7 @@ do {                                 \
     log_msg += " ";                  \
     log_msg += "vname:";             \
     log_msg += vol;                  \
-    if(ret.ok()) {                      \
+    if(!ret) {                       \
         log_msg += " ok";               \
         LOG_INFO << log_msg;            \
         return grpc::Status::OK;        \
@@ -38,53 +39,47 @@ do {                                 \
 
 #define CMD_DO(vname, op, req, ack)    \
 do {                                   \
-    auto it = m_snap_facades.find(vname);      \
-    if(it == m_snap_facades.end()){            \
-        ret = grpc::Status::CANCELLED; \
+    auto it = m_all_snapmds.find(vname);   \
+    if(it == m_all_snapmds.end()){         \
+        ret = StatusCode::sVolumeNotExist; \
         break;                         \
     }                                  \
     ret = it->second->op(req, ack);    \
 }while(0);
 
-
-void SnapshotMgr::init()
+StatusCode SnapshotMgr::add_volume(const string& vol_name, const size_t& vol_size)
 {
-    /*todo parallel optimize*/
-    DIR* pdir = nullptr;
-    struct dirent* pdentry = nullptr;
-    pdir = opendir(DB_DIR);
-    while((pdentry = readdir(pdir)) != nullptr){
-        if(strcmp(pdentry->d_name, ".") == 0 || 
-           strcmp(pdentry->d_name, "..") == 0){
-            continue; 
-        }
-        /*get volume name*/
-        string vname = pdentry->d_name;
-        /*create snapshot mds for volume*/
-        shared_ptr<SnapshotFacade> snap_facade;
-        snap_facade.reset(new SnapshotFacade(vname));
-        m_snap_facades.insert({vname, snap_facade});
-        /*snapshot mds recover*/
-        snap_facade->recover();
+    std::lock_guard<std::mutex> lock(m_mutex);
+    auto it = m_all_snapmds.find(vol_name);
+    if(it != m_all_snapmds.end()){
+        LOG_INFO << "add volume:" << vol_name << "failed, already exist";
+        return StatusCode::sVolumeAlreadyExist; 
     }
 
-    closedir(pdir);
+    shared_ptr<SnapshotMds> snap_mds;
+    snap_mds.reset(new SnapshotMds(vol_name, vol_size));
+    m_all_snapmds.insert({vol_name, snap_mds});
+    snap_mds->recover();
+
+    return StatusCode::sOk;
 }
 
-void SnapshotMgr::fini()
+StatusCode SnapshotMgr::del_volume(const string& vol_name)
 {
-    m_snap_facades.clear();
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_all_snapmds.erase(vol_name);
+    return StatusCode::sOk;
 }
 
 grpc::Status SnapshotMgr::Sync(ServerContext* context, 
                                const SyncReq* req, 
                                SyncAck*       ack)
 {
-    grpc::Status ret;
+    StatusCode ret;
     string vname = req->vol_name();
 
     CMD_PREV(vname, "Sync");
-    CMD_DO(vname, Sync, req, ack);
+    CMD_DO(vname, sync, req, ack);
     CMD_POST(vname, "Sync", ret);
 }
 
@@ -92,23 +87,22 @@ grpc::Status SnapshotMgr::Create(ServerContext*   context,
                                  const CreateReq* req, 
                                  CreateAck*       ack) 
 {
-    grpc::Status ret;
+    StatusCode ret;
     string vname = req->vol_name();
-
-    auto it = m_snap_facades.find(vname);
-    shared_ptr<SnapshotFacade> snap_facade;
-    if(it != m_snap_facades.end()){
-        snap_facade = it->second;
+    size_t vsize = req->vol_size();
+    auto it = m_all_snapmds.find(vname);
+    shared_ptr<SnapshotMds> snap_mds;
+    if(it != m_all_snapmds.end()){
+        snap_mds = it->second;
         goto create;
     }
-    
-    /*create snapshotmds for each volume*/
-    snap_facade.reset(new SnapshotFacade(vname));
-    m_snap_facades.insert({vname, snap_facade});
+    /*(todo debug only)create snapshotmds for each volume*/
+    snap_mds.reset(new SnapshotMds(vname, vsize));
+    m_all_snapmds.insert({vname, snap_mds});
 
 create:
     CMD_PREV(vname, "create");
-    ret = snap_facade->Create(req, ack);
+    ret = snap_mds->create_snapshot(req, ack);
     CMD_POST(vname, "create", ret);
 }
 
@@ -116,11 +110,11 @@ grpc::Status SnapshotMgr::List(ServerContext* context,
                                const ListReq* req, 
                                ListAck*       ack)
 {
-    grpc::Status ret;
+    StatusCode ret;
     string vname = req->vol_name();
 
     CMD_PREV(vname, "List");
-    CMD_DO(vname, List, req, ack);
+    CMD_DO(vname, list_snapshot, req, ack);
     CMD_POST(vname, "List", ret);
 }
 
@@ -128,11 +122,11 @@ grpc::Status SnapshotMgr::Query(ServerContext* context,
                                 const QueryReq* req, 
                                 QueryAck*       ack)
 {
-    grpc::Status ret;
+    StatusCode ret;
     string vname = req->vol_name();
 
     CMD_PREV(vname, "Query");
-    CMD_DO(vname, Query, req, ack);
+    CMD_DO(vname, query_snapshot, req, ack);
     CMD_POST(vname, "Query", ret);
 }
 
@@ -140,12 +134,12 @@ grpc::Status SnapshotMgr::Delete(ServerContext*   context,
                                  const DeleteReq* req, 
                                  DeleteAck*       ack)
 {
-    grpc::Status ret;
+    StatusCode ret;
     string vname = req->vol_name();
     string snap_name = req->snap_name();
 
     CMD_PREV(vname, "Delete");
-    CMD_DO(vname, Delete, req, ack);
+    CMD_DO(vname, delete_snapshot, req, ack);
     CMD_POST(vname, "Delete", ret);
 }
 
@@ -153,11 +147,11 @@ grpc::Status SnapshotMgr::Rollback(ServerContext*     context,
                                    const RollbackReq* req, 
                                    RollbackAck*       ack) 
 {
-    grpc::Status ret;
+    StatusCode ret;
     string vname = req->vol_name();
 
     CMD_PREV(vname, "Rollback");
-    CMD_DO(vname, Rollback, req, ack);
+    CMD_DO(vname, rollback_snapshot, req, ack);
     CMD_POST(vname, "Rollback", ret);
 }
 
@@ -165,11 +159,11 @@ grpc::Status SnapshotMgr::Update(ServerContext* context,
                                  const UpdateReq* req,
                                  UpdateAck* ack)
 {
-    grpc::Status ret;
+    StatusCode ret;
     string vname = req->vol_name();
 
     CMD_PREV(vname, "Update");
-    CMD_DO(vname, Update, req, ack);
+    CMD_DO(vname, update, req, ack);
     CMD_POST(vname, "Update", ret);
 }
 
@@ -177,11 +171,11 @@ grpc::Status SnapshotMgr::CowOp(ServerContext* context,
                                 const CowReq*  req,
                                 CowAck*        ack)
 {
-    grpc::Status ret;
+    StatusCode ret;
     string vname = req->vol_name();
 
     CMD_PREV(vname, "Cowop");
-    CMD_DO(vname, CowOp, req, ack);
+    CMD_DO(vname, cow_op, req, ack);
     CMD_POST(vname, "Cowop", ret);
 }
 
@@ -189,11 +183,11 @@ grpc::Status SnapshotMgr::CowUpdate(ServerContext* context,
                                     const CowUpdateReq* req,
                                     CowUpdateAck*       ack)
 {
-    grpc::Status ret;
+    StatusCode ret;
     string vname = req->vol_name();
 
     CMD_PREV(vname, "CowUpdate");
-    CMD_DO(vname, CowUpdate, req, ack);
+    CMD_DO(vname, cow_update, req, ack);
     CMD_POST(vname, "CowUpdate", ret);
 }
 
@@ -201,11 +195,11 @@ grpc::Status SnapshotMgr::Diff(ServerContext* context,
                                const DiffReq* req, 
                                DiffAck*       ack)
 {
-    grpc::Status ret;
+    StatusCode ret;
     string vname = req->vol_name();
 
     CMD_PREV(vname, "Diff");
-    CMD_DO(vname, Diff, req, ack);
+    CMD_DO(vname, diff_snapshot, req, ack);
     CMD_POST(vname, "Diff", ret);
 }
 
@@ -213,11 +207,10 @@ grpc::Status SnapshotMgr::Read(ServerContext* context,
                                const ReadReq* req, 
                                ReadAck*      ack)
 {
-    grpc::Status ret;
+    StatusCode ret;
     string vname = req->vol_name();
 
     CMD_PREV(vname, "Read");
-    CMD_DO(vname, Read, req, ack);
+    CMD_DO(vname, read_snapshot, req, ack);
     CMD_POST(vname, "Read", ret);
 }
-

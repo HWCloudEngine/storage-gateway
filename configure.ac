@@ -24,6 +24,7 @@ AC_OUTPUT([Makefile
         src/log/Makefile
         src/rpc/Makefile
         src/snapshot/Makefile
+        src/backup/Makefile
         src/sg_server/Makefile
         src/sg_client/cache/Makefile
         src/sg_client/Makefile

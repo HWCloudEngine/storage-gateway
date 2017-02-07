@@ -33,13 +33,9 @@ int RocksDbIndexStore::db_open()
 
     Status s = DB::Open(m_db_option, m_db_path, &m_db);
     if(!s.ok()){
-        LOG_ERROR << "RocksDbIndexStore open failed:" << s.ToString(); 
+        LOG_ERROR << "open db:" << m_db_path << " failed:" << s.ToString(); 
         return -1;
     }
-
-    LOG_INFO << "RocksDbIndexStore open"
-             << " db_path:" << m_db_path
-             << " status:"  << s.ToString();
     return 0;
 }
 
@@ -48,9 +44,6 @@ int RocksDbIndexStore::db_close()
     if(m_db){
         delete m_db;
     }
-    LOG_INFO << "RocksDbIndexStore close"
-             << " db_path:" << m_db_path
-             << " ok";
     return 0;
 }
 
@@ -59,10 +52,6 @@ int RocksDbIndexStore::db_put(string key, string value)
     Status s = m_db->Put(WriteOptions(), key, value);
     assert(s.ok());
 
-    LOG_INFO << "RocksDbIndexStore put"
-             << " key:" << key
-             << " val:" << value
-             << " ok";
     return 0;
 }
 
@@ -72,10 +61,6 @@ string RocksDbIndexStore::db_get(string key)
     Status s = m_db->Get(ReadOptions(), key, &value);
     assert(s.ok());
 
-    LOG_INFO << "RocksDbIndexStore get"
-             << " key:" << key
-             << " val:" << value
-             << " ok";
     return value;
 }
 
@@ -84,9 +69,6 @@ int RocksDbIndexStore::db_del(string key)
     Status s = m_db->Delete(WriteOptions(), key);
     assert(s.ok());
 
-    LOG_INFO << "RocksDbIndexStore del"
-             << " key:" << key
-             << " ok";
     return 0;
 }
 
@@ -167,6 +149,3 @@ int RocksDbIndexStore::submit_transaction(Transaction t)
     rocksdb::Status s = m_db->Write(wop, &(trc->batch_));
     return s.ok()? 0 : -1;
 }
-
-
-

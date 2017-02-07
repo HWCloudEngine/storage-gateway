@@ -1,5 +1,5 @@
-#ifndef SNAPSHOT_CONTROL_H_
-#define SNAPSHOT_CONTROL_H_
+#ifndef CONTROL_SNAPSHOT_H_
+#define CONTROL_SNAPSHOT_H_
 
 #include <map>
 #include <memory>
@@ -7,12 +7,12 @@
 #include <thread>
 #include <functional>
 #include <grpc++/grpc++.h>
-#include "../rpc/common.pb.h"
-#include "../rpc/snapshot_control.pb.h"
-#include "../rpc/snapshot_control.grpc.pb.h"
-#include "../log/log.h"
-#include "../snapshot/snapshot_proxy.h"
-#include "volume.h"
+#include "../../rpc/common.pb.h"
+#include "../../rpc/snapshot_control.pb.h"
+#include "../../rpc/snapshot_control.grpc.pb.h"
+#include "../../log/log.h"
+#include "../../snapshot/snapshot_proxy.h"
+#include "../volume.h"
 
 using grpc::Server;
 using grpc::ServerBuilder;
@@ -37,8 +37,8 @@ using namespace std;
 using namespace Journal;
 
 /*snapshot and other service service as northern interface for all volume*/
-class SnapshotControlImpl final: public SnapshotControl::Service { 
-
+class SnapshotControlImpl final: public SnapshotControl::Service 
+{ 
 public:
     SnapshotControlImpl(map<string, shared_ptr<Volume>>& volumes)
         :m_volumes(volumes){

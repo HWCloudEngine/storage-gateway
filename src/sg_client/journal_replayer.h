@@ -18,6 +18,8 @@
 #include "../rpc/clients/replayer_client.h"
 #include "../rpc/message.pb.h"
 #include "../snapshot/snapshot_proxy.h"
+#include "../backup/backup_decorator.h"
+
 using google::protobuf::Message;
 using huawei::proto::WriteMessage;
 
@@ -97,6 +99,9 @@ private:
     
     /*snapshot*/
     std::shared_ptr<SnapshotProxy> snapshot_proxy_ptr_;
+    /*backup decorator*/
+    std::shared_ptr<BackupDecorator> backup_decorator_ptr_;
+
 };
 
 }
