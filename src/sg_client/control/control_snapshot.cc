@@ -1,4 +1,4 @@
-#include "snapshot_control.h"
+#include "control_snapshot.h"
 
 using huawei::proto::StatusCode;
 

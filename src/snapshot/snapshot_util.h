@@ -31,6 +31,4 @@ public:
     /*backup relevant*/
 };
 
-
-
 #endif

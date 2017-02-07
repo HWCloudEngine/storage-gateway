@@ -4,13 +4,13 @@
 #include <mutex>
 #include <grpc++/grpc++.h>
 #include "../rpc/common.pb.h"
+#include "../rpc/snapshot.pb.h"
 #include "../rpc/snapshot_inner_control.pb.h"
 #include "../rpc/snapshot_inner_control.grpc.pb.h"
 #include "../log/log.h"
-
+#include "../common/block_store.h"
+#include "../common/index_store.h"
 #include "snapshot_type.h"
-#include "block_store.h"
-#include "index_store.h"
 
 using huawei::proto::StatusCode;
 using huawei::proto::SnapStatus;
@@ -39,30 +39,31 @@ using huawei::proto::inner::ReadAck;
 using huawei::proto::inner::SyncReq;
 using huawei::proto::inner::SyncAck;
 
+
 class SnapshotMds
 {
 public:
-    SnapshotMds(string vol_name);
+    SnapshotMds(const string& vol_name, const size_t& vol_size);
     virtual ~SnapshotMds();   
 
     /*storage client sync snapshot status*/ 
     StatusCode sync(const SyncReq* req, SyncAck* ack);
 
     /*snapshot common operation*/
-    virtual StatusCode create_snapshot(const CreateReq* req, CreateAck* ack);
-    virtual StatusCode delete_snapshot(const DeleteReq* req, DeleteAck* ack);
-    virtual StatusCode rollback_snapshot(const RollbackReq* req, RollbackAck* ack);
-    virtual StatusCode list_snapshot(const ListReq* req, ListAck* ack);
-    virtual StatusCode query_snapshot(const QueryReq* req, QueryAck* ack);
-    virtual StatusCode diff_snapshot(const DiffReq* req, DiffAck* ack);    
-    virtual StatusCode read_snapshot(const ReadReq* req, ReadAck* ack);
+    StatusCode create_snapshot(const CreateReq* req, CreateAck* ack);
+    StatusCode delete_snapshot(const DeleteReq* req, DeleteAck* ack);
+    StatusCode rollback_snapshot(const RollbackReq* req, RollbackAck* ack);
+    StatusCode list_snapshot(const ListReq* req, ListAck* ack);
+    StatusCode query_snapshot(const QueryReq* req, QueryAck* ack);
+    StatusCode diff_snapshot(const DiffReq* req, DiffAck* ack);    
+    StatusCode read_snapshot(const ReadReq* req, ReadAck* ack);
     
     /*snapshot status*/
-    virtual StatusCode update(const UpdateReq* req, UpdateAck* ack);
+    StatusCode update(const UpdateReq* req, UpdateAck* ack);
     
     /*cow*/
-    virtual StatusCode cow_op(const CowReq* req, CowAck* ack);
-    virtual StatusCode cow_update(const CowUpdateReq* req, CowUpdateAck* ack);
+    StatusCode cow_op(const CowReq* req, CowAck* ack);
+    StatusCode cow_update(const CowUpdateReq* req, CowUpdateAck* ack);
     
     /*crash recover*/
     int recover();
@@ -90,6 +91,7 @@ private:
 private:
     /*volume name*/
     string m_volume_name;
+    size_t m_volume_size;
     /*lock*/
     mutex m_mutex;
     /*the latest snapshot id*/

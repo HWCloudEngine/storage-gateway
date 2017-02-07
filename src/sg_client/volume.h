@@ -15,6 +15,7 @@
 #include "../common/blocking_queue.h"
 #include "../sg_server/ceph_s3_lease.h"
 #include "../snapshot/snapshot_proxy.h"
+#include "../backup/backup_proxy.h"
 
 #define BUFFER_POOL_SIZE 1024*1024*64
 #define REQUEST_BODY_SIZE 512
@@ -54,6 +55,7 @@ public:
 
     JournalWriter& get_writer()const;
     shared_ptr<SnapshotProxy>& get_snapshot_proxy()const;
+    shared_ptr<BackupProxy>&   get_backup_proxy()const;
     
 private:
     /*socket*/
@@ -77,8 +79,12 @@ private:
     shared_ptr<IDGenerator> idproxy_;
     shared_ptr<CacheProxy>  cacheproxy_;
 
+    /*backup inner rpc client*/
     /*snapshot relevant*/
     mutable shared_ptr<SnapshotProxy> snapshotproxy_;
+
+    /*backup relevant*/
+    mutable shared_ptr<BackupProxy> backupproxy_;
     
     /*todo: how to decide vol status, query from dr_server*/
     VolumeStatus vol_status_;

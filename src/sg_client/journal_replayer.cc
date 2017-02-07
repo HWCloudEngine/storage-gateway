@@ -21,6 +21,7 @@ using google::protobuf::Message;
 using huawei::proto::WriteMessage;
 using huawei::proto::SnapshotMessage;
 using huawei::proto::DiskPos;
+using huawei::proto::SnapScene;
 
 using namespace std;
 
@@ -294,6 +295,7 @@ bool JournalReplayer::handle_ctrl_cmd(shared_ptr<JournalEntry> entry)
         SnapReqHead shead;
         shead.set_replication_uuid(snap_message->replication_uuid());
         shead.set_checkpoint_uuid(snap_message->checkpoint_uuid());
+        shead.set_scene((SnapScene)snap_message->snap_scene());
         shead.set_snap_type(snap_message->snap_type());
         string snap_name = snap_message->snap_name();
         switch(type){
