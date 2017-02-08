@@ -615,13 +615,6 @@ StatusCode SnapshotProxy::do_cow(const off_t& off, const size_t& size, char* buf
         assert(ret == 0);
         free(block_buf);
 
-        /*write new data to block device*/
-        char*   cow_buf = buf + cow_block.off - off;
-        off_t   cow_off = cow_block.off;
-        size_t  cow_len = cow_block.len;
-        size_t write_ret = raw_device_write(cow_buf, cow_len, cow_off);
-        assert(write_ret == cow_len);
-
         /*update cow meta to dr server*/
         ClientContext ctx2;
         CowUpdateReq update_req;
@@ -634,6 +627,12 @@ StatusCode SnapshotProxy::do_cow(const off_t& off, const size_t& size, char* buf
         if(!status.ok()){
             return update_ack.header().status();
         }
+        /*write new data to block device*/
+        char*   cow_buf = buf + cow_block.off - off;
+        off_t   cow_off = cow_block.off;
+        size_t  cow_len = cow_block.len;
+        size_t write_ret = raw_device_write(cow_buf, cow_len, cow_off);
+        assert(write_ret == cow_len);
     }
 
     LOG_INFO << "do_cow snap_name:" << m_active_snapshot
