@@ -10,10 +10,14 @@ sg_server_SOURCES=dr_server.cc \
                   gc_task.cc \
                   ceph_s3_lease.cc \
                   volume_inner_control.cc \
-                  replicate/replicate.cc \
+                  replicate/rep_scheduler.cc \
                   replicate/rep_receiver.cc \
-                  replicate/rep_client.cc \
-                  replicate/rep_inner_ctrl.cc
+                  replicate/rep_transmitter.cc \
+                  replicate/rep_inner_ctrl.cc \
+                  replicate/rep_volume.cc \
+                  replicate/replicator_context.cc \
+                  replicate/markers_maintainer.cc \
+                  replicate/rep_task_generator.cc
 
 sg_server_LDADD=${top_srcdir}/src/rpc/librpc.la \
                  ${top_srcdir}/src/log/liblog.la \

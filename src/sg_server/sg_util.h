@@ -1,15 +1,15 @@
 /**********************************************
 * Copyright (c) 2016 Huawei Technologies Co., Ltd. All rights reserved.
 * 
-* File name:    dr_functions.hpp
+* File name:    sg_util.h
 * Author: 
 * Date:         2016/10/21
 * Version:      1.0
 * Description:
 * 
 ************************************************/
-#ifndef DR_FUNCTIONS_H_
-#define DR_FUNCTIONS_H_
+#ifndef SG_UTIL_H_
+#define SG_UTIL_H_
 #include <string>
 #include <cstdint>
 #include "rpc/journal.pb.h"
@@ -19,8 +19,8 @@ using google::protobuf::int64;
 using huawei::proto::DRS_OK;
 using huawei::proto::INTERNAL_ERROR;
 using huawei::proto::RESULT;
-
-namespace dr_server{
+using huawei::proto::JournalMarker;
+namespace sg_util{
 inline string counter_to_string(const int64_t& counter) {
     char tmp[13] = {0};
     std::sprintf(tmp,"%012ld",counter);
@@ -59,6 +59,14 @@ inline string construct_journal_key(const string& vol_id,const int64& counter){
 inline string get_vol_by_key(const string &key){
     string temp = key.substr(0,key.find_last_of("/"));
     return temp.erase(0,temp.find_last_of("/")+1);
+}
+
+inline int marker_compare(const JournalMarker& m1,const JournalMarker& m2){
+    int ret = m1.cur_journal().compare(m2.cur_journal());
+    if(ret == 0)
+        return m1.pos() > m2.pos();
+    else
+        return ret;
 }
 };
 #endif

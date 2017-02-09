@@ -15,13 +15,13 @@
 #include <string>
 #include <memory>
 #include <thread>
-#include "rpc/replicator.grpc.pb.h"
+#include "rpc/transfer.grpc.pb.h"
 #include "../ceph_s3_meta.h"
 #include "rep_type.h"
 using std::string;
-using huawei::proto::replication::ReplicateRequest;
-using huawei::proto::replication::ReplicateResponse;
-using huawei::proto::replication::Replicator;
+using huawei::proto::transfer::TransferRequest;
+using huawei::proto::transfer::TransferResponse;
+using huawei::proto::transfer::DataTransfer;
 using grpc::ServerContext;
 using grpc::ServerReaderWriter;
 
@@ -36,7 +36,7 @@ typedef struct Jkey{
     }
 }Jkey;
 
-class RepReceiver:public Replicator::Service{
+class RepReceiver:public DataTransfer::Service{
 private:
     std::string mount_path_;
     std::string uuid_;
@@ -44,18 +44,18 @@ private:
     std::map<std::string,JournalMarker> markers_;
 public:
     RepReceiver(std::shared_ptr<CephS3Meta> meta,const std::string& path);
-    grpc::Status replicate(ServerContext* context,
-            ServerReaderWriter<ReplicateResponse,
-            ReplicateRequest>* stream);
+    grpc::Status transfer(ServerContext* context,
+            ServerReaderWriter<TransferResponse,
+            TransferRequest>* stream);
     grpc::Status sync_marker(ServerContext* context,
-            const ReplicateRequest* req,
-            ReplicateResponse* res);
+            const TransferRequest* req,
+            TransferResponse* res);
 private:
-    bool write(const ReplicateRequest& req,
+    bool write(const TransferRequest& req,
             std::map<const Jkey,std::shared_ptr<std::ofstream>>& js_map);
-    bool init_journals(const ReplicateRequest& req,
+    bool init_journals(const TransferRequest& req,
             std::map<const Jkey,std::shared_ptr<std::ofstream>>& js_map);
-    bool seal_journals(const ReplicateRequest& req,
+    bool seal_journals(const TransferRequest& req,
             std::map<const Jkey,std::shared_ptr<std::ofstream>>& js_map);
     std::shared_ptr<std::ofstream> get_fstream(const string& vol,
             const int64& counter,

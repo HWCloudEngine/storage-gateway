@@ -68,10 +68,8 @@ Status RepInnerCtrl::CreateReplication(ServerContext* context,
     }
     // replicator has the liability to update its markers
     if(role == REP_PRIMARY){
-        // add volume to gc
-        GCTask::instance().add_volume(local_vol,REPLICATOR);
-        // add volume to replicate
-        replicate_.add_volume(local_vol);
+        // add volume to replicate scheduler
+        rep_.add_volume(local_vol);
     }
     response->set_status(sOk);
     return grpc::Status::OK;
@@ -187,7 +185,7 @@ Status RepInnerCtrl::DeleteReplication(ServerContext* context,
         return grpc::Status::OK;
     }
     if(role == REP_PRIMARY){
-        replicate_.remove_volume(meta.info().vol_id());
+        rep_.remove_volume(meta.info().vol_id());
     }
     else{
     // TODO:recycle journals???
@@ -210,6 +208,7 @@ Status RepInnerCtrl::ReportCheckpoint(ServerContext* context,
 }
 
 void RepInnerCtrl::notify_rep_state_changed(const string& vol){
+    rep_.notify_rep_state_changed(vol);
 }
 bool RepInnerCtrl::validate_replicate_operation(
         const REP_STATUS& status,

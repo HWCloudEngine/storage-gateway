@@ -49,5 +49,12 @@ public:
 
     virtual RESULT set_producer_marker(const string& vol_id,
             const JournalMarker& marker) = 0;
+
+    virtual RESULT get_journal_meta(const string& key,
+            huawei::proto::JournalMeta& meta) = 0;
+
+    virtual RESULT get_producer_marker(const string& vol_id,
+            const CONSUMER_TYPE& type, JournalMarker& marker) = 0;
+
 };
 #endif
