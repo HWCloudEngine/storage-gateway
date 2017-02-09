@@ -12,12 +12,38 @@
 #include "gc_task.h"
 #include "common/config_parser.h"
 #include "log/log.h"
+#include "dr_functions.h"
 using huawei::proto::DRS_OK;
 using huawei::proto::INTERNAL_ERROR;
-using huawei::proto::CONSUMER_NONE;
 using huawei::proto::REPLAYER;
 using huawei::proto::REPLICATOR;
-using huawei::proto::CONSUMER_BOTH;
+
+int get_less_marker(std::set<IConsumer*>& set,JournalMarker& marker){
+    bool valid = false;
+    for(auto& c:set){
+        if(nullptr != c){
+            if(valid){
+                JournalMarker temp;
+                if(c->get_consumer_marker(temp) == 0){
+                    if(dr_server::marker_compare(marker,temp) > 0)
+                        marker.CopyFrom(temp);
+                }
+            }
+            else{
+                JournalMarker temp;
+                if(c->get_consumer_marker(temp) == 0){
+                    marker.CopyFrom(temp);
+                    valid = true;
+                }
+            }
+        }
+    }
+    if(valid)
+        return 0;
+    else
+        return -1;
+}
+
 int GCTask::init(std::shared_ptr<JournalGCManager> meta){
     std::lock_guard<std::mutex> lck(mtx_);
     if(GC_running_){
@@ -74,18 +100,30 @@ int GCTask::init(std::shared_ptr<JournalGCManager> meta){
 }
 
 void GCTask::do_GC(){
+    // since consumers(replayer/replicator) were registered seperately,
+    // GC thread should wait until all consumers registered at init
+    if(!volumes_initialized)
+        return;
     if(vols_.empty())
         return;
     std::lock_guard<std::mutex> lck(mtx_);
     for(auto it=vols_.begin();it!=vols_.end();++it){
+        auto& set = it->second;
+        if(set.empty())
+            continue;
+        JournalMarker marker;
+        if(0 != get_less_marker(set,marker))
+            continue;
+
+        auto& vol = it->first;
         std::list<string> list;
-        RESULT res = meta_ptr_->get_sealed_and_consumed_journals(it->first,
-            it->second,0,list);
+        RESULT res = meta_ptr_->get_sealed_and_consumed_journals(vol,
+            marker,0,list);
         if(res != DRS_OK || list.empty())
             continue;
-        res = meta_ptr_->recycle_journals(it->first,list);
+        res = meta_ptr_->recycle_journals(vol,list);
         if(res != DRS_OK){
-            LOG_WARN << "recycle " << it->first << " journals failed!";
+            LOG_WARN << "recycle " << vol << " journals failed!";
             continue;
         }
     }
@@ -113,15 +151,15 @@ void GCTask::lease_check_task(){
     }
 }
 
-int GCTask::add_volume(const std::string &vol_id,const CONSUMER_TYPE& type){
+int GCTask::add_volume(const std::string &vol_id){
     std::lock_guard<std::mutex> lck(mtx_);
     auto it = vols_.find(vol_id);
     if(it != vols_.end()){
         LOG_WARN << "add failed, volume[" << vol_id << "] was already in gc";
         return -1;
     }
-    std::pair<std::map<string,CONSUMER_TYPE>::iterator,bool> ret;
-    ret = vols_.insert(std::pair<string,CONSUMER_TYPE>(vol_id,type));
+    std::set<IConsumer*> consumer_set;
+    auto ret = vols_.insert(vc_pair_t(vol_id,consumer_set));
     if(ret.second == false){
         LOG_ERROR << "add volume[" << vol_id << "] to gc failed!";
         return -1;
@@ -140,66 +178,61 @@ int GCTask::remove_volume(const std::string &vol_id){
     return 0;
 }
 
-void merge_consumer_type(CONSUMER_TYPE& t1,const CONSUMER_TYPE& t2){
-    switch(t1){
-        case CONSUMER_NONE:
-            t1 = t2;
-            break;
-        case CONSUMER_BOTH:
-            break;
-        case REPLAYER:
-            if(CONSUMER_BOTH == t2 || REPLICATOR == t2)
-                t1 = CONSUMER_BOTH;
-            break;
-        case REPLICATOR:
-            if(CONSUMER_BOTH == t2 || REPLAYER == t2)
-                t1 = CONSUMER_BOTH;
-            break;
-        default:
-            break;
-    }
-    return ;
-}
-void shrink_consumer_type(CONSUMER_TYPE& t1,const CONSUMER_TYPE& t2){
-    switch(t1){
-        case CONSUMER_NONE:
-            break;
-        case CONSUMER_BOTH:
-            if(REPLAYER == t2)
-                t1 = REPLICATOR;
-            else if(REPLICATOR == t2)
-                t1 = REPLAYER;
-            else if(CONSUMER_BOTH == t2)
-                t1 = CONSUMER_NONE;
-            break;
-        case REPLAYER:
-            if(REPLAYER == t2 || CONSUMER_BOTH == t2)
-                t1 = CONSUMER_NONE;
-            break;
-        case REPLICATOR:
-            if(REPLICATOR == t2 || CONSUMER_BOTH == t2)
-                t1 = CONSUMER_NONE;
-            break;
-        default:
-            break;
-    }
-    return ;
-}
+void GCTask::register_consumer(const string& vol_id,IConsumer* c){
+    DR_ASSERT(c != nullptr);
+    LOG_INFO << "register consumer," << vol_id << ":" << c->get_type();
 
-void GCTask::register_(const string& vol_id,const CONSUMER_TYPE& type){
     std::lock_guard<std::mutex> lck(mtx_);
     auto it = vols_.find(vol_id);
     if(it == vols_.end()){
         LOG_WARN << "register failed, no volume[" << vol_id << "] in gc";
+        return;
     }
-    merge_consumer_type(it->second,type);
+    auto& set = it->second;
+    for(auto it2=set.begin();it2!=set.end();++it2){
+        if((*it2)->get_type() == c->get_type()){
+            LOG_ERROR << "register failed,volume[" << vol_id
+                << "] consumer type[" << c->get_type() << "] exsit!";
+            return;
+        }
+    }
+    it->second.insert(c);
 }
-void GCTask::unregister(const string& vol_id,const CONSUMER_TYPE& type){
+
+void GCTask::unregister_consumer(const string& vol_id,const CONSUMER_TYPE& type){
     std::lock_guard<std::mutex> lck(mtx_);
     auto it = vols_.find(vol_id);
     if(it == vols_.end()){
         LOG_WARN << "unregister failed, no volume[" << vol_id << "] in gc";
+        return;
     }
-    shrink_consumer_type(it->second,type);
+    auto& set = it->second;
+    for(auto it2=set.begin();it2!=set.end();++it2){
+        if((*it2)->get_type() == type){
+            if(REPLAYER == type) // REPLICATOR consumer use smart pointer, no need to delete memory
+                delete (*it2);
+            set.erase(it2);
+            return;
+        }
+    }
+    LOG_ERROR << "unregister failed,volume[" << vol_id
+        << "] consumer type[" << type << "] not found!";
 }
 
+void GCTask::set_volumes_initialized(bool f){
+    volumes_initialized = f;
+}
+
+void GCTask::recycle_resources(){
+    std::lock_guard<std::mutex> lck(mtx_);
+    for(auto it=vols_.begin();it!=vols_.end();it++){
+        auto& set = it->second;
+        for(auto it2=set.begin();it2!=set.end();++it2){
+            if((*it2)->get_type() == REPLAYER){
+                delete (*it2);
+            }
+        }
+        set.clear();
+    }
+    vols_.clear();
+}

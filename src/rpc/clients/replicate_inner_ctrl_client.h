@@ -166,7 +166,7 @@ public:
         else{
             LOG_ERROR << "failover replication failed:" 
                 << status.error_message() << ",code:" << status.error_code();
-            return sInternalError;
+            return sInternalError;
         }
     }
 private:

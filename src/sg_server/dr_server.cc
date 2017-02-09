@@ -25,10 +25,12 @@
 #include "writer_service.h"
 #include "consumer_service.h"
 #include "replicate/rep_receiver.h"
-#include "replicate/replicate.h"
+#include "replicate/rep_scheduler.h"
 #include "../snapshot/snapshot_mgr.h"
 #include "replicate/rep_inner_ctrl.h"
 #include "volume_inner_control.h"
+#include "replicate/rep_transmitter.h"
+#include "i_replayer.h"
 #define DEFAULT_META_SERVER_PORT 50051
 #define DEFAULT_REPLICATE_PORT 50061
 
@@ -120,7 +122,7 @@ int main(int argc, char** argv) {
     RpcServer metaServer(ip1,port1,grpc::InsecureServerCredentials());
     WriterServiceImpl writerSer(meta);
     ConsumerServiceImpl consumerSer(meta);
-    VolInnerCtrl volInnerCtrl(meta);
+    VolInnerCtrl volInnerCtrl(meta,meta);
     SnapshotMgr snapMgr;
     metaServer.register_service(&writerSer);
     metaServer.register_service(&consumerSer);
@@ -137,13 +139,16 @@ int main(int argc, char** argv) {
         std::cerr << "start replicate server failed!" << std::endl;
         return -1;
     }
-    // init replicate sender
+    // init replicate transmitter, scheduler
     addr.append(":").append(std::to_string(port2));
-    Replicate replicate(meta,mount_path,addr,grpc::InsecureChannelCredentials());
-    //init replicate control rpc service
-    RepInnerCtrl repControl(replicate,meta);
-    metaServer.register_service(&repControl);
-	// start meta server
+    LOG_INFO << "transmitter connect to " << addr;
+    Transmitter::instance().init(grpc::CreateChannel(
+        addr, grpc::InsecureChannelCredentials()),16); //TODO:config
+    RepScheduler rep_scheduler(meta,mount_path);
+    //init replicate control rpc server
+    RepInnerCtrl rep_control(rep_scheduler,meta);
+    metaServer.register_service(&rep_control);
+    // start meta server
     LOG_INFO << "meta server listening on " << ip1 << ":" << port1;
     if(!metaServer.run()){
         LOG_FATAL << "start meta server failed!";
@@ -152,6 +157,25 @@ int main(int argc, char** argv) {
     }
     // init gc thread
     GCTask::instance().init(meta);
+    // init volumes
+    std::list<VolumeMeta> list;
+    RESULT res = meta->list_volume_meta(list);
+    if(DRS_OK == res){
+        for(VolumeMeta& vol_meta:list){
+            auto& vol = vol_meta.info().vol_id();
+            GCTask::instance().add_volume(vol);
+            IReplayer* c = (new IReplayer(vol,meta)); // delete memory when unregistered
+            GCTask::instance().register_consumer(vol, c);
+            if(vol_meta.info().role() == huawei::proto::REP_PRIMARY
+                && vol_meta.info().rep_enable()) // no matter what replication status is
+                rep_scheduler.add_volume(vol);
+        }
+        GCTask::instance().set_volumes_initialized(true);
+    }
+    else{
+        LOG_ERROR << "get volume list failed!";
+        std::cerr << "get volume list failed!" << std::endl;
+    }
     parser.reset();
     metaServer.join();
     repServer.join();

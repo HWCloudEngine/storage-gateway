@@ -19,8 +19,10 @@
 #include <atomic>
 #include "ceph_s3_lease.h"
 #include "journal_gc_manager.h"
-
+#include "consumer_interface.h"
 class GCTask{
+typedef std::map<std::string,std::set<IConsumer*>> vc_map_t;
+typedef std::pair<std::string,std::set<IConsumer*>> vc_pair_t;
 private:
     std::shared_ptr<JournalGCManager> meta_ptr_;
     std::unique_ptr<CephS3LeaseServer> lease_;
@@ -32,7 +34,10 @@ private:
     // check volumes leases at this regular interval
     int lease_check_window_;
     bool GC_running_;
-    std::map<string,CONSUMER_TYPE> vols_; // volumes that need do GC & lease validation
+    // whether initialization is done(all consumers registered?)?
+    bool volumes_initialized;
+     // volumes that need do GC & recycle neglected opened journals
+    vc_map_t vols_;
     std::mutex mtx_;
 public:
     int init(std::shared_ptr<JournalGCManager> meta);
@@ -42,19 +47,26 @@ public:
     };
     GCTask(GCTask&) = delete;
     GCTask& operator=(GCTask const&) = delete;
-    void register_(const std::string& vol_id,const CONSUMER_TYPE& type);
-    void unregister(const std::string& vol_id,const CONSUMER_TYPE& type);
-    int add_volume(const std::string &vol_id,
-            const CONSUMER_TYPE& type = ::huawei::proto::CONSUMER_NONE);
+    void register_consumer(const std::string& vol_id,IConsumer* c);
+    void unregister_consumer(const std::string& vol_id,const CONSUMER_TYPE& type);
+
+    int add_volume(const std::string &vol_id);
     int remove_volume(const std::string &vol_id);
+
+    void set_volumes_initialized(bool f);
 private:
-    GCTask(){};
+    GCTask():
+        volumes_initialized(false),
+        GC_running_(false){
+    };
     ~GCTask(){
         GC_running_ = false;
+        recycle_resources();
         if(thread_GC_.get() && thread_GC_->joinable())
             thread_GC_->join();
     };
     void do_GC();
     void lease_check_task();
+    void recycle_resources();
 };
 #endif
