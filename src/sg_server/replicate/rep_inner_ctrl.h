@@ -10,7 +10,7 @@
 ************************************************/
 #ifndef REP_INNER_CTRL_H_
 #define REP_INNER_CTRL_H_
-#include "replicate.h"
+#include "rep_scheduler.h"
 #include "../ceph_s3_meta.h"
 #include "rpc/replicate_inner_control.grpc.pb.h"
 #include "common/thread_pool.h"
@@ -27,8 +27,7 @@ using huawei::proto::REP_PRIMARY;
 using huawei::proto::REP_SECONDARY;
 using grpc::ClientContext;
 using grpc::ServerContext;
-#define TASK_THREAD_CNT 10
-// TODO:implement
+
 class RepInnerCtrl:public huawei::proto::inner::ReplicateInnerControl::Service{
     //rpc replicate controls
     grpc::Status CreateReplication(ServerContext* context,
@@ -57,16 +56,16 @@ class RepInnerCtrl:public huawei::proto::inner::ReplicateInnerControl::Service{
     bool validate_replicate_operation(const REP_STATUS& status,
             const REPLICATION_OPERATION& op);
 public:
-    RepInnerCtrl(Replicate& rep,
+    RepInnerCtrl(RepScheduler& rep,
             std::shared_ptr<CephS3Meta> meta):
-            replicate_(rep),meta_(meta),running_(true){
+            rep_(rep),meta_(meta),running_(true){
         init();
     }
     ~RepInnerCtrl(){
         running_ = false;
     }
 private:
-    Replicate& replicate_;
+    RepScheduler& rep_;
     std::shared_ptr<CephS3Meta> meta_;
     bool running_;
 };

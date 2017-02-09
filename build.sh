@@ -23,7 +23,7 @@ $PROTOC -I ${PROTO_PATH} \
         ${PROTO_PATH}/inner_command/snapshot_inner_control.proto \
         ${PROTO_PATH}/inner_command/replicate_inner_control.proto \
         ${PROTO_PATH}/inner_command/volume_inner_control.proto \
-        ${PROTO_PATH}/replication/replicator.proto \
+        ${PROTO_PATH}/replication/transfer.proto \
         ${PROTO_PATH}/control_api/snapshot_control.proto \
         ${PROTO_PATH}/control_api/replicate_control.proto
 #generate grpc
@@ -35,7 +35,7 @@ $PROTOC -I ${PROTO_PATH} \
         ${PROTO_PATH}/inner_command/snapshot_inner_control.proto \
         ${PROTO_PATH}/inner_command/replicate_inner_control.proto \
         ${PROTO_PATH}/inner_command/volume_inner_control.proto \
-        ${PROTO_PATH}/replication/replicator.proto \
+        ${PROTO_PATH}/replication/transfer.proto \
         ${PROTO_PATH}/control_api/snapshot_control.proto \
         ${PROTO_PATH}/control_api/replicate_control.proto
 

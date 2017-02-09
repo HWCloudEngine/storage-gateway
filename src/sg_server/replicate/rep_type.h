@@ -13,14 +13,11 @@
 #include <cstdint>
 #include <string>
 #include <memory>
-#include <chrono>
 #include <functional>
 #include "rpc/journal.pb.h"
 #include "rpc/common.pb.h"
 #define DESPATCH_THREAD_CNT 2
 #define MAX_TASK_PER_VOL 10
-#define MAX_JOURNAL_SIZE (1024*1024*64) // TODO:read from config
-#define MAX_REPLICATE_TASK  16 // TODO: read from config
 
 using huawei::proto::JournalMeta;
 using huawei::proto::RESULT;
@@ -91,7 +88,7 @@ typedef struct RepTask{
     std::string vol_id;
     JournalInfo info;
     TASK_STATUS status;
-    std::chrono::system_clock::time_point tp;
+    uint64_t tp;
     std::function<void(std::shared_ptr<RepTask>)> callback;
 }RepTask;
 #endif

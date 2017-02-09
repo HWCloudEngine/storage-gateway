@@ -1,0 +1,32 @@
+syntax = "proto3";
+package huawei.proto.transfer;
+import "common.proto";
+
+service DataTransfer {
+    rpc transfer(stream TransferRequest) returns(stream TransferResponse) {}
+    rpc sync_marker(TransferRequest) returns(TransferResponse){}
+}
+message TransferRequest {
+    int64 id = 1;
+    CMD_TYPE cmd = 2;
+    ENCODE_TYPE encode_type = 3;
+    string vol_id = 4;
+    int32 state = 5; //state of transferring journal:opened/sealed?
+    int64 current_counter = 6; //the transferring journal counter
+    int32 offset = 7;
+    bytes data = 8;
+}
+message TransferResponse {
+    int64 id = 1;
+    StatusCode status = 2;
+}
+enum CMD_TYPE {
+	UNKNOWN_CMD = 0;
+	START_CMD = 1;
+	DATA_CMD = 2;
+	FINISH_CMD = 3;
+}
+enum ENCODE_TYPE {
+    UNKNOWN_EN = 0;
+    NONE_EN = 1;
+}

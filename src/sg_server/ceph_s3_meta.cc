@@ -42,8 +42,6 @@ using huawei::proto::OPENED;
 using huawei::proto::SEALED;
 using huawei::proto::REPLAYER;
 using huawei::proto::REPLICATOR;
-using huawei::proto::CONSUMER_NONE;
-using huawei::proto::CONSUMER_BOTH;
 using huawei::proto::REP_PRIMARY;
 
 static string assemble_journal_marker_key(const string& vol_id,
@@ -692,41 +690,12 @@ RESULT CephS3Meta::get_consumable_journals(const string& vol_id,
 
 // gc manager
 RESULT CephS3Meta::get_sealed_and_consumed_journals(
-        const string& vol_id, const CONSUMER_TYPE& type,const int& limit,
+        const string& vol_id, const JournalMarker& marker,const int& limit,
         std::list<string> &list) {
-    if(CONSUMER_NONE == type)
-        return DRS_OK;
-    string end_marker;
-    if(type == CONSUMER_BOTH){
-        JournalMarker marker1;
-        if(DRS_OK != get_consumer_marker(vol_id,REPLAYER,marker1)){
-            return INTERNAL_ERROR;
-        }
-        JournalMarker marker2;
-        if(DRS_OK != get_consumer_marker(vol_id,REPLICATOR,marker2)){
-            return INTERNAL_ERROR;
-        }
-        end_marker = marker1.cur_journal().compare(marker2.cur_journal()) < 0 ? 
-            marker1.cur_journal() : marker2.cur_journal();  // set the smaller journal key as end_marker
-    }
-    else{
-        JournalMarker marker;
-        if(DRS_OK != get_consumer_marker(vol_id,REPLAYER,marker)){
-            return INTERNAL_ERROR;
-        }
-        end_marker = marker.cur_journal();
-    }
-
-    RESULT res = s3Api_ptr_->head_object(end_marker.c_str(),nullptr);
-    if(res == NO_SUCH_KEY)// if cannot index end_marker, return empty list
-        return DRS_OK;
-    else if(res != DRS_OK)
-        return res;
-
     // list sealed journals
     std::list<string> sealed_journals;
     string prefix = g_sealed+vol_id;  // recycle sealed journals
-    res = s3Api_ptr_->list_objects(prefix.c_str(),nullptr,
+    RESULT res = s3Api_ptr_->list_objects(prefix.c_str(),nullptr,
         limit,&sealed_journals);
     if(res != DRS_OK){
         return res;
@@ -735,13 +704,14 @@ RESULT CephS3Meta::get_sealed_and_consumed_journals(
         int64_t counter;
         dr_server::extract_counter_from_object_key(*it,counter);
         string key = dr_server::construct_journal_key(vol_id,counter);
-        if(key.compare(end_marker) < 0) // TODO: to update when use recycled journals
+        if(key.compare(marker.cur_journal()) < 0) // TODO: to update when use recycled journals
             list.push_back(key);
         else
             break;
     }
     return DRS_OK;
 }
+
 RESULT CephS3Meta::recycle_journals(const string& vol_id,
         const std::list<string>& journals){
     RESULT res;
