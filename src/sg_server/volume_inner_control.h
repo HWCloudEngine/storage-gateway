@@ -12,6 +12,7 @@
 #define VOLUME_INNER_CONTROL_H_
 #include "rpc/volume_inner_control.grpc.pb.h"
 #include "volume_meta_manager.h"
+#include "journal_meta_manager.h"
 using ::grpc::ServerContext;
 using huawei::proto::inner::CreateVolumeReq;
 using huawei::proto::inner::CreateVolumeRes;
@@ -35,12 +36,15 @@ class VolInnerCtrl:public huawei::proto::inner::VolumeInnerControl::Service{
         const GetVolumeReq* request, GetVolumeRes* response);
     void init();
 public:
-    VolInnerCtrl(std::shared_ptr<VolumeMetaManager> meta):
-            meta_(meta){
+    VolInnerCtrl(std::shared_ptr<VolumeMetaManager> v_meta,
+            std::shared_ptr<JournalMetaManager> j_meta):
+            vmeta_(v_meta),
+            jmeta_(j_meta){
         init();
     }
     ~VolInnerCtrl(){}
 private:
-    std::shared_ptr<VolumeMetaManager> meta_;
+    std::shared_ptr<VolumeMetaManager> vmeta_;
+    std::shared_ptr<JournalMetaManager> jmeta_;
 };
 #endif

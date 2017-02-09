@@ -58,10 +58,10 @@ class ThreadPool
         }
     }
 public:
-    ThreadPool(const int& thread_count):
+    ThreadPool(const int& thread_count,const size_t& queue_size):
         done(false),
         joiner(threads),
-        work_queue(new BlockingQueue<std::function<void ()>>(thread_count*2))
+        work_queue(new BlockingQueue<std::function<void ()>>(queue_size))
     {
         try
         {
@@ -77,6 +77,27 @@ public:
             throw;
         }
     }
+
+    ThreadPool(const int& thread_count):
+        done(false),
+        joiner(threads),
+        work_queue(new BlockingQueue<std::function<void ()>>())
+    {
+        try
+        {
+            for(unsigned i=0; i<thread_count; ++i)
+            {
+                threads.push_back(std::thread(&ThreadPool::worker_thread,this));
+            }
+        }
+        catch(...)
+        {
+            done=true;
+            work_queue->stop();
+            throw;
+        }
+    }
+
     ThreadPool():ThreadPool(std::thread::hardware_concurrency()>0?
         std::thread::hardware_concurrency():2)
     {

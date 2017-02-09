@@ -22,10 +22,10 @@ using google::protobuf::int32;
 using grpc::ServerContext;
 using grpc::ServerReaderWriter;
 using huawei::proto::JournalMeta;
-using huawei::proto::replication::START_CMD;
-using huawei::proto::replication::DATA_CMD;
-using huawei::proto::replication::FINISH_CMD;
-using huawei::proto::REPLICATOR;
+using huawei::proto::transfer::START_CMD;
+using huawei::proto::transfer::DATA_CMD;
+using huawei::proto::transfer::FINISH_CMD;
+using huawei::proto::REPLAYER;
 using huawei::proto::sOk;
 using huawei::proto::sInternalError;
 RepReceiver::RepReceiver(std::shared_ptr<CephS3Meta> meta,
@@ -34,14 +34,14 @@ RepReceiver::RepReceiver(std::shared_ptr<CephS3Meta> meta,
     uuid_.append("dr_uuid");// TODO:
 }
 
-Status RepReceiver::replicate(ServerContext* context, 
-        ServerReaderWriter<ReplicateResponse,ReplicateRequest>* stream){
+Status RepReceiver::transfer(ServerContext* context, 
+        ServerReaderWriter<TransferResponse,TransferRequest>* stream){
     static int g_stream_id = 0;
     int stream_id = ++g_stream_id;
     LOG_DEBUG << "replicate receiver stream id: " << stream_id;
 
-    ReplicateRequest req;
-    ReplicateResponse res;
+    TransferRequest req;
+    TransferResponse res;
     std::map<const Jkey,std::shared_ptr<std::ofstream>> js_map;
     while(stream->Read(&req)) {
         if(DATA_CMD == req.cmd()){
@@ -78,8 +78,8 @@ Status RepReceiver::replicate(ServerContext* context,
     return Status::OK;
 }
 grpc::Status RepReceiver::sync_marker(ServerContext* context,
-        const ReplicateRequest* req,
-        ReplicateResponse* res){
+        const TransferRequest* req,
+        TransferResponse* res){
     LOG_DEBUG << "sync_marker " << req->vol_id() << "," << req->current_counter();
     int flag = 0;
     JournalMarker marker;
@@ -87,7 +87,7 @@ grpc::Status RepReceiver::sync_marker(ServerContext* context,
         string key = dr_server::construct_journal_key(req->vol_id(),req->current_counter());
         auto it = markers_.find(req->vol_id());
         if(it == markers_.end()){
-            RESULT result = meta_->get_producer_marker(req->vol_id(),REPLICATOR,
+            RESULT result = meta_->get_producer_marker(req->vol_id(),REPLAYER,
                 marker);
             if(NO_SUCH_KEY == result){ // not init, need update
                 marker.set_pos(req->offset());
@@ -139,7 +139,7 @@ grpc::Status RepReceiver::sync_marker(ServerContext* context,
     return Status::OK;
 }
 
-bool RepReceiver::write(const ReplicateRequest& req,
+bool RepReceiver::write(const TransferRequest& req,
         std::map<const Jkey,std::shared_ptr<std::ofstream>>& js_map){
     std::shared_ptr<std::ofstream>of = get_fstream(req.vol_id(),
         req.current_counter(),js_map);
@@ -150,7 +150,7 @@ bool RepReceiver::write(const ReplicateRequest& req,
     }
     return true;
 }
-bool RepReceiver::init_journals(const ReplicateRequest& req,
+bool RepReceiver::init_journals(const TransferRequest& req,
         std::map<const Jkey,std::shared_ptr<std::ofstream>>& js_map){
     // TODO: pre-fetch journals?
     std::list<string> keys;
@@ -179,7 +179,7 @@ bool RepReceiver::init_journals(const ReplicateRequest& req,
         << req.vol_id() << ":" << req.current_counter() << std::endl;
     return true;
 }
-bool RepReceiver::seal_journals(const ReplicateRequest& req,
+bool RepReceiver::seal_journals(const TransferRequest& req,
         std::map<const Jkey,std::shared_ptr<std::ofstream>>& js_map){
      // TODO:seal journals within indipendent thread
     // close & fflush journal files and seal the journal
@@ -187,7 +187,7 @@ bool RepReceiver::seal_journals(const ReplicateRequest& req,
         req.current_counter(),js_map);
     if(of->is_open()){
         of->close();
-    }        
+    }
     // remove journal ofstream
     const Jkey jkey(req.vol_id(),req.current_counter());
     js_map.erase(jkey);
@@ -195,6 +195,11 @@ bool RepReceiver::seal_journals(const ReplicateRequest& req,
     LOG_DEBUG << std::chrono::duration_cast<std::chrono::seconds>(dtn).count()
         << ":end task " 
         << req.vol_id() << ":" << req.current_counter();
+
+    if(req.state()){ // journal is opened, do not seal
+        return true;
+    }
+
     std::string key = dr_server::construct_journal_key(req.vol_id(),req.current_counter());
     if(req.state() == 0){
         string keys_a[1]={key};
