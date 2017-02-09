@@ -296,7 +296,7 @@ RESULT CephS3Api::delete_object(const char* key) {
     }
     return DRS_OK;
 }
-// if end_marker is set and didnot match it during listing, retrun a empty list
+// if maxkeys <= 0, return all matched keys
 RESULT CephS3Api::list_objects(const char*prefix, const char*marker,
             int maxkeys, std::list<string>* list,const char* delimiter) {
     S3ListBucketHandler listBucketHandler =

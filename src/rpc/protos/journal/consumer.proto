@@ -14,10 +14,9 @@ service Consumer {
 }
 
 enum CONSUMER_TYPE {
-    CONSUMER_NONE = 0;
+    CONSUMER_UNKOWN = 0;
     REPLAYER = 1;
     REPLICATOR = 2;
-    CONSUMER_BOTH = 3;
 }
 // journal replayer messages
 message GetJournalMarkerRequest {

@@ -1,7 +1,7 @@
 /**********************************************
 * Copyright (c) 2016 Huawei Technologies Co., Ltd. All rights reserved.
 * 
-* File name:    rep_client.cc
+* File name:    rep_transmitter.cc
 * Author: 
 * Date:         2016/10/21
 * Version:      1.0
@@ -9,16 +9,17 @@
 * 
 ************************************************/
 #include<fstream>
-#include "rep_client.h"
+#include "rep_transmitter.h"
 #include "log/log.h"
-#include "../dr_functions.h"
+#include "../sg_util.h"
 using std::string;
 using grpc::Status;
 using google::protobuf::int32;
-using huawei::proto::replication::START_CMD;
-using huawei::proto::replication::DATA_CMD;
-using huawei::proto::replication::FINISH_CMD;
-std::string RepClient::get_printful_state(ClientState state){
+using huawei::proto::transfer::START_CMD;
+using huawei::proto::transfer::DATA_CMD;
+using huawei::proto::transfer::FINISH_CMD;
+#define TRANSMITTER_THREAD_COUNT (8)
+std::string Transmitter::get_printful_state(ClientState state){
     string str;
     switch(state){
         case CLIENT_IDLE:
@@ -42,50 +43,58 @@ std::string RepClient::get_printful_state(ClientState state){
     return str;
 }
 
-ClientState RepClient::get_state(bool try_to_connect){
+ClientState Transmitter::get_state(bool try_to_connect){
     return channel_->GetState(try_to_connect);
 }
 
-bool RepClient::wait_for_state_change(const ClientState& state,
+bool Transmitter::wait_for_state_change(const ClientState& state,
         std::chrono::system_clock::time_point deadline){
     return channel_->WaitForStateChange(state,deadline);
 }
-RepClient::RepClient(std::shared_ptr<Channel> channel,int max_tasks):
-        channel_(channel),
-        stub_(huawei::proto::replication::Replicator::NewStub(channel)),
-        task_pool_(new sg_threads::ThreadPool(max_tasks)),
-        done_(false),
-        seq_id_(0L),
-        dispatch_thread_(&RepClient::dispatch,this){
-}
-RepClient::~RepClient(){
-    done_ = true;
-    if(dispatch_thread_.joinable())
-        dispatch_thread_.join();
-}
-bool RepClient::submit_task(std::shared_ptr<RepTask> task){
-    if(task_que_.push(task)){
-        LOG_DEBUG << "submit " << task->vol_id << " task " << task->id
-            << "," << task->info.key;
-        return true;
+
+void Transmitter::init(std::shared_ptr<Channel> channel,
+        std::shared_ptr<BlockingQueue<std::shared_ptr<RepTask>>> in,
+        std::shared_ptr<BlockingQueue<std::shared_ptr<MarkerContext>>> out){
+    channel_=(channel);
+    stub_= std::move(huawei::proto::transfer::DataTransfer::NewStub(channel_));
+    tp_.reset(new sg_threads::ThreadPool(TRANSMITTER_THREAD_COUNT,TRANSMITTER_THREAD_COUNT));
+    running_ = true;
+    seq_id_ = 0L;
+    in_task_que_ = in;
+    out_que_ = out;
+    for(int i=0; i<TRANSMITTER_THREAD_COUNT; i++){
+        tp_->submit(std::bind(&Transmitter::work,this));
     }
-    task->status = T_ERROR;
-//    task->callback(task);
-    return false;
 }
-bool RepClient::sync_marker(const std::string& vol,const JournalMarker& marker){
-    ReplicateRequest req;
+
+Transmitter::Transmitter(){
+}
+Transmitter::~Transmitter(){
+    running_ = false;
+}
+
+int Transmitter::add_marker_context(ReplicatorContext* rep_ctx,
+            const JournalMarker& marker){
+    std::shared_ptr<MarkerContext> marker_ctx(new MarkerContext(rep_ctx,marker));
+    if(out_que_->push(marker_ctx))
+        return 0;
+    else
+        return -1;
+}
+
+bool Transmitter::sync_marker(const std::string& vol,const JournalMarker& marker){
+    TransferRequest req;
     req.set_id(++seq_id_);
     req.set_vol_id(vol);
     int64_t c;
-    if(!dr_server::extract_counter_from_object_key(marker.cur_journal(),c))
+    if(!sg_util::extract_counter_from_object_key(marker.cur_journal(),c))
         return false;
     req.set_current_counter(c);
     req.set_offset(marker.pos());
     ClientContext context;
-    ReplicateResponse res;
+    TransferResponse res;
     Status status = stub_->sync_marker(&context,req,&res);
-    if(status.ok() && res.status())
+    if(status.ok() && !res.status())
         return true;
     else{
         LOG_ERROR << "sync marker failed, rpc status:" << status.error_message()
@@ -93,33 +102,30 @@ bool RepClient::sync_marker(const std::string& vol,const JournalMarker& marker){
         return false;
     }
 }
-void RepClient::dispatch(){
-    std::function<void(RepClient*,std::shared_ptr<RepTask>)> f
-        = &RepClient::do_replicate;
-    while(!done_){
-        std::shared_ptr<RepTask> task = task_que_.pop();
-        if(task){
-            if(!task_pool_->submit(std::bind(f,this,task))){
-                task->status = T_ERROR;
-//                task->callback(task);
-            }
-        }
+
+void Transmitter::work(){
+    std::function<void(Transmitter*,std::shared_ptr<RepTask>)> f
+        = &Transmitter::do_transfer;
+    while(running_){
+        std::shared_ptr<RepTask> task = in_task_que_->pop();
+        DR_ASSERT(task != nullptr);
+        do_transfer(task);
     }
 }
-void RepClient::do_replicate(std::shared_ptr<RepTask> task){
+void Transmitter::do_transfer(std::shared_ptr<RepTask> task){
     const int BUF_LEN = 512000;
     char buffer[BUF_LEN];
     ClientContext context;
-    std::unique_ptr<ClientReaderWriter<ReplicateRequest,ReplicateResponse>>
-        stream = stub_->replicate(&context);// grpc stream should be created in work thread
-    ReplicateRequest _req;
+    std::unique_ptr<ClientReaderWriter<TransferRequest,TransferResponse>>
+        stream = stub_->transfer(&context);// grpc stream should be created in work thread
+    TransferRequest _req;
     int64_t id = 0;
     _req.set_id(id); 
     _req.set_vol_id(task->vol_id);
     _req.set_state(task->info.is_opened? 1:0);
     _req.set_cmd(START_CMD);//start send flag
     int64_t c;
-    DR_ASSERT(true == dr_server::extract_counter_from_object_key(task->info.key,c));
+    DR_ASSERT(true == sg_util::extract_counter_from_object_key(task->info.key,c));
     _req.set_current_counter(c);
     _req.set_offset(task->info.pos);
     if(!stream->Write(_req)){
@@ -129,7 +135,7 @@ void RepClient::do_replicate(std::shared_ptr<RepTask> task){
         return;
     }
     // wait for receiver ack
-    ReplicateResponse res;
+    TransferResponse res;
     if(stream->Read(&res)){
         DR_ASSERT(res.id() == _req.id());
         if(res.status()){
@@ -158,14 +164,14 @@ void RepClient::do_replicate(std::shared_ptr<RepTask> task){
         DR_ASSERT(is.fail()==0 && is.bad()==0);
         LOG_DEBUG << "replicating journal " << task->info.key << " from "
             << task->info.pos << " to " << task->info.end;
-        ReplicateRequest req;
+        TransferRequest req;
         int32 offset = task->info.pos;
         int64_t counter;
-        DR_ASSERT(true == dr_server::extract_counter_from_object_key(task->info.key,counter));
+        DR_ASSERT(true == sg_util::extract_counter_from_object_key(task->info.key,counter));
         req.set_vol_id(task->vol_id);
         req.set_current_counter(counter);
         req.set_cmd(DATA_CMD);
-        // TODO: if journal files were created with zero padding, we should check
+        // TODO: if journal files were opened, verify checksum?
         // the replicate necessity of rest file data
         while (offset < task->info.end)
         {
@@ -183,6 +189,12 @@ void RepClient::do_replicate(std::shared_ptr<RepTask> task){
                 offset += len;
             }
             else{
+                if(!is.eof()){
+                    LOG_ERROR << " read journal failed at(key:off:len) " 
+                        << task->info.key << ":" << offset << ":" << len;
+                    replicate_flag = false;
+                    break;
+                }
                 if(is.gcount() > 0){
                     req.set_id(++id);
                     req.set_offset(offset);
@@ -195,6 +207,10 @@ void RepClient::do_replicate(std::shared_ptr<RepTask> task){
                     }
                     offset += is.gcount();
                 }
+                // TODO: set task failed and retry. if journal file created with zero padding,
+                // the read should not failed of getting an EOF
+                LOG_WARN << "read journal EOF at(key:off:len) " << task->info.key
+                    << ":" << offset << ":" << len;
                 break;
             }
         }
@@ -238,8 +254,9 @@ void RepClient::do_replicate(std::shared_ptr<RepTask> task){
         LOG_ERROR << "replicate client close stream failed!";
 //        DR_ERROR_OCCURED();
     }
-    if(task->status != T_ERROR)
+    if(task->status != T_ERROR){
         task->status = T_DONE;
-    task->callback(task);
+        task->callback(task);
+    }
 }
 

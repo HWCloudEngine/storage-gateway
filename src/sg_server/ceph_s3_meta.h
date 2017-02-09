@@ -48,7 +48,6 @@ private:
     RESULT get_journal_key_counter(const string& vol_id,int64_t& cnt);
     RESULT set_journal_key_counter(const string& vol_id,
             int64_t& expected,const int64_t& val);
-    RESULT get_journal_meta(const string& key, JournalMeta& meta);
     bool get_marker(const string& vol_id,
         const CONSUMER_TYPE& type, JournalMarker& marker,bool is_consumer);
     RESULT init();
@@ -66,6 +65,7 @@ private:
 public:
     CephS3Meta();
     ~CephS3Meta();
+    virtual RESULT get_journal_meta(const string& key, JournalMeta& meta);
     virtual RESULT get_producer_marker(const string& vol_id,
             const CONSUMER_TYPE& type, JournalMarker& marker);
     // journal meta management
@@ -88,7 +88,7 @@ public:
             const JournalMarker& marker);
     // gc management
     virtual RESULT get_sealed_and_consumed_journals(
-            const string& vol_id, const CONSUMER_TYPE& type,const int& limit,
+            const string& vol_id, const JournalMarker& marker,const int& limit,
             std::list<string> &list);
     virtual RESULT recycle_journals(const string& vol_id,
             const std::list<string>& journals);
