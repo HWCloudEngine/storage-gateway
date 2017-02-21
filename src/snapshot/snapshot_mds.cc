@@ -18,6 +18,7 @@ SnapshotMds::SnapshotMds(const string& vol_name, const size_t& vol_size)
     m_volume_size = vol_size;
 
     m_latest_snapid = 0;
+
     m_snapshots.clear();
     m_cow_block_map.clear();
     m_cow_object_map.clear();
@@ -73,7 +74,7 @@ string SnapshotMds::get_snapshot_name(snapid_t snap_id)
         if(it.second.snap_id == snap_id)
             return it.first;
     }
-    return nullptr;
+    return "";
 }
 
 string SnapshotMds::get_latest_snap_name()
@@ -93,12 +94,12 @@ string SnapshotMds::get_latest_snap_name()
 StatusCode SnapshotMds::sync(const SyncReq* req, SyncAck* ack)
 {
     string vol_name = req->vol_name();
-    LOG_INFO << "SnapshotMds sync" << " vname:" << vol_name;
-
+    LOG_INFO << "sync" << " vname:" << vol_name;
     lock_guard<std::mutex> lock(m_mutex);
+    string latest_snap_name = get_latest_snap_name();
+    ack->set_latest_snap_name(latest_snap_name); 
     ack->mutable_header()->set_status(StatusCode::sOk);
-    ack->set_latest_snap_name(m_latest_snapname); 
-    LOG_INFO << "SnapshotMds sync" << " vname:" << vol_name << " ok";
+    LOG_INFO << "sync" << " vname:" << vol_name << " ok";
     return StatusCode::sOk; 
 }
 
@@ -121,7 +122,7 @@ StatusCode SnapshotMds::create_snapshot(const CreateReq* req, CreateAck* ack)
     cur_snap_attr.replication_uuid = req->header().replication_uuid();
     cur_snap_attr.checkpoint_uuid  = req->header().checkpoint_uuid();
     cur_snap_attr.volume_uuid = vol_name;
-    cur_snap_attr.snap_type = (snap_type_t)req->header().snap_type();
+    cur_snap_attr.snap_type = (SnapType)req->header().snap_type();
     cur_snap_attr.snap_name = snap_name;
     cur_snap_attr.snap_status = SnapStatus::SNAP_CREATING;
 
@@ -297,9 +298,6 @@ StatusCode SnapshotMds::create_event_update_status(string snap_name)
     map<block_t, cow_object_t> block_map;
     m_cow_block_map.insert({snap_id, block_map});
     
-    /*keep latest snapshot*/
-    m_latest_snapname = snap_name;
-
     LOG_INFO << "update sname:" << snap_name << " create event ok";
     return StatusCode::sOk;
 }
@@ -388,11 +386,6 @@ StatusCode SnapshotMds::delete_event_update_status(string snap_name)
     pkey = DbUtil::spawn_attr_map_key(snap_name);
     m_index_store->db_del(pkey);
 
-    /*update latest snaphsot*/
-    if(m_latest_snapname.compare(snap_name)){
-        m_latest_snapname.clear();
-    }
-
     trace();
 
     LOG_INFO << "update sname:" << snap_name << " delete event ok";
@@ -404,7 +397,7 @@ string SnapshotMds::mapping_snap_name(const SnapReqHead& shead,
 {
     if(shead.replication_uuid().empty() && 
        shead.checkpoint_uuid().empty() &&
-       shead.snap_type() == LOCAL) {
+       shead.snap_type() == SnapType::SNAP_LOCAL) {
         /*local snapshot */
         return sname;
     }
@@ -713,15 +706,6 @@ int SnapshotMds::recover()
         m_latest_snapid = atol(value.c_str());
     } 
     
-    /*recover latest snapshot name*/
-    prefix = SNAPSHOT_NAME_PREFIX;
-    it->seek_to_first(prefix);                                                  
-    for(; it->valid()&& !it->key().compare(0, prefix.size(), prefix.c_str()); 
-          it->next()){
-        string value = it->value();
-        m_latest_snapname = value;
-    } 
-    
     /*recover snapshot attr map*/
     prefix = SNAPSHOT_MAP_PREFIX;
     it->seek_to_first(prefix);                                                  
@@ -784,7 +768,6 @@ int SnapshotMds::recover()
 void SnapshotMds::trace()
 {
     LOG_INFO << "\t latest snapid:" << m_latest_snapid;
-    LOG_INFO << "\t latest snapname:" << m_latest_snapname;
     LOG_INFO << "\t current snapshot";
     for(auto it : m_snapshots){
         LOG_INFO << "\t\t snap_name:" << it.first 

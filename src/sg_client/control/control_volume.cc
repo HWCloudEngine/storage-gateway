@@ -11,6 +11,7 @@
 
 #include <stdio.h>
 #include <fstream>
+#include <assert.h>
 #include <boost/format.hpp>
 #include <boost/tokenizer.hpp>
 #include "../common/config_parser.h"
@@ -30,14 +31,15 @@ VolumeControlImpl::VolumeControlImpl(const std::string& host,
     std::unique_ptr<ConfigParser> parser(new ConfigParser(DEFAULT_CONFIG_FILE));
     target_prefix_ = "iqn.2017-01.huawei.sgs.";
     target_prefix_ = parser->get_default("target_prefix", target_prefix_);
-    std::string target_path_ = "/etc/tgt/config.d/";
-    target_path_ = parser->get_default("sg_client.target_path", target_path_);
+    std::string default_target_path = "/etc/tgt/conf.d/";
+    target_path_ = parser->get_default("sg_client.target_path", default_target_path);
     parser.reset();
 }
 
-bool VolumeControlImpl::create_volume(const std::string& volume_id, int size,
+bool VolumeControlImpl::create_volume(const std::string& volume_id, size_t size,
         const std::string& device)
 {
+    LOG_INFO << "create volume vname:" << volume_id << "size:" << size;
     StatusCode ret = vol_inner_client_->create_volume(volume_id, device, size,
             VOL_ENABLING);
     if (ret == StatusCode::sOk)
@@ -52,6 +54,7 @@ bool VolumeControlImpl::create_volume(const std::string& volume_id, int size,
 
 bool VolumeControlImpl::delete_volume(const std::string& volume_id)
 {
+    LOG_INFO << "delete volume vname:" << volume_id;
     StatusCode ret = vol_inner_client_->delete_volume(volume_id);
     if (ret == StatusCode::sOk)
     {
@@ -66,6 +69,7 @@ bool VolumeControlImpl::delete_volume(const std::string& volume_id)
 bool VolumeControlImpl::update_volume_status(const std::string& volume_id,
         const VOLUME_STATUS& status)
 {
+    LOG_INFO << "update volume vname:" << volume_id << " status:" << status;
     StatusCode ret = vol_inner_client_->update_volume_status(volume_id, status);
     if (ret == StatusCode::sOk)
     {
@@ -104,7 +108,7 @@ bool VolumeControlImpl::persist_config(const std::string& volume_id,
         const std::string& config)
 {
     std::string file_name = target_path_ + volume_id;
-    LOG_INFO<<"persist config file "<<file_name;
+    LOG_INFO<<"persist config file " << file_name;
     std::ofstream f(file_name);
     f << config;
     f.close();
@@ -134,7 +138,7 @@ bool VolumeControlImpl::execute_cmd(const std::string& command,
 bool VolumeControlImpl::update_target(const std::string& target_iqn)
 {
     LOG_INFO<<"update target "<<target_iqn;
-    std::string cmd = "tgt-admin --update " + target_iqn;
+    std::string cmd = "tgt-admin --update " + target_iqn + " -f";
     int ret = system(cmd.c_str());
     if (ret == 0)
     {
@@ -183,11 +187,20 @@ bool VolumeControlImpl::remove_device(const std::string& device)
 {
     LOG_INFO<<"remove device "<<device;
     std::string cmd = "blockdev --flushbufs " + device;
-    system(cmd.c_str());
+    int ret = system(cmd.c_str());
+    if(ret == -1){
+        LOG_ERROR << "blockdev flushbufs failed.";
+        return false;
+    }
 
     std::string path = "/sys/block/" + device.substr(5) + "/device/delete";
     cmd = "echo 1 | tee -a " + path;
-    system(cmd.c_str());
+    ret = system(cmd.c_str());
+    if(ret == -1){
+        LOG_ERROR << "blockdev delete failed.";
+        return false;
+    }
+
     return true;
 }
 
@@ -198,7 +211,12 @@ Status VolumeControlImpl::ListDevices(ServerContext* context,
     LOG_INFO<<"rescan devices";
     std::string cmd = "for f in /sys/class/scsi_host/host*/scan; \
             do echo '- - -' > $f; done";
-    system(cmd.c_str());
+    int iret = system(cmd.c_str());
+    if(iret == -1){
+        LOG_ERROR << "scsi scan failed.";
+        res->set_status(StatusCode::sInternalError);
+        return Status::CANCELLED;
+    }
 
     //cmd: list devices
     LOG_INFO<<"list devices";
@@ -229,7 +247,9 @@ Status VolumeControlImpl::EnableSG(ServerContext* context,
     std::string volume_id = req->volume_id();
     std::string device = req->device();
     std::string target_iqn = get_target_iqn(volume_id);
-    int size = req->size();
+    size_t size = req->size();
+    
+    LOG_INFO << "enable sg vol:" << volume_id << " size:" << size;
 
     //step 1: create volume
     bool result = create_volume(volume_id, size, device);
@@ -240,11 +260,12 @@ Status VolumeControlImpl::EnableSG(ServerContext* context,
         generate_config(volume_id, device, target_iqn, config);
         if (persist_config(volume_id, config))
         {
+            //step 3: update status
+            update_volume_status(volume_id, VOL_AVAILABLE);
+
             if (update_target(target_iqn))
             {
-                //step 3: update status
-                update_volume_status(volume_id, VOL_AVAILABLE);
-                (*res->mutable_driver_data())["driver_type"] = "iscsi";
+               (*res->mutable_driver_data())["driver_type"] = "iscsi";
                 (*res->mutable_driver_data())["target_iqn"] = target_iqn;
                 res->set_status(StatusCode::sOk);
                 return Status::OK;

@@ -97,7 +97,6 @@ private:
     mutex m_mutex;
     /*the latest snapshot id*/
     snapid_t m_latest_snapid;
-    string   m_latest_snapname;
 
     /*snapshot and attr map*/
     map<string, snap_attr_t> m_snapshots;

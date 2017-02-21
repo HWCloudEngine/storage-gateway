@@ -26,7 +26,7 @@ BackupMds::BackupMds(const string& vol_name, const size_t& vol_size)
     m_backup_block_map.clear();
 
     m_block_store = new CephBlockStore();
-
+    
     /*todo: read from configure file*/
     string db_path = DB_DIR + vol_name + "/backup";
     if(access(db_path.c_str(), F_OK)){

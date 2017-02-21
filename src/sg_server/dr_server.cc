@@ -194,6 +194,11 @@ int main(int argc, char** argv) {
             if(vol_meta.info().role() == huawei::proto::REP_PRIMARY
                 && vol_meta.info().rep_enable()) // no matter what replication status is
                 rep_scheduler.add_volume(vol);
+
+            /*snapshot meta init*/
+            snapMgr.add_volume(vol_meta.info().vol_id(), vol_meta.info().size());
+            /*backup meata init*/
+            backupMgr.add_volume(vol_meta.info().vol_id(), vol_meta.info().size());
         }
         GCTask::instance().set_volumes_initialized(true);
     }

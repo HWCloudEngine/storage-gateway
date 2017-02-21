@@ -21,6 +21,7 @@
 #include "../rpc/snapshot_inner_control.grpc.pb.h"
 #include "../rpc/clients/backup_inner_ctrl_client.h"
 #include "../common/block_store.h"
+#include "../common/volume_attr.h"
 #include "snapshot_type.h"
 #include "snapshot.h"
 #include "syncbarrier.h"
@@ -29,8 +30,9 @@
 using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
-
+using huawei::proto::VolumeInfo;
 using huawei::proto::StatusCode;
+using huawei::proto::SnapType;
 using huawei::proto::SnapStatus;
 using huawei::proto::SnapReqHead;
 using huawei::proto::JournalMarker;
@@ -44,18 +46,16 @@ using namespace std;
 class SnapshotProxy : public ISnapshot, public ITransaction, public ISyncBarrier
 {
 public:
-    SnapshotProxy(string vol_name,
-                  string block_device,
+    SnapshotProxy(VolumeAttr& vol_attr, 
                   BlockingQueue<shared_ptr<JournalEntry>>& entry_queue)
-        :m_vol_name(vol_name), 
-        m_block_device(block_device),
+        :m_vol_attr(vol_attr), 
         m_entry_queue(entry_queue){
-        LOG_INFO << "create vname:" << m_vol_name << " blk:" << m_block_device;
+        LOG_INFO << "create vname:" << m_vol_attr.vol_name() << " blk:" << m_vol_attr.blk_device();
         init();
     }
 
     ~SnapshotProxy(){
-        LOG_INFO << "destroy vname:" << m_vol_name << " blk:" << m_block_device;
+        LOG_INFO << "delete vname:" << m_vol_attr.vol_name() << " blk:" << m_vol_attr.blk_device();
         fini();
     }
 
@@ -95,7 +95,7 @@ public:
     void add_sync(const string& actor, const string& action) override;
     void del_sync(const string& actor) override;
     bool check_sync_on(const string& actor) override;
-
+    
 private:
     /*split io into fixed size block*/
     void split_cow_block(const off_t& off, const size_t& size,
@@ -113,12 +113,11 @@ private:
     StatusCode transaction(const SnapReqHead& shead, const string& sname, const UpdateEvent& sevent); 
    
 private:
-    /*volume name*/
-    string m_vol_name;
-    /*block device name*/
-    string m_block_device;
+    /*volume attr*/
+    VolumeAttr& m_vol_attr;
+
     /*block device read write fd*/
-    int    m_block_fd;
+    int m_block_fd;
 
     /*entry queue to journal preprocessor*/
     BlockingQueue<shared_ptr<JournalEntry>>& m_entry_queue;

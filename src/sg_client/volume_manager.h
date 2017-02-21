@@ -61,7 +61,7 @@ private:
                         const boost::system::error_code& error);
     
     /*all volumes to be protected*/
-    std::map<std::string,volume_ptr> volumes;
+    std::map<std::string, shared_ptr<Volume>> volumes;
     
     /*journal prefetch and seal*/
     int_least64_t interval;
