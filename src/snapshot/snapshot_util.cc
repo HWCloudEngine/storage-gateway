@@ -78,7 +78,7 @@ void DbUtil::split_attr_map_val(const string& raw_key, snap_attr_t& snap_attr)
     string snap_type;
     string remain3;
     split_key(remain2, snap_type, remain3);
-    snap_attr.snap_type = (snap_type_t)atoi(snap_type.c_str());
+    snap_attr.snap_type = (SnapType)atoi(snap_type.c_str());
 
     string snap_name;
     string remain4;

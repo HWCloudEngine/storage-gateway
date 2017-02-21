@@ -4,6 +4,7 @@
 #include <set>
 #include "../rpc/snapshot.pb.h"
 using huawei::proto::SnapStatus;
+using huawei::proto::SnapType;
 using namespace std;
 
 /*snapshot id*/
@@ -16,20 +17,13 @@ typedef string cow_object_t;
 /*cow data object snapshot reference list*/
 typedef set<snapid_t> cow_object_ref_t;
 
-/*snapshot type*/
-enum snap_type {
-    LOCAL  = 0,
-    REMOTE = 1,
-};
-typedef snap_type snap_type_t;
-
 /*snapshot attribution*/
 struct snap_attr {
     string replication_uuid;
     string checkpoint_uuid;
     string volume_uuid;
 
-    snap_type_t snap_type;
+    SnapType    snap_type;
     string      snap_name;
     snapid_t    snap_id;
     SnapStatus  snap_status;

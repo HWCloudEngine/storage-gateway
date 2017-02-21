@@ -22,36 +22,34 @@ using huawei::proto::WriteMessage;
 using huawei::proto::SnapshotMessage;
 using huawei::proto::DiskPos;
 using huawei::proto::SnapScene;
+using huawei::proto::SnapType;
+using huawei::proto::REP_STATUS;
+using huawei::proto::REP_ROLE;
 
 using namespace std;
 
 namespace Journal
 {
 
-JournalReplayer::JournalReplayer(VolumeStatus& vol_status)
-                :vol_status_(vol_status)
+JournalReplayer::JournalReplayer(VolumeAttr& vol_attr)
+                :vol_attr_(vol_attr)
 {
 }
 
-bool JournalReplayer::init(const std::string& vol_id, 
-                           const std::string& device,
-                           const std::string& rpc_addr,
+bool JournalReplayer::init(const std::string& rpc_addr,
                            std::shared_ptr<IDGenerator> id_maker_ptr,
                            std::shared_ptr<CacheProxy> cache_proxy_ptr,
                            std::shared_ptr<SnapshotProxy> snapshot_proxy_ptr)
 {
-    vol_id_ = vol_id;
-    device_ = device;
-
     id_maker_ptr_       = id_maker_ptr;
     cache_proxy_ptr_    = cache_proxy_ptr;
     snapshot_proxy_ptr_ = snapshot_proxy_ptr;
-    backup_decorator_ptr_.reset(new BackupDecorator(vol_id, snapshot_proxy_ptr));
+    backup_decorator_ptr_.reset(new BackupDecorator(vol_attr_.vol_name(), snapshot_proxy_ptr));
 
     rpc_client_ptr_.reset(new ReplayerClient(grpc::CreateChannel(rpc_addr,
                             grpc::InsecureChannelCredentials())));
 
-    cache_recover_ptr_.reset(new CacheRecovery(vol_id_, rpc_client_ptr_, 
+    cache_recover_ptr_.reset(new CacheRecovery(vol_attr_.vol_name(), rpc_client_ptr_, 
                                 id_maker_ptr_, cache_proxy_ptr_));
     cache_recover_ptr_->start();
     //block until recover finish
@@ -59,9 +57,9 @@ bool JournalReplayer::init(const std::string& vol_id,
     cache_recover_ptr_.reset();
 
     update_ = false;
-    vol_fd_ = ::open(device_.c_str(), O_WRONLY | O_DIRECT | O_SYNC);
+    vol_fd_ = ::open(vol_attr_.blk_device().c_str(), O_WRONLY | O_DIRECT | O_SYNC);
     if (vol_fd_ < 0){
-        LOG_ERROR << "open volume failed";
+        LOG_ERROR << "open block device:" << vol_attr_.blk_device() << "failed";
         return false;
     }
 
@@ -97,14 +95,16 @@ void JournalReplayer::update_marker_loop()
     while (true){
         boost::this_thread::sleep_for(boost::chrono::seconds(update_interval));
         if (update_){
-            rpc_client_ptr_->UpdateConsumerMarker(journal_marker_, vol_id_);
+            rpc_client_ptr_->UpdateConsumerMarker(journal_marker_, vol_attr_.vol_name());
             LOG_INFO << "update marker succeed";
             update_ = false;
         }
     }
 }
 
-bool JournalReplayer::replay_each_journal(const string& journal, const off_t& pos)
+bool JournalReplayer::replay_each_journal(const string& journal, 
+                                          const off_t& start_pos,
+                                          const off_t& end_pos)
 {
     bool retval = true;
     int  fd = -1;
@@ -129,10 +129,10 @@ bool JournalReplayer::replay_each_journal(const string& journal, const off_t& po
             break; 
         }
 
-        off_t start = pos;
-        off_t end   = size;
-        LOG_INFO << "open file:" << journal<< " start:" << start 
-                 << " size:" << size;
+        off_t start = start_pos;
+        off_t end   = (end_pos < size) ? end_pos : size;
+        LOG_INFO << "open file:" << journal << " start:" << start 
+                 << " end:" << end << " size:" << size;
 
         while(start < end){
             string journal_file = journal;
@@ -155,43 +155,42 @@ bool JournalReplayer::replay_each_journal(const string& journal, const off_t& po
 
 void JournalReplayer::replica_replay()
 {
-    while(true){
+    while(true)
+    {
         /*get replayer consumer mark*/
         JournalMarker replay_consumer_mark;
-        bool ret = rpc_client_ptr_->GetJournalMarker(vol_id_, replay_consumer_mark); 
+        bool ret = rpc_client_ptr_->GetJournalMarker(vol_attr_.vol_name(), replay_consumer_mark); 
         if(!ret){
             LOG_ERROR << "get journal replay consumer marker failed";
-            return;
+            usleep(200);
+            continue;
         }
-        
-        /*replay journal marker point journal*/
-        string journal = replay_consumer_mark.cur_journal();
-        off_t  pos = replay_consumer_mark.pos();
-        replay_each_journal(journal, pos);    
 
-        /*get other journal file list */
+        /*get replayer journal file list */
         constexpr int limit = 10;
         list<JournalElement> journal_list; 
-        ret = rpc_client_ptr_->GetJournalList(vol_id_, replay_consumer_mark, 
+        ret = rpc_client_ptr_->GetJournalList(vol_attr_.vol_name(), replay_consumer_mark, 
                                               limit, journal_list);
         if(!ret || journal_list.empty()){
             LOG_ERROR << "get journal list failed";
-            /*1. fail over occur 
-             *2. no journal file any more
-             *exist replica replay
+            /*
+             * 1. fail over occr
+             * 2. no journal file any more
+             * 3. replica replay exist, turn to normal replay
              */
-            if(vol_status_.is_failover_){
-                return; 
+            if(vol_attr_.is_failover_occur()){
+                return;
             }
             usleep(200);
             continue;
         }
-        
-        /*replay journal file*/
+
+        /*replay each journal file*/
         for(auto it : journal_list){
-            journal = "/mnt/cephfs" + it.journal();
-            pos     = sizeof(journal_file_header_t);
-            replay_each_journal(journal, pos);    
+            string journal = "/mnt/cephfs" + it.journal();
+            off_t start_pos = it.start_offset();
+            off_t end_pos = it.end_offset();
+            replay_each_journal(journal, start_pos, end_pos);    
         }
 
         if(limit == journal_list.size()){
@@ -203,50 +202,48 @@ void JournalReplayer::replica_replay()
             usleep(200);
             continue;
         }
-    }    
+    }
 }
 
 void JournalReplayer::normal_replay()
 {
-    while (true){
-        shared_ptr<CEntry> entry = cache_proxy_ptr_->pop();
-        if(entry == nullptr){
-            usleep(200);
-            continue;
-        }
+    shared_ptr<CEntry> entry = cache_proxy_ptr_->pop();
+    if(entry == nullptr){
+        usleep(200);
+        return;
+    }
 
-        if (entry->get_cache_type() == CEntry::IN_MEM){
-            //replay from memory
-            LOG_INFO << "replay from memory";
-            bool succeed = process_memory(entry->get_journal_entry());
-            if (succeed){
-                update_consumer_marker(entry->get_journal_file(), 
-                                       entry->get_journal_off());
-                cache_proxy_ptr_->reclaim(entry);
-            }
-        } else {
-            //replay from journal file
-            LOG_INFO << "replay from journal file";
-            bool succeed = process_file(entry);
-            if (succeed){
-                update_consumer_marker(entry->get_journal_file(), 
-                                       entry->get_journal_off());
-                cache_proxy_ptr_->reclaim(entry);
-            }
+    if (entry->get_cache_type() == CEntry::IN_MEM){
+        //replay from memory
+        LOG_INFO << "replay from memory";
+        bool succeed = process_memory(entry->get_journal_entry());
+        if (succeed){
+            update_consumer_marker(entry->get_journal_file(), 
+                    entry->get_journal_off());
+            cache_proxy_ptr_->reclaim(entry);
+        }
+    } else {
+        //replay from journal file
+        LOG_INFO << "replay from journal file";
+        bool succeed = process_file(entry);
+        if (succeed){
+            update_consumer_marker(entry->get_journal_file(), 
+                    entry->get_journal_off());
+            cache_proxy_ptr_->reclaim(entry);
         }
     }
 }
 
+
+
 void JournalReplayer::replay_volume_loop()
 {
-    while (true){
-        if(!vol_status_.is_master_ && !vol_status_.is_failover_){
-            /*slave and no failover occur*/ 
-            replica_replay();
-        } else {
-            /*1. master 
-             *2. slave and failover occur*/
+    while (true)
+    {
+        if(vol_attr_.decide_replay_mode()){
             normal_replay();
+        } else {
+            replica_replay();
         }
     }
 }
@@ -297,7 +294,7 @@ bool JournalReplayer::handle_ctrl_cmd(shared_ptr<JournalEntry> entry)
         shead.set_replication_uuid(snap_message->replication_uuid());
         shead.set_checkpoint_uuid(snap_message->checkpoint_uuid());
         shead.set_scene((SnapScene)snap_message->snap_scene());
-        shead.set_snap_type(snap_message->snap_type());
+        shead.set_snap_type((SnapType)snap_message->snap_type());
         string snap_name = snap_message->snap_name();
         SnapScene scene  = (SnapScene)snap_message->snap_scene();
         

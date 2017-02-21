@@ -121,7 +121,7 @@ StatusCode SnapshotMds::create_snapshot(const CreateReq* req, CreateAck* ack)
     cur_snap_attr.replication_uuid = req->header().replication_uuid();
     cur_snap_attr.checkpoint_uuid  = req->header().checkpoint_uuid();
     cur_snap_attr.volume_uuid = vol_name;
-    cur_snap_attr.snap_type = (snap_type_t)req->header().snap_type();
+    cur_snap_attr.snap_type = (SnapType)req->header().snap_type();
     cur_snap_attr.snap_name = snap_name;
     cur_snap_attr.snap_status = SnapStatus::SNAP_CREATING;
 
@@ -404,7 +404,7 @@ string SnapshotMds::mapping_snap_name(const SnapReqHead& shead,
 {
     if(shead.replication_uuid().empty() && 
        shead.checkpoint_uuid().empty() &&
-       shead.snap_type() == LOCAL) {
+       shead.snap_type() == SnapType::SNAP_LOCAL) {
         /*local snapshot */
         return sname;
     }

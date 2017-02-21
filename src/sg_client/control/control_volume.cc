@@ -11,6 +11,7 @@
 
 #include <stdio.h>
 #include <fstream>
+#include <assert.h>
 #include <boost/format.hpp>
 #include <boost/tokenizer.hpp>
 #include "../common/config_parser.h"
@@ -183,11 +184,14 @@ bool VolumeControlImpl::remove_device(const std::string& device)
 {
     LOG_INFO<<"remove device "<<device;
     std::string cmd = "blockdev --flushbufs " + device;
-    system(cmd.c_str());
+    int ret = system(cmd.c_str());
+    assert(ret != -1);
 
     std::string path = "/sys/block/" + device.substr(5) + "/device/delete";
     cmd = "echo 1 | tee -a " + path;
-    system(cmd.c_str());
+    ret = system(cmd.c_str());
+    assert(ret != -1);
+
     return true;
 }
 
@@ -198,7 +202,8 @@ Status VolumeControlImpl::ListDevices(ServerContext* context,
     LOG_INFO<<"rescan devices";
     std::string cmd = "for f in /sys/class/scsi_host/host*/scan; \
             do echo '- - -' > $f; done";
-    system(cmd.c_str());
+    int iret = system(cmd.c_str());
+    assert(iret != -1);
 
     //cmd: list devices
     LOG_INFO<<"list devices";

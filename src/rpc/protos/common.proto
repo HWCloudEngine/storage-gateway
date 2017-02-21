@@ -20,6 +20,7 @@ enum StatusCode {
     sSnapTransactionError = 103;
     sSnapUpdateError = 104;
     sSnapMetaPersistError = 105;
+    sSnapCreateDenied = 106;
     
     // status for replicate
     sReplicationNotExist = 201;
