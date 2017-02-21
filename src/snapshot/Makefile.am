@@ -2,6 +2,7 @@ noinst_LTLIBRARIES=libsnapshot.la
 libsnapshot_la_SOURCES=../common/block_store.cc     \
                        ../common/index_store.cc     \
                        ../common/utils.cc \
+                       ../common/volume_attr.cc \
                        snapshot_proxy.cc  \
                        snapshot_util.cc   \
                        snapshot_mds.cc    \

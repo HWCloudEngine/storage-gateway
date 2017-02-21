@@ -5,6 +5,7 @@ ACLOCAL_AMFLAGS=-I m4
 sg_client_SOURCES=$(top_srcdir)/src/common/crc32.c  \
                   $(top_srcdir)/src/common/xxhash.c \
                   $(top_srcdir)/src/common/utils.cc \
+                  $(top_srcdir)/src/common/volume_attr.cc \
                   $(top_srcdir)/src/sg_server/ceph_s3_lease.cc \
                   $(top_srcdir)/src/sg_server/ceph_s3_api.cc   \
                   control/control_snapshot.cc  \

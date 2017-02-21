@@ -13,8 +13,13 @@
 
 #include <list>
 #include <string>
+#include <grpc++/grpc++.h>
+#include "../common.pb.h"
 #include "../volume_control.grpc.pb.h"
+#include "../volume_control.pb.h"
 
+
+using grpc::Channel;
 using grpc::Status;
 using grpc::ClientContext;
 using huawei::proto::RESULT;
@@ -22,6 +27,7 @@ using huawei::proto::StatusCode;
 using huawei::proto::VOLUME_STATUS;
 using huawei::proto::VolumeInfo;
 using huawei::proto::sInternalError;
+using huawei::proto::control::VolumeControl;
 using huawei::proto::control::ListDevicesReq;
 using huawei::proto::control::ListDevicesRes;
 using huawei::proto::control::EnableSGReq;
@@ -66,7 +72,7 @@ public:
         }
     }
 
-    StatusCode enable_sg(const std::string& volume_id, int size,
+    StatusCode enable_sg(const std::string& volume_id, size_t size,
             const std::string& device,
             std::map<std::string, std::string>& driver_data)
     {
@@ -76,7 +82,7 @@ public:
         req.set_device(device);
         ClientContext context;
         EnableSGRes res;
-
+    
         Status status = stub_->EnableSG(&context, req, &res);
         if (!status.ok())
         {
@@ -110,7 +116,7 @@ public:
         }
     }
 
-    StatusCode get_volume(const std::string& volume_id, VolumeInof& volume)
+    StatusCode get_volume(const std::string& volume_id, VolumeInfo& volume)
     {
         GetVolumeReq req;
         req.set_volume_id(volume_id);
@@ -156,7 +162,7 @@ public:
         }
     }
 private:
-    std::unique_ptr<huawei::proto::VolumeControl::Stub> stub_;
+    std::unique_ptr<huawei::proto::control::VolumeControl::Stub> stub_;
 };
 
 #endif /* VOLUME_CTRL_CLIENT_H_ */

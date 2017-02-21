@@ -22,7 +22,7 @@ Status BackupControlImpl::CreateBackup(ServerContext* context,
     string   vname = req->vol_name();
     uint64_t vsize = req->vol_size();
 
-    LOG_INFO << "RPC CreateBackup vname:" << vname;
+    LOG_INFO << "RPC CreateBackup vname:" << vname << "vsize:" << vsize;
     shared_ptr<BackupProxy> vol_backup_proxy = get_vol_backup_proxy(vname);
     assert(vol_backup_proxy != nullptr);
     

@@ -47,7 +47,7 @@ public:
 private:
     bool execute_cmd(const std::string& command, std::string& result);
 
-    bool create_volume(const std::string& volume_id, int size,
+    bool create_volume(const std::string& volume_id, size_t size,
             const std::string& device);
     std::string get_target_iqn(const std::string& volume_id);
     bool generate_config(const std::string& volume_id,

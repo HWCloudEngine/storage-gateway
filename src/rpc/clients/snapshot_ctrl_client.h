@@ -5,7 +5,6 @@
 #include <set>
 #include <vector>
 #include <grpc++/grpc++.h>
-#include "../log/log.h"
 #include "../snapshot.pb.h"
 #include "../snapshot_control.grpc.pb.h"
 
@@ -133,7 +132,6 @@ public:
          * machine which hold the block device, how to optimize*/
         grpc::Status status = m_ctrl_stub->ReadSnapshot(&context, req, &ack);
         if(!status.ok()){
-            LOG_ERROR << "read snapshot len:" << len << "failed status:" << status.error_code();
             return ack.header().status();
         }
         memcpy((char*)buf, ack.data().data(), len);

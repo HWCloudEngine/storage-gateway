@@ -6,6 +6,7 @@
 #include "control/control_backup.h"
 #include "control/control_replicate.h"
 #include "control/control_volume.h"
+#include "../common/volume_attr.h"
 
 using huawei::proto::VolumeInfo;
 using huawei::proto::StatusCode;
@@ -103,7 +104,7 @@ void VolumeManager::periodic_task()
         std::unique_lock<std::mutex> lk(mtx);
         for(auto iter : volumes){
             std::string vol_id = iter.first;
-            volume_ptr vol = iter.second;
+            auto vol = iter.second;
             JournalWriter& writer = vol->get_writer();
             if(!writer.get_writeable_journals(lease_uuid,journal_limit)){
                 LOG_ERROR << "get_writeable_journals failed,vol_id:" << vol_id;
@@ -154,17 +155,25 @@ void VolumeManager::read_req_body_cbt(raw_socket_t client_sock,
                               (const_cast<char*>(req_body_buffer));
     std::string vol_name = std::string(body_ptr->volume_name);
     std::string dev_path = std::string(body_ptr->device_path);
+    
+    LOG_INFO << "add volume:" << vol_name << " dev_path:" << dev_path;
 
     VolumeInfo volume_info;
     StatusCode ret = vol_inner_client_->get_volume(vol_name, volume_info);
     if (ret == StatusCode::sOk)
     {
+        LOG_INFO << "get volume:" << volume_info.vol_id() 
+                 << " dev_path:" << volume_info.path()
+                 << " vol_status:" << volume_info.vol_status()
+                 << " vol_size:" << volume_info.size();
+
+        VolumeAttr volume_attr(volume_info);
+
         /*create volume*/
-        shared_ptr<Volume> vol = make_shared<Volume>(client_sock, vol_name,
-                dev_path, conf, lease_client);
+        shared_ptr<Volume> vol = make_shared<Volume>(client_sock, volume_attr, conf, lease_client);
         /*add to map*/
         std::unique_lock<std::mutex> lk(mtx);
-        volumes.insert(std::pair<std::string,volume_ptr>(vol_name,vol));
+        volumes.insert({vol_name, vol});
 
         /*reply to tgt client*/
         send_reply(client_sock, req_head_buffer, req_body_buffer, true);
@@ -176,6 +185,7 @@ void VolumeManager::read_req_body_cbt(raw_socket_t client_sock,
     }
     else
     {
+        LOG_INFO << "get volume failed";
         /*reply to tgt client*/
         send_reply(client_sock, req_head_buffer, req_body_buffer, false);
     }
@@ -231,7 +241,7 @@ void VolumeManager::stop(std::string vol_id)
     std::unique_lock<std::mutex> lk(mtx);
     auto iter = volumes.find(vol_id);
     if (iter != volumes.end()){
-        volume_ptr vol = iter->second;
+        auto vol = iter->second;
         vol->fini();
         vol->stop();
         volumes.erase(vol_id);
@@ -242,7 +252,7 @@ void VolumeManager::stop_all()
 {
     std::unique_lock<std::mutex> lk(mtx);
     for(auto it : volumes){
-        volume_ptr vol = it.second;
+        auto vol = it.second;
         vol->fini();
         vol->stop();
     }

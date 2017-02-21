@@ -13,10 +13,12 @@
 #include "journal_replayer.h"
 #include "../common/config_parser.h"
 #include "../common/blocking_queue.h"
+#include "../common/volume_attr.h"
 #include "../sg_server/ceph_s3_lease.h"
 #include "../snapshot/snapshot_proxy.h"
 #include "../backup/backup_decorator.h"
 #include "../backup/backup_proxy.h"
+#include "../rpc/common.pb.h"
 
 #define BUFFER_POOL_SIZE 1024*1024*64
 #define REQUEST_BODY_SIZE 512
@@ -25,21 +27,11 @@ using namespace std;
 
 namespace Journal{
 
-/*todo: volume status should sync with dr server */
-class VolumeStatus
-{
-public:
-    atomic_bool is_master_{true};     /*true: master false: slave*/
-    atomic_bool is_failover_{false};   /*true: fail over occur*/
-    atomic_bool is_ro_{false};         /*true: read only*/
-    atomic_bool is_rw_{false};         /*true: read and wrtie*/
-};
-
 class Volume 
 {
 public:
     explicit Volume(raw_socket_t client_sock, 
-                    const string& vol_name, const string& dev_path,
+                    const VolumeAttr& vol_attr,
                     shared_ptr<ConfigParser> conf, 
                     shared_ptr<CephS3LeaseClient> lease_client);
 
@@ -63,10 +55,8 @@ private:
     mutable raw_socket_t raw_socket_;
     /*memory pool for receive io hook data from raw socket*/
     nedalloc::nedpool* buffer_pool_;
-
-    std::string vol_id_;
-    std::string vol_path_;
-    size_t      vol_size_;
+    
+    VolumeAttr vol_attr_;
 
     shared_ptr<ConfigParser> conf_;
     shared_ptr<CephS3LeaseClient> lease_client_;
@@ -88,9 +78,6 @@ private:
     /*backup relevant*/
     mutable shared_ptr<BackupProxy> backupproxy_;
     
-    /*todo: how to decide vol status, query from dr_server*/
-    VolumeStatus vol_status_;
-
     /*work thread*/ 
     shared_ptr<Connection>           connection_;    /*network receive and send*/
     shared_ptr<JournalPreProcessor>  pre_processor_; /*request merge and crc*/
@@ -98,8 +85,6 @@ private:
     shared_ptr<JournalReader>         reader_;        /*read io*/
     shared_ptr<JournalReplayer>       replayer_;      /*replay journal*/
 };
-
-typedef shared_ptr<Volume> volume_ptr;
 
 }
 

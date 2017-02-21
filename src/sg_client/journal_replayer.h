@@ -10,34 +10,36 @@
 
 #include <string>
 #include <boost/thread/thread.hpp>
-#include <boost/noncopyable.hpp>
 #include "seq_generator.h"
 #include "cache/cache_proxy.h"
 #include "cache/cache_recover.h"
 #include "journal_entry.h"
 #include "../rpc/clients/replayer_client.h"
+#include "../rpc/common.pb.h"
 #include "../rpc/message.pb.h"
 #include "../snapshot/snapshot_proxy.h"
 #include "../backup/backup_decorator.h"
+#include "../common/volume_attr.h"
 
 using google::protobuf::Message;
 using huawei::proto::WriteMessage;
+using huawei::proto::VolumeInfo;
 
 using namespace std;
 
 namespace Journal
 {
 
-class VolumeStatus;
-
-class JournalReplayer: private boost::noncopyable
+class JournalReplayer 
 {
 public:
-    explicit JournalReplayer(VolumeStatus& vol_status); 
+    explicit JournalReplayer(VolumeAttr& vol_attr); 
+    ~JournalReplayer(){}
 
-    bool init(const string& vol_id, 
-              const string& device,
-              const string& rpc_addr,
+    JournalReplayer(const JournalReplayer& r) = delete;
+    JournalReplayer& operator=(const JournalReplayer& r) = delete;
+
+    bool init(const string& rpc_addr,
               shared_ptr<IDGenerator> id_maker_ptr,
               shared_ptr<CacheProxy> cache_proxy_ptr,
               shared_ptr<SnapshotProxy> snapshot_proxy_ptr);
@@ -49,12 +51,14 @@ private:
     /*update marker thread work function*/
     void update_marker_loop();
     
-    /*replay only slave is replicating*/
+   /*replay only slave is replicating*/
     void replica_replay();
     /*replay both master and failover on slave*/
     void normal_replay();
 
-    bool replay_each_journal(const string& journal, const off_t& pos);
+    bool replay_each_journal(const string& journal, 
+                             const off_t& start_pos,
+                             const off_t& end_pos);
 
     bool handle_io_cmd(shared_ptr<JournalEntry> entry);
     bool handle_ctrl_cmd(shared_ptr<JournalEntry> entry);
@@ -67,17 +71,14 @@ private:
     bool process_file(shared_ptr<CEntry> entry);
 
     void update_consumer_marker(const string& journal, const off_t& off);
-    
-    /*volume id and block device path*/
-    string vol_id_;
-    string device_;
+
+private:
+    /*volume attr*/
+    VolumeAttr& vol_attr_;
 
     /*block device write fd*/ 
     int  vol_fd_;
     
-    /*volume status shared with Volume class*/
-    VolumeStatus& vol_status_;
-
     /*consumer marker*/
     std::mutex    journal_marker_mutex_;
     JournalMarker journal_marker_;
@@ -101,7 +102,6 @@ private:
     std::shared_ptr<SnapshotProxy> snapshot_proxy_ptr_;
     /*backup decorator*/
     std::shared_ptr<BackupDecorator> backup_decorator_ptr_;
-
 };
 
 }

@@ -91,6 +91,7 @@ Status VolInnerCtrl::GetVolume(ServerContext* context,
     const string& vol = request->vol_id();
     VolumeMeta meta;
     RESULT res = vmeta_->read_volume_meta(vol,meta);
+
     if(DRS_OK == res){
         response->mutable_info()->CopyFrom(meta.info());
         response->set_status(sOk);

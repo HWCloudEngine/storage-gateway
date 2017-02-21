@@ -53,6 +53,9 @@ StatusCode BackupDecorator::read_snapshot(const ReadSnapshotReq* req, ReadSnapsh
 StatusCode BackupDecorator::create_transaction(const SnapReqHead& shead, const string& snap_name) 
 {
     StatusCode ret = StatusCode::sOk;
+
+    LOG_INFO << "create_transaction begin";
+
     /*check snapshot status*/
     ret = m_snapshot_proxy->create_transaction(shead, snap_name);
     if(ret != StatusCode::sOk){
@@ -79,6 +82,7 @@ StatusCode BackupDecorator::create_transaction(const SnapReqHead& shead, const s
         LOG_INFO << "create transaction recycle fail backup";
     }
     
+    LOG_INFO << "create_transaction end";
     return ret;
 }
 

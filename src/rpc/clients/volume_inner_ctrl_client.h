@@ -76,14 +76,17 @@ public:
         GetVolumeRes response;
         request.set_vol_id(vol);
         grpc::Status status = stub_->GetVolume(&context,request,&response);
-        if(status.ok())
+        if(status.ok()){
+            info.CopyFrom(response.info()); 
             return response.status();
+        }
         else{
             LOG_ERROR << "get volume failed:" 
                 << status.error_message() << ",code:" << status.error_code();
             return sInternalError;
         }
     }
+
     StatusCode list_volume(std::list<VolumeInfo>& list){
         ClientContext context;
         ListVolumeReq request;
