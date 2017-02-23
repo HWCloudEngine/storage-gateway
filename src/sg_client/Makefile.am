@@ -7,8 +7,9 @@ sg_client_SOURCES=$(top_srcdir)/src/common/crc32.c  \
                   $(top_srcdir)/src/common/utils.cc \
                   $(top_srcdir)/src/common/volume_attr.cc   \
                   $(top_srcdir)/src/common/block_store.cc   \
-                  $(top_srcdir)/src/sg_server/ceph_s3_lease.cc \
-                  $(top_srcdir)/src/sg_server/ceph_s3_api.cc   \
+                  $(top_srcdir)/src/common/ceph_s3_lease.cc \
+                  $(top_srcdir)/src/common/ceph_s3_api.cc   \
+                  $(top_srcdir)/src/common/journal_entry.cc    \
                   control/control_snapshot.cc  \
                   control/control_backup.cc    \
                   control/control_replicate.cc \
@@ -24,7 +25,6 @@ sg_client_SOURCES=$(top_srcdir)/src/common/crc32.c  \
                   connection.cc       \
                   io_service_pool.cc  \
                   seq_generator.cc    \
-                  journal_entry.cc    \
                   journal_writer.cc   \
                   journal_replayer.cc \
                   journal_reader.cc   \

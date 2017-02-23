@@ -26,7 +26,7 @@
 #include "snapshot.h"
 #include "syncbarrier.h"
 #include "transaction.h"
-#include "sg_client/journal_entry.h"
+#include "common/journal_entry.h"
 
 using grpc::Channel;
 using grpc::ClientContext;

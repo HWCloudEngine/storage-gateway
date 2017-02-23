@@ -23,7 +23,7 @@ class RepVolume{
     std::shared_ptr<ReplicatorContext> replicator_;
     int base_sync_state_;
     VolumeMeta vol_meta_;
-    REP_STATUS old_rep_status_;
+    RepStatus last_rep_status_;
     std::atomic<bool> status_changed_;
     std::atomic<bool> task_generating_flag_;
     std::shared_ptr<VolumeMetaManager> vol_mgr_;

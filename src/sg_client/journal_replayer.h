@@ -13,7 +13,7 @@
 #include "seq_generator.h"
 #include "cache/cache_proxy.h"
 #include "cache/cache_recover.h"
-#include "journal_entry.h"
+#include "../common/journal_entry.h"
 #include "../rpc/clients/replayer_client.h"
 #include "../rpc/common.pb.h"
 #include "../rpc/message.pb.h"

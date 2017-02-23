@@ -15,9 +15,9 @@
 
 using huawei::proto::SnapshotMessage;
 using huawei::proto::SnapScene;
-using huawei::proto::VOLUME_STATUS;
-using huawei::proto::REP_STATUS;
-using huawei::proto::REP_ROLE;
+using huawei::proto::VolumeStatus;
+using huawei::proto::RepStatus;
+using huawei::proto::RepRole;
 
 using huawei::proto::inner::CreateReq;
 using huawei::proto::inner::CreateAck;
