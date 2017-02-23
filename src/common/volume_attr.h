@@ -3,7 +3,7 @@
 #include <string>
 #include "../rpc/common.pb.h"
 #include "../rpc/snapshot.pb.h"
-
+#include "../rpc/volume.pb.h"
 using namespace std;
 using huawei::proto::VolumeInfo;
 using huawei::proto::SnapType;
