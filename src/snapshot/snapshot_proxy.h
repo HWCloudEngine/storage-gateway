@@ -11,10 +11,11 @@
 #include <grpc++/grpc++.h>
 #include "../common/blocking_queue.h"
 #include "../log/log.h"
-#include "../sg_client/journal_entry.h"
+#include "../journal/journal_entry.h"
 #include "../rpc/common.pb.h"
 #include "../rpc/snapshot.pb.h"
 #include "../rpc/journal.pb.h"
+#include "../rpc/volume.pb.h"
 #include "../rpc/snapshot_control.pb.h"
 #include "../rpc/snapshot_control.grpc.pb.h"
 #include "../rpc/snapshot_inner_control.pb.h"

@@ -16,7 +16,7 @@
 #define MEMALIGNED(v)
 #endif
 
-#include "journal_type.h"
+#include "../journal/journal_type.h"
 #include "../rpc/message.pb.h"
 
 using huawei::proto::WriteMessage;

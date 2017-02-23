@@ -1,8 +1,8 @@
 #include "../log/log.h"
 #include "volume_attr.h"
-using huawei::proto::REP_STATUS;
-using huawei::proto::REP_ROLE;
-using huawei::proto::VOLUME_STATUS;
+using huawei::proto::RepStatus;
+using huawei::proto::RepRole;
+using huawei::proto::VolumeStatus;
 
 VolumeAttr::VolumeAttr(const VolumeInfo& vol_info)
 {
@@ -37,20 +37,20 @@ string VolumeAttr::blk_device() const
 bool VolumeAttr::is_snapshot_allowable(const SnapType& snap_type)
 {
     /*todo: maybe sgclient should take volume in-use status*/
-    if(m_vol_info.vol_status() != VOLUME_STATUS::VOL_AVAILABLE){
+    if(m_vol_info.vol_status() != VolumeStatus::VOL_AVAILABLE){
         /*volume not already available, can not create snapshot*/
         return false; 
     }
     
-    if(m_vol_info.rep_status() == REP_STATUS::REP_ENABLED){
-        if(m_vol_info.role() == REP_ROLE::REP_SECONDARY && 
+    if(m_vol_info.rep_status() == RepStatus::REP_ENABLED){
+        if(m_vol_info.role() == RepRole::REP_SECONDARY && 
            snap_type == SnapType::SNAP_LOCAL){
             /*replication enable, volume is slave, cann't create local snapshot*/
             return false; 
         }
     }
 
-    if(m_vol_info.rep_status() != REP_STATUS::REP_ENABLED){
+    if(m_vol_info.rep_status() != RepStatus::REP_ENABLED){
         if(snap_type == SnapType::SNAP_REMOTE){
             /*replication disable, remote snapshot no support*/
             return false; 
@@ -63,8 +63,8 @@ bool VolumeAttr::is_snapshot_allowable(const SnapType& snap_type)
 
 bool VolumeAttr::is_append_entry_need(const SnapType& snap_type)
 {
-    if(m_vol_info.rep_status() == REP_STATUS::REP_ENABLED){
-        if(m_vol_info.role() == REP_ROLE::REP_SECONDARY && 
+    if(m_vol_info.rep_status() == RepStatus::REP_ENABLED){
+        if(m_vol_info.role() == RepRole::REP_SECONDARY && 
            snap_type == SnapType::SNAP_REMOTE){
             /*replication enable, volume is slave, create remote snapshot*/
             return false; 
@@ -82,16 +82,16 @@ int VolumeAttr::current_replay_mode()
         return NORMAL_REPLAY_MODE;
     }
     
-    if(m_vol_info.role() == REP_ROLE::REP_PRIMARY && 
-       (m_vol_info.rep_status() != REP_STATUS::REP_FAILED_OVER || 
-        m_vol_info.rep_status() != REP_STATUS::REP_FAILING_OVER)){
+    if(m_vol_info.role() == RepRole::REP_PRIMARY && 
+       (m_vol_info.rep_status() != RepStatus::REP_FAILED_OVER || 
+        m_vol_info.rep_status() != RepStatus::REP_FAILING_OVER)){
         /*cur volume is primary, no failover occur on cur volume*/ 
         return NORMAL_REPLAY_MODE;
     }
 
-    if(m_vol_info.role() == REP_ROLE::REP_SECONDARY && 
-       (m_vol_info.rep_status() == REP_STATUS::REP_FAILED_OVER || 
-        m_vol_info.rep_status() == REP_STATUS::REP_FAILING_OVER)){
+    if(m_vol_info.role() == RepRole::REP_SECONDARY && 
+       (m_vol_info.rep_status() == RepStatus::REP_FAILED_OVER || 
+        m_vol_info.rep_status() == RepStatus::REP_FAILING_OVER)){
         /*cur volume is secondary, failover occur on cur volume*/ 
         return NORMAL_REPLAY_MODE;
     }
@@ -106,8 +106,8 @@ bool VolumeAttr::is_failover_occur()
      * master crash: master can't get failover command, may be add manual work
      * plan migration: master can get failover command
      */
-    if(m_vol_info.role() == REP_ROLE::REP_SECONDARY && 
-       m_vol_info.rep_status() == REP_STATUS::REP_FAILED_OVER){
+    if(m_vol_info.role() == RepRole::REP_SECONDARY && 
+       m_vol_info.rep_status() == RepStatus::REP_FAILED_OVER){
         return true;
     }
     return false;

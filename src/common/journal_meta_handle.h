@@ -12,7 +12,7 @@
 #define JOURNAL_META_HANDLE_H_
 #include "rpc/common.pb.h"
 #include "rpc/journal.pb.h"
-#include "sg_server/ceph_s3_api.h"
+#include "common/ceph_s3_api.h"
 #include "common/config_parser.h"
 #include "log/log.h"
 #include <string>

@@ -11,7 +11,7 @@
 #include <boost/array.hpp>
 #include "../common/blocking_queue.h"
 #include "message.h"
-#include "journal_entry.h"
+#include "../journal/journal_entry.h"
 #include "nedmalloc.h"
 #include "seq_generator.h"
 #include "cache/cache_proxy.h"
