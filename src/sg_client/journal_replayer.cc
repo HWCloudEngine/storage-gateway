@@ -23,8 +23,8 @@ using huawei::proto::SnapshotMessage;
 using huawei::proto::DiskPos;
 using huawei::proto::SnapScene;
 using huawei::proto::SnapType;
-using huawei::proto::REP_STATUS;
-using huawei::proto::REP_ROLE;
+using huawei::proto::RepStatus;
+using huawei::proto::RepRole;
 
 using namespace std;
 

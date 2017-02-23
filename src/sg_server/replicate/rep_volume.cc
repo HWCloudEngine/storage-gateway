@@ -94,7 +94,7 @@ int RepVolume::load_volume_meta(){
     VolumeMeta meta;
     RESULT res = vol_mgr_->read_volume_meta(vol_id_,meta);
     DR_ASSERT(DRS_OK == res);
-    old_rep_status_ = meta.info().rep_status();
+    last_rep_status_ = meta.info().rep_status();
     vol_meta_.CopyFrom(meta);
     return 0;
 }
