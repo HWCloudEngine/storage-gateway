@@ -53,7 +53,10 @@ public:
     /*persist the JournalEntry into journal file*/
     size_t persist(int fd, off_t off);
     size_t persist(FILE* file, off_t off);
-    
+
+    /*copy serialized entry to data buffer*/
+    size_t copy_entry(char* buffer,const size_t& buf_len);
+
     /*read from journal file and parse into JournalEnry*/
     size_t parse(int fd, off_t off);
     size_t parse(FILE* file, off_t off);

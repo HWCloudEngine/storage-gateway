@@ -16,6 +16,7 @@
 #include <functional>
 #include "rpc/journal.pb.h"
 #include "rpc/common.pb.h"
+#include "rpc/volume.pb.h"
 #define DESPATCH_THREAD_CNT 2
 #define MAX_TASK_PER_VOL 10
 
@@ -28,7 +29,7 @@ using huawei::proto::OPENED;
 using huawei::proto::SEALED;
 using google::protobuf::int64;
 //replication operation
-using huawei::proto::REPLICATION_OPERATION;
+using huawei::proto::ReplicateOperation;
 using huawei::proto::REPLICATION_CREATE;
 using huawei::proto::REPLICATION_ENABLE;
 using huawei::proto::REPLICATION_DISABLE;
@@ -39,7 +40,7 @@ using huawei::proto::REPLICATION_DELETE;
 using huawei::proto::REPLICATION_TEST;
 using huawei::proto::REPLICATION_LIST;
 // define replication status
-using huawei::proto::REP_STATUS;
+using huawei::proto::RepStatus;
 using huawei::proto::REP_UNKNOW;
 using huawei::proto::REP_CREATING;
 using huawei::proto::REP_ENABLING;

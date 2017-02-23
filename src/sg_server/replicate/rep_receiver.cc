@@ -34,6 +34,7 @@ RepReceiver::RepReceiver(std::shared_ptr<CephS3Meta> meta,
     uuid_.append("dr_uuid");// TODO:
 }
 
+// TODO: reject sync io&marker if it's primary, or secondary with rep status  failedover rep status
 Status RepReceiver::transfer(ServerContext* context, 
         ServerReaderWriter<TransferResponse,TransferRequest>* stream){
     static int g_stream_id = 0;

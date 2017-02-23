@@ -64,7 +64,7 @@ bool VolumeControlImpl::delete_volume(const std::string& volume_id)
 }
 
 bool VolumeControlImpl::update_volume_status(const std::string& volume_id,
-        const VOLUME_STATUS& status)
+        const VolumeStatus& status)
 {
     StatusCode ret = vol_inner_client_->update_volume_status(volume_id, status);
     if (ret == StatusCode::sOk)

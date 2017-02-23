@@ -64,7 +64,7 @@ private:
     bool delete_volume(const std::string& volume_id);
 
     bool update_volume_status(const std::string& volume_id,
-            const VOLUME_STATUS& status);
+            const huawei::proto::VolumeStatus& status);
 
     std::shared_ptr<VolInnerCtrlClient> vol_inner_client_;
     std::string host_;

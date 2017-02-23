@@ -25,7 +25,7 @@ ReplicateCtrl::ReplicateCtrl(SnapshotControlImpl* snap_ctrl):
     string svr_ip = parser->get_default("meta_server.ip",default_ip);
     int svr_port = parser->get_default("meta_server.port",50051);
     svr_ip += ":" + std::to_string(svr_port);
-    rep_ctrl_client_.reset(new ReplicateCtrlClient(grpc::CreateChannel(svr_ip,
+    rep_ctrl_client_.reset(new RepInnerCtrlClient(grpc::CreateChannel(svr_ip,
                 grpc::InsecureChannelCredentials())));
     parser.reset();
 }
@@ -38,7 +38,7 @@ Status ReplicateCtrl::CreateReplication(ServerContext* context,
     const string& rep_id = request->rep_uuid();
     const string& local_vol = request->local_volume();
     const string& operate_id = request->operate_id();
-    const REP_ROLE& role = request->role();
+    const RepRole& role = request->role();
     LOG_INFO << "create replication:\n"
         << "local volume:" << local_vol << "\n"
         << "replication uuid:" << rep_id << "\n"
@@ -63,7 +63,7 @@ Status ReplicateCtrl::EnableReplication(ServerContext* context,
         ReplicationCommonRes* response){
     const string& local_vol = request->vol_id();
     const string& operate_id = request->operate_id();
-    const REP_ROLE& role = request->role();
+    const RepRole& role = request->role();
     JournalMarker marker;
     // TODO: create snapshot
     StatusCode res = rep_ctrl_client_->enable_replication(operate_id,
@@ -80,7 +80,7 @@ Status ReplicateCtrl::DisableReplication(ServerContext* context,
         ReplicationCommonRes* response){
     const string& local_vol = request->vol_id();
     const string& operate_id = request->operate_id();
-    const REP_ROLE& role = request->role();
+    const RepRole& role = request->role();
     JournalMarker marker;
     // TODO: create snapshot
     StatusCode res = rep_ctrl_client_->disable_replication(operate_id,
@@ -97,7 +97,7 @@ Status ReplicateCtrl::FailoverReplication(ServerContext* context,
         ReplicationCommonRes* response){
     const string& local_vol = request->vol_id();
     const string& operate_id = request->operate_id();
-    const REP_ROLE& role = request->role();
+    const RepRole& role = request->role();
     JournalMarker marker;
     // TODO:get sync ending postion
     StatusCode res = rep_ctrl_client_->failover_replication(operate_id,
@@ -122,7 +122,7 @@ Status ReplicateCtrl::DeleteReplication(ServerContext* context,
         ReplicationCommonRes* response){
     const string& local_vol = request->vol_id();
     const string& operate_id = request->operate_id();
-    const REP_ROLE& role = request->role();
+    const RepRole& role = request->role();
     StatusCode res = rep_ctrl_client_->delete_replication(operate_id,
         local_vol,role);
     if(res){

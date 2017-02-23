@@ -48,7 +48,7 @@ public:
     ReplicateCtrl(SnapshotControlImpl* snap_ctrl_);
     ~ReplicateCtrl();
 private:
-    std::unique_ptr<ReplicateCtrlClient> rep_ctrl_client_;
+    std::unique_ptr<RepInnerCtrlClient> rep_ctrl_client_;
     SnapshotControlImpl* snap_ctrl_;
 };
 

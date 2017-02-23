@@ -19,7 +19,7 @@ using grpc::Status;
 using grpc::ClientContext;
 using huawei::proto::RESULT;
 using huawei::proto::StatusCode;
-using huawei::proto::VOLUME_STATUS;
+using huawei::proto::VolumeStatus;
 using huawei::proto::VolumeInfo;
 using huawei::proto::sInternalError;
 using huawei::proto::control::ListDevicesReq;
