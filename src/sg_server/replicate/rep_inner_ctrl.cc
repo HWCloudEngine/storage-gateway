@@ -250,6 +250,7 @@ Status RepInnerCtrl::ReportCheckpoint(ServerContext* context,
         << "operation uuid:" << op_id << "\n"
         << "role:" << role;
 
+    // TODO: use checkpoint machanism as remote snapshot to sync destination replication status
     VolumeMeta meta;
     RESULT res = meta_->read_volume_meta(local_vol,meta);
     DR_ASSERT(DRS_OK == res);

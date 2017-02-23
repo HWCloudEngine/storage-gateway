@@ -81,19 +81,7 @@ static RESULT mkdir_if_not_exist(const char *path, mode_t mode)
 
     return(status);
 }
-static RESULT create_journal_file(const string& name) {
-    string path = name.substr(0,name.find_last_of('/'));
-    //make dir with previlege:read, write, execute/search by group,owner and other
-    if(DRS_OK != mkdir_if_not_exist(path.c_str(),S_IRWXG|S_IRWXU|S_IRWXO))
-        return INTERNAL_ERROR;
-    FILE* file = fopen(name.c_str(), "ab+");
-    if(nullptr != file){
-        fclose(file);
-        return DRS_OK;
-    }
-    LOG_ERROR << "create journal file " << name << " failed:" << strerror(errno);
-    return INTERNAL_ERROR;
-}
+
 RESULT delete_journal_file(const string& name) {
     int res = remove(name.c_str());
     if(0 == res || ENOENT == errno) // file deleted or not exist
@@ -121,6 +109,26 @@ string construct_write_open_index(const string& m_key,
 }
 string construct_volume_meta_key(const string& uuid){
     return g_volume_prefix + uuid;
+}
+
+RESULT CephS3Meta::create_journal_file(const string& name) {
+    string path = name.substr(0,name.find_last_of('/'));
+    //make dir with previlege:read, write, execute/search by group,owner and other
+    if(DRS_OK != mkdir_if_not_exist(path.c_str(),S_IRWXG|S_IRWXU|S_IRWXO))
+        return INTERNAL_ERROR;
+    FILE* file = fopen(name.c_str(), "ab+");
+    if(nullptr != file){ // TODO:create sparse file
+//        fseek(file,max_journal_size_-1,SEEK_SET);
+//        fputc('\0',file);
+        char buf[1024] = {'\0'};
+        for(int i=0;i<max_journal_size_/1024; i++){
+            fwrite(buf,1,sizeof(buf),file);
+        }
+        fclose(file);
+        return DRS_OK;
+    }
+    LOG_ERROR << "create journal file " << name << " failed:" << strerror(errno);
+    return INTERNAL_ERROR;
 }
 
 bool CephS3Meta::_get_journal_meta(const string& key, JournalMeta& meta){
