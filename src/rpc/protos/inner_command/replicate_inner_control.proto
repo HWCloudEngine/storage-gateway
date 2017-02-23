@@ -23,37 +23,37 @@ message CreateReplicationInnerReq{
     string rep_uuid = 2; // replciation unique id
     string local_volume = 3;
     repeated string peer_volumes = 4;
-    REP_ROLE role = 5;
+    RepRole role = 5;
     JournalMarker marker = 6; //optional,position of control snapshot entry in journal
 }
 message EnableReplicationInnerReq{
     string operate_id = 1; // require, unique operation uuid,used both for snap uuid?
     string vol_id = 2; // retrieve the replication via volume id
-    REP_ROLE role = 3;
+    RepRole role = 3;
     JournalMarker marker = 4; //position of control snapshot entry in journal
 }
 message DisableReplicationInnerReq{
     string operate_id = 1; // require, operation uuid,used both for snap uuid?
     string vol_id = 2;
-    REP_ROLE role = 3;
+    RepRole role = 3;
     JournalMarker marker = 4; //position of control snapshot entry in journal
 }
 message FailoverReplicationInnerReq{
     string operate_id = 1; // require, operation uuid,used both for snap uuid?
     string vol_id = 2; // retrieve the replication via uuid
-    REP_ROLE role = 3;
+    RepRole role = 3;
     JournalMarker marker = 4; //required for primary,ending position of replication
 }
 message ReverseReplicationInnerReq{
     string operate_id = 1; // require, unique uuid
     string vol_id = 2; // retrieve the replication via uuid
-    REP_ROLE role = 3;
+    RepRole role = 3;
     JournalMarker marker = 4; //position of control request entry in journal
 }
 message DeleteReplicationInnerReq{
     string operate_id = 1; // require, unique uuid
     string vol_id = 2; // retrieve the replication via uuid
-    REP_ROLE role = 3;
+    RepRole role = 3;
 }
 message ReplicationInnerCommonRes{
     StatusCode status = 1;
@@ -61,9 +61,9 @@ message ReplicationInnerCommonRes{
 message ReportCheckpointReq{
     string operate_id = 1;
     string vol_id = 2;
-    REP_ROLE role = 3;
+    RepRole role = 3;
 }
 message ReportCheckpointRes{
     StatusCode status = 1;
-    bool drop_snap = 2;
+    bool discard_snap = 2;
 }

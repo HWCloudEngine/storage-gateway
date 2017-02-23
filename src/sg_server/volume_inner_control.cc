@@ -19,7 +19,7 @@ using huawei::proto::RESULT;
 using huawei::proto::DRS_OK;
 using huawei::proto::VolumeMeta;
 using huawei::proto::VolumeInfo;
-using huawei::proto::VOLUME_STATUS;
+using huawei::proto::VolumeStatus;
 using huawei::proto::REPLAYER;
 using huawei::proto::REPLICATOR;
 using huawei::proto::sOk;
@@ -35,7 +35,7 @@ Status VolInnerCtrl::CreateVolume(ServerContext* context,
     const string& vol = request->vol_id();
     const string& path = request->path();
     const uint64_t size = request->size();
-    const VOLUME_STATUS& status = request->status();
+    const VolumeStatus& status = request->status();
     VolumeMeta meta;
     VolumeInfo* info = meta.mutable_info();
     info->set_vol_id(vol);

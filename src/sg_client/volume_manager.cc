@@ -34,6 +34,10 @@ VolumeManager::~VolumeManager()
     if(vol_ctrl){
         delete vol_ctrl;
     }
+
+    if(rep_ctrl){
+        delete rep_ctrl;
+    }
 }
 
 bool VolumeManager::init()
