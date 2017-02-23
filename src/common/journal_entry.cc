@@ -184,6 +184,15 @@ size_t JournalEntry::persist(FILE* file, off_t off)
     return buf_len;
 }
 
+size_t JournalEntry::copy_entry(string& buffer){
+    buffer.append((char*)&type, sizeof(type));
+    buffer.append((char*)&length, sizeof(length));
+    buffer.append((char*)message_serialized_data.c_str(), length);
+    buffer.append((char*)&crc, sizeof(crc));
+    size_t size = sizeof(type) + sizeof(length) + length + sizeof(crc);
+    return size;
+}
+
 size_t JournalEntry::parse(int fd, off_t off)
 {
     off_t start = off;

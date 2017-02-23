@@ -6,7 +6,7 @@
 #include <memory>
 #include <boost/thread/shared_mutex.hpp>
 #include "../nedmalloc.h"
-#include "../journal_entry.h"
+#include "../../common/journal_entry.h"
 #include "../seq_generator.h"
 
 using namespace std;

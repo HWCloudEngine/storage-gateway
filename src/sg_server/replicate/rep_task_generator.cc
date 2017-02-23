@@ -10,7 +10,7 @@
 ************************************************/
 #include "rep_task_generator.h"
 TaskGenerator::TaskGenerator(BlockingQueue<std::shared_ptr<RepVolume>>& in,
-        std::shared_ptr<BlockingQueue<std::shared_ptr<RepTask>>> out):
+        std::shared_ptr<BlockingQueue<std::shared_ptr<TransferTask>>> out):
         running_(true),
         vol_queue_(in),
         task_queue_(out),
@@ -30,8 +30,8 @@ void TaskGenerator::work(){
     while(running_){
         std::shared_ptr<RepVolume> rep_vol = vol_queue_.pop();
         rep_vol->set_task_generating_flag(true);
-        while(true){
-            std::shared_ptr<RepTask> task = rep_vol->get_next_task();
+        while(true){ // try to transfer all written journals of this volume
+            std::shared_ptr<TransferTask> task = rep_vol->get_next_task();
             if(task == nullptr)
                 break;
             task_queue_->push(task);

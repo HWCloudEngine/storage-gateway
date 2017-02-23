@@ -15,9 +15,9 @@
 
 using huawei::proto::SnapshotMessage;
 using huawei::proto::SnapScene;
-using huawei::proto::VOLUME_STATUS;
-using huawei::proto::REP_STATUS;
-using huawei::proto::REP_ROLE;
+using huawei::proto::VolumeStatus;
+using huawei::proto::RepStatus;
+using huawei::proto::RepRole;
 
 using huawei::proto::inner::CreateReq;
 using huawei::proto::inner::CreateAck;
@@ -155,7 +155,13 @@ bool SnapshotProxy::check_sync_on(const string& actor)
 }
 
 StatusCode SnapshotProxy::create_snapshot(const CreateSnapshotReq* req, 
-                                          CreateSnapshotAck* ack)
+                                CreateSnapshotAck* ack){
+    JournalMarker m;
+    return create_snapshot(req,ack,m);
+}
+
+StatusCode SnapshotProxy::create_snapshot(const CreateSnapshotReq* req, 
+                                CreateSnapshotAck* ack,JournalMarker& marker)
 {
     /*get from exterior rpc*/
     string vname = req->vol_name();
@@ -181,6 +187,7 @@ StatusCode SnapshotProxy::create_snapshot(const CreateSnapshotReq* req,
         /*todo: wait journal writer persist journal entry ok and ack*/
         cmd_persist_wait();
 
+        marker.CopyFrom(m_cmd_persist_mark);
         LOG_INFO << "create_snapshot vname:" << vname << " sname:" << sname
             << " journal:" << m_cmd_persist_mark.cur_journal() 
             << " pos:" << m_cmd_persist_mark.pos();
