@@ -19,6 +19,7 @@ $PROTOC -I ${PROTO_PATH} \
         ${PROTO_PATH}/snapshot.proto \
         ${PROTO_PATH}/backup.proto \
         ${PROTO_PATH}/volume.proto \
+        ${PROTO_PATH}/replicate.proto \
         ${PROTO_PATH}/journal/journal.proto \
         ${PROTO_PATH}/journal/message.proto \
         ${PROTO_PATH}/journal/writer.proto \

@@ -184,17 +184,12 @@ size_t JournalEntry::persist(FILE* file, off_t off)
     return buf_len;
 }
 
-size_t JournalEntry::copy_entry(char* buffer,const size_t& buf_len){
+size_t JournalEntry::copy_entry(string& buffer){
+    buffer.append((char*)&type, sizeof(type));
+    buffer.append((char*)&length, sizeof(length));
+    buffer.append((char*)message_serialized_data.c_str(), length);
+    buffer.append((char*)&crc, sizeof(crc));
     size_t size = sizeof(type) + sizeof(length) + length + sizeof(crc);
-    assert(size <= buf_len);
-    char*  write_buf = buffer;    
-    memcpy(write_buf, (char*)&type, sizeof(type));
-    write_buf += sizeof(type);
-    memcpy(write_buf, (char*)&length, sizeof(length));
-    write_buf += sizeof(length);
-    memcpy(write_buf, (char*)message_serialized_data.c_str(), length);
-    write_buf += length;
-    memcpy(write_buf, (char*)&crc, sizeof(crc));
     return size;
 }
 

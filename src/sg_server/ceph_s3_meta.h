@@ -51,6 +51,7 @@ private:
     bool get_marker(const string& vol_id,
         const CONSUMER_TYPE& type, JournalMarker& marker,bool is_consumer);
     RESULT init();
+    RESULT create_journal_file(const string& name);
     // default get function for LruCaches
     bool _get_journal_meta(const string& key, JournalMeta& meta);
     bool _get_replayer_producer_marker(const string& key,

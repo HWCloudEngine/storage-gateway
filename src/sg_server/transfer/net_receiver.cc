@@ -14,6 +14,7 @@
 #include "common/config_parser.h"
 #include "common/journal_meta_handle.h"
 #include "sg_server/sg_util.h"
+#include "common/crc32.h"
 using grpc::Server;
 using grpc::ServerBuilder;
 using grpc::Status;
@@ -139,15 +140,25 @@ bool NetReceiver::hanlde_replicate_data_req(const TransferRequest& req,
         data_msg.journal_counter(),js_map);
     if(of == nullptr){
         LOG_INFO << "journal file not found, create it:"
-            << data_msg.vol_id() << data_msg.journal_counter();
-        ret = create_journal(data_msg.vol_id(), data_msg.journal_counter(),js_map);
-        if(ret != true)
+            << data_msg.vol_id() << ":" << data_msg.journal_counter();
+        of = create_journal(data_msg.vol_id(), data_msg.journal_counter());
+        if(of == nullptr){
+            LOG_ERROR << "create journal " << data_msg.vol_id()
+                << ":" << data_msg.journal_counter() << " failed!";
             return ret;
-        of = get_fstream(data_msg.vol_id(), data_msg.journal_counter(),js_map);
-        DR_ASSERT(of != nullptr);
+        }
+        // inset journal file to map
+        const Jkey jkey(data_msg.vol_id(), data_msg.journal_counter());
+        js_map.insert(std::pair<const Jkey,std::shared_ptr<std::ofstream>>(jkey,of));
     }
     of->seekp(data_msg.offset());
     if(data_msg.data().length() > 0){
+        uint32_t crc = crc32c(data_msg.data().c_str(),data_msg.data().length(),0);
+        LOG_DEBUG << "j_counter[" << data_msg.journal_counter()
+            << "] receive data, len:" << data_msg.data().length()
+            << ",offset:" << data_msg.offset() << ",crc:"
+            << crc;
+
         of->write(data_msg.data().c_str(),data_msg.data().length());
         DR_ASSERT(of->fail()==0 && of->bad()==0);
     }
@@ -162,11 +173,22 @@ bool NetReceiver::handle_replicate_start_req(const TransferRequest& req,
     bool ret = msg.ParseFromString(req.data());
     DR_ASSERT(ret == true);
     // create journal
-    return create_journal(msg.vol_id(),msg.journal_counter(),js_map);
+    std::shared_ptr<std::ofstream> of_p =
+            create_journal(msg.vol_id(),msg.journal_counter());
+    if(of_p == nullptr){
+        LOG_ERROR << "create journal " << msg.vol_id()
+            << ":" << msg.journal_counter() << " failed!";
+        return false;
+    }
+    // inset journal file to map
+    const Jkey jkey(msg.vol_id(),msg.journal_counter());
+    js_map.insert(std::pair<const Jkey,std::shared_ptr<std::ofstream>>(jkey,of_p));
+    return true;
 }
 
-bool NetReceiver::create_journal(const string& vol_id,const int64_t& counter,
-        std::map<const Jkey,std::shared_ptr<std::ofstream>>& js_map){
+std::shared_ptr<std::ofstream> NetReceiver::create_journal(
+            const string& vol_id,const int64_t& counter){
+    // create journal key&file 
     string key = sg_util::construct_journal_key(vol_id,counter);
     std::list<string> keys;
     keys.push_back(key);
@@ -174,7 +196,7 @@ bool NetReceiver::create_journal(const string& vol_id,const int64_t& counter,
         vol_id.c_str(),keys);
     if(res != DRS_OK){
         LOG_ERROR << "create_journals error!";
-        return false;
+        return nullptr;
     }
 
     // get journal file path
@@ -182,7 +204,7 @@ bool NetReceiver::create_journal(const string& vol_id,const int64_t& counter,
     res = meta_->get_journal_meta(key, meta);
     if(res != DRS_OK){
         LOG_ERROR << "get journal meta error!";
-        return false;
+        return nullptr;
     }
     string path = mount_path_ + meta.path();
     // open journal file
@@ -190,22 +212,14 @@ bool NetReceiver::create_journal(const string& vol_id,const int64_t& counter,
         new std::ofstream(path.c_str(),std::ofstream::binary|std::ofstream::in));
     if(!of_p->is_open()){
         LOG_ERROR << "open journal file filed:" << path << ",key:" << keys.front();
-        return false;
+        return nullptr;
     }
 
-    // inset journal file to map
-    const Jkey jkey(vol_id,counter);
-    js_map.insert(std::pair<const Jkey,std::shared_ptr<std::ofstream>>(jkey,of_p));
-    std::chrono::system_clock::duration dtn = std::chrono::system_clock::now().time_since_epoch();
-    LOG_DEBUG << std::chrono::duration_cast<std::chrono::seconds>(dtn).count()
-        << ":start task " 
-        << vol_id << ":" << counter << std::endl;
-    return true;
+    return of_p;
 }
 
 bool NetReceiver::handle_replicate_end_req(const TransferRequest& req,
         std::map<const Jkey,std::shared_ptr<std::ofstream>>& js_map){
-     // TODO:seal journals within indipendent thread
 
     // deserialize message from TransferRequest
     ReplicateEndReq msg;
@@ -215,18 +229,20 @@ bool NetReceiver::handle_replicate_end_req(const TransferRequest& req,
     // close & fflush journal files and seal the journal
     std::shared_ptr<std::ofstream> of = get_fstream(msg.vol_id(),
         msg.journal_counter(),js_map);
+    if(of == nullptr){
+        LOG_ERROR << "file[" << msg.vol_id() << ":"
+            << msg.journal_counter() <<" not found!";
+        return false;
+    }
+
     if(of->is_open()){
         of->close();
     }
     // remove journal ofstream
     const Jkey jkey(msg.vol_id(),msg.journal_counter());
     js_map.erase(jkey);
-    std::chrono::system_clock::duration dtn = std::chrono::system_clock::now().time_since_epoch();
-    LOG_DEBUG << std::chrono::duration_cast<std::chrono::seconds>(dtn).count()
-        << ":end task " 
-        << msg.vol_id() << ":" << msg.journal_counter();
 
-    // journal is opened, do not seal
+    // source journal is opened, do not seal
     if(msg.is_open()){
         return true;
     }

@@ -56,8 +56,8 @@ private:
     bool handle_replicate_end_req(const TransferRequest& req,
             std::map<const Jkey,std::shared_ptr<std::ofstream>>& js_map);
     bool handle_replicate_marker_req(const TransferRequest& req);
-    bool create_journal(const string& vol_id,const int64_t& counter,
-            std::map<const Jkey,std::shared_ptr<std::ofstream>>& js_map);
+    std::shared_ptr<std::ofstream>  create_journal(
+            const string& vol_id,const int64_t& counter);
     std::shared_ptr<std::ofstream> get_fstream(const string& vol,
             const int64& counter,
             const std::map<const Jkey,std::shared_ptr<std::ofstream>>& js_map);

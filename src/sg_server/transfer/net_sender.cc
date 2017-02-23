@@ -51,6 +51,8 @@ bool NetSender::wait_for_state_change(const ClientState& state,
 }
 
 grpc_stream_ptr NetSender::create_stream(ClientContext* ctx){
+    if(get_state(false) != CLIENT_READY)
+        return nullptr;
     return stub_->transfer(ctx);// grpc stream should be created in work thread
 }
 

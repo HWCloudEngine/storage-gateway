@@ -53,43 +53,5 @@ using huawei::proto::REP_REVERSING;
 using huawei::proto::REP_DELETING;
 using huawei::proto::REP_DELETED;
 using huawei::proto::REP_ERROR;
-typedef enum TASK_STATUS{
-    T_UNKNOWN,
-    T_WAITING,
-    T_RUNNING,
-    T_DONE,
-    T_ERROR
-}TASK_STATUS;
 
-typedef struct JournalInfo{
-    JournalInfo():
-        key(""),path(""),is_opened(true),
-        pos(0),end(0){}
-    ~JournalInfo(){}
-    JournalInfo& operator=(JournalInfo const& info){
-        key = info.key;
-        path = info.path;
-        is_opened = info.is_opened;
-        pos = info.pos;
-        end = info.end;
-    }
-
-    std::string key;
-    std::string path;
-    bool is_opened;
-    int pos;
-    int end;
-}JournalInfo;
-
-typedef struct RepTask{
-    bool operator<(RepTask const& task2){
-        return id < task2.id;
-    }
-    uint64_t id;
-    std::string vol_id;
-    JournalInfo info;
-    TASK_STATUS status;
-    uint64_t tp;
-    std::function<void(std::shared_ptr<RepTask>&)> callback;
-}RepTask;
 #endif

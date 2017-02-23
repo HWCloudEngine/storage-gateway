@@ -51,6 +51,9 @@ public:
 
     virtual TransferRequest* get_next_package() = 0;
 
+    // if failed & can not resume from breakpoint, reset the task and redo it
+    virtual int reset() = 0;
+
     virtual void set_context(std::shared_ptr<TaskContext> _ctx){
         context = _ctx;
     }

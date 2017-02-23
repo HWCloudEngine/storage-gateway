@@ -3,6 +3,7 @@
 syntax = "proto3";
 import "journal/journal.proto";
 import "common.proto";
+import "replicate.proto";
 package huawei.proto.inner;
 
 /*northern oriented rpc service interface*/
