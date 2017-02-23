@@ -62,7 +62,7 @@ bool Volume::init()
         return false;
     }
    
-    if (!replayer_->init(string("localhost:50051"),idproxy_, cacheproxy_, snapshotproxy_)){
+    if (!replayer_->init(string("localhost:50051"),idproxy_, cacheproxy_, snapshotproxy_,rep_proxy_)){
         LOG_ERROR << "init journal replayer failed,vol_name:" << vol_attr_.vol_name();
         return false;
     }
@@ -92,6 +92,11 @@ shared_ptr<SnapshotProxy>& Volume::get_snapshot_proxy() const
 shared_ptr<BackupProxy>& Volume::get_backup_proxy() const
 {
     return backupproxy_;
+}
+
+shared_ptr<ReplicateProxy>& Volume::get_replicate_proxy() const
+{
+    return rep_proxy_;
 }
 
 JournalWriter& Volume::get_writer() const

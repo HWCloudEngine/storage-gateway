@@ -6,13 +6,14 @@ sg_client_SOURCES=$(top_srcdir)/src/common/crc32.c  \
                   $(top_srcdir)/src/common/xxhash.c \
                   $(top_srcdir)/src/common/utils.cc \
                   $(top_srcdir)/src/common/volume_attr.cc \
-                  $(top_srcdir)/src/common/ceph_s3_lease.cc \
                   $(top_srcdir)/src/common/ceph_s3_api.cc   \
                   $(top_srcdir)/src/journal/journal_entry.cc    \
+                  $(top_srcdir)/src/common/ceph_s3_lease.cc \
                   control/control_snapshot.cc  \
                   control/control_backup.cc    \
                   control/control_replicate.cc \
                   control/control_volume.cc \
+                  replicate_proxy.cc  \
                   connection.cc       \
                   io_service_pool.cc  \
                   seq_generator.cc    \
