@@ -5,10 +5,8 @@ ACLOCAL_AMFLAGS=-I m4
 sg_server_SOURCES=dr_server.cc \
                   consumer_service.cc \
                   writer_service.cc \
-                  ceph_s3_meta.cc \
-                  ceph_s3_api.cc \
                   gc_task.cc \
-                  ceph_s3_lease.cc \
+                  ceph_s3_meta.cc \
                   volume_inner_control.cc \
                   replicate/rep_scheduler.cc \
                   replicate/rep_receiver.cc \
@@ -18,6 +16,8 @@ sg_server_SOURCES=dr_server.cc \
                   replicate/replicator_context.cc \
                   replicate/markers_maintainer.cc \
                   replicate/rep_task_generator.cc \
+                  $(top_srcdir)/src/common/ceph_s3_lease.cc \
+                  $(top_srcdir)/src/common/ceph_s3_api.cc \
                   ../common/utils.cc       \
                   ../common/block_store.cc \
                   ../common/index_store.cc \
