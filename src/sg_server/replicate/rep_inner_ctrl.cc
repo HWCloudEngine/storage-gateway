@@ -31,11 +31,13 @@ Status RepInnerCtrl::CreateReplication(ServerContext* context,
         ReplicationInnerCommonRes* response){
     const string& local_vol = request->local_volume();
     const string& uuid = request->rep_uuid();
-    const huawei::proto::REP_ROLE& role = request->role();
+    const huawei::proto::RepRole& role = request->role();
     const string& op_id = request->operate_id();
+    const JournalMarker& marker = request->marker();
     LOG_INFO << "create replication:\n"
         << "local volume:" << local_vol << "\n"
         << "replication uuid:" << uuid << "\n"
+        << "operation uuid:" << op_id << "\n"
         << "role:" << role << "\n"
         << "peer volume count:" << request->peer_volumes_size() << "\n";
     VolumeMeta meta;
@@ -60,6 +62,8 @@ Status RepInnerCtrl::CreateReplication(ServerContext* context,
     record->set_operate_id(op_id);
     record->set_type(REPLICATION_CREATE);
     record->set_time(time(nullptr));
+    record->set_snap_id(op_id);
+    record->mutable_marker()->CopyFrom(marker);
     res = meta_->create_volume(meta);// TODO: replace with update_volume_meta api
     if(DRS_OK != res){
         LOG_ERROR << "create replication failed!";
@@ -74,12 +78,19 @@ Status RepInnerCtrl::CreateReplication(ServerContext* context,
     response->set_status(sOk);
     return grpc::Status::OK;
 }
+
 Status RepInnerCtrl::EnableReplication(ServerContext* context,
         const EnableReplicationInnerReq* request,
         ReplicationInnerCommonRes* response){
     const string& local_vol = request->vol_id();
-    const huawei::proto::REP_ROLE& role = request->role();
+    const huawei::proto::RepRole& role = request->role();
     const string& op_id = request->operate_id();
+    const JournalMarker& marker = request->marker();
+    LOG_INFO << "enable replication:\n"
+        << "local volume:" << local_vol << "\n"
+        << "operation uuid:" << op_id << "\n"
+        << "role:" << role << "\n"
+        << "marker:" << marker.cur_journal() << "," << marker.pos();
     VolumeMeta meta;
     RESULT res = meta_->read_volume_meta(local_vol,meta);
     DR_ASSERT(DRS_OK == res);
@@ -96,18 +107,29 @@ Status RepInnerCtrl::EnableReplication(ServerContext* context,
     op->set_operate_id(op_id);
     op->set_type(REPLICATION_ENABLE);
     op->set_time(time(nullptr));
+    op->set_snap_id(op_id);
+    op->mutable_marker()->CopyFrom(marker);
+    op->set_is_synced(false);
     res = meta_->update_volume_meta(meta);
     DR_ASSERT(DRS_OK == res);
     notify_rep_state_changed(local_vol);
     response->set_status(sOk);
     return Status::OK;
 }
+
 Status RepInnerCtrl::DisableReplication(ServerContext* context,
         const DisableReplicationInnerReq* request,
         ReplicationInnerCommonRes* response){
     const string& local_vol = request->vol_id();
-    const huawei::proto::REP_ROLE& role = request->role();
+    const huawei::proto::RepRole& role = request->role();
     const string& op_id = request->operate_id();
+    const JournalMarker& marker = request->marker();
+    LOG_INFO << "disable replication:\n"
+        << "local volume:" << local_vol << "\n"
+        << "operation uuid:" << op_id << "\n"
+        << "role:" << role << "\n"
+        << "marker:" << marker.cur_journal() << "," << marker.pos();
+
     VolumeMeta meta;
     RESULT res = meta_->read_volume_meta(local_vol,meta);
     DR_ASSERT(DRS_OK == res);
@@ -125,18 +147,28 @@ Status RepInnerCtrl::DisableReplication(ServerContext* context,
     op->set_operate_id(op_id);
     op->set_type(REPLICATION_DISABLE);
     op->set_time(time(nullptr));
+    op->set_snap_id(op_id);
+    op->mutable_marker()->CopyFrom(marker);
     res = meta_->update_volume_meta(meta);
     DR_ASSERT(DRS_OK == res);
     notify_rep_state_changed(local_vol);
     response->set_status(sOk);
     return Status::OK;
 }
+
 Status RepInnerCtrl::FailoverReplication(ServerContext* context,
         const FailoverReplicationInnerReq* request,
         ReplicationInnerCommonRes* response){
     const string& local_vol = request->vol_id();
-    const huawei::proto::REP_ROLE& role = request->role();
+    const huawei::proto::RepRole& role = request->role();
     const string& op_id = request->operate_id();
+    const JournalMarker& marker = request->marker();
+    LOG_INFO << "failvoer replication:\n"
+        << "local volume:" << local_vol << "\n"
+        << "operation uuid:" << op_id << "\n"
+        << "role:" << role << "\n"
+        << "marker:" << marker.cur_journal() << "," << marker.pos();
+
     VolumeMeta meta;
     RESULT res = meta_->read_volume_meta(local_vol,meta);
     DR_ASSERT(DRS_OK == res);
@@ -154,12 +186,15 @@ Status RepInnerCtrl::FailoverReplication(ServerContext* context,
     op->set_operate_id(op_id);
     op->set_type(REPLICATION_FAILOVER);
     op->set_time(time(nullptr));
+    op->set_snap_id(op_id);
+    op->mutable_marker()->CopyFrom(marker);
     res = meta_->update_volume_meta(meta);
     DR_ASSERT(DRS_OK == res);
     notify_rep_state_changed(local_vol);
     response->set_status(sOk);
     return Status::OK;
 }
+
 Status RepInnerCtrl::ReverseReplication(ClientContext* context,
         const ReverseReplicationInnerReq* request,
         ReplicationInnerCommonRes* response){
@@ -172,8 +207,13 @@ Status RepInnerCtrl::DeleteReplication(ServerContext* context,
         const DeleteReplicationInnerReq* request,
         ReplicationInnerCommonRes* response){
     const string& local_vol = request->vol_id();
-    const huawei::proto::REP_ROLE& role = request->role();
+    const huawei::proto::RepRole& role = request->role();
     const string& op_id = request->operate_id();
+    LOG_INFO << "delete replication:\n"
+        << "local volume:" << local_vol << "\n"
+        << "operation uuid:" << op_id << "\n"
+        << "role:" << role;
+
     VolumeMeta meta;
     RESULT res = meta_->read_volume_meta(local_vol,meta);
     DR_ASSERT(DRS_OK == res);
@@ -202,17 +242,66 @@ Status RepInnerCtrl::DeleteReplication(ServerContext* context,
 Status RepInnerCtrl::ReportCheckpoint(ServerContext* context,
             const ReportCheckpointReq* request,
             ReportCheckpointRes* response){
-    // TODO:
-    Status status(grpc::INTERNAL,"not implement.");
-    return status;
+    const string& local_vol = request->vol_id();
+    const huawei::proto::RepRole& role = request->role();
+    const string& op_id = request->operate_id();
+    LOG_INFO << "report replication operation:\n"
+        << "local volume:" << local_vol << "\n"
+        << "operation uuid:" << op_id << "\n"
+        << "role:" << role;
+
+    // TODO: use checkpoint machanism as remote snapshot to sync destination replication status
+    VolumeMeta meta;
+    RESULT res = meta_->read_volume_meta(local_vol,meta);
+    DR_ASSERT(DRS_OK == res);
+    bool found = false;
+    RepStatus status = meta.info().rep_status();
+    auto records = meta.records();
+    for(auto it=records.rbegin(); it!=records.rend();it++){
+        if(it->operate_id().compare(op_id) == 0){
+            found = true;
+            LOG_INFO << "matched operation[" << op_id <<"] type:" << it->type()
+                << ",status:" << status;
+            if(role == REP_PRIMARY)
+                break;
+            // update remote site replication status
+            if(it->type() == REPLICATION_ENABLE && status == REP_ENABLING){
+                status = REP_ENABLED;
+            }
+            else if(it->type() == REPLICATION_DISABLE && status == REP_DISABLING){
+                status = REP_DISABLED;
+            }
+            else if(it->type() == REPLICATION_FAILOVER && status == REP_FAILING_OVER){
+                status = REP_FAILED_OVER;
+            }
+            else{
+                LOG_WARN << "volume[" << local_vol << "] rep status unchanged.";
+                break;
+            }
+            LOG_INFO << "update volume[" << local_vol << "] rep status to "
+                << status;
+            res = meta_->update_volume_meta(meta);
+            DR_ASSERT(DRS_OK == res);
+        }
+    }
+    if(found && role == REP_PRIMARY){ // remote site drop snapshots?
+        response->set_discard_snap(false);
+    }
+    else{
+        LOG_INFO << "discard volume[" << local_vol << "'s snapshot:" << op_id;
+        response->set_discard_snap(true);
+    }
+    response->set_status(sOk);
+    return Status::OK;
 }
 
 void RepInnerCtrl::notify_rep_state_changed(const string& vol){
     rep_.notify_rep_state_changed(vol);
 }
+
 bool RepInnerCtrl::validate_replicate_operation(
-        const REP_STATUS& status,
-        const REPLICATION_OPERATION& op){
+        const RepStatus& status,
+        const ReplicateOperation& op){
     switch(op){
     // TODO: validate the operation from controller?
         case REPLICATION_ENABLE:

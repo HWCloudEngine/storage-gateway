@@ -53,8 +53,8 @@ class RepInnerCtrl:public huawei::proto::inner::ReplicateInnerControl::Service{
             ReportCheckpointRes* response);
     void init();
     void notify_rep_state_changed(const string& vol);
-    bool validate_replicate_operation(const REP_STATUS& status,
-            const REPLICATION_OPERATION& op);
+    bool validate_replicate_operation(const RepStatus& status,
+            const ReplicateOperation& op);
 public:
     RepInnerCtrl(RepScheduler& rep,
             std::shared_ptr<CephS3Meta> meta):

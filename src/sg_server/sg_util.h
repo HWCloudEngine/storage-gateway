@@ -64,7 +64,7 @@ inline string get_vol_by_key(const string &key){
 inline int marker_compare(const JournalMarker& m1,const JournalMarker& m2){
     int ret = m1.cur_journal().compare(m2.cur_journal());
     if(ret == 0)
-        return m1.pos() > m2.pos();
+        return m1.pos() - m2.pos();
     else
         return ret;
 }
