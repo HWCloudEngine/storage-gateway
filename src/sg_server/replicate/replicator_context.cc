@@ -22,23 +22,15 @@ std::shared_ptr<RepTask> ReplicatorContext::get_next_replicate_task(){
     if(!task_window_.has_free_slot()){
         std::shared_ptr<RepTask> task = task_window_.get_failed_task();
         if(task)
-            task->status = T_UNKNOWN;
+            task->set_status(T_UNKNOWN);
         return task;
     }
     // TODO:check timeout/failed task when window is not full used
     if(task_window_.get_failed_task()){
         std::shared_ptr<RepTask> task = task_window_.get_failed_task();
-        task->status = T_UNKNOWN;
+        task->set_status(T_UNKNOWN);
         return task;
     }
-    /*
-    if(nullptr == task_window_.get_last_sent_task()){//no task sent, check the consuming marker
-        if(!init_markers()){
-            LOG_WARN << vol_ << ":init consumer marker failed!";
-            return nullptr;
-        }
-    }
-    */
     if(pending_journals_.size() < 1){
         std::list<JournalElement> list;
         int res = get_consumable_journals(temp_c_marker_,max_pending_tasks_,list);
@@ -59,41 +51,51 @@ std::shared_ptr<RepTask> ReplicatorContext::get_next_replicate_task(){
         return nullptr;
     std::shared_ptr<RepTask> task = construct_task(pending_journals_.front());
     if(task){
-        task->id = ++seq_id_;
+        task->set_id(++seq_id_);
+        task->init();
         task_window_.add_task(task);
         pending_journals_.pop_front();
+        return task;
     }
-    return task;
+    else{
+        LOG_ERROR << "construct task failed!";
+        return nullptr;
+    }
 }
 
 // recycle_task, return true if consuming marker was updated
 void ReplicatorContext::recycle_task(std::shared_ptr<RepTask>& t){
-    LOG_DEBUG << vol_ << " recycle task:" << t->id;
+    LOG_DEBUG << vol_ << " recycle task:" << t->get_id();
+
+    // 1. check whether the slide window move right
     std::lock_guard<std::mutex> lck(mtx_);
     if(!task_window_.ack_task(t))
         return;
-    std::shared_ptr<RepTask>& task = task_window_.get_last_acked_task();
-    if(task->info.key.compare(c_marker_.cur_journal()) > 0
-        || (task->info.key.compare(c_marker_.cur_journal()) == 0
-            && task->info.end > c_marker_.pos())){
-        c_marker_.set_cur_journal(task->info.key);
-        c_marker_.set_pos(task->info.end);
 
+    // 2. compare new consumer marker to last one
+    std::shared_ptr<RepTask>& task = task_window_.get_last_acked_task();
+    JournalMarker temp_marker;
+    temp_marker.set_cur_journal(
+        sg_util::construct_journal_key(vol_,task->get_j_counter()));
+    temp_marker.set_pos(task->get_end_off());
+    int result = sg_util::marker_compare(temp_marker,c_marker_);
+    if(result > 0){
+        // 3. try to update new marker
+        c_marker_.CopyFrom(temp_marker);
         Transmitter::instance().add_marker_context(this,c_marker_);
         
-        LOG_INFO << "to update " << task->vol_id << " replicator consuming marker at "
-            << task->info.key << ":" << task->info.end;
+        LOG_INFO << "to update " << task->get_vol_id() << " replicator consuming marker at "
+            << temp_marker.cur_journal() << ":" << temp_marker.pos();
         return;
     }
-    else if(task->info.key.compare(c_marker_.cur_journal()) == 0
-            && task->info.end == c_marker_.pos()){
+    else if(result == 0){
         LOG_DEBUG << "new consuming marker the same as the last one:"
-            << task->info.key << ":" << task->info.end << "=="
+            << temp_marker.cur_journal() << ":" << temp_marker.pos() << "=="
             << c_marker_.cur_journal() << ":" << c_marker_.pos();
     }
     else{
         LOG_ERROR << "new consuming marker ahead of the last one:"
-            << task->info.key << ":" << task->info.end << "<"
+            << temp_marker.cur_journal() << ":" << temp_marker.pos() << "<"
             << c_marker_.cur_journal() << ":" << c_marker_.pos();
         DR_ERROR_OCCURED();
     }
@@ -112,12 +114,15 @@ bool ReplicatorContext::has_journals_to_transfer(){
         return false;
     }
     if(task_window_.get_last_sent_task()){
-        auto& info = task_window_.get_last_sent_task()->info;
-        int ret = p_marker.cur_journal().compare(info.key);
-        if(ret > 0)
+        auto& task = task_window_.get_last_sent_task();
+        int64_t marker_counter;
+        DR_ASSERT(true == sg_util::extract_counter_from_object_key(
+                p_marker.cur_journal(),marker_counter));
+        // compare journal marker of completed task to producer marker
+        if(marker_counter > task->get_j_counter())
             return true;
-        else if(ret == 0){
-            if(p_marker.pos() > info.end)
+        else if(marker_counter == task->get_j_counter()){
+            if(p_marker.pos() > task->get_end_off())
                 return true;
         }
         else {
@@ -146,19 +151,21 @@ bool ReplicatorContext::init_markers(){
 }
 
 std::shared_ptr<RepTask> ReplicatorContext::construct_task(const JournalElement& e){
-    std::shared_ptr<RepTask> task(new RepTask);
-    task->vol_id = vol_;
-    task->status = T_WAITING;
-    task->info.key = e.journal();
-    task->info.pos = e.start_offset();
-    task->info.end = e.end_offset();
-    task->callback = std::bind(&ReplicatorContext::recycle_task,this,std::placeholders::_1);
     JournalMeta meta;
     RESULT res = j_meta_mgr_->get_journal_meta(e.journal(),meta);
     DR_ASSERT(res == DRS_OK);
-    task->info.path = mount_path_ + meta.path();
-    task->info.is_opened = meta.status() == huawei::proto::OPENED? true:false;
-    task->tp = time(nullptr);
+    std::shared_ptr<RepTask> task(
+        new JournalTask(e.start_offset(),mount_path_ + meta.path()));
+    task->set_vol_id(vol_);
+    task->set_status(T_WAITING);
+    int64_t c;
+    DR_ASSERT(true == sg_util::extract_counter_from_object_key(e.journal(),c));
+    task->set_j_counter(c);
+    task->set_end_off(e.end_offset());
+    task->set_callback(std::bind(&ReplicatorContext::recycle_task,this,std::placeholders::_1));
+    task->set_is_opened(meta.status() == huawei::proto::OPENED? true:false);
+    task->set_block_size(TASK_BLOCK_SIZE);
+    task->set_ts(time(nullptr));
     return task;
 }
 

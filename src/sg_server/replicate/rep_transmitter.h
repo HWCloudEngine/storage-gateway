@@ -20,6 +20,7 @@
 #include "rep_type.h"
 #include "common/thread_pool.h"
 #include "replicator_context.h"
+#include "rep_task.h"
 using huawei::proto::JournalMarker;
 using grpc::Channel;
 using huawei::proto::transfer::TransferRequest;

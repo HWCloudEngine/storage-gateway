@@ -63,7 +63,7 @@ int RepScheduler::remove_volume(const string& vol_id){
     std::lock_guard<std::mutex> lck(volume_mtx_);
     auto it = volumes_.find(vol_id);
     if(it == volumes_.end()){
-        LOG_WARN << "volume is not found in replicator!";
+        LOG_WARN << "volume[" << vol_id << "] is not found when remove!";
         return -1;
     }
     it->second->delete_rep_volume();
@@ -71,8 +71,15 @@ int RepScheduler::remove_volume(const string& vol_id){
     return 0;
 }
 
-void RepScheduler::notify_rep_state_changed(const string& vol){
-    // TODO:
+void RepScheduler::notify_rep_state_changed(const string& vol_id){
+    std::lock_guard<std::mutex> lck(volume_mtx_);
+    auto it = volumes_.find(vol_id);
+    if(it == volumes_.end()){
+        LOG_WARN << "volume[" << vol_id << "] is not found when notify!";
+        return;
+    }
+    it->second->notify_rep_state_changed();
+    return;
 }
 
 void RepScheduler::wait_for_client_ready(){

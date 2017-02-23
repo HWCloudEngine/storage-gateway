@@ -14,6 +14,7 @@
 #include <mutex>
 #include "rpc/common.pb.h"
 #include "rep_type.h"
+#include "rep_task.h"
 #include "../consumer_interface.h"
 #include "../journal_meta_manager.h"
 using huawei::proto::JournalElement;
@@ -41,7 +42,7 @@ class ReplicatorContext:public IConsumer {
             if(tasks.empty())
                 return nullptr;
             for(int i=0;i<tasks.size();i++){
-                if(tasks[i]->status == T_ERROR){
+                if(tasks[i]->get_status() == T_ERROR){
                     return tasks[i];
                 }
             }
@@ -54,25 +55,25 @@ class ReplicatorContext:public IConsumer {
             return last_acked_task;
         }
         bool add_task(std::shared_ptr<RepTask>& task){
-            if(task->id <= last_acked_id 
-                || task->id - last_acked_id > window_size){
+            if(task->get_id() <= last_acked_id 
+                || task->get_id() - last_acked_id > window_size){
                 return false; // out of task window
             }
             last_sent_task = task;
-            last_sent_id = task->id;
+            last_sent_id = task->get_id();
             tasks.push_back(last_sent_task);
             return true;
         }
         bool ack_task(std::shared_ptr<RepTask>& task){
-            if(task->id <= last_acked_id || task->id > last_sent_id)// t id is not in window range
+            if(task->get_id() <= last_acked_id || task->get_id() > last_sent_id)// t id is not in window range
                 return false;
-            if(task->status != T_DONE)
+            if(task->get_status() != T_DONE)
                 return false;
             bool is_window_moved = false;
             while(!tasks.empty()){
-                if(tasks.front()->status == T_DONE){
+                if(tasks.front()->get_status() == T_DONE){
                     last_acked_task = tasks.front();
-                    last_acked_id = last_acked_task->id;
+                    last_acked_id = last_acked_task->get_id();
                     tasks.erase(tasks.begin());
                     is_window_moved = true;
                 }
