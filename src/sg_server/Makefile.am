@@ -20,7 +20,7 @@ sg_server_SOURCES=dr_server.cc \
                   transfer/net_sender.cc \
                   transfer/net_receiver.cc \
                   $(top_srcdir)/src/common/crc32.c \
-                  $(top_srcdir)/src/journal/journal_entry.cc \
+                  $(top_srcdir)/src/common/journal_entry.cc \
                   $(top_srcdir)/src/common/ceph_s3_lease.cc \
                   $(top_srcdir)/src/common/ceph_s3_api.cc \
                   ../common/utils.cc       \

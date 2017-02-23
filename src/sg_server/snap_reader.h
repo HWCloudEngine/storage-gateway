@@ -11,7 +11,6 @@
 #ifndef SNAP_READER_H_
 #define SNAP_READER_H_
 #include <memory>
-#include "../snapshot/snapshot_type.h"
 #include "../rpc/clients/snapshot_ctrl_client.h"
 class SnapReader{
     std::shared_ptr<SnapshotCtrlClient> snap_ctrl_client;
