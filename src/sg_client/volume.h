@@ -49,7 +49,8 @@ public:
     JournalWriter& get_writer()const;
     shared_ptr<SnapshotProxy>& get_snapshot_proxy()const;
     shared_ptr<BackupProxy>&   get_backup_proxy()const;
-    
+    shared_ptr<ReplicateProxy>& get_replicate_proxy()const;
+
 private:
     /*socket*/
     mutable raw_socket_t raw_socket_;
@@ -77,7 +78,10 @@ private:
 
     /*backup relevant*/
     mutable shared_ptr<BackupProxy> backupproxy_;
-    
+
+    /*replicate proxy */
+    mutable shared_ptr<ReplicateProxy> rep_proxy_;
+
     /*work thread*/ 
     shared_ptr<Connection>           connection_;    /*network receive and send*/
     shared_ptr<JournalPreProcessor>  pre_processor_; /*request merge and crc*/
