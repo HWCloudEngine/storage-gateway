@@ -38,7 +38,8 @@ bool JournalReplayer::init(const std::string& vol_id,
                            const std::string& rpc_addr,
                            std::shared_ptr<IDGenerator> id_maker_ptr,
                            std::shared_ptr<CacheProxy> cache_proxy_ptr,
-                           std::shared_ptr<SnapshotProxy> snapshot_proxy_ptr)
+                           std::shared_ptr<SnapshotProxy> snapshot_proxy_ptr,
+                           std::shared_ptr<ReplicateProxy> rep_proxy_ptr)
 {
     vol_id_ = vol_id;
     device_ = device;
@@ -46,6 +47,7 @@ bool JournalReplayer::init(const std::string& vol_id,
     id_maker_ptr_       = id_maker_ptr;
     cache_proxy_ptr_    = cache_proxy_ptr;
     snapshot_proxy_ptr_ = snapshot_proxy_ptr;
+    rep_proxy_ptr_      = rep_proxy_ptr;
     backup_decorator_ptr_.reset(new BackupDecorator(vol_id, snapshot_proxy_ptr));
 
     rpc_client_ptr_.reset(new ReplayerClient(grpc::CreateChannel(rpc_addr,
@@ -327,8 +329,17 @@ bool JournalReplayer::handle_ctrl_cmd(shared_ptr<JournalEntry> entry)
                 default:
                     break;
             }
-        } else {
-        
+        } else if(scene == SnapScene::FOR_REPLICATION){
+            switch(type){
+                case SNAPSHOT_CREATE:
+                    LOG_INFO << "journal_replayer create snapshot:" << snap_name;
+                    rep_proxy_ptr_->create_transaction(shead, snap_name);
+                    break;
+                default:
+                    break;
+            }
+        }
+        else{
         }
         return true;
     } else {

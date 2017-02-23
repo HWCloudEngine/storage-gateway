@@ -57,7 +57,8 @@ public:
     JournalWriter& get_writer()const;
     shared_ptr<SnapshotProxy>& get_snapshot_proxy()const;
     shared_ptr<BackupProxy>&   get_backup_proxy()const;
-    
+    shared_ptr<ReplicateProxy>& get_replicate_proxy()const;
+
 private:
     /*socket*/
     mutable raw_socket_t raw_socket_;
@@ -87,7 +88,10 @@ private:
 
     /*backup relevant*/
     mutable shared_ptr<BackupProxy> backupproxy_;
-    
+
+    /*replicate proxy */
+    mutable shared_ptr<ReplicateProxy> rep_proxy_;
+
     /*todo: how to decide vol status, query from dr_server*/
     VolumeStatus vol_status_;
 

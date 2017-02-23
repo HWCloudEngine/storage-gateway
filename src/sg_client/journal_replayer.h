@@ -19,7 +19,7 @@
 #include "../rpc/message.pb.h"
 #include "../snapshot/snapshot_proxy.h"
 #include "../backup/backup_decorator.h"
-
+#include "replicate_proxy.h"
 using google::protobuf::Message;
 using huawei::proto::WriteMessage;
 
@@ -40,7 +40,8 @@ public:
               const string& rpc_addr,
               shared_ptr<IDGenerator> id_maker_ptr,
               shared_ptr<CacheProxy> cache_proxy_ptr,
-              shared_ptr<SnapshotProxy> snapshot_proxy_ptr);
+              shared_ptr<SnapshotProxy> snapshot_proxy_ptr,
+              std::shared_ptr<ReplicateProxy> rep_proxy_ptr);
     bool deinit();
 
 private:
@@ -102,6 +103,8 @@ private:
     /*backup decorator*/
     std::shared_ptr<BackupDecorator> backup_decorator_ptr_;
 
+    /*replicate proxy*/
+    std::shared_ptr<ReplicateProxy> rep_proxy_ptr_;
 };
 
 }

@@ -39,6 +39,8 @@ bool Volume::init()
     
     backupproxy_.reset(new BackupProxy(vol_id_, vol_size_, backupdecorator_));
 
+    rep_proxy_.reset(new ReplicateProxy(vol_id_, snapshotproxy_));
+
     connection_.reset(new Connection(raw_socket_, 
                                      entry_queue_, read_queue_, reply_queue_));
     pre_processor_.reset(new JournalPreProcessor(entry_queue_, write_queue_));
@@ -71,7 +73,8 @@ bool Volume::init()
    
     if (!replayer_->init(vol_id_, vol_path_, 
                          string("localhost:50051"),
-                         idproxy_, cacheproxy_, snapshotproxy_)){
+                         idproxy_, cacheproxy_, snapshotproxy_,
+                         rep_proxy_)){
         LOG_ERROR << "init journal replayer failed,vol_id:" << vol_id_;
         return false;
     }
@@ -101,6 +104,11 @@ shared_ptr<SnapshotProxy>& Volume::get_snapshot_proxy() const
 shared_ptr<BackupProxy>& Volume::get_backup_proxy() const
 {
     return backupproxy_;
+}
+
+shared_ptr<ReplicateProxy>& Volume::get_replicate_proxy() const
+{
+    return rep_proxy_;
 }
 
 JournalWriter& Volume::get_writer() const
