@@ -18,6 +18,7 @@ $PROTOC -I ${PROTO_PATH} \
         ${PROTO_PATH}/common.proto \
         ${PROTO_PATH}/snapshot.proto \
         ${PROTO_PATH}/backup.proto \
+        ${PROTO_PATH}/volume.proto \
         ${PROTO_PATH}/journal/journal.proto \
         ${PROTO_PATH}/journal/message.proto \
         ${PROTO_PATH}/journal/writer.proto \
@@ -78,7 +79,7 @@ fi
 make clean
 make -j 8
 #copy program to bin
-#cp ${CUR_PATH}/src/rpc_server ${CUR_PATH}/bin
+#cp ${CUR_PATH}/src/sg_server ${CUR_PATH}/bin
 
 elif [ "$1"a = "clean"a ]
 then

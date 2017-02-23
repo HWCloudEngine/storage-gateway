@@ -3,7 +3,7 @@
 #include <atomic>
 #include <boost/asio.hpp>
 #include "nedmalloc.h"
-#include "journal_entry.h"
+#include "journal/journal_entry.h"
 #include "seq_generator.h"
 #include "cache/cache_proxy.h"
 #include "connection.h"
@@ -14,7 +14,7 @@
 #include "../common/config_parser.h"
 #include "../common/blocking_queue.h"
 #include "../common/volume_attr.h"
-#include "../sg_server/ceph_s3_lease.h"
+#include "../common/ceph_s3_lease.h"
 #include "../snapshot/snapshot_proxy.h"
 #include "../backup/backup_decorator.h"
 #include "../backup/backup_proxy.h"

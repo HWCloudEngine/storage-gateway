@@ -8,8 +8,8 @@ service DataTransfer {
 }
 message TransferRequest {
     int64 id = 1;
-    CMD_TYPE cmd = 2;
-    ENCODE_TYPE encode_type = 3;
+    CmdType cmd = 2;
+    EncodeType encode_type = 3;
     string vol_id = 4;
     int32 state = 5; //state of transferring journal:opened/sealed?
     int64 current_counter = 6; //the transferring journal counter
@@ -20,13 +20,13 @@ message TransferResponse {
     int64 id = 1;
     StatusCode status = 2;
 }
-enum CMD_TYPE {
-	UNKNOWN_CMD = 0;
-	START_CMD = 1;
-	DATA_CMD = 2;
-	FINISH_CMD = 3;
+enum CmdType {
+    UNKNOWN_CMD = 0;
+    START_CMD = 1;
+    DATA_CMD = 2;
+    FINISH_CMD = 3;
 }
-enum ENCODE_TYPE {
+enum EncodeType {
     UNKNOWN_EN = 0;
     NONE_EN = 1;
 }

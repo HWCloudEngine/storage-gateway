@@ -17,7 +17,7 @@
 #include "journal_meta_manager.h"
 #include "journal_gc_manager.h"
 #include "volume_meta_manager.h"
-#include "ceph_s3_api.h"
+#include "common/ceph_s3_api.h"
 #include "lru_cache.h"
 using huawei::proto::JournalMeta;
 using huawei::proto::JournalArray;
