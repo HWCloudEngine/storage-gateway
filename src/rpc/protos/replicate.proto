@@ -1,0 +1,51 @@
+syntax = "proto3";
+package huawei.proto;
+import "journal/journal.proto";
+// define replication roles
+enum RepRole{
+    REP_UNKNOWN = 0;
+    REP_PRIMARY = 1;
+    REP_SECONDARY = 2;
+}
+
+//replication operation
+enum ReplicateOperation{
+    INVALID_OPERATION = 0;
+    REPLICATION_CREATE = 1;
+    REPLICATION_ENABLE = 2;
+    REPLICATION_DISABLE = 3;
+    REPLICATION_FAILOVER = 4;
+    REPLICATION_REVERSE = 5;
+    REPLICATION_QUERY = 6;
+    REPLICATION_DELETE = 7;
+    REPLICATION_TEST = 8;
+    REPLICATION_LIST = 9;
+}
+
+// define replication status
+enum RepStatus{
+    REP_UNKNOW = 0;
+    REP_CREATING = 1;
+    REP_ENABLING = 3;
+    REP_ENABLED = 4;
+    REP_DISABLING = 5;
+    REP_DISABLED = 6;
+    REP_FAILING_OVER = 7;
+    REP_FAILED_OVER = 8;
+    REP_REVERSING = 9;
+    REP_DELETING = 11;
+    REP_DELETED = 12;
+    REP_ERROR = 20;
+}
+
+// replicate operation record
+message OperationRecord{
+    string operate_id = 1;
+    ReplicateOperation type = 2;
+    uint64 time = 3;
+    string snap_id = 4;
+    JournalMarker marker = 5; // optional, persist operation checkpoint
+    // optional, persist whether has synced,this is useful if process crashed
+    // when snapshots were deleted but replication status was not updated
+    bool is_synced = 6;
+}

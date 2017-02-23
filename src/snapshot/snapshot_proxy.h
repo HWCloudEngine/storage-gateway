@@ -15,6 +15,7 @@
 #include "../rpc/common.pb.h"
 #include "../rpc/snapshot.pb.h"
 #include "../rpc/journal.pb.h"
+#include "../rpc/volume.pb.h"
 #include "../rpc/snapshot_control.pb.h"
 #include "../rpc/snapshot_control.grpc.pb.h"
 #include "../rpc/snapshot_inner_control.pb.h"
@@ -66,6 +67,8 @@ public:
     StatusCode sync_state();
 
     /*called by control layer*/
+    StatusCode create_snapshot(const CreateSnapshotReq* req, 
+                            CreateSnapshotAck* ack,JournalMarker& marker); // for replicate
     StatusCode create_snapshot(const CreateSnapshotReq* req, CreateSnapshotAck* ack) override;
     StatusCode delete_snapshot(const DeleteSnapshotReq* req, DeleteSnapshotAck* ack) override;
     StatusCode rollback_snapshot(const RollbackSnapshotReq* req, RollbackSnapshotAck* ack) override;

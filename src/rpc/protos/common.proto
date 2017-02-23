@@ -22,7 +22,7 @@ enum StatusCode {
     sSnapUpdateError = 104;
     sSnapMetaPersistError = 105;
     sSnapCreateDenied = 106;
-    
+
     // status for replicate
     sReplicationNotExist = 201;
     sReplicationMetaPersistError = 205;
@@ -38,11 +38,4 @@ enum StatusCode {
     sBackupNotExist     = 401;
     sBackupNoFullbackupExist = 402;
     sBackupCanNotDelete      = 403;
-}
-
-// define replication roles
-enum RepRole{
-    REP_UNKNOWN = 0;
-    REP_PRIMARY = 1;
-    REP_SECONDARY = 2;
 }

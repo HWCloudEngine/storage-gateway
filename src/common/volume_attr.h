@@ -3,11 +3,11 @@
 #include <string>
 #include "../rpc/common.pb.h"
 #include "../rpc/snapshot.pb.h"
-
+#include "../rpc/volume.pb.h"
 using namespace std;
 using huawei::proto::VolumeInfo;
 using huawei::proto::SnapType;
-
+using huawei::proto::RepRole;
 class VolumeAttr
 {
 public:
@@ -19,7 +19,8 @@ public:
     string vol_name() const;
     size_t vol_size() const;
     string blk_device() const;
-    
+    RepRole replicate_role() const;
+
     /*whether create snapshot allowable*/
     bool is_snapshot_allowable(const SnapType& snap_type);
 
