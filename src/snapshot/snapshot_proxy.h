@@ -15,6 +15,7 @@
 #include "../rpc/common.pb.h"
 #include "../rpc/snapshot.pb.h"
 #include "../rpc/journal.pb.h"
+#include "../rpc/volume.pb.h"
 #include "../rpc/snapshot_control.pb.h"
 #include "../rpc/snapshot_control.grpc.pb.h"
 #include "../rpc/snapshot_inner_control.pb.h"

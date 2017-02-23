@@ -1,32 +1,67 @@
 syntax = "proto3";
 package huawei.proto.transfer;
 import "common.proto";
+import "journal/journal.proto";
 
 service DataTransfer {
     rpc transfer(stream TransferRequest) returns(stream TransferResponse) {}
-    rpc sync_marker(TransferRequest) returns(TransferResponse){}
 }
-message TransferRequest {
-    int64 id = 1;
-    CmdType cmd = 2;
-    EncodeType encode_type = 3;
-    string vol_id = 4;
-    int32 state = 5; //state of transferring journal:opened/sealed?
-    int64 current_counter = 6; //the transferring journal counter
-    int32 offset = 7;
-    bytes data = 8;
+
+enum MessageType {
+    UNKNOWN_TYPE = 0;
+    // replicate messages(1--6):
+    REPLICATE_START = 1;
+    REPLICATE_DATA = 2;
+    REPLICATE_END = 3;
+    REPLICATE_MARKER = 4;
+
+    // backup messages(7--*):
 }
-message TransferResponse {
-    int64 id = 1;
-    StatusCode status = 2;
-}
-enum CmdType {
-    UNKNOWN_CMD = 0;
-    START_CMD = 1;
-    DATA_CMD = 2;
-    FINISH_CMD = 3;
-}
+
 enum EncodeType {
     UNKNOWN_EN = 0;
     NONE_EN = 1;
 }
+
+message TransferRequest {
+    // common header
+    uint64 id = 1;
+    EncodeType encode = 2;
+    MessageType type = 3;
+
+    // data :serailized message
+    bytes data = 4;
+}
+
+message TransferResponse {
+    uint64 id = 1;
+    EncodeType encode = 2;
+    MessageType type = 3;
+    StatusCode status = 4;
+
+    bytes data = 5;
+}
+
+message ReplicateDataReq{
+    string vol_id = 1;
+    uint64 journal_counter = 2;
+    uint64 offset = 3;
+    bytes data = 4;
+}
+
+message ReplicateMarkerReq{
+    string vol_id = 1;
+    JournalMarker marker = 2;
+}
+
+message ReplicateStartReq{
+    string vol_id = 1;
+    uint64 journal_counter = 2;
+}
+
+message ReplicateEndReq{
+    string vol_id = 1;
+    uint64 journal_counter = 2;
+    bool is_open = 3;
+}
+

@@ -143,7 +143,6 @@ void GCTask::lease_check_task(){
         for(auto list_it=list.begin();list_it!=list.end();++list_it){
             if(false == lease_->check_lease_existance(*list_it)){
                 LOG_DEBUG << *list_it << " lease not existance";
-                std::list<string> key_list;
                 res = meta_ptr_->seal_opened_journals(it->first,*list_it);
                 DR_ASSERT(DRS_OK == res);
             }

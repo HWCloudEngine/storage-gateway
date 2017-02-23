@@ -24,16 +24,18 @@
 #include "gc_task.h"
 #include "writer_service.h"
 #include "consumer_service.h"
-#include "replicate/rep_receiver.h"
-#include "replicate/rep_scheduler.h"
 #include "../snapshot/snapshot_mgr.h"
 #include "../backup/backup_mgr.h"
 #include "replicate/rep_inner_ctrl.h"
 #include "volume_inner_control.h"
-#include "replicate/rep_transmitter.h"
+#include "replayer_context.h"
+#include "replicate/rep_scheduler.h"
+#include "replicate/task_handler.h"
 #include "replicate/rep_task_generator.h"
 #include "replicate/markers_maintainer.h"
-#include "replayer_context.h"
+#include "replicate/rep_message_handlers.h"
+#include "transfer/net_sender.h"
+#include "transfer/net_receiver.h"
 
 #define DEFAULT_META_SERVER_PORT 50051
 #define DEFAULT_REPLICATE_PORT 50061
@@ -123,6 +125,7 @@ int main(int argc, char** argv) {
         std::cerr << "journal storage type[" << type << "] is invalid!" << std::endl;
         return -1;
     }
+
     // init meta server
     RpcServer metaServer(ip1,port1,grpc::InsecureServerCredentials());
     WriterServiceImpl writerSer(meta);
@@ -135,11 +138,13 @@ int main(int argc, char** argv) {
     metaServer.register_service(&volInnerCtrl);
     metaServer.register_service(&snapMgr);
     metaServer.register_service(&backupMgr);
-    // init replicate receiver
+
+    // init net receiver
     RpcServer repServer(ip2,port2,grpc::InsecureServerCredentials());
-    RepReceiver repReceiver(meta,mount_path);
-    repServer.register_service(&repReceiver);
-    LOG_INFO << "replicate receiver server listening on " << ip2 << ":" << port2;
+    RepMsgHandlers rep_msg_handler(meta,mount_path);
+    NetReceiver netReceiver(rep_msg_handler);
+    repServer.register_service(&netReceiver);
+    LOG_INFO << "net receiver server listening on " << ip2 << ":" << port2;
     if(!repServer.run()){
         LOG_FATAL << "start replicate server failed!";
         std::cerr << "start replicate server failed!" << std::endl;
@@ -147,22 +152,25 @@ int main(int argc, char** argv) {
     }
 
     // init replicate queues and work stages
-    //repVolume queue, repScheduler sort & insert repVolume in it,and 
+    // repVolume queue, repScheduler sort & insert repVolume in it,and 
     // taskGenerator get repVolume from it
     BlockingQueue<std::shared_ptr<RepVolume>> rep_vol_que;
-    std::shared_ptr<BlockingQueue<std::shared_ptr<RepTask>>> task_que(
-        new BlockingQueue<std::shared_ptr<RepTask>>(MAX_TASK_COUNT_IN_QUEUE));
+    // task queue: taskHandler handler the task
+    std::shared_ptr<BlockingQueue<std::shared_ptr<TransferTask>>> task_que(
+        new BlockingQueue<std::shared_ptr<TransferTask>>(MAX_TASK_COUNT_IN_QUEUE));
+    // markerContext queue: markerMaintainer handle the marker
+    std::shared_ptr<BlockingQueue<std::shared_ptr<MarkerContext>>>
+        marker_ctx_que(new BlockingQueue<std::shared_ptr<MarkerContext>>);
 
     // replicate second stage: generate repTasks
     TaskGenerator task_generator(rep_vol_que,task_que);
-    std::shared_ptr<BlockingQueue<std::shared_ptr<MarkerContext>>>
-        marker_ctx_que(new BlockingQueue<std::shared_ptr<MarkerContext>>);
 
     // replicate third stage: transfer data to destination
     addr.append(":").append(std::to_string(port2));
     LOG_INFO << "transmitter connect to " << addr;
-    Transmitter::instance().init(grpc::CreateChannel(
-        addr, grpc::InsecureChannelCredentials()),task_que,marker_ctx_que);
+    NetSender::instance().init(grpc::CreateChannel(
+        addr, grpc::InsecureChannelCredentials()));
+    TaskHandler::instance().init(task_que,marker_ctx_que);
 
     // replicate forth stage: sync markers
     MarkersMaintainer::instance().init(marker_ctx_que);

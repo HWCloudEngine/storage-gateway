@@ -26,7 +26,8 @@ typedef grpc_connectivity_state ClientState;
 #define CLIENT_FAILURE      GRPC_CHANNEL_TRANSIENT_FAILURE
 #define CLIENT_SHUTDOWN     GRPC_CHANNEL_SHUTDOWN
 
-typedef std::unique_ptr<ClientReaderWriter<TransferRequest,TransferResponse>> grpc_stream_ptr;
+
+typedef std::shared_ptr<ClientReaderWriter<TransferRequest,TransferResponse>> grpc_stream_ptr;
 
 class NetSender{
     std::shared_ptr<Channel> channel_;
