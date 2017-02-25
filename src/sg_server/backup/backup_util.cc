@@ -1,4 +1,4 @@
-#include "../log/log.h"
+#include "log/log.h"
 #include "backup_util.h"
 
 string spawn_key(const string& prefix, const string& value)

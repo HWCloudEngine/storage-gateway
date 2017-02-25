@@ -17,9 +17,9 @@
 #include "../rpc/clients/replayer_client.h"
 #include "../rpc/common.pb.h"
 #include "../rpc/message.pb.h"
-#include "../snapshot/snapshot_proxy.h"
-#include "../backup/backup_decorator.h"
 #include "../common/volume_attr.h"
+#include "snapshot/snapshot_proxy.h"
+#include "backup/backup_decorator.h"
 
 using google::protobuf::Message;
 using huawei::proto::WriteMessage;

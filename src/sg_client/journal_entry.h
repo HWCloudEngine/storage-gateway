@@ -4,7 +4,7 @@
 #include <memory>
 #include <iostream>
 #include <google/protobuf/message.h>
-#include "journal_type.h"
+#include "common/define.h"
 
 using google::protobuf::Message;
 using namespace std;

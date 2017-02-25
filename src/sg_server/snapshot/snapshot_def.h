@@ -1,16 +1,14 @@
-#ifndef _SNAP_TYPE_H
-#define _SNAP_TYPE_H
+#ifndef SNAP_DEF_H
+#define SNAP_DEF_H
 #include <string>
 #include <set>
-#include "../rpc/snapshot.pb.h"
+#include "rpc/snapshot.pb.h"
 using huawei::proto::SnapStatus;
 using huawei::proto::SnapType;
 using namespace std;
 
 /*snapshot id*/
 typedef uint64_t snapid_t;
-/*block no*/
-typedef uint64_t block_t;
 
 /*cow data object name*/
 typedef string cow_object_t;
@@ -18,7 +16,8 @@ typedef string cow_object_t;
 typedef set<snapid_t> cow_object_ref_t;
 
 /*snapshot attribution*/
-struct snap_attr {
+struct snap_attr 
+{
     string replication_uuid;
     string checkpoint_uuid;
     string volume_uuid;
@@ -30,34 +29,8 @@ struct snap_attr {
 };
 typedef struct snap_attr snap_attr_t;
 
-/*cow block splited by COW_BLOCK_SIZE*/
-struct cow_block {
-    off_t   off;
-    size_t  len;
-    block_t blk_no;
-};
-typedef struct cow_block cow_block_t;
-
-/*block operation way*/
-enum cow_op {
-    COW_YES = 0, /*need cow */
-    COW_NO  = 1, /*noneed cow, direct overlap*/
-};
-typedef enum cow_op cow_op_t;
-
-/*mininum cow block size*/
-#define COW_BLOCK_SIZE (1*1024*1024UL)
-
-/*io alignment*/
-#define ALIGN_UP(v,align) (((v)+(align)-1) & ~((align)-1))
-
-/*index db store path (disk layout)
- * DB_DIR/volume/snapshot
- *              /backup
- */
-#define DB_DIR  "/var/tmp/"
+/*snapshot meta store path*/
 #define SNAPSHOT_META  "/snapshot"
-#define BACKUP_META    "/backup"
 
 /*use spawn cow object name*/
 #define FS  "@"

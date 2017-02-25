@@ -15,10 +15,10 @@
 #include "../common/blocking_queue.h"
 #include "../common/volume_attr.h"
 #include "../sg_server/ceph_s3_lease.h"
-#include "../snapshot/snapshot_proxy.h"
-#include "../backup/backup_decorator.h"
-#include "../backup/backup_proxy.h"
 #include "../rpc/common.pb.h"
+#include "snapshot/snapshot_proxy.h"
+#include "backup/backup_decorator.h"
+#include "backup/backup_proxy.h"
 
 #define BUFFER_POOL_SIZE 1024*1024*64
 #define REQUEST_BODY_SIZE 512

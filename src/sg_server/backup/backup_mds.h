@@ -1,12 +1,12 @@
 #ifndef _BACKUP_MDS_H
 #define _BACKUP_MDS_H
-#include "../rpc/backup_inner_control.pb.h"
-#include "../rpc/backup_inner_control.grpc.pb.h"
-#include "../rpc/clients/snapshot_ctrl_client.h"
-#include "../common/block_store.h"
-#include "../common/index_store.h"
-#include "../snapshot/snapshot_type.h"
-#include "backup_type.h"
+#include "rpc/backup_inner_control.pb.h"
+#include "rpc/backup_inner_control.grpc.pb.h"
+#include "rpc/clients/snapshot_ctrl_client.h"
+#include "common/block_store.h"
+#include "common/index_store.h"
+#include "common/define.h"
+#include "backup_def.h"
 
 using huawei::proto::inner::CreateBackupInReq;
 using huawei::proto::inner::CreateBackupInAck;

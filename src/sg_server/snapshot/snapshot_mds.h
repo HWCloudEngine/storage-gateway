@@ -3,14 +3,15 @@
 #include <string>
 #include <mutex>
 #include <grpc++/grpc++.h>
-#include "../rpc/common.pb.h"
-#include "../rpc/snapshot.pb.h"
-#include "../rpc/snapshot_inner_control.pb.h"
-#include "../rpc/snapshot_inner_control.grpc.pb.h"
-#include "../log/log.h"
-#include "../common/block_store.h"
-#include "../common/index_store.h"
-#include "snapshot_type.h"
+#include "rpc/common.pb.h"
+#include "rpc/snapshot.pb.h"
+#include "rpc/snapshot_inner_control.pb.h"
+#include "rpc/snapshot_inner_control.grpc.pb.h"
+#include "log/log.h"
+#include "common/block_store.h"
+#include "common/index_store.h"
+#include "common/define.h"
+#include "snapshot_def.h"
 
 using huawei::proto::StatusCode;
 using huawei::proto::SnapStatus;

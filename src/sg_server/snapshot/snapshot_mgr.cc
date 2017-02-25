@@ -1,8 +1,7 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <dirent.h>
-#include "../log/log.h"
-#include "snapshot_type.h"
+#include "log/log.h"
 #include "snapshot_mgr.h"
 
 using huawei::proto::StatusCode;

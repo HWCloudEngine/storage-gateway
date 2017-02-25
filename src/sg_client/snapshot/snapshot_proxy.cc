@@ -45,6 +45,8 @@ using huawei::proto::inner::ReadBlock;
 using huawei::proto::inner::RollBlock;
 using huawei::proto::inner::UpdateEvent;
 
+#define ALIGN_UP(v,align) (((v)+(align)-1) & ~((align)-1))
+
 bool SnapshotProxy::init()
 {        
     /*snapshot inner rpc client stub*/
@@ -379,7 +381,7 @@ StatusCode SnapshotProxy::rollback_transaction(const SnapReqHead& shead,
         free(block_buf);
 
         /*rollback*/
-        cow_object_t roll_block_object = roll_block.blk_object();
+        string roll_block_object = roll_block.blk_object();
         void* roll_buf = nullptr;
         ret = posix_memalign((void**)&roll_buf, 512, COW_BLOCK_SIZE);
         assert(ret == 0 && roll_buf != nullptr);

@@ -7,8 +7,8 @@
 #include <mutex>
 
 #include <grpc++/grpc++.h>
-#include "../rpc/common.pb.h"
-#include "../rpc/snapshot_inner_control.grpc.pb.h"
+#include "rpc/common.pb.h"
+#include "rpc/snapshot_inner_control.grpc.pb.h"
 #include "snapshot_mds.h"
 
 using grpc::Server;

@@ -11,7 +11,7 @@
 #include "../../rpc/snapshot_control.pb.h"
 #include "../../rpc/snapshot_control.grpc.pb.h"
 #include "../../log/log.h"
-#include "../../snapshot/snapshot_proxy.h"
+#include "../snapshot/snapshot_proxy.h"
 #include "../volume.h"
 
 using grpc::Server;

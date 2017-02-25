@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <dirent.h>
-#include "../log/log.h"
+#include "log/log.h"
 #include "backup_mgr.h"
 
 using huawei::proto::StatusCode;

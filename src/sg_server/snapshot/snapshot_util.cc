@@ -1,4 +1,4 @@
-#include "../log/log.h"
+#include "log/log.h"
 #include "snapshot_util.h"
 
 string DbUtil::spawn_key(const string& prefix, const string& value)

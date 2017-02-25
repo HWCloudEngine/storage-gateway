@@ -1,7 +1,8 @@
 #ifndef __SNAPSHOT_UTIL_H
 #define __SNAPSHOT_UTIL_H
 #include <string>
-#include "snapshot_type.h"
+#include "common/define.h"
+#include "snapshot_def.h"
 using namespace std;
 
 /*helper function to handle db persist key*/
@@ -27,8 +28,6 @@ public:
     static string spawn_cow_object_map_val(const cow_object_ref_t& obj_ref);
     static void   split_cow_object_map_val(const string& raw_val, 
                                            cow_object_ref_t& obj_ref);
-
-    /*backup relevant*/
 };
 
 #endif

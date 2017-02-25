@@ -30,7 +30,7 @@
 
 #include "seq_generator.h"
 #include "cache/cache_proxy.h"
-#include "../snapshot/snapshot_proxy.h"
+#include "snapshot/snapshot_proxy.h"
 
 #include "message.h"
 #include "journal_entry.h"
