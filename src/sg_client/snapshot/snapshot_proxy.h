@@ -9,23 +9,24 @@
 #include <condition_variable>
 #include <atomic>
 #include <grpc++/grpc++.h>
-#include "../common/blocking_queue.h"
-#include "../log/log.h"
-#include "../sg_client/journal_entry.h"
-#include "../rpc/common.pb.h"
-#include "../rpc/snapshot.pb.h"
-#include "../rpc/journal.pb.h"
-#include "../rpc/snapshot_control.pb.h"
-#include "../rpc/snapshot_control.grpc.pb.h"
-#include "../rpc/snapshot_inner_control.pb.h"
-#include "../rpc/snapshot_inner_control.grpc.pb.h"
-#include "../rpc/clients/backup_inner_ctrl_client.h"
-#include "../common/block_store.h"
-#include "../common/volume_attr.h"
-#include "snapshot_type.h"
+#include "log/log.h"
+#include "rpc/common.pb.h"
+#include "rpc/snapshot.pb.h"
+#include "rpc/journal.pb.h"
+#include "rpc/snapshot_control.pb.h"
+#include "rpc/snapshot_control.grpc.pb.h"
+#include "rpc/snapshot_inner_control.pb.h"
+#include "rpc/snapshot_inner_control.grpc.pb.h"
+#include "rpc/clients/backup_inner_ctrl_client.h"
+#include "common/define.h"
+#include "common/blocking_queue.h"
+#include "common/block_store.h"
+#include "common/volume_attr.h"
+#include "common/define.h"
 #include "snapshot.h"
 #include "syncbarrier.h"
 #include "transaction.h"
+#include "sg_client/journal_entry.h"
 
 using grpc::Channel;
 using grpc::ClientContext;
@@ -41,6 +42,7 @@ using huawei::proto::inner::SnapshotInnerControl;
 using huawei::proto::inner::UpdateEvent;
 
 using namespace std;
+
 
 /*work on storage gateway client, each volume own a SnapshotProxy*/
 class SnapshotProxy : public ISnapshot, public ITransaction, public ISyncBarrier
@@ -98,8 +100,14 @@ public:
     
 private:
     /*split io into fixed size block*/
-    void split_cow_block(const off_t& off, const size_t& size,
-                         vector<cow_block_t>& cow_blocks);
+    struct cow_block 
+    {
+        off_t   off;
+        size_t  len;
+        block_t blk_no;
+    };
+    typedef struct cow_block cow_block_t;
+    void split_cow_block(const off_t& off, const size_t& size, vector<cow_block_t>& cow_blocks);
     /*block device read and write*/
     size_t raw_device_write(char* buf, size_t len, off_t off);
     size_t raw_device_read(char* buf, size_t len, off_t off);

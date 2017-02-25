@@ -2,10 +2,10 @@
 #define _BACKUP_PROXY_H
 #include <string>
 #include <memory>
-#include "../rpc/common.pb.h"
-#include "../rpc/backup_control.pb.h"
-#include "../rpc/backup_control.grpc.pb.h"
-#include "../common/block_store.h"
+#include "rpc/common.pb.h"
+#include "rpc/backup_control.pb.h"
+#include "rpc/backup_control.grpc.pb.h"
+#include "common/block_store.h"
 #include "backup_decorator.h"
 
 using namespace std;

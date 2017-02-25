@@ -16,8 +16,8 @@
 #define MEMALIGNED(v)
 #endif
 
-#include "journal_type.h"
-#include "../rpc/message.pb.h"
+#include "common/define.h"
+#include "rpc/message.pb.h"
 
 using huawei::proto::WriteMessage;
 using huawei::proto::DiskPos;

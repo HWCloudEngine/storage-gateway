@@ -5,9 +5,8 @@
 #include <sys/stat.h>
 #include <assert.h>
 #include <future>
-#include "../log/log.h"
-#include "../common/utils.h"
-#include "../snapshot/snapshot_type.h"
+#include "log/log.h"
+#include "common/utils.h"
 #include "backup_util.h"
 #include "backup_mds.h"
 

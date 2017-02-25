@@ -1,8 +1,8 @@
 #ifndef ITRANSACTION_H
 #define ITRANSACTION_H
 #include <string>
-#include "../rpc/common.pb.h"
-#include "../rpc/snapshot.pb.h"
+#include "rpc/common.pb.h"
+#include "rpc/snapshot.pb.h"
 using namespace std;
 using huawei::proto::StatusCode;
 using huawei::proto::SnapReqHead;

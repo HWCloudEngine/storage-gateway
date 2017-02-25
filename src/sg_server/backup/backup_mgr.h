@@ -6,9 +6,9 @@
 #include <memory>
 #include <mutex>
 #include <grpc++/grpc++.h>
-#include "../rpc/common.pb.h"
-#include "../rpc/backup_inner_control.pb.h"
-#include "../rpc/backup_inner_control.grpc.pb.h"
+#include "rpc/common.pb.h"
+#include "rpc/backup_inner_control.pb.h"
+#include "rpc/backup_inner_control.grpc.pb.h"
 #include "backup_mds.h"
 
 using grpc::Server;

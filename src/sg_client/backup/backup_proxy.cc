@@ -6,9 +6,9 @@
 #include <assert.h>
 #include <future>
 #include "../log/log.h"
-#include "../rpc/backup.pb.h"
-#include "../common/utils.h"
-#include "backup_type.h"
+#include "rpc/backup.pb.h"
+#include "common/utils.h"
+#include "common/define.h"
 #include "backup_proxy.h"
 
 using huawei::proto::SnapScene;

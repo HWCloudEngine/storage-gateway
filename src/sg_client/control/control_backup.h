@@ -11,7 +11,7 @@
 #include "../../rpc/backup_control.pb.h"
 #include "../../rpc/backup_control.grpc.pb.h"
 #include "../../log/log.h"
-#include "../../backup/backup_proxy.h"
+#include "../backup/backup_proxy.h"
 #include "../volume.h"
 
 using grpc::Server;

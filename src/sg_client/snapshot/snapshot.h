@@ -1,10 +1,10 @@
 #ifndef ISNAPSHOT_H
 #define ISNAPSHOT_H
 
-#include "../rpc/common.pb.h"
-#include "../rpc/snapshot.pb.h"
-#include "../rpc/snapshot_control.pb.h"
-#include "../rpc/snapshot_control.grpc.pb.h"
+#include "rpc/common.pb.h"
+#include "rpc/snapshot.pb.h"
+#include "rpc/snapshot_control.pb.h"
+#include "rpc/snapshot_control.grpc.pb.h"
 
 using huawei::proto::StatusCode;
 using huawei::proto::control::CreateSnapshotReq;

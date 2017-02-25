@@ -1,9 +1,6 @@
 #ifndef BACKUP_UTIL_H
 #define BACKUP_UTIL_H
-#include <string>
-#include "../snapshot/snapshot_type.h"
-#include "backup_type.h"
-using namespace std;
+#include "backup_def.h"
 
 /*helper function to handle db persist key*/
 string spawn_key(const string& prefix, const string& value);
