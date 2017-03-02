@@ -14,7 +14,6 @@
 #include <assert.h>
 #include <boost/format.hpp>
 #include <boost/tokenizer.hpp>
-#include "../common/config_parser.h"
 #include "control_volume.h"
 
 using google::protobuf::Map;
@@ -23,17 +22,13 @@ using huawei::proto::VolumeInfo;
 using huawei::proto::VOL_AVAILABLE;
 using huawei::proto::VOL_ENABLING;
 
-VolumeControlImpl::VolumeControlImpl(const std::string& host,
+VolumeControlImpl::VolumeControlImpl(const Configure& conf, const std::string& host,
         const std::string& port,
         std::shared_ptr<VolInnerCtrlClient> vol_inner_client) :
-        host_(host), port_(port), vol_inner_client_(vol_inner_client)
+        conf_(conf), host_(host), port_(port), vol_inner_client_(vol_inner_client)
 {
-    std::unique_ptr<ConfigParser> parser(new ConfigParser(DEFAULT_CONFIG_FILE));
-    target_prefix_ = "iqn.2017-01.huawei.sgs.";
-    target_prefix_ = parser->get_default("target_prefix", target_prefix_);
-    std::string default_target_path = "/etc/tgt/conf.d/";
-    target_path_ = parser->get_default("sg_client.target_path", default_target_path);
-    parser.reset();
+    target_prefix_ = conf_.iscsi_target_prefix;
+    target_path_  = conf_.iscsi_target_config_dir;
 }
 
 bool VolumeControlImpl::create_volume(const std::string& volume_id, size_t size,
@@ -137,7 +132,7 @@ bool VolumeControlImpl::execute_cmd(const std::string& command,
 
 bool VolumeControlImpl::update_target(const std::string& target_iqn)
 {
-    LOG_INFO<<"update target "<<target_iqn;
+    LOG_INFO<<"update target " << target_iqn;
     std::string cmd = "tgt-admin --update " + target_iqn + " -f";
     int ret = system(cmd.c_str());
     if (ret == 0)
@@ -146,7 +141,7 @@ bool VolumeControlImpl::update_target(const std::string& target_iqn)
     }
     else
     {
-        LOG_INFO<<"update target "<<target_iqn <<"failed.";
+        LOG_INFO<<"update target " << target_iqn << " failed errno:" << errno;
         return false;
     }
 }

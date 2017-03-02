@@ -39,18 +39,12 @@ void JournalPreProcessor::work()
     }
 }
 
-bool JournalPreProcessor::init(std::shared_ptr<ConfigParser> conf)
+bool JournalPreProcessor::init(const Configure& conf)
 {
+    conf_ = conf;
     running_flag = true;
 
-    config.checksum_type = (checksum_type_t)conf->get_default("pre_processor.checksum_type",0);
-    config.thread_num = conf->get_default("pre_processor.thread_num",1);
-    if(config.thread_num <= 0)
-    {
-        return false;
-    }
-    config.thread_num = 3;
-    for (int i=0;i < config.thread_num;i++)
+    for (int i=0;i < conf_.journal_process_thread_num; i++)
     {
         worker_threads.create_thread(boost::bind(&JournalPreProcessor::work,this));
     }

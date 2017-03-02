@@ -1,6 +1,5 @@
 #include "journal_writer.h"
-#include "../log/log.h"
-
+#include "log/log.h"
 #include <cerrno>
 
 namespace Journal{
@@ -33,15 +32,16 @@ JournalWriter::~JournalWriter()
 }
 
 
-bool JournalWriter::init(string vol,
-                         string rpc_addr,
-                         shared_ptr<ConfigParser> conf,
+bool JournalWriter::init(const Configure& conf,
+                         string vol,
                          shared_ptr<IDGenerator> idproxy,
                          shared_ptr<CacheProxy> cacheproxy,
                          shared_ptr<SnapshotProxy> snapshotproxy,
                          shared_ptr<CephS3LeaseClient> lease_client)
  
 {
+    conf_ = conf;
+
     vol_id = vol;
     idproxy_ = idproxy;
     cacheproxy_ = cacheproxy;
@@ -49,17 +49,9 @@ bool JournalWriter::init(string vol,
     running_flag = true;
     lease_client_ = lease_client;
     cur_journal_size = 0;
-
-    rpc_client.reset(new WriterClient(grpc::CreateChannel(rpc_addr, 
+    
+    rpc_client.reset(new WriterClient(grpc::CreateChannel(conf_.sg_server_addr(), 
                         grpc::InsecureChannelCredentials())));
-
-    std::string mnt = "/mnt/cephfs";
-    config.journal_max_size = conf->get_default<int>("journal_writer.journal_max_size",32 * 1024 * 1024);
-    config.journal_mnt = conf->get_default("journal_writer.mnt",mnt);
-    config.write_timeout = conf->get_default("journal_writer.write_timeout",2);
-    config.version = conf->get_default("journal_writer.version",0);
-    config.checksum_type = (checksum_type_t)conf->get_default("pre_processor.checksum_type",0);
-    config.journal_limit = conf->get_default("ceph_s3.journal_limit",4);
 
     thread_ptr.reset(new boost::thread(boost::bind(&JournalWriter::work, this)));
     return true;
@@ -69,7 +61,6 @@ bool JournalWriter::deinit()
 {
     running_flag = false;
     thread_ptr->join();
-
     return true;
 }
 
@@ -96,7 +87,7 @@ void JournalWriter::work()
         time(&end);
         entry_size = entry->get_persit_size();
 
-        while(!success && (difftime(end,start) < config.write_timeout))
+        while(!success && (difftime(end,start) < conf_.journal_write_timeout))
         {
             if(!open_journal(entry_size))
             {
@@ -104,7 +95,7 @@ void JournalWriter::work()
                 continue;
             }
 
-            std::string journal_file = config.journal_mnt + cur_lease_journal.second;
+            std::string journal_file = conf_.journal_mount_point + cur_lease_journal.second;
             off_t journal_off = cur_journal_size;
             
             /*persist to journal file*/
@@ -161,7 +152,7 @@ bool JournalWriter::get_journal()
         if(journal_queue.empty())
         {
             LOG_INFO << "journal_queue empty";
-            get_writeable_journals(lease_client_->get_lease(),config.journal_limit);
+            get_writeable_journals(lease_client_->get_lease(), conf_.journal_limit);
         }
 
         if (journal_queue.empty())
@@ -224,7 +215,7 @@ bool JournalWriter::open_journal(uint64_t entry_size)
         return false;
     }
 
-    if((entry_size + cur_journal_size) > config.journal_max_size)
+    if((entry_size + cur_journal_size) > conf_.journal_max_size)
     {
         seal_queue.push(cur_lease_journal);
         LOG_INFO << "push journal:" << cur_lease_journal.second << "to seal queue ok";
@@ -240,7 +231,7 @@ bool JournalWriter::open_journal(uint64_t entry_size)
 
     if (NULL == cur_file_ptr)
     {
-        std::string tmp = config.journal_mnt + cur_lease_journal.second;
+        std::string tmp = conf_.journal_mount_point + cur_lease_journal.second;
         cur_file_ptr = fopen(tmp.c_str(), "ab+");
         if(NULL == cur_file_ptr)
         {
@@ -262,8 +253,6 @@ bool JournalWriter::open_journal(uint64_t entry_size)
 bool JournalWriter::write_journal_header()
 {
     journal_file_header_t journal_header;
-    journal_header.version = config.version;
-
     if(fwrite(&journal_header,sizeof(journal_file_header_t),1,cur_file_ptr) != 1)
     {
         LOG_ERROR << "write journal header faied,journal:" << cur_lease_journal.second

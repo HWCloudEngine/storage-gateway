@@ -28,5 +28,4 @@ public:
         Type get_default(const char* path,const Type& default_value) const;
 };
 #include "config_parser_impl.h"
-#define DEFAULT_CONFIG_FILE "/etc/storage-gateway/config.ini"
 #endif

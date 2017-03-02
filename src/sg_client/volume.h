@@ -11,11 +11,11 @@
 #include "journal_writer.h"
 #include "journal_reader.h"
 #include "journal_replayer.h"
-#include "../common/config_parser.h"
-#include "../common/blocking_queue.h"
-#include "../common/volume_attr.h"
-#include "../common/ceph_s3_lease.h"
-#include "../rpc/common.pb.h"
+#include "common/config.h"
+#include "common/blocking_queue.h"
+#include "common/volume_attr.h"
+#include "common/ceph_s3_lease.h"
+#include "rpc/common.pb.h"
 #include "snapshot/snapshot_proxy.h"
 #include "backup/backup_decorator.h"
 #include "backup/backup_proxy.h"
@@ -30,10 +30,9 @@ namespace Journal{
 class Volume 
 {
 public:
-    explicit Volume(raw_socket_t client_sock, 
-                    const VolumeAttr& vol_attr,
-                    shared_ptr<ConfigParser> conf, 
-                    shared_ptr<CephS3LeaseClient> lease_client);
+    explicit Volume(const Configure& conf, const VolumeAttr& vol_attr, 
+                    shared_ptr<CephS3LeaseClient> lease_client,
+                    raw_socket_t client_sock);
 
     virtual ~Volume();
     
@@ -52,16 +51,14 @@ public:
     shared_ptr<ReplicateProxy>& get_replicate_proxy()const;
 
 private:
+    Configure  conf_;
+    VolumeAttr vol_attr_;
+    shared_ptr<CephS3LeaseClient> lease_client_;
     /*socket*/
     mutable raw_socket_t raw_socket_;
     /*memory pool for receive io hook data from raw socket*/
     nedalloc::nedpool* buffer_pool_;
     
-    VolumeAttr vol_attr_;
-
-    shared_ptr<ConfigParser> conf_;
-    shared_ptr<CephS3LeaseClient> lease_client_;
-
     /*queue */
     BlockingQueue<shared_ptr<JournalEntry>> entry_queue_;  /*connection and preprocessor*/
     BlockingQueue<struct IOHookReply*>      reply_queue_;  /*connection*/

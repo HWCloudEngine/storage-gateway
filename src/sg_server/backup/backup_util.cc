@@ -21,11 +21,6 @@ string spawn_latest_backup_id_key()
     return spawn_key(BACKUP_ID_PREFIX, "");
 }
 
-string spawn_latest_backup_name_key()
-{
-    return spawn_key(BACKUP_NAME_PREFIX, "");
-}
-
 string spawn_backup_attr_map_key(const string& backup_name)
 {
     return spawn_key(BACKUP_MAP_PREFIX, backup_name);
@@ -49,6 +44,8 @@ string spawn_backup_attr_map_val(const backup_attr_t& backup_attr)
     key += to_string(backup_attr.backup_id);
     key.append(BACKUP_FS);
     key += to_string(backup_attr.backup_status);
+    key.append(BACKUP_FS);
+    key += to_string(backup_attr.backup_type);
     return key;
 }
 
@@ -79,6 +76,11 @@ void split_backup_attr_map_val(const string& raw_key, backup_attr_t& backup_attr
     string remain4;
     split_key(remain3, backup_status, remain4);
     backup_attr.backup_status = (BackupStatus)atoi(backup_status.c_str());
+
+    string backup_type;
+    string remain5;
+    split_key(remain4, backup_type, remain5);
+    backup_attr.backup_type = (BackupType)atoi(backup_type.c_str());
 }
  
 string spawn_backup_block_map_key(const backupid_t& backup_id,
@@ -104,4 +106,17 @@ void split_backup_block_map_key(const string& raw_key,
 
     backup_id = atol(backup.c_str());
     block_id  = atol(block.c_str());
+}
+
+string spawn_backup_object_name(const string& vol_name, const backupid_t& backup_id, 
+                                const block_t&    blk_id)
+{
+    /*todo: may add pool name*/
+    string backup_object_name = vol_name;
+    backup_object_name.append(BACKUP_FS);
+    backup_object_name.append(to_string(backup_id));
+    backup_object_name.append(BACKUP_FS);
+    backup_object_name.append(to_string(blk_id));
+    backup_object_name.append(BACKUP_OBJ_SUFFIX);
+    return backup_object_name;
 }

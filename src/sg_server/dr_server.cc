@@ -26,6 +26,7 @@
 #include "consumer_service.h"
 #include "snapshot/snapshot_mgr.h"
 #include "backup/backup_mgr.h"
+#include "backup/backup_msg_handler.h"
 #include "replicate/rep_inner_ctrl.h"
 #include "volume_inner_control.h"
 #include "replayer_context.h"
@@ -84,49 +85,21 @@ int main(int argc, char** argv) {
     std::string file="drserver.log";
     DRLog::log_init(file);
     DRLog::set_log_level(SG_DEBUG);
-    std::shared_ptr<CephS3Meta> meta(new CephS3Meta());
-    std::unique_ptr<ConfigParser> parser(new ConfigParser(DEFAULT_CONFIG_FILE));
-    
-    string local_lo("127.0.0.1");
-    string ip1,ip2;
-    int port1,port2;
-    string addr;
-    string mount_path;
-    ip1 = parser->get_default<string>("meta_server.ip",local_lo);  
-    if(! parser->get<string>("replicate.local_ip",ip2)){
-        if(!get_local_ip(ip2)){
-            LOG_FATAL << "config parse replicate.local_ip error!";
-            std::cerr << "config parse replicate.local_ip error!" << std::endl;
-            return -1;
-        }
-    }
-    port1 = parser->get_default<int>("meta_server.port",DEFAULT_META_SERVER_PORT);
-    port2 = parser->get_default<int>("replicate.port",DEFAULT_REPLICATE_PORT);
-    if(false == parser->get<string>("replicate.remote_ip",addr)){
-        LOG_FATAL << "config parse replicate.remote_ip error!";
-        std::cerr << "config parse replicate.remote_ip error!" << std::endl;
-        return -1;
-    }
-    string type;
-    if(false == parser->get<string>("journal_storage.type",type)){
-        LOG_FATAL << "config parse journal_storage.type error!";
-        std::cerr << "config parse journal_storage.type error!" << std::endl;
-        return -1;
-    }
-    if(type.compare("ceph_fs") == 0){        
-        if(false == parser->get<string>("ceph_fs.mount_point",mount_path)){
-            LOG_FATAL << "config parse ceph_fs.mount_point error!";
-            std::cerr << "config parse ceph_fs.mount_point error!" << std::endl;
-            return -1;
-        }
-    }
-    else{
-        LOG_FATAL << "journal storage type[" << type << "] is invalid!";
-        std::cerr << "journal storage type[" << type << "] is invalid!" << std::endl;
+    Configure conf;
+    conf.init(DEFAULT_CONFIG_FILE);
+    std::shared_ptr<CephS3Meta> meta(new CephS3Meta(conf));
+
+    string type = conf.global_journal_data_storage;
+    string mount_path = conf.journal_mount_point;
+    if(type.compare("ceph_fs") != 0 || mount_path.empty()){        
+        LOG_FATAL << "config parse ceph_fs.mount_point error!";
+        std::cerr << "config parse ceph_fs.mount_point error!" << std::endl;
         return -1;
     }
 
     // init meta server
+    string ip1 = conf.meta_server_ip;
+    int port1 = conf.meta_server_port;
     RpcServer metaServer(ip1,port1,grpc::InsecureServerCredentials());
     WriterServiceImpl writerSer(meta);
     ConsumerServiceImpl consumerSer(meta);
@@ -140,14 +113,17 @@ int main(int argc, char** argv) {
     metaServer.register_service(&backupMgr);
 
     // init net receiver
+    string ip2 = conf.replicate_local_ip;
+    int port2 = conf.replicate_port;
     RpcServer repServer(ip2,port2,grpc::InsecureServerCredentials());
-    RepMsgHandlers rep_msg_handler(meta,mount_path);
-    NetReceiver netReceiver(rep_msg_handler);
+    RepMsgHandlers   rep_msg_handler(meta,mount_path);
+    BackupMsgHandler backup_msg_handler(backupMgr);
+    NetReceiver netReceiver(rep_msg_handler, backup_msg_handler);
     repServer.register_service(&netReceiver);
     LOG_INFO << "net receiver server listening on " << ip2 << ":" << port2;
     if(!repServer.run()){
         LOG_FATAL << "start replicate server failed!";
-        std::cerr << "start replicate server failed!" << std::endl;
+        std::cerr << "start replicate server failed ip2:" << ip2 << "port2:" << port2 << std::endl;
         return -1;
     }
 
@@ -166,6 +142,7 @@ int main(int argc, char** argv) {
     TaskGenerator task_generator(rep_vol_que,task_que);
 
     // replicate third stage: transfer data to destination
+    string addr = conf.replicate_remote_ip;
     addr.append(":").append(std::to_string(port2));
     LOG_INFO << "transmitter connect to " << addr;
     NetSender::instance().init(grpc::CreateChannel(
@@ -189,7 +166,7 @@ int main(int argc, char** argv) {
     }
 
     // init gc thread
-    GCTask::instance().init(meta);
+    GCTask::instance().init(conf, meta);
     // init volumes
     std::list<VolumeMeta> list;
     RESULT res = meta->list_volume_meta(list);
@@ -214,7 +191,6 @@ int main(int argc, char** argv) {
         LOG_ERROR << "get volume list failed!";
         std::cerr << "get volume list failed!" << std::endl;
     }
-    parser.reset();
     metaServer.join();
     repServer.join();
     return 0;

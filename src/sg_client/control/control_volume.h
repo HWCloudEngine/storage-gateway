@@ -14,11 +14,12 @@
 #include <list>
 #include <string>
 #include <grpc++/grpc++.h>
-#include "../../rpc/common.pb.h"
-#include "../../rpc/clients/volume_inner_ctrl_client.h"
-#include "../../rpc/volume_control.pb.h"
-#include "../../rpc/volume_control.grpc.pb.h"
-#include "../../log/log.h"
+#include "common/config.h"
+#include "rpc/common.pb.h"
+#include "rpc/clients/volume_inner_ctrl_client.h"
+#include "rpc/volume_control.pb.h"
+#include "rpc/volume_control.grpc.pb.h"
+#include "log/log.h"
 
 using grpc::Server;
 using grpc::ServerBuilder;
@@ -31,7 +32,7 @@ class VolumeControlImpl final: public control::VolumeControl::Service
 {
 
 public:
-    VolumeControlImpl(const std::string& host, const std::string& port,
+    VolumeControlImpl(const Configure& conf, const std::string& host, const std::string& port,
             std::shared_ptr<VolInnerCtrlClient> vol_inner_client);
 
     Status ListDevices(ServerContext* context,
@@ -44,6 +45,7 @@ public:
             control::GetVolumeRes* res);
     Status ListVolumes(ServerContext* context,
             const control::ListVolumesReq* req, control::ListVolumesRes* res);
+    
 private:
     bool execute_cmd(const std::string& command, std::string& result);
 
@@ -56,7 +58,6 @@ private:
     bool persist_config(const std::string& volume_id,
             const std::string& config);
     bool update_target(const std::string& target_iqn);
-
     bool get_target(const std::string& target_iqn);
     bool remove_target(const std::string& target_iqn);
     bool remove_config(const std::string& volume_id);
@@ -65,7 +66,8 @@ private:
 
     bool update_volume_status(const std::string& volume_id,
             const huawei::proto::VolumeStatus& status);
-
+    
+    Configure conf_;
     std::shared_ptr<VolInnerCtrlClient> vol_inner_client_;
     std::string host_;
     std::string port_;

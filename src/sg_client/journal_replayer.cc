@@ -36,19 +36,21 @@ JournalReplayer::JournalReplayer(VolumeAttr& vol_attr)
 {
 }
 
-bool JournalReplayer::init(const std::string& rpc_addr,
+bool JournalReplayer::init(const Configure& conf,
                            std::shared_ptr<IDGenerator> id_maker_ptr,
                            std::shared_ptr<CacheProxy> cache_proxy_ptr,
                            std::shared_ptr<SnapshotProxy> snapshot_proxy_ptr,
                            std::shared_ptr<ReplicateProxy> rep_proxy_ptr)
 {
+    conf_ = conf;
+
     id_maker_ptr_       = id_maker_ptr;
     cache_proxy_ptr_    = cache_proxy_ptr;
     snapshot_proxy_ptr_ = snapshot_proxy_ptr;
     backup_decorator_ptr_.reset(new BackupDecorator(vol_attr_.vol_name(), snapshot_proxy_ptr));
     rep_proxy_ptr_      = rep_proxy_ptr;
-
-    rpc_client_ptr_.reset(new ReplayerClient(grpc::CreateChannel(rpc_addr,
+    
+    rpc_client_ptr_.reset(new ReplayerClient(grpc::CreateChannel(conf_.sg_server_addr(),
                             grpc::InsecureChannelCredentials())));
 
     cache_recover_ptr_.reset(new CacheRecovery(vol_attr_.vol_name(), rpc_client_ptr_, 

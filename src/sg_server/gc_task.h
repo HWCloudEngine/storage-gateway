@@ -18,6 +18,7 @@
 #include <set>
 #include <atomic>
 #include "common/ceph_s3_lease.h"
+#include "common/config.h"
 #include "journal_gc_manager.h"
 #include "journal_meta_manager.h"
 #include "consumer_interface.h"
@@ -41,7 +42,7 @@ private:
     vc_map_t vols_;
     std::mutex mtx_;
 public:
-    int init(std::shared_ptr<JournalGCManager> meta);
+    int init(const Configure& conf, std::shared_ptr<JournalGCManager> meta);
     static GCTask& instance(){
         static GCTask task;
         return task;

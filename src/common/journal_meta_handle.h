@@ -13,7 +13,7 @@
 #include "rpc/common.pb.h"
 #include "rpc/journal.pb.h"
 #include "common/ceph_s3_api.h"
-#include "common/config_parser.h"
+#include "common/config.h"
 #include "log/log.h"
 #include <string>
 using huawei::proto::JournalMeta;
@@ -46,26 +46,16 @@ private:
         string secret_key;
         string host;
         string bucket_name;
-        std::unique_ptr<ConfigParser> parser(new ConfigParser(DEFAULT_CONFIG_FILE));
-        if(false == parser->get<string>("ceph_s3.access_key",access_key)){
-            LOG_FATAL << "config parse ceph_s3.access_key error!";
-            DR_ERROR_OCCURED();
-        }
-        if(false == parser->get<string>("ceph_s3.secret_key",secret_key)){
-            LOG_FATAL << "config parse ceph_s3.secret_key error!";
-            DR_ERROR_OCCURED();
-        }
-        // port number is necessary if not using default 80/443
-        if(false == parser->get<string>("ceph_s3.host",host)){
-            LOG_FATAL << "config parse ceph_s3.host error!";
-            DR_ERROR_OCCURED();
-        }
-        if(false == parser->get<string>("ceph_s3.bucket",bucket_name)){
-            LOG_FATAL << "config parse ceph_s3.bucket error!";
-            DR_ERROR_OCCURED();
-        }
+        
+        Configure conf;
+        conf.init(DEFAULT_CONFIG_FILE);
+        access_key = conf.ceph_s3_access_key;
+        secret_key = conf.ceph_s3_secret_key;
+        host = conf.ceph_s3_host;
+        bucket_name = conf.ceph_s3_bucket;
+
         s3Api_ptr_.reset(new CephS3Api(access_key.c_str(),
-                secret_key.c_str(),host.c_str(),bucket_name.c_str()));        
+                    secret_key.c_str(),host.c_str(),bucket_name.c_str()));        
     }
     ~JournalMetaHandle(){
         s3Api_ptr_.reset();

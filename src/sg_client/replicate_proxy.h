@@ -10,6 +10,7 @@
 ************************************************/
 #ifndef REPLICATE_PROXY_H_
 #define REPLICATE_PROXY_H_
+#include "common/config.h"
 #include "snapshot/snapshot_proxy.h"
 #include "../rpc/clients/volume_inner_ctrl_client.h"
 #include "../rpc/clients/replicate_inner_ctrl_client.h"
@@ -18,7 +19,7 @@ using huawei::proto::RepRole;
 
 class ReplicateProxy{
 public:
-    ReplicateProxy(const string& vol_name,const size_t& vol_size,
+    ReplicateProxy(const Configure& conf, const string& vol_name, const size_t& vol_size,
             std::shared_ptr<SnapshotProxy> snapshot_proxy);
     ~ReplicateProxy();
     // snapshot
@@ -33,6 +34,7 @@ public:
     string operate_uuid_to_snap_name(const string& operate_id);
 
 private:
+    Configure conf_;
     string vol_name_;
     size_t vol_size_;
     std::shared_ptr<SnapshotProxy> snapshot_proxy_;

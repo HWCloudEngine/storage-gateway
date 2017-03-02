@@ -5,11 +5,10 @@
 
 namespace Journal{
 
-Volume::Volume(raw_socket_t client_sock, const VolumeAttr& vol_attr,
-               shared_ptr<ConfigParser> conf, 
-               shared_ptr<CephS3LeaseClient> lease_client)
-                :raw_socket_(client_sock), vol_attr_(vol_attr), conf_(conf), 
-                 lease_client_(lease_client)
+Volume::Volume(const Configure& conf, const VolumeAttr& vol_attr, 
+               shared_ptr<CephS3LeaseClient> lease_client, raw_socket_t client_sock)
+                :conf_(conf), vol_attr_(vol_attr), lease_client_(lease_client),
+                 raw_socket_(client_sock) 
 {
 }
 
@@ -20,8 +19,7 @@ Volume::~Volume()
 
 bool Volume::init()                  
 {
-    int thread_num = conf_->get_default("pre_processor.thread_num",1);
-    buffer_pool_ = nedalloc::nedcreatepool(BUFFER_POOL_SIZE,thread_num+2);
+    buffer_pool_ = nedalloc::nedcreatepool(BUFFER_POOL_SIZE, 2);
     if(buffer_pool_ == NULL){
         LOG_ERROR << "create buffer pool failed";
         return false;
@@ -29,12 +27,13 @@ bool Volume::init()
 
     idproxy_.reset(new IDGenerator());
     cacheproxy_.reset(new CacheProxy(vol_attr_.blk_device(), idproxy_));
-    snapshotproxy_.reset(new SnapshotProxy(vol_attr_, entry_queue_)); 
+    snapshotproxy_.reset(new SnapshotProxy(conf_, vol_attr_, entry_queue_)); 
+
     backupdecorator_.reset(new BackupDecorator(vol_attr_.vol_name(), snapshotproxy_));
-    backupproxy_.reset(new BackupProxy(vol_attr_.vol_name(), vol_attr_.vol_size(), backupdecorator_));
+    backupproxy_.reset(new BackupProxy(conf_, vol_attr_, backupdecorator_));
 
     connection_.reset(new Connection(raw_socket_, entry_queue_, read_queue_, reply_queue_));
-    rep_proxy_.reset(new ReplicateProxy(vol_attr_.vol_name(), vol_attr_.vol_size(),snapshotproxy_));
+    rep_proxy_.reset(new ReplicateProxy(conf_, vol_attr_.vol_name(), vol_attr_.vol_size(),snapshotproxy_));
 
     pre_processor_.reset(new JournalPreProcessor(entry_queue_, write_queue_));
     reader_.reset(new JournalReader(read_queue_, reply_queue_));
@@ -52,7 +51,7 @@ bool Volume::init()
     }
     
     /*todo read from config*/
-    if(!writer_->init(vol_attr_.vol_name(), string("localhost:50051"), conf_, 
+    if(!writer_->init(conf_, vol_attr_.vol_name(), 
                      idproxy_, cacheproxy_, snapshotproxy_, 
                      lease_client_)){
         LOG_ERROR << "init journal writer failed,vol_name:" << vol_attr_.vol_name();
@@ -64,7 +63,7 @@ bool Volume::init()
         return false;
     }
    
-    if (!replayer_->init(string("localhost:50051"),idproxy_, cacheproxy_,
+    if (!replayer_->init(conf_,idproxy_, cacheproxy_,
                 snapshotproxy_,rep_proxy_)){
         LOG_ERROR << "init journal replayer failed,vol_name:" << vol_attr_.vol_name();
         return false;

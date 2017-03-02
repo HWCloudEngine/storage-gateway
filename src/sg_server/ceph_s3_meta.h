@@ -14,6 +14,7 @@
 #include <memory>
 #include <atomic>
 #include "common/libs3.h" // require ceph-libs3
+#include "common/config.h"
 #include "journal_meta_manager.h"
 #include "journal_gc_manager.h"
 #include "volume_meta_manager.h"
@@ -28,6 +29,7 @@ class CephS3Meta:public JournalMetaManager,
         public JournalGCManager,
         public VolumeMetaManager {
 private:
+    Configure conf_;
     std::unique_ptr<CephS3Api> s3Api_ptr_;
     string mount_path_;
     // volume journal_name counters
@@ -64,7 +66,7 @@ private:
             JournalMarker& marker);
     bool _get_volume_meta(const string& key,VolumeMeta& info);
 public:
-    CephS3Meta();
+    CephS3Meta(const Configure& conf);
     ~CephS3Meta();
     virtual RESULT get_journal_meta(const string& key, JournalMeta& meta);
     virtual RESULT get_producer_marker(const string& vol_id,

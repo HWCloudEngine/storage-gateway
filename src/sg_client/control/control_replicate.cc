@@ -13,24 +13,21 @@
 #include <boost/uuid/uuid_io.hpp> // streaming operators
 #include "control_replicate.h"
 #include "common/config_parser.h"
-#include "../../log/log.h"
+#include "log/log.h"
 using std::string;
 using huawei::proto::sOk;
 using huawei::proto::sInternalError;
 using huawei::proto::sVolumeNotExist;
 using huawei::proto::sVolumeMetaPersistError;
 using huawei::proto::sVolumeAlreadyExist;
-ReplicateCtrl::ReplicateCtrl(std::map<string, std::shared_ptr<Volume>>& volumes):
-        volumes_(volumes){
-    std::unique_ptr<ConfigParser> parser(new ConfigParser(DEFAULT_CONFIG_FILE));
-    string default_ip("127.0.0.1");
-    string svr_ip = parser->get_default("meta_server.ip",default_ip);
-    int svr_port = parser->get_default("meta_server.port",50051);
-    svr_ip += ":" + std::to_string(svr_port);
-    rep_ctrl_client_.reset(new RepInnerCtrlClient(grpc::CreateChannel(svr_ip,
+
+ReplicateCtrl::ReplicateCtrl(const Configure& conf, std::map<string, std::shared_ptr<Volume>>& volumes):
+        conf_(conf), volumes_(volumes){
+
+   rep_ctrl_client_.reset(new RepInnerCtrlClient(grpc::CreateChannel(conf_.sg_server_addr(),
                 grpc::InsecureChannelCredentials())));
-    parser.reset();
 }
+
 ReplicateCtrl::~ReplicateCtrl(){
 }
 

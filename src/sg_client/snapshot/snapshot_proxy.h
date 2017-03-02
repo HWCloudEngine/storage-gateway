@@ -23,6 +23,7 @@
 #include "common/block_store.h"
 #include "common/volume_attr.h"
 #include "common/define.h"
+#include "common/config.h"
 #include "snapshot.h"
 #include "syncbarrier.h"
 #include "transaction.h"
@@ -48,10 +49,9 @@ using namespace std;
 class SnapshotProxy : public ISnapshot, public ITransaction, public ISyncBarrier
 {
 public:
-    SnapshotProxy(VolumeAttr& vol_attr, 
+    SnapshotProxy(const Configure& conf, VolumeAttr& vol_attr, 
                   BlockingQueue<shared_ptr<JournalEntry>>& entry_queue)
-        :m_vol_attr(vol_attr), 
-        m_entry_queue(entry_queue){
+        :m_conf(conf), m_vol_attr(vol_attr), m_entry_queue(entry_queue){
         LOG_INFO << "create vname:" << m_vol_attr.vol_name() << " blk:" << m_vol_attr.blk_device();
         init();
     }
@@ -123,6 +123,8 @@ private:
     StatusCode transaction(const SnapReqHead& shead, const string& sname, const UpdateEvent& sevent); 
    
 private:
+    Configure m_conf;
+
     /*volume attr*/
     VolumeAttr& m_vol_attr;
 
