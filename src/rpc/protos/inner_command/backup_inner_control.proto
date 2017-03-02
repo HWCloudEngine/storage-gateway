@@ -6,7 +6,7 @@ package huawei.proto.inner;
 service BackupInnerControl {
     rpc Create(CreateBackupInReq) returns(CreateBackupInAck){}
     rpc Delete(DeleteBackupInReq) returns(DeleteBackupInAck){}
-    rpc Restore(RestoreBackupInReq) returns(RestoreBackupInAck){}
+    rpc Restore(RestoreBackupInReq) returns(stream RestoreBackupInAck){}
     rpc Get(GetBackupInReq) returns(GetBackupInAck){}
     rpc List(ListBackupInReq) returns(ListBackupInAck){}
 }
@@ -34,14 +34,17 @@ message DeleteBackupInAck {
 message RestoreBackupInReq {
     string vol_name = 1; 
     string backup_name = 2;
-    string new_vol_name = 3;
-    uint64 new_vol_size = 4;
-    string new_block_device = 5;
 }
 
 message RestoreBackupInAck {
     StatusCode status = 1;
-    repeated RestoreBlocks restore_blocks = 2;
+    uint64 blk_no     = 2;
+    /*local site restore return block store object name*/
+    string blk_obj    = 3;
+    /*remote site restore return block store object data*/
+    bytes  blk_data   = 4;
+    /*no any blk any more*/
+    bool   blk_over = 5;
 }
 
 message GetBackupInReq {

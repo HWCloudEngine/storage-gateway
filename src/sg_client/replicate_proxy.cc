@@ -1,21 +1,17 @@
 #include "replicate_proxy.h"
-#include "../log/log.h"
-#include "../common/config_parser.h"
+#include "log/log.h"
 using huawei::proto::SnapScene;
 using huawei::proto::SnapType;
 
-ReplicateProxy::ReplicateProxy(const string& vol_name,
+ReplicateProxy::ReplicateProxy(const Configure& conf, const string& vol_name,
             const size_t& vol_size,
             std::shared_ptr<SnapshotProxy> snapshot_proxy):
             vol_name_(vol_name),
             vol_size_(vol_size),
             snapshot_proxy_(snapshot_proxy){
-    std::unique_ptr<ConfigParser> parser(new ConfigParser(DEFAULT_CONFIG_FILE));
-    string default_ip("127.0.0.1");
-    string svr_ip = parser->get_default("meta_server.ip",default_ip);
-    int svr_port = parser->get_default("meta_server.port",50051);
-    svr_ip += ":" + std::to_string(svr_port);
-    rep_inner_client_.reset(new RepInnerCtrlClient(grpc::CreateChannel(svr_ip,
+
+    conf_ = conf;
+    rep_inner_client_.reset(new RepInnerCtrlClient(grpc::CreateChannel(conf_.sg_server_addr(),
                 grpc::InsecureChannelCredentials())));
 }
 

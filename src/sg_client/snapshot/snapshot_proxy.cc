@@ -8,9 +8,9 @@
 #include <vector>
 #include <set>
 #include <chrono>
-#include "../common/interval_set.h"
-#include "../common/utils.h"
-#include "../rpc/message.pb.h"
+#include "common/interval_set.h"
+#include "common/utils.h"
+#include "rpc/message.pb.h"
 #include "snapshot_proxy.h"
 
 using huawei::proto::SnapshotMessage;
@@ -50,15 +50,9 @@ using huawei::proto::inner::UpdateEvent;
 bool SnapshotProxy::init()
 {        
     /*snapshot inner rpc client stub*/
-    m_rpc_stub = SnapshotInnerControl::NewStub(grpc::CreateChannel(
-                "127.0.0.1:50051", 
+    m_rpc_stub = SnapshotInnerControl::NewStub(grpc::CreateChannel(m_conf.sg_server_addr(), 
                 grpc::InsecureChannelCredentials()));
    
-    /*backup inner rpc client */
-    m_backup_inner_rpc_client = new BackupInnerCtrlClient(grpc::CreateChannel(
-                                "127.0.0.1:50051", 
-                                grpc::InsecureChannelCredentials()));
-
     /*open block device*/
     m_block_fd = open(m_vol_attr.blk_device().c_str(), O_RDWR | O_DIRECT | O_SYNC);
     if(m_block_fd == -1){

@@ -12,6 +12,7 @@
 #define NET_RECEIVER_H_
 #include "rpc/transfer.grpc.pb.h"
 #include "sg_server/replicate/rep_message_handlers.h"
+#include "sg_server/backup/backup_msg_handler.h"
 
 using huawei::proto::transfer::TransferRequest;
 using huawei::proto::transfer::TransferResponse;
@@ -21,9 +22,11 @@ using grpc::ServerReaderWriter;
 
 class NetReceiver:public DataTransfer::Service{
 private:
-    RepMsgHandlers& rep_handlers_;
+    RepMsgHandlers&   rep_handlers_;
+    BackupMsgHandler& backup_handler_;
+
 public:
-    NetReceiver(RepMsgHandlers& rep_handlers);
+    NetReceiver(RepMsgHandlers& rep_handlers, BackupMsgHandler& backup_handler);
     ~NetReceiver();
     grpc::Status transfer(ServerContext* context,
             ServerReaderWriter<TransferResponse,TransferRequest>* stream);

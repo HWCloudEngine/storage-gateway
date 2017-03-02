@@ -9,10 +9,8 @@
 #include <map>
 #include <queue>
 #include <memory>
-
 #include <time.h>
 #include <atomic> 
-
 #include <sys/stat.h>
 
 #include <boost/noncopyable.hpp>
@@ -24,34 +22,21 @@
 #include <boost/function.hpp>
 #include <boost/bind.hpp>
 #include <boost/lockfree/queue.hpp>
-
-#include "../common/blocking_queue.h"
-#include "../common/config_parser.h"
-
+#include "common/blocking_queue.h"
+#include "common/config.h"
+#include "common/journal_entry.h"
+#include "common/ceph_s3_lease.h"
 #include "seq_generator.h"
 #include "cache/cache_proxy.h"
 #include "snapshot/snapshot_proxy.h"
-
+#include "rpc/clients/writer_client.h"
 #include "message.h"
-#include "../common/journal_entry.h"
-#include "../rpc/clients/writer_client.h"
-#include "../common/ceph_s3_lease.h"
+#include "rpc/clients/writer_client.h"
 #include "epoll_event.h"
 
 using namespace std;
 
 namespace Journal{
-
-struct JournalWriterConf{
-    uint64_t journal_max_size;
-    std::string journal_mnt;
-    int_least64_t write_timeout;
-    int32_t version;
-    checksum_type_t checksum_type;
-    int32_t journal_limit;
-    // when written size greater than this threshold value, to update producer marker
-    uint64_t producer_written_size_threshold;
-};
 
 class JournalWriter :private boost::noncopyable
 {
@@ -60,8 +45,8 @@ public:
                            BlockingQueue<struct IOHookReply*>& reply_queue);
     virtual ~JournalWriter();
     void work();
-    bool init(string vol,
-              shared_ptr<ConfigParser> conf,
+    bool init(const Configure& conf,
+              string vol, 
               shared_ptr<IDGenerator> id_proxy, 
               shared_ptr<CacheProxy> cacheproxy,
               shared_ptr<SnapshotProxy> snapshotproxy,
@@ -93,7 +78,8 @@ private:
     void send_reply(JournalEntry* entry,bool success);
 
     void handle_lease_invalid();
-
+    
+    Configure conf_;
     /*lease with dr server*/
     shared_ptr<CephS3LeaseClient> lease_client_;
     
@@ -125,7 +111,6 @@ private:
     
     std::string vol_id;
     
-    struct JournalWriterConf config;
     bool running_flag;
 
     // new written size in journals since last update of producer marker

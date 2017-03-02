@@ -45,7 +45,7 @@ int GCTask::get_least_marker(const string& vol,std::set<IConsumer*>& set,
         return -1;
 }
 
-int GCTask::init(std::shared_ptr<JournalGCManager> gc_meta,
+int GCTask::init(const Configure& conf, std::shared_ptr<JournalGCManager> gc_meta,
             std::shared_ptr<JournalMetaManager> j_meta){
     std::lock_guard<std::mutex> lck(mtx_);
     if(GC_running_){
@@ -60,27 +60,14 @@ int GCTask::init(std::shared_ptr<JournalGCManager> gc_meta,
     string secret_key;
     string host;
     string bucket_name;
-    std::unique_ptr<ConfigParser> parser(new ConfigParser(DEFAULT_CONFIG_FILE));
-    if(false == parser->get<string>("ceph_s3.access_key",access_key)){
-        LOG_FATAL << "config parse ceph_s3.access_key error!";
-        return INTERNAL_ERROR;
-    }
-    if(false == parser->get<string>("ceph_s3.secret_key",secret_key)){
-        LOG_FATAL << "config parse ceph_s3.secret_key error!";
-        return INTERNAL_ERROR;
-    }
-    // port number is necessary if not using default 80/443
-    if(false == parser->get<string>("ceph_s3.host",host)){
-        LOG_FATAL << "config parse ceph_s3.host error!";
-        return INTERNAL_ERROR;
-    }
-    if(false == parser->get<string>("ceph_s3.bucket",bucket_name)){
-        LOG_FATAL << "config parse ceph_s3.bucket error!";
-        return INTERNAL_ERROR;
-    }
-    lease_check_window_ = parser->get_default<int>("ceph_s3.expire_window",10);
-    GC_window_ = parser->get_default<int>("ceph_s3.gc_window",100);
-    parser.reset();
+    
+    access_key = conf.ceph_s3_access_key;
+    secret_key = conf.ceph_s3_secret_key;
+    host = conf.ceph_s3_host;
+    bucket_name = conf.ceph_s3_bucket;
+    lease_check_window_ = conf.lease_expire_window;
+    GC_window_  = conf.gc_window;
+
     lease_->init(access_key.c_str(),
             secret_key.c_str(),host.c_str(),bucket_name.c_str(),gc_interval);
     tick_ = 1;

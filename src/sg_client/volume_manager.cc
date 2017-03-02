@@ -56,20 +56,10 @@ VolumeManager::~VolumeManager()
 
 bool VolumeManager::init()
 {
-    conf.reset(new ConfigParser(DEFAULT_CONFIG_FILE));
+    conf.init(DEFAULT_CONFIG_FILE);
     lease_client.reset(new CephS3LeaseClient());
-    std::string access_key,secret_key,host,bucket_name;
-    access_key = conf->get_default("ceph_s3.access_key",access_key);
-    secret_key = conf->get_default("ceph_s3.secret_key",secret_key);
-    host = conf->get_default("ceph_s3.host",host);
-    int renew_window = conf->get_default("ceph_s3.lease_renew_window",100);
-    int expire_window = conf->get_default("ceph_s3.lease_expire_window",600);
-    int validity_window = conf->get_default("ceph_s3.lease_validity_window",150);
-    bucket_name = conf->get_default("ceph_s3.bucket",bucket_name);
-    producer_marker_update_interval = conf->get_default(
-            "journal_writer.producer_marker_update_interval",5000);
-    max_ep_events_num = conf->get_default("global.max_volume_count",128);
-
+    producer_marker_update_interval = conf.journal_producer_marker_update_interval;
+    max_ep_events_num = conf.global_max_volume_count;
     ep_events = new epoll_event_t[max_ep_events_num];
     if(ep_events == nullptr){
         LOG_ERROR << "allocate epoll events failed!";
@@ -81,17 +71,21 @@ bool VolumeManager::init()
         DR_ERROR_OCCURED();
     }
 
-    lease_client->init(access_key.c_str(), secret_key.c_str(),
-                       host.c_str(), bucket_name.c_str(), renew_window,
-                       expire_window, validity_window) ;
+    lease_client->init(conf.ceph_s3_access_key.c_str(),
+                       conf.ceph_s3_secret_key.c_str(),
+                       conf.ceph_s3_host.c_str(),
+                       conf.ceph_s3_bucket.c_str(),
+                       conf.lease_renew_window,
+                       conf.lease_expire_window,
+                       conf.lease_validity_window) ;
+
     thread_ptr.reset(new boost::thread(boost::bind(&VolumeManager::periodic_task, this)));
 
     std::string default_ip("127.0.0.1");
     /*start rpc server for receive control command from sg control*/
-    string ctrl_ip = conf->get_default("ctrl_server.ip", default_ip);
-    int ctrl_port = conf->get_default("ctrl_server.port", 1111);
-    ctrl_rpc_server = new RpcServer(ctrl_ip, ctrl_port, 
-                                     grpc::InsecureServerCredentials());
+    ctrl_rpc_server = new RpcServer(conf.ctrl_server_ip, 
+                                    conf.ctrl_server_port, 
+                                    grpc::InsecureServerCredentials());
     assert(ctrl_rpc_server!= nullptr);
 
     snapshot_ctrl = new SnapshotControlImpl(volumes); 
@@ -102,19 +96,12 @@ bool VolumeManager::init()
     assert(backup_ctrl != nullptr);
     ctrl_rpc_server->register_service(backup_ctrl);
 
-    rep_ctrl = new ReplicateCtrl(volumes);
+    rep_ctrl = new ReplicateCtrl(conf, volumes);
     ctrl_rpc_server->register_service(rep_ctrl);
 
-    std::string svr_ip = conf->get_default("meta_server.ip", default_ip);
-    int svr_port = conf->get_default("meta_server.port", 50051);
-    svr_ip += ":" + std::to_string(svr_port);
-    writer_rpc_client.reset(new WriterClient(
-            grpc::CreateChannel(svr_ip,grpc::InsecureChannelCredentials())));
-    vol_inner_client_.reset(
-            new VolInnerCtrlClient(
-                    grpc::CreateChannel(svr_ip,
-                            grpc::InsecureChannelCredentials())));
-    vol_ctrl = new VolumeControlImpl(host_, port_,vol_inner_client_);
+    vol_inner_client_.reset(new VolInnerCtrlClient(grpc::CreateChannel(conf.sg_server_addr(),
+                    grpc::InsecureChannelCredentials())));
+    vol_ctrl = new VolumeControlImpl(conf, host_, port_,vol_inner_client_);
     ctrl_rpc_server->register_service(vol_ctrl);
 
     if(!ctrl_rpc_server->run()){
@@ -129,11 +116,8 @@ bool VolumeManager::init()
 
 void VolumeManager::periodic_task()
 {
-    int_least64_t interval = conf->get_default("ceph_s3.get_journal_interval",500);
-    int journal_limit = conf->get_default("ceph_s3.journal_limit",4);
-
     while(running_){
-        boost::this_thread::sleep_for(boost::chrono::milliseconds(interval));
+        boost::this_thread::sleep_for(boost::chrono::milliseconds(conf.journal_interval));
         std::string lease_uuid = lease_client->get_lease();
         if(!lease_client->check_lease_validity(lease_uuid)){
             continue;
@@ -143,8 +127,9 @@ void VolumeManager::periodic_task()
         for(auto iter : volumes){
             std::string vol_id = iter.first;
             auto vol = iter.second;
+
             std::shared_ptr<JournalWriter> writer = vol->get_writer();
-            if(!writer->get_writeable_journals(lease_uuid,journal_limit)){
+            if(!writer->get_writeable_journals(lease_uuid,conf.journal_limit)){
                 LOG_ERROR << "get_writeable_journals failed,vol_id:" << vol_id;
             }
 
@@ -208,8 +193,9 @@ void VolumeManager::read_req_body_cbt(raw_socket_t client_sock,
         VolumeAttr volume_attr(volume_info);
 
         /*create volume*/
-        shared_ptr<Volume> vol = make_shared<Volume>(client_sock, volume_attr,
-                conf, lease_client,writer_rpc_client,epoll_fd);
+        shared_ptr<Volume> vol = make_shared<Volume>(conf, volume_attr, \
+                                            lease_client, writer_rpc_client, \
+                                            epoll_fd, client_sock);
         /*add to map*/
         std::unique_lock<std::mutex> lk(mtx);
         volumes.insert({vol_name, vol});

@@ -13,11 +13,12 @@
 #include "seq_generator.h"
 #include "cache/cache_proxy.h"
 #include "cache/cache_recover.h"
-#include "../common/journal_entry.h"
-#include "../rpc/clients/replayer_client.h"
-#include "../rpc/common.pb.h"
-#include "../rpc/message.pb.h"
-#include "../common/volume_attr.h"
+#include "common/journal_entry.h"
+#include "common/volume_attr.h"
+#include "common/config.h"
+#include "rpc/clients/replayer_client.h"
+#include "rpc/common.pb.h"
+#include "rpc/message.pb.h"
 #include "snapshot/snapshot_proxy.h"
 #include "backup/backup_decorator.h"
 #include "replicate_proxy.h"
@@ -39,7 +40,7 @@ public:
     JournalReplayer(const JournalReplayer& r) = delete;
     JournalReplayer& operator=(const JournalReplayer& r) = delete;
 
-    bool init(const string& rpc_addr,
+    bool init(const Configure& conf,
               shared_ptr<IDGenerator> id_maker_ptr,
               shared_ptr<CacheProxy> cache_proxy_ptr,
               shared_ptr<SnapshotProxy> snapshot_proxy_ptr,
@@ -74,6 +75,7 @@ private:
     void update_consumer_marker(const string& journal, const off_t& off);
 
 private:
+    Configure conf_;
     /*volume attr*/
     VolumeAttr& vol_attr_;
 

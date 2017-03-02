@@ -275,7 +275,8 @@ std::shared_ptr<JournalCounter> CephS3Meta::get_journal_key_counter(
 }
 
 // cephS3Meta member functions
-CephS3Meta::CephS3Meta():
+CephS3Meta::CephS3Meta(const Configure& conf):
+    conf_(conf),
     journal_meta_cache_(1000,std::bind(&CephS3Meta::_get_journal_meta,
         this,std::placeholders::_1,std::placeholders::_2)),
 
@@ -299,6 +300,7 @@ CephS3Meta::CephS3Meta():
         this,std::placeholders::_1,std::placeholders::_2)) {
     init();
 }
+
 CephS3Meta::~CephS3Meta() {
 }
 
@@ -340,8 +342,8 @@ RESULT CephS3Meta::init() {
     }
     else
         DR_ERROR_OCCURED();
-    max_journal_size_ = parser->get_default<int>(
-        "journal_writer.journal_max_size",32 * 1024 * 1024);
+    max_journal_size_ = conf_.journal_max_size;
+    
     return mkdir_if_not_exist((mount_path_+g_key_prefix).c_str(),S_IRWXG|S_IRWXU|S_IRWXO);
 }
 

@@ -21,15 +21,20 @@ sg_server_SOURCES=dr_server.cc \
                   transfer/net_sender.cc \
                   transfer/net_receiver.cc \
                   $(top_srcdir)/src/common/crc32.c \
+                  $(top_srcdir)/src/common/config.cc \
                   $(top_srcdir)/src/common/journal_entry.cc \
                   $(top_srcdir)/src/common/ceph_s3_lease.cc \
                   $(top_srcdir)/src/common/ceph_s3_api.cc \
                   ../common/utils.cc       \
                   ../common/block_store.cc \
                   ../common/index_store.cc \
-                  backup/backup_util.cc    \
-                  backup/backup_mds.cc \
-                  backup/backup_mgr.cc \
+                  ../common/volume_attr.cc \
+                  backup/backup_util.cc \
+                  backup/backup_ctx.cc  \
+                  backup/backup_task.cc \
+                  backup/backup_mds.cc  \
+                  backup/backup_mgr.cc  \
+                  backup/backup_msg_handler.cc  \
                   snapshot/snapshot_util.cc \
                   snapshot/snapshot_mds.cc \
                   snapshot/snapshot_mgr.cc 

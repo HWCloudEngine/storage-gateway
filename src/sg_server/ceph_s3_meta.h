@@ -16,6 +16,7 @@
 #include <mutex>
 #include <boost/thread/shared_mutex.hpp>
 #include "common/libs3.h" // require ceph-libs3
+#include "common/config.h"
 #include "journal_meta_manager.h"
 #include "journal_gc_manager.h"
 #include "volume_meta_manager.h"
@@ -53,6 +54,7 @@ class CephS3Meta:public JournalMetaManager,
         public JournalGCManager,
         public VolumeMetaManager {
 private:
+    Configure conf_;
     std::unique_ptr<CephS3Api> s3Api_ptr_;
     string mount_path_;
     boost::shared_mutex counter_mtx;
@@ -93,7 +95,7 @@ private:
             JournalMarker& marker);
     bool _get_volume_meta(const string& key,VolumeMeta& info);
 public:
-    CephS3Meta();
+    CephS3Meta(const Configure& conf);
     ~CephS3Meta();
 
     virtual int compare_marker(const JournalMarker& m1,
