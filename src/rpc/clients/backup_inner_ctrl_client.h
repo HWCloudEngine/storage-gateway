@@ -1,6 +1,9 @@
 #ifndef BACKUP_INNER_CTRL_CLIENT_H_
 #define BACKUP_INNER_CTRL__CLIENT_H_
-
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <string>
 #include <memory>
 #include <set>
@@ -9,17 +12,19 @@
 #include "../backup.pb.h"
 #include "../backup_inner_control.pb.h"
 #include "../backup_inner_control.grpc.pb.h"
+#include "common/define.h"
+#include "common/block_store.h"
 
 using namespace std;
 
 using grpc::Channel;
 using grpc::ClientContext;
+using grpc::ClientReader;
 using grpc::Status;
 using huawei::proto::StatusCode;
 using huawei::proto::BackupMode;
 using huawei::proto::BackupStatus;
 using huawei::proto::BackupOption;
-using huawei::proto::RestoreBlocks;
 
 using huawei::proto::inner::BackupInnerControl;
 using huawei::proto::inner::CreateBackupInReq;
@@ -101,23 +106,45 @@ public:
                              const string& new_vol_name, 
                              const size_t& new_vol_size,
                              const string& new_block_device,
-                             vector<RestoreBlocks>& restore_blocks_vec){
+                             BlockStore* block_store){
+
         RestoreBackupInReq req;
         req.set_vol_name(vol_name);
         req.set_backup_name(backup_name);
-        req.set_new_vol_name(new_vol_name);
-        req.set_new_vol_size(new_vol_size);
-        req.set_new_block_device(new_block_device);
         RestoreBackupInAck ack;
         ClientContext context;
-        grpc::Status status = m_stub->Restore(&context, req, &ack);
-        if(status.ok()){
-            int restore_blocks_size = ack.restore_blocks_size();
-            for(int i = 0; i < restore_blocks_size; i++){
-                restore_blocks_vec.push_back(ack.restore_blocks(i));
-            }
+        unique_ptr<ClientReader<RestoreBackupInAck>> reader(m_stub->Restore(&context, req));
+
+        int block_dev_fd= open(new_block_device.c_str(), O_RDWR | O_DIRECT | O_SYNC);
+        assert(block_dev_fd != -1);
+        char* buf = (char*)malloc(BACKUP_BLOCK_SIZE);
+        assert(buf != nullptr);
+ 
+        while(reader->Read(&ack))
+        {
+            uint64_t blk_no = ack.blk_no();
+            string blk_obj = ack.blk_obj();
+            /*1. read from block store*/
+            int read_ret = block_store->read(blk_obj, buf, BACKUP_BLOCK_SIZE, 0);
+            assert(read_ret == BACKUP_BLOCK_SIZE);
+
+            /*2. (todo) whether should take snapshot before restore
+             * in case of restore failed should rollback*/
+
+            /*3. write to new block device*/
+            int write_ret = pwrite(block_dev_fd, buf, BACKUP_BLOCK_SIZE, 
+                                   blk_no * BACKUP_BLOCK_SIZE);
+            assert(write_ret == BACKUP_BLOCK_SIZE);
         }
-        return ack.status();
+
+        Status status = reader->Finish();
+        if(buf){
+            free(buf); 
+        }
+        if(block_dev_fd != -1){
+            close(block_dev_fd); 
+        }
+        return status.ok() ? StatusCode::sOk : StatusCode::sInternalError;
     }
 
 private:

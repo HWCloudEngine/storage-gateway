@@ -17,4 +17,7 @@ void   split_backup_attr_map_val(const string& raw_key, backup_attr_t& backup_at
 string spawn_backup_block_map_key(const backupid_t & backup_id, const block_t& block_id);
 void   split_backup_block_map_key(const string& raw_key, backupid_t& backup_id, block_t& block_id);
 
+string spawn_backup_object_name(const string& vol_name, const backupid_t& backup_id, 
+                                const block_t& blk_id);
+
 #endif

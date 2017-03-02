@@ -70,9 +70,9 @@ StatusCode BackupMgr::del_volume(const string& vol_name)
     return StatusCode::sOk;
 }
 
-grpc::Status BackupMgr::Create(ServerContext*   context, 
+grpc::Status BackupMgr::Create(ServerContext* context, 
                                const CreateBackupInReq* req, 
-                               CreateBackupInAck*       ack) 
+                               CreateBackupInAck* ack) 
 {
     StatusCode ret;
     string vname = req->vol_name();
@@ -83,6 +83,7 @@ grpc::Status BackupMgr::Create(ServerContext*   context,
         backup_mds = it->second;
         goto create;
     }
+
     /*(todo debug only)create snapshotmds for each volume*/
     backup_mds.reset(new BackupMds(vname, vsize));
     m_all_backupmds.insert({vname, backup_mds});
@@ -95,7 +96,7 @@ create:
 
 grpc::Status BackupMgr::List(ServerContext* context, 
                              const ListBackupInReq* req, 
-                             ListBackupInAck*       ack)
+                             ListBackupInAck* ack)
 {
     StatusCode ret;
     string vname = req->vol_name();
@@ -106,8 +107,8 @@ grpc::Status BackupMgr::List(ServerContext* context,
 }
 
 grpc::Status BackupMgr::Get(ServerContext* context, 
-                              const GetBackupInReq* req, 
-                              GetBackupInAck*       ack)
+                            const GetBackupInReq* req, 
+                            GetBackupInAck* ack)
 {
     StatusCode ret;
     string vname = req->vol_name();
@@ -117,9 +118,9 @@ grpc::Status BackupMgr::Get(ServerContext* context,
     CMD_POST(vname, "Get", ret);
 }
 
-grpc::Status BackupMgr::Delete(ServerContext*   context, 
+grpc::Status BackupMgr::Delete(ServerContext* context, 
                                const DeleteBackupInReq* req, 
-                               DeleteBackupInAck*       ack)
+                               DeleteBackupInAck* ack)
 {
     StatusCode ret;
     string vname = req->vol_name();
@@ -129,14 +130,81 @@ grpc::Status BackupMgr::Delete(ServerContext*   context,
     CMD_POST(vname, "Delete", ret);
 }
 
-grpc::Status BackupMgr::Restore(ServerContext*     context, 
+grpc::Status BackupMgr::Restore(ServerContext* context, 
                                 const RestoreBackupInReq* req, 
-                                RestoreBackupInAck*       ack) 
+                                ServerWriter<RestoreBackupInAck>* writer)
 {
     StatusCode ret;
     string vname = req->vol_name();
 
     CMD_PREV(vname, "Restore");
-    CMD_DO(vname, restore_backup, req, ack);
+    CMD_DO(vname, restore_backup, req, writer);
     CMD_POST(vname, "Restore", ret);
+}
+
+grpc::Status BackupMgr::CreateRemote(ServerContext* context, 
+                                     const CreateRemoteBackupInReq* req, 
+                                     CreateRemoteBackupInAck* ack)
+{
+    StatusCode ret;
+    string vname = req->vol_name();
+
+    CMD_PREV(vname, "create remote");
+    CMD_DO(vname, create_remote, req, ack);
+    CMD_POST(vname, "create remote", ret);
+}
+
+grpc::Status BackupMgr::DeleteRemote(ServerContext* context, 
+                                     const DeleteRemoteBackupInReq* req, 
+                                     DeleteRemoteBackupInAck* ack)
+{
+    StatusCode ret;
+    string vname = req->vol_name();
+
+    CMD_PREV(vname, "delete remote");
+    CMD_DO(vname, delete_remote, req, ack);
+    CMD_POST(vname, "delete remote", ret);
+}
+
+grpc::Status BackupMgr::Upload(ServerContext* context, 
+                               ServerReader<UploadReq>* reader, 
+                               UploadAck* ack)
+{
+    StatusCode ret;
+    string vname;
+    string bname;
+    bool upload_start = false;
+    UploadReq req; 
+
+    while(reader->Read(&req))
+    {
+        vname = req.vol_name();
+        auto it = m_all_backupmds.find(vname); 
+        assert(it != m_all_backupmds.end()); 
+        bname = req.backup_name();
+        if(!upload_start){
+            CMD_PREV(vname, "upload");
+            it->second->upload_start(bname);
+            upload_start = true;
+        }
+        uint64_t blk_no = req.blk_no();
+        const string& blk_data = req.blk_data();
+        it->second->upload(bname, blk_no, blk_data.c_str(), blk_data.length()); 
+    }
+
+    auto it = m_all_backupmds.find(vname); 
+    assert(it != m_all_backupmds.end()); 
+    it->second->upload_over(bname);
+
+    CMD_POST(vname, "upload", ret);
+}
+
+grpc::Status BackupMgr::Download(ServerContext* context, const DownloadReq* req, 
+                                 ServerWriter<DownloadAck>* writer)
+{
+    StatusCode ret;
+    string vname = req->vol_name();
+    CMD_PREV(vname, "upload");
+    CMD_DO(vname, download, req, writer);
+    CMD_POST(vname, "upload", ret);
 }

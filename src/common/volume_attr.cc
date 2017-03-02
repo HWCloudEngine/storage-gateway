@@ -4,6 +4,12 @@ using huawei::proto::REP_STATUS;
 using huawei::proto::REP_ROLE;
 using huawei::proto::VOLUME_STATUS;
 
+VolumeAttr::VolumeAttr(const string& vol_name, const size_t& vol_size)
+{
+    m_vol_info.set_vol_id(vol_name);
+    m_vol_info.set_size(vol_size);
+}
+
 VolumeAttr::VolumeAttr(const VolumeInfo& vol_info)
 {
     m_vol_info.CopyFrom(vol_info);
@@ -57,6 +63,25 @@ bool VolumeAttr::is_snapshot_allowable(const SnapType& snap_type)
         } 
     }
     
+    /*todo: handle failover and reverse*/
+    return true;
+}
+
+bool VolumeAttr::is_backup_allowable(const BackupType& backup_type)
+{
+    /*todo: maybe sgclient should take volume in-use status*/
+    if(m_vol_info.vol_status() != VOLUME_STATUS::VOL_AVAILABLE){
+        /*volume not already available, can not create snapshot*/
+        return false; 
+    }
+
+    if(m_vol_info.rep_status() != REP_STATUS::REP_ENABLED){
+        if(backup_type == BackupType::BACKUP_REMOTE){
+            /*replication disable, remote backup no support*/
+            return false; 
+        } 
+    }
+
     /*todo: handle failover and reverse*/
     return true;
 }

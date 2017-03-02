@@ -1,13 +1,24 @@
 #ifndef _BACKUP_MDS_H
 #define _BACKUP_MDS_H
+#include <memory>
+#include <mutex>
+#include <list>
+#include <atomic>
+#include <grpc++/grpc++.h>
+#include "rpc/common.pb.h"
+#include "rpc/backup.pb.h"
 #include "rpc/backup_inner_control.pb.h"
 #include "rpc/backup_inner_control.grpc.pb.h"
-#include "rpc/clients/snapshot_ctrl_client.h"
-#include "common/block_store.h"
-#include "common/index_store.h"
-#include "common/define.h"
-#include "backup_def.h"
+#include "common/thread_pool.h"
+#include "backup_ctx.h"
+#include "backup_task.h"
 
+using namespace std;
+using grpc::ServerReader;
+using grpc::ServerWriter;
+using huawei::proto::StatusCode;
+using huawei::proto::BackupMode;
+using huawei::proto::BackupType;
 using huawei::proto::inner::CreateBackupInReq;
 using huawei::proto::inner::CreateBackupInAck;
 using huawei::proto::inner::ListBackupInReq;
@@ -18,6 +29,16 @@ using huawei::proto::inner::DeleteBackupInReq;
 using huawei::proto::inner::DeleteBackupInAck;
 using huawei::proto::inner::RestoreBackupInReq;
 using huawei::proto::inner::RestoreBackupInAck;
+using huawei::proto::inner::CreateRemoteBackupInReq;
+using huawei::proto::inner::CreateRemoteBackupInAck;
+using huawei::proto::inner::DeleteRemoteBackupInReq;
+using huawei::proto::inner::DeleteRemoteBackupInAck;
+using huawei::proto::inner::UploadReq;
+using huawei::proto::inner::UploadAck;
+using huawei::proto::inner::DownloadReq;
+using huawei::proto::inner::DownloadAck;
+
+using sg_threads::ThreadPool;
 
 class BackupMds 
 {
@@ -25,80 +46,46 @@ public:
     BackupMds(const string& vol_name, const size_t& vol_size);
     virtual ~BackupMds();   
 
-    /*snapshot common operation*/
+    /*backup rpc operation*/
     StatusCode create_backup(const CreateBackupInReq* req, CreateBackupInAck* ack);
     StatusCode delete_backup(const DeleteBackupInReq* req, DeleteBackupInAck* ack);
-    StatusCode restore_backup(const RestoreBackupInReq* req, RestoreBackupInAck* ack);
+    StatusCode restore_backup(const RestoreBackupInReq* req,  ServerWriter<RestoreBackupInAck>* writer);
     StatusCode list_backup(const ListBackupInReq* req, ListBackupInAck* ack);
     StatusCode get_backup(const GetBackupInReq* req, GetBackupInAck* ack);
+
+    /*call by remote backup*/
+    StatusCode create_remote(const CreateRemoteBackupInReq* req, CreateRemoteBackupInAck* ack);
+    StatusCode delete_remote(const DeleteRemoteBackupInReq* req, DeleteRemoteBackupInAck* ack);
     
+    /*remote site receive backup data*/
+    StatusCode upload_start(const string& backup_name);
+    StatusCode upload(const string& backup_name, const block_t& blk_no, 
+                      const char* blk_data, const size_t& blk_len);
+    StatusCode upload_over(const string& backup_name);
+
+    StatusCode download(const DownloadReq* req, ServerWriter<DownloadAck>* writer);
+ 
     /*crash recover*/
     int recover();
 
-private:
-    StatusCode async_create_backup();
-    StatusCode async_delete_backup(const string& backup_name);
-    
-    /*create backup*/
-    StatusCode do_full_backup();
-    StatusCode do_incr_backup();
-    
-    /*delete backup*/
-    StatusCode do_delete_backup(const string& backup_name);
-    StatusCode do_merge_backup(const string& cur_backup, const string& next_backup);
-
-    bool is_backup_exist(const string& backup_name);
-    bool is_incr_backup_allowable();
-    bool is_backup_deletable(const string& backup_name);
-
-    backupid_t get_backup_id(const string& backup_name);
-    string     get_backup_name(const backupid_t& backup_id);
-    BackupMode get_backup_mode(const string& backup_name);
-    BackupStatus get_backup_status(const string& backup_name);
-    
-    /*get the latest full backup in system*/
-    string get_latest_full_backup();
-    /*give a backup, get the base backup of the backup*/
-    string get_backup_base(const string& cur_backup);
-
-    /*according current backup name to get prev/next backup name*/
-    string get_prev_backup(const string& cur_backup);
-    string get_next_backup(const string& cur_backup);
-
-    backupid_t spawn_backup_id();
-
-    string spawn_backup_object_name(const backupid_t& backup_id, 
-                                    const block_t&    blk_id);
-    void split_backup_object_name(const string& raw, 
-                                  const string& vol_name,
-                                  const backupid_t& backup_id, 
-                                  const block_t&  blk_id);
-    /*debug*/
-    void trace();
+    /*track all backup task*/
+    int trace_task();
 
 private:
-    /*volume basic*/
-    string m_vol_name;
-    size_t m_vol_size;
-    /*lock*/
-    recursive_mutex m_mutex;
+    StatusCode prepare_create(const string& bname, const BackupMode& bmode, 
+                              const BackupType& btype);
+    StatusCode prepare_delete(const string& bname);
 
-    /*backup basic*/
-    backupid_t m_latest_backup_id;
-    string m_cur_backup;
-
-    /*backup and attr map*/
-    map<string, backup_attr_t> m_backups;
-    /*backup id and backup block map*/
-    map<backupid_t, map<block_t, backup_object_t>> m_backup_block_map;
-
-    /*index store for backup meta*/
-    IndexStore* m_index_store;
-    /*block store for backup data*/
-    BlockStore* m_block_store;
-
-    /*snapshot client for reading incremental data and metadata */
-    SnapshotCtrlClient* m_snap_client;
+private:
+    shared_ptr<BackupCtx>        m_ctx;
+    
+    /*trace all kind of task*/
+    mutex                        m_task_tracer_lock;
+    list<shared_ptr<BackupTask>> m_task_tracer_list;
+    atomic_bool                  m_task_tracer_run;
+    
+    /*all task will run in thread pool*/
+    shared_ptr<ThreadPool> m_thread_pool;
 };
 
 #endif

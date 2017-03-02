@@ -1,12 +1,12 @@
 #ifndef _BACKUP_TYPE_H
 #define _BACKUP_TYPE_H
-
 #include <string>
 #include <set>
 #include "rpc/common.pb.h"
 #include "rpc/backup.pb.h"
 using huawei::proto::BackupStatus;
 using huawei::proto::BackupMode;
+using huawei::proto::BackupType;
 using namespace std;
 
 /*block*/
@@ -28,10 +28,12 @@ struct backup_attr
 };
 typedef struct backup_attr backup_attr_t;
 
-#define BACKUP_META    "/backup"
+#define BACKUP_META "/backup"
 
 #define BACKUP_FS "#"
 #define BACKUP_OBJ_SUFFIX ".backupobj"
+
+#define BACKUP_INIT_UUID (2222)
 
 /*backup indexstore key prefix*/
 #define BACKUP_ID_PREFIX      "backup_latestid"

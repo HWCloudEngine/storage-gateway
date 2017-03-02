@@ -6,9 +6,18 @@ package huawei.proto.inner;
 service BackupInnerControl {
     rpc Create(CreateBackupInReq) returns(CreateBackupInAck){}
     rpc Delete(DeleteBackupInReq) returns(DeleteBackupInAck){}
-    rpc Restore(RestoreBackupInReq) returns(RestoreBackupInAck){}
+    rpc Restore(RestoreBackupInReq) returns(stream RestoreBackupInAck){}
     rpc Get(GetBackupInReq) returns(GetBackupInAck){}
     rpc List(ListBackupInReq) returns(ListBackupInAck){}
+    
+    /*todo:
+     *merge with transfer.proto by replicate module
+     *remmote backup mutiplex with replicate protocol 
+     */
+    rpc CreateRemote(CreateRemoteBackupInReq) returns(CreateRemoteBackupInAck){}
+    rpc DeleteRemote(DeleteRemoteBackupInReq) returns(DeleteRemoteBackupInAck){}
+    rpc Upload(stream UploadReq) returns(UploadAck){}
+    rpc Download(DownloadReq) returns(stream UploadAck){}
 }
 
 message CreateBackupInReq {
@@ -34,14 +43,15 @@ message DeleteBackupInAck {
 message RestoreBackupInReq {
     string vol_name = 1; 
     string backup_name = 2;
-    string new_vol_name = 3;
-    uint64 new_vol_size = 4;
-    string new_block_device = 5;
 }
 
 message RestoreBackupInAck {
     StatusCode status = 1;
-    repeated RestoreBlocks restore_blocks = 2;
+    uint64 blk_no     = 2;
+    /*local site restore return block store object name*/
+    string blk_obj    = 3;
+    /*remote site restore return block store object data*/
+    bytes  blk_data   = 4;
 }
 
 message GetBackupInReq {
@@ -61,4 +71,46 @@ message ListBackupInReq {
 message ListBackupInAck {
     StatusCode status = 1;
     repeated string backup_name = 2;
+}
+
+/***************remote backup*****************/
+message CreateRemoteBackupInReq {
+    string vol_name = 1; 
+    uint64 vol_size = 2;
+    string backup_name = 3;
+    BackupOption backup_option = 4;
+}
+
+message CreateRemoteBackupInAck {
+    StatusCode status = 1;
+}
+
+message DeleteRemoteBackupInReq {
+    string vol_name = 1; 
+    string backup_name = 2;
+}
+
+message DeleteRemoteBackupInAck {
+    StatusCode status = 1;
+}
+
+message UploadReq {
+    string vol_name = 1; 
+    string backup_name = 2;
+    uint64 blk_no = 3;
+    bytes  blk_data = 4;
+}
+
+message UploadAck {
+    StatusCode status = 1;
+}
+
+message DownloadReq {
+    string vol_name = 1; 
+    string backup_name = 2;
+}
+
+message DownloadAck {
+    uint64 blk_no = 1;
+    bytes  blk_data = 2;
 }

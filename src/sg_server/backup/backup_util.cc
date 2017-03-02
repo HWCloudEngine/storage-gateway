@@ -105,3 +105,16 @@ void split_backup_block_map_key(const string& raw_key,
     backup_id = atol(backup.c_str());
     block_id  = atol(block.c_str());
 }
+
+string spawn_backup_object_name(const string& vol_name, const backupid_t& backup_id, 
+                                const block_t&    blk_id)
+{
+    /*todo: may add pool name*/
+    string backup_object_name = vol_name;
+    backup_object_name.append(BACKUP_FS);
+    backup_object_name.append(to_string(backup_id));
+    backup_object_name.append(BACKUP_FS);
+    backup_object_name.append(to_string(blk_id));
+    backup_object_name.append(BACKUP_OBJ_SUFFIX);
+    return backup_object_name;
+}
