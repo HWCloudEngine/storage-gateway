@@ -26,6 +26,7 @@
 #include "consumer_service.h"
 #include "snapshot/snapshot_mgr.h"
 #include "backup/backup_mgr.h"
+#include "backup/backup_msg_handler.h"
 #include "replicate/rep_inner_ctrl.h"
 #include "volume_inner_control.h"
 #include "replayer_context.h"
@@ -141,8 +142,9 @@ int main(int argc, char** argv) {
 
     // init net receiver
     RpcServer repServer(ip2,port2,grpc::InsecureServerCredentials());
-    RepMsgHandlers rep_msg_handler(meta,mount_path);
-    NetReceiver netReceiver(rep_msg_handler);
+    RepMsgHandlers   rep_msg_handler(meta,mount_path);
+    BackupMsgHandler backup_msg_handler(backupMgr);
+    NetReceiver netReceiver(rep_msg_handler, backup_msg_handler);
     repServer.register_service(&netReceiver);
     LOG_INFO << "net receiver server listening on " << ip2 << ":" << port2;
     if(!repServer.run()){

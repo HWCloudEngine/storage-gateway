@@ -20,6 +20,7 @@ $PROTOC -I ${PROTO_PATH} \
         ${PROTO_PATH}/backup.proto \
         ${PROTO_PATH}/volume.proto \
         ${PROTO_PATH}/replicate.proto \
+        ${PROTO_PATH}/transfer.proto \
         ${PROTO_PATH}/journal/journal.proto \
         ${PROTO_PATH}/journal/message.proto \
         ${PROTO_PATH}/journal/writer.proto \
@@ -28,7 +29,6 @@ $PROTOC -I ${PROTO_PATH} \
         ${PROTO_PATH}/inner_command/replicate_inner_control.proto \
         ${PROTO_PATH}/inner_command/backup_inner_control.proto \
         ${PROTO_PATH}/inner_command/volume_inner_control.proto \
-        ${PROTO_PATH}/replication/transfer.proto \
         ${PROTO_PATH}/control_api/snapshot_control.proto \
         ${PROTO_PATH}/control_api/replicate_control.proto \
         ${PROTO_PATH}/control_api/backup_control.proto \
@@ -38,13 +38,13 @@ $PROTOC -I ${PROTO_PATH} \
 $PROTOC -I ${PROTO_PATH} \
         --grpc_out=$RPC_SOURCE_PATH \
         --plugin=protoc-gen-grpc=`which grpc_cpp_plugin` \
+        ${PROTO_PATH}/transfer.proto \
         ${PROTO_PATH}/journal/writer.proto \
         ${PROTO_PATH}/journal/consumer.proto \
         ${PROTO_PATH}/inner_command/snapshot_inner_control.proto \
         ${PROTO_PATH}/inner_command/replicate_inner_control.proto \
         ${PROTO_PATH}/inner_command/backup_inner_control.proto \
         ${PROTO_PATH}/inner_command/volume_inner_control.proto \
-        ${PROTO_PATH}/replication/transfer.proto \
         ${PROTO_PATH}/control_api/snapshot_control.proto  \
         ${PROTO_PATH}/control_api/replicate_control.proto \
         ${PROTO_PATH}/control_api/backup_control.proto \
