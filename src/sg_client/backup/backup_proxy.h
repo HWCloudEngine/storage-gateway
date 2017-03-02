@@ -6,6 +6,7 @@
 #include "rpc/backup_control.pb.h"
 #include "rpc/backup_control.grpc.pb.h"
 #include "common/block_store.h"
+#include "common/volume_attr.h"
 #include "backup_decorator.h"
 
 using namespace std;
@@ -25,7 +26,7 @@ using huawei::proto::control::RestoreBackupAck;
 class BackupProxy 
 {
 public:
-    BackupProxy(const string& vol_name, const size_t& vol_size, shared_ptr<BackupDecorator> backup_decorator);
+    BackupProxy(VolumeAttr& vol_attr, shared_ptr<BackupDecorator> backup_decorator);
     virtual ~BackupProxy();   
 
     /*snapshot common operation*/
@@ -35,17 +36,13 @@ public:
     StatusCode list_backup(const ListBackupReq* req, ListBackupAck* ack);
     StatusCode get_backup(const GetBackupReq* req, GetBackupAck* ack);
     
-    /*crash recover*/
-    int recover();
-
 private:
     /*volume basic*/
-    string m_vol_name;
-    size_t m_vol_size;
-    
-    shared_ptr<BackupDecorator>       m_backup_decorator;
+    VolumeAttr& m_vol_attr; 
+
+    shared_ptr<BackupDecorator> m_backup_decorator;
     shared_ptr<BackupInnerCtrlClient> m_backup_inner_rpc_client;
-    shared_ptr<BlockStore>            m_block_store;
+    shared_ptr<BlockStore> m_block_store;
 };
 
 #endif

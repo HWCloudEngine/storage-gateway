@@ -22,14 +22,14 @@ using huawei::proto::transfer::ReplicateMarkerReq;
 using huawei::proto::transfer::ReplicateStartReq;
 using huawei::proto::transfer::ReplicateEndReq;
 
-NetReceiver::NetReceiver(RepMsgHandlers& rep_handlers):
-        rep_handlers_(rep_handlers){
+NetReceiver::NetReceiver(RepMsgHandlers& rep_handlers, BackupMsgHandler& backup_handler):
+        rep_handlers_(rep_handlers), backup_handler_(backup_handler){
 }
 
 NetReceiver::~NetReceiver(){
 }
 
-Status NetReceiver::transfer(ServerContext* context, 
+grpc::Status NetReceiver::transfer(ServerContext* context, 
         ServerReaderWriter<TransferResponse,TransferRequest>* stream){
     static int g_stream_id = 0;
     int stream_id = ++g_stream_id;
@@ -55,16 +55,22 @@ Status NetReceiver::transfer(ServerContext* context,
                 if(!stream->Write(res)){
                     LOG_ERROR << "response of ending task failed:"
                         << req.id();
-                    Status status(grpc::INTERNAL,"write response of Rep request failed!");
+                    grpc::Status status(grpc::INTERNAL,"write response of Rep request failed!");
                     return status;
                 }
                 break;
             }
-
+            case MessageType::REMOTE_BACKUP_CREATE_START:
+            case MessageType::REMOTE_BACKUP_UPLOAD_DATA:
+            case MessageType::REMOTE_BACKUP_CREATE_END:
+            case MessageType::REMOTE_BACKUP_DELETE:
+            case MessageType::REMOTE_BACKUP_DOWNLOAD_DATA:
+                backup_handler_.dispatch(&req, stream);
+                break;
             default:
                 break;
         }
     }
-    return Status::OK;
-}
 
+    return grpc::Status::OK;
+}
