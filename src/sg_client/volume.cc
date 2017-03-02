@@ -30,8 +30,9 @@ bool Volume::init()
     idproxy_.reset(new IDGenerator());
     cacheproxy_.reset(new CacheProxy(vol_attr_.blk_device(), idproxy_));
     snapshotproxy_.reset(new SnapshotProxy(vol_attr_, entry_queue_)); 
+
     backupdecorator_.reset(new BackupDecorator(vol_attr_.vol_name(), snapshotproxy_));
-    backupproxy_.reset(new BackupProxy(vol_attr_.vol_name(), vol_attr_.vol_size(), backupdecorator_));
+    backupproxy_.reset(new BackupProxy(vol_attr_, backupdecorator_));
 
     connection_.reset(new Connection(raw_socket_, entry_queue_, read_queue_, reply_queue_));
     pre_processor_.reset(new JournalPreProcessor(entry_queue_, write_queue_));

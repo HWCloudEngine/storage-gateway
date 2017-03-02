@@ -1,6 +1,5 @@
 #ifndef BACKUP_MGR_H_
 #define BACKUP_MGR_H_
-
 #include <string>
 #include <map>
 #include <memory>
@@ -14,6 +13,8 @@
 using grpc::Server;
 using grpc::ServerBuilder;
 using grpc::ServerContext;
+using grpc::ServerReader;
+using grpc::ServerWriter;
 using grpc::Status;
 using huawei::proto::StatusCode;
 using huawei::proto::inner::BackupInnerControl;
@@ -27,6 +28,15 @@ using huawei::proto::inner::DeleteBackupInReq;
 using huawei::proto::inner::DeleteBackupInAck;
 using huawei::proto::inner::RestoreBackupInReq;
 using huawei::proto::inner::RestoreBackupInAck;
+using huawei::proto::inner::CreateRemoteBackupInReq;
+using huawei::proto::inner::CreateRemoteBackupInAck;
+using huawei::proto::inner::DeleteRemoteBackupInReq;
+using huawei::proto::inner::DeleteRemoteBackupInAck;
+using huawei::proto::inner::UploadReq;
+using huawei::proto::inner::UploadAck;
+using huawei::proto::inner::DownloadReq;
+using huawei::proto::inner::DownloadAck;
+
 
 using namespace std;
 
@@ -35,11 +45,8 @@ class BackupMgr final: public BackupInnerControl::Service
 {
 
 public:
-    BackupMgr(){
-    }
-
-    virtual ~BackupMgr(){
-    }
+    BackupMgr(){}
+    virtual ~BackupMgr(){}
 
 public:
     /*call by sgserver when add and delete volume*/
@@ -52,12 +59,25 @@ public:
     grpc::Status List(ServerContext* context, const ListBackupInReq* req, 
                       ListBackupInAck* ack);
     grpc::Status Get(ServerContext* context, const GetBackupInReq* req, 
-                       GetBackupInAck* ack);
+                     GetBackupInAck* ack);
     grpc::Status Delete(ServerContext* context, const DeleteBackupInReq* req, 
                         DeleteBackupInAck* ack);
     grpc::Status Restore(ServerContext* context, const RestoreBackupInReq* req, 
-                         RestoreBackupInAck* ack);
-
+                         ServerWriter<RestoreBackupInAck>* writer);
+    
+    /*todo mulitiplex with replication*/
+    /*create and delete backup on remote site*/
+    grpc::Status CreateRemote(ServerContext* context, const CreateRemoteBackupInReq* req, 
+                              CreateRemoteBackupInAck* ack);
+    grpc::Status DeleteRemote(ServerContext* context, const DeleteRemoteBackupInReq* req, 
+                              DeleteRemoteBackupInAck* ack);
+	/*upload backup data from stream of local sgserver*/
+    grpc::Status Upload(ServerContext* context, ServerReader<UploadReq>* reader, 
+                        UploadAck* ack);
+	/*download backup data to stream of local sgserver*/
+    grpc::Status Download(ServerContext* context, const DownloadReq* req, 
+                          ServerWriter<DownloadAck>* writer);
+  
 private:
     /*each volume has a snapshot mds*/
     mutex m_mutex;

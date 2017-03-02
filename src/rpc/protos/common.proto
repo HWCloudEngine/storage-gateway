@@ -37,6 +37,7 @@ enum StatusCode {
     sBackupNotExist     = 401;
     sBackupNoFullbackupExist = 402;
     sBackupCanNotDelete      = 403;
+    sBackupCreateDenied      = 404;
 }
 
 // define replication roles

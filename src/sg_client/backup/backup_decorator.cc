@@ -103,7 +103,11 @@ void BackupDecorator::add_sync(const string& actor, const string& action)
 
 void BackupDecorator::del_sync(const string& actor)
 {
-    m_sync_table.erase(actor);
+    auto it = m_sync_table.find(actor);
+    if(it == m_sync_table.end()){
+        return; 
+    }
+    m_sync_table.erase(it);
 }
 
 bool BackupDecorator::check_sync_on(const string& actor)
