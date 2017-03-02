@@ -54,8 +54,6 @@ StatusCode BackupDecorator::create_transaction(const SnapReqHead& shead, const s
 {
     StatusCode ret = StatusCode::sOk;
 
-    LOG_INFO << "create_transaction begin";
-
     /*check snapshot status*/
     ret = m_snapshot_proxy->create_transaction(shead, snap_name);
     if(ret != StatusCode::sOk){
@@ -67,12 +65,14 @@ StatusCode BackupDecorator::create_transaction(const SnapReqHead& shead, const s
      *if backup not ok, delete the backup and snapshot
      */
     string backup_name = snap_to_backup_name(snap_name);
+    LOG_INFO << "create_transaction A sname:" << snap_name << " bname:" << backup_name;
     while(check_sync_on(backup_name)){
         usleep(200);
     }
 
-    BackupStatus backup_status;
+    LOG_INFO << "create_transaction B sname:" << snap_name << " bname:" << backup_name;
     /*check bakcup status*/
+    BackupStatus backup_status;
     ret = m_backup_inner_rpc_client->GetBackup(m_vol_name, backup_name, backup_status);
     if(ret != StatusCode::sOk || backup_status != BackupStatus::BACKUP_CREATING){
         /*delete snapshot*/ 
@@ -82,7 +82,7 @@ StatusCode BackupDecorator::create_transaction(const SnapReqHead& shead, const s
         LOG_INFO << "create transaction recycle fail backup";
     }
     
-    LOG_INFO << "create_transaction end";
+    LOG_INFO << "create_transaction C sname:" << snap_name << " bname:" << backup_name;
     return ret;
 }
 
@@ -98,12 +98,18 @@ StatusCode BackupDecorator::rollback_transaction(const SnapReqHead& shead, const
 
 void BackupDecorator::add_sync(const string& actor, const string& action)
 {
+    LOG_INFO << "Add sync actor:" << actor;
     m_sync_table.insert({actor, action});
 }
 
 void BackupDecorator::del_sync(const string& actor)
 {
-    m_sync_table.erase(actor);
+    LOG_INFO << "Del sync actor:" << actor;
+    auto it = m_sync_table.find(actor);
+    if(it == m_sync_table.end()){
+        return; 
+    }
+    m_sync_table.erase(it);
 }
 
 bool BackupDecorator::check_sync_on(const string& actor)

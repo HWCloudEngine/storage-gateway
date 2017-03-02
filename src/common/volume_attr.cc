@@ -4,6 +4,12 @@ using huawei::proto::RepStatus;
 using huawei::proto::RepRole;
 using huawei::proto::VolumeStatus;
 
+VolumeAttr::VolumeAttr(const string& vol_name, const size_t& vol_size)
+{
+    m_vol_info.set_vol_id(vol_name);
+    m_vol_info.set_size(vol_size);
+}
+
 VolumeAttr::VolumeAttr(const VolumeInfo& vol_info)
 {
     m_vol_info.CopyFrom(vol_info);
@@ -116,4 +122,17 @@ bool VolumeAttr::is_failover_occur()
         return true;
     }
     return false;
+}
+
+bool VolumeAttr::is_backup_allowable(const BackupType& backup_type)
+{
+    /*todo: maybe sgclient should take volume in-use status*/
+    if(m_vol_info.vol_status() != VolumeStatus::VOL_AVAILABLE){
+        /*volume not already available, can not create snapshot*/
+        LOG_ERROR << "volume not available ";
+        return false; 
+    }
+
+    /*todo: handle failover and reverse*/
+    return true;
 }
