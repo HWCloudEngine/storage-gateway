@@ -27,7 +27,7 @@ using huawei::proto::inner::DeleteVolumeReq;
 using huawei::proto::inner::DeleteVolumeRes;
 using huawei::proto::VolumeInfo;
 using huawei::proto::VolumeMeta;
-using huawei::proto::VolumeStatus;
+using huawei::proto::VOLUME_STATUS;
 using huawei::proto::StatusCode;
 using huawei::proto::sInternalError;
 class VolInnerCtrlClient{
@@ -37,7 +37,7 @@ public:
     }
     ~VolInnerCtrlClient(){}
     StatusCode create_volume(const std::string& vol,const std::string& path,
-            const uint64_t& size, const VolumeStatus& s){
+            const uint64_t& size, const VOLUME_STATUS& s){
         ClientContext context;
         CreateVolumeReq request;
         CreateVolumeRes response;
@@ -55,7 +55,7 @@ public:
         }
     }
     StatusCode update_volume_status(const std::string& vol,
-            const VolumeStatus& s){
+            const VOLUME_STATUS& s){
         ClientContext context;
         UpdateVolumeStatusReq request;
         UpdateVolumeStatusRes response;

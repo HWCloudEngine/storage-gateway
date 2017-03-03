@@ -131,7 +131,6 @@ void JournalWriter::work()
                 cur_write_mark.set_pos(journal_off);
                 snapshot_proxy_->cmd_persist_notify(cur_write_mark); 
             }
-            // TODO: seal the journal if create snapshot for replication
 
             /*add to cache*/
             cacheproxy_->write(journal_file, journal_off, entry);

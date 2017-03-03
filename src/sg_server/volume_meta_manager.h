@@ -12,7 +12,7 @@
 #define VOLUME_META_MANAGER_H_
 #include <list>
 #include <string>
-#include "rpc/volume.pb.h"
+#include "rpc/common.pb.h"
 using huawei::proto::VolumeMeta;
 using huawei::proto::RESULT;
 class VolumeMetaManager{

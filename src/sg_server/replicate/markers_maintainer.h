@@ -11,8 +11,7 @@
 #ifndef MARKERS_MAINTAINER_H_
 #define MARKERS_MAINTAINER_H_
 #include "common/thread_pool.h"
-#include "replicator_context.h"
-#include "sg_server/transfer/net_sender.h"
+#include "rep_transmitter.h"
 class MarkersMaintainer{
 private:
     bool running_;
@@ -37,7 +36,7 @@ private:
         running_ = false;
     }
 
-    // thread work loop
+    // volumes whose marker need sync
     void work();
 };
 #endif

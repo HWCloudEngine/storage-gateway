@@ -15,7 +15,7 @@
 #include <mutex>
 #include "../ceph_s3_meta.h"
 #include "rpc/consumer.pb.h"
-#include "task_handler.h"
+#include "rep_transmitter.h"
 #include "common/blocking_queue.h"
 #include "rep_volume.h"
 #include "common/thread_pool.h"

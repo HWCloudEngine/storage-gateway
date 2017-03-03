@@ -17,7 +17,7 @@
 #include "journal_meta_manager.h"
 #include "journal_gc_manager.h"
 #include "volume_meta_manager.h"
-#include "common/ceph_s3_api.h"
+#include "ceph_s3_api.h"
 #include "lru_cache.h"
 using huawei::proto::JournalMeta;
 using huawei::proto::JournalArray;
@@ -51,7 +51,6 @@ private:
     bool get_marker(const string& vol_id,
         const CONSUMER_TYPE& type, JournalMarker& marker,bool is_consumer);
     RESULT init();
-    RESULT create_journal_file(const string& name);
     // default get function for LruCaches
     bool _get_journal_meta(const string& key, JournalMeta& meta);
     bool _get_replayer_producer_marker(const string& key,

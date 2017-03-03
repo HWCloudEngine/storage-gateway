@@ -33,9 +33,9 @@
 #include "snapshot/snapshot_proxy.h"
 
 #include "message.h"
-#include "../common/journal_entry.h"
+#include "journal_entry.h"
 #include "../rpc/clients/writer_client.h"
-#include "../common/ceph_s3_lease.h"
+#include "../sg_server/ceph_s3_lease.h"
 
 using namespace std;
 

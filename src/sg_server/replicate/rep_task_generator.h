@@ -17,12 +17,12 @@ class TaskGenerator{
     // input queue
     BlockingQueue<std::shared_ptr<RepVolume>>& vol_queue_;
     // output queue
-    std::shared_ptr<BlockingQueue<std::shared_ptr<TransferTask>>> task_queue_;
+    std::shared_ptr<BlockingQueue<std::shared_ptr<RepTask>>> task_queue_;
     std::unique_ptr<sg_threads::ThreadPool> tp_;
     bool running_;
 public:
     TaskGenerator(BlockingQueue<std::shared_ptr<RepVolume>>& in,
-            std::shared_ptr<BlockingQueue<std::shared_ptr<TransferTask>>> out);
+            std::shared_ptr<BlockingQueue<std::shared_ptr<RepTask>>> out);
     ~TaskGenerator();
 private:
     void work();

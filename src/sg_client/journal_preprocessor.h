@@ -14,7 +14,7 @@
 #include "../common/config_parser.h"
 #include "../common/blocking_queue.h"
 #include "message.h"
-#include "../common/journal_entry.h"
+#include "journal_entry.h"
 
 using namespace std;
 

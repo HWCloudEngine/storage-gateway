@@ -23,8 +23,8 @@ using huawei::proto::SnapshotMessage;
 using huawei::proto::DiskPos;
 using huawei::proto::SnapScene;
 using huawei::proto::SnapType;
-using huawei::proto::RepStatus;
-using huawei::proto::RepRole;
+using huawei::proto::REP_STATUS;
+using huawei::proto::REP_ROLE;
 
 using namespace std;
 
@@ -39,14 +39,12 @@ JournalReplayer::JournalReplayer(VolumeAttr& vol_attr)
 bool JournalReplayer::init(const std::string& rpc_addr,
                            std::shared_ptr<IDGenerator> id_maker_ptr,
                            std::shared_ptr<CacheProxy> cache_proxy_ptr,
-                           std::shared_ptr<SnapshotProxy> snapshot_proxy_ptr,
-                           std::shared_ptr<ReplicateProxy> rep_proxy_ptr)
+                           std::shared_ptr<SnapshotProxy> snapshot_proxy_ptr)
 {
     id_maker_ptr_       = id_maker_ptr;
     cache_proxy_ptr_    = cache_proxy_ptr;
     snapshot_proxy_ptr_ = snapshot_proxy_ptr;
     backup_decorator_ptr_.reset(new BackupDecorator(vol_attr_.vol_name(), snapshot_proxy_ptr));
-    rep_proxy_ptr_      = rep_proxy_ptr;
 
     rpc_client_ptr_.reset(new ReplayerClient(grpc::CreateChannel(rpc_addr,
                             grpc::InsecureChannelCredentials())));
@@ -306,21 +304,8 @@ bool JournalReplayer::handle_ctrl_cmd(shared_ptr<JournalEntry> entry)
                 default:
                     break;
             }
-        } else if(scene == SnapScene::FOR_REPLICATION){
-            switch(type){
-                case SNAPSHOT_CREATE:
-                    {
-                        LOG_INFO << "journal_replayer create snapshot:" << snap_name;
-                        string operate_id = rep_proxy_ptr_->snap_name_to_operate_uuid(snap_name);
-                        rep_proxy_ptr_->create_transaction(shead, operate_id,
-                                vol_attr_.replicate_role());
-                        break;
-                    }
-                default:
-                    break;
-            }
-        }
-        else{
+        } else {
+        
         }
         return true;
     } else {

@@ -19,7 +19,7 @@
 #include "../replicate_inner_control.grpc.pb.h"
 using std::string;
 using grpc::ClientContext;
-using huawei::proto::RepRole;
+using huawei::proto::REP_ROLE;
 using huawei::proto::REP_SECONDARY;
 using huawei::proto::inner::CreateReplicationInnerReq;
 using huawei::proto::inner::EnableReplicationInnerReq;
@@ -33,15 +33,15 @@ using huawei::proto::inner::ReportCheckpointRes;
 using huawei::proto::JournalMarker;
 using huawei::proto::StatusCode;
 using huawei::proto::sInternalError;
-class RepInnerCtrlClient{
+class ReplicateCtrlClient{
 public:
-    RepInnerCtrlClient(std::shared_ptr<grpc::Channel> channel):
+    ReplicateCtrlClient(std::shared_ptr<grpc::Channel> channel):
         stub_(huawei::proto::inner::ReplicateInnerControl::NewStub(channel)){
     }
-    ~RepInnerCtrlClient(){};
+    ~ReplicateCtrlClient(){};
     StatusCode create_replication(const string& op_id,const string& rep_id,
         const string& local_vol, const std::list<string>& peer_vols,
-        const RepRole& role){
+        const REP_ROLE& role){
         CreateReplicationInnerReq req;
         req.set_operate_id(op_id);
         req.set_local_volume(local_vol);
@@ -61,7 +61,7 @@ public:
         }
     }
     StatusCode enable_replication(const string& op_id,const string& vol_id,
-        const RepRole& role,const JournalMarker& marker){
+        const REP_ROLE& role,const JournalMarker& marker){
         EnableReplicationInnerReq req;
         req.set_operate_id(op_id);
         req.set_vol_id(vol_id);
@@ -79,7 +79,7 @@ public:
         }
     }
     StatusCode disable_replication(const string& op_id,const string& vol_id,
-        const RepRole& role,const JournalMarker& marker){
+        const REP_ROLE& role,const JournalMarker& marker){
         DisableReplicationInnerReq req;
         req.set_operate_id(op_id);
         req.set_vol_id(vol_id);
@@ -97,7 +97,7 @@ public:
         }
     }
     StatusCode failover_replication(const string& op_id,const string& vol_id,
-        const RepRole& role,const JournalMarker& marker){
+        const REP_ROLE& role,const JournalMarker& marker){
         FailoverReplicationInnerReq req;
         req.set_operate_id(op_id);
         req.set_vol_id(vol_id);
@@ -115,7 +115,7 @@ public:
         }
     }
     StatusCode reverse_replication(const string& op_id,const string& vol_id,
-        const RepRole& role,const JournalMarker& marker){
+        const REP_ROLE& role,const JournalMarker& marker){
         ReverseReplicationInnerReq req;
         req.set_operate_id(op_id);
         req.set_vol_id(vol_id);
@@ -133,7 +133,7 @@ public:
         }
     }
     StatusCode delete_replication(const string& op_id,const string& vol_id,
-        const RepRole& role){
+        const REP_ROLE& role){
         DeleteReplicationInnerReq req;
         req.set_operate_id(op_id);
         req.set_vol_id(vol_id);
@@ -150,7 +150,7 @@ public:
         }
     }
     StatusCode report_checkpoint(const string& op_id,const string& vol_id,
-        const RepRole& role, bool& is_discard){
+        const REP_ROLE& role, bool& is_drop){
         ReportCheckpointReq req;
         req.set_operate_id(op_id);
         req.set_vol_id(vol_id);
@@ -160,7 +160,7 @@ public:
         grpc::Status status = stub_->ReportCheckpoint(&context,req,&res);
         if(status.ok()){
             if(!res.status())
-                is_discard = res.discard_snap();
+                is_drop = res.drop_snap();
             return res.status();
         }
         else{

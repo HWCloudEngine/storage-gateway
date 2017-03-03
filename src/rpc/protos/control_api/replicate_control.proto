@@ -3,7 +3,6 @@
 
 syntax = "proto3";
 import "common.proto";
-import "replicate.proto";
 package huawei.proto.control;
 
 /*northern oriented rpc service interface*/
@@ -22,31 +21,31 @@ message CreateReplicationReq{
     string rep_uuid = 2; // replciation unique id
     string local_volume = 3;
     repeated string peer_volumes = 4;
-    RepRole role = 5;
+    REP_ROLE role = 5;
 }
 message EnableReplicationReq{
     string vol_id = 1;// require, primary volume id
-    RepRole role = 2;
+    REP_ROLE role = 2;
     string operate_id = 3;
 }
 message DisableReplicationReq{
     string vol_id = 1;// require, primary volume id
-    RepRole role = 2;
+    REP_ROLE role = 2;
     string operate_id = 3;
 }
 message FailoverReplicationReq{
     string vol_id = 1;// require, primary volume id
-    RepRole role = 2; // default:SECONDARY
+    REP_ROLE role = 2; // default:SECONDARY
     string operate_id = 3;
 }
 message ReverseReplicationReq{
     string vol_id = 1;// require, primary volume id
-    RepRole role = 2;
+    REP_ROLE role = 2;
     string operate_id = 3;
 }
 message DeleteReplicationReq{
     string vol_id = 1;// require, primary volume id
-    RepRole role = 2;
+    REP_ROLE role = 2;
     string operate_id = 3;
 }
 message ReplicationCommonRes{

@@ -34,10 +34,6 @@ VolumeManager::~VolumeManager()
     if(vol_ctrl){
         delete vol_ctrl;
     }
-
-    if(rep_ctrl){
-        delete rep_ctrl;
-    }
 }
 
 bool VolumeManager::init()
@@ -71,7 +67,7 @@ bool VolumeManager::init()
     assert(backup_ctrl != nullptr);
     ctrl_rpc_server->register_service(backup_ctrl);
 
-    rep_ctrl = new ReplicateCtrl(volumes);
+    rep_ctrl = new ReplicateCtrl(snapshot_ctrl);
     ctrl_rpc_server->register_service(rep_ctrl);
 
     std::string default_ip("127.0.0.1");

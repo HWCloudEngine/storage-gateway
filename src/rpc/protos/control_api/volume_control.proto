@@ -1,6 +1,5 @@
 syntax = "proto3";
 import "common.proto";
-import "volume.proto";
 package huawei.proto.control;
 
 /*northern oriented rpc service interface*/
