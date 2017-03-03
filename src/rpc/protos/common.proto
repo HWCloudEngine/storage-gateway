@@ -1,6 +1,7 @@
 syntax = "proto3";
 package huawei.proto;
 
+// TODO: replace RESULT with StatusCode
 enum RESULT {
     DRS_UNKNOWN = 0;
     DRS_OK = 1;
@@ -21,11 +22,12 @@ enum StatusCode {
     sSnapUpdateError = 104;
     sSnapMetaPersistError = 105;
     sSnapCreateDenied = 106;
-    
+
     // status for replicate
     sReplicationNotExist = 201;
     sReplicationMetaPersistError = 205;
     sInvalidOperation = 206;
+    sReplicateDenied = 207;
 
     // status for volume mgr
     sVolumeAlreadyExist = 300;
@@ -37,68 +39,4 @@ enum StatusCode {
     sBackupNotExist     = 401;
     sBackupNoFullbackupExist = 402;
     sBackupCanNotDelete      = 403;
-}
-
-// define replication roles
-enum REP_ROLE{
-    REP_UNKNOWN = 0;
-    REP_PRIMARY = 1;
-    REP_SECONDARY = 2;
-}
-//replication operation
-enum REPLICATION_OPERATION{
-    INVALID_OPERATION = 0;
-    REPLICATION_CREATE = 1;
-    REPLICATION_ENABLE = 2;
-    REPLICATION_DISABLE = 3;
-    REPLICATION_FAILOVER = 4;
-    REPLICATION_REVERSE = 5;
-    REPLICATION_QUERY = 6;
-    REPLICATION_DELETE = 7;
-    REPLICATION_TEST = 8;
-    REPLICATION_LIST = 9;
-}
-// define replication status
-enum REP_STATUS{
-    REP_UNKNOW = 0;
-    REP_CREATING = 1;
-    REP_ENABLING = 3;
-    REP_ENABLED = 4;
-    REP_DISABLING = 5;
-    REP_DISABLED = 6;
-    REP_FAILING_OVER = 7;
-    REP_FAILED_OVER = 8;
-    REP_REVERSING = 9;
-    REP_DELETING = 11;
-    REP_DELETED = 12;
-    REP_ERROR = 20;
-}
-message OperationRecord{
-    string operate_id = 1;
-    REPLICATION_OPERATION type = 2;
-    uint64 time = 3;
-    string snap_id = 4;
-}
-message VolumeMeta{
-    VolumeInfo info = 1;
-    repeated OperationRecord records = 3;
-}
-// volume status
-enum VOLUME_STATUS{
-    VOL_UNKNOWN = 0;
-    VOL_ENABLING = 1;
-    VOL_AVAILABLE = 2;
-    VOL_ATTACHED = 3;
-    VOL_DELETED = 4;
-}
-message VolumeInfo{
-    string vol_id = 1;
-    string path = 2;
-    VOLUME_STATUS vol_status = 3;
-    uint64 size = 4;
-    bool rep_enable = 6;
-    string rep_uuid = 7;
-    repeated string peer_volumes = 8;
-    REP_ROLE role = 9;
-    REP_STATUS rep_status = 10;
 }

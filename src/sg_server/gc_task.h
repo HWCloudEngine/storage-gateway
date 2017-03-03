@@ -17,8 +17,9 @@
 #include <map>
 #include <set>
 #include <atomic>
-#include "ceph_s3_lease.h"
+#include "common/ceph_s3_lease.h"
 #include "journal_gc_manager.h"
+#include "journal_meta_manager.h"
 #include "consumer_interface.h"
 class GCTask{
 typedef std::map<std::string,std::set<IConsumer*>> vc_map_t;

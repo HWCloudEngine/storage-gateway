@@ -141,9 +141,10 @@ void GCTask::lease_check_task(){
         if(list.empty())
             continue;
         for(auto list_it=list.begin();list_it!=list.end();++list_it){
+            if(list_it->compare(g_replicator_uuid) == 0) // ignore replicator uuid
+                continue;
             if(false == lease_->check_lease_existance(*list_it)){
                 LOG_DEBUG << *list_it << " lease not existance";
-                std::list<string> key_list;
                 res = meta_ptr_->seal_opened_journals(it->first,*list_it);
                 DR_ASSERT(DRS_OK == res);
             }

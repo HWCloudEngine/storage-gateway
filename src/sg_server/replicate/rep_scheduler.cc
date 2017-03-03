@@ -13,11 +13,10 @@
 #include "rep_scheduler.h"
 #include "log/log.h"
 #include "common/config_parser.h"
-#include "rep_receiver.h"
 #include "common/journal_meta_handle.h"
-#include <grpc++/server_builder.h>
 #include "../sg_util.h"
 #include "replicator_context.h"
+#include "sg_server/transfer/net_sender.h"
 using std::string;
 
 RepScheduler::RepScheduler(std::shared_ptr<CephS3Meta> meta,
@@ -63,7 +62,7 @@ int RepScheduler::remove_volume(const string& vol_id){
     std::lock_guard<std::mutex> lck(volume_mtx_);
     auto it = volumes_.find(vol_id);
     if(it == volumes_.end()){
-        LOG_WARN << "volume is not found in replicator!";
+        LOG_WARN << "volume[" << vol_id << "] is not found when remove!";
         return -1;
     }
     it->second->delete_rep_volume();
@@ -71,8 +70,15 @@ int RepScheduler::remove_volume(const string& vol_id){
     return 0;
 }
 
-void RepScheduler::notify_rep_state_changed(const string& vol){
-    // TODO:
+void RepScheduler::notify_rep_state_changed(const string& vol_id){
+    std::lock_guard<std::mutex> lck(volume_mtx_);
+    auto it = volumes_.find(vol_id);
+    if(it == volumes_.end()){
+        LOG_WARN << "volume[" << vol_id << "] is not found when notify!";
+        return;
+    }
+    it->second->notify_rep_state_changed();
+    return;
 }
 
 void RepScheduler::wait_for_client_ready(){
@@ -97,21 +103,21 @@ void RepScheduler::wait_for_client_ready(){
     ref: https://github.com/grpc/grpc/blob/master/doc/connectivity-semantics-and-api.md
     */
     ClientState s;
-    while((s = Transmitter::instance().get_state(false)) != CLIENT_READY && running_){
+    while((s = NetSender::instance().get_state(false)) != CLIENT_READY && running_){
         LOG_INFO << "replicate client state:"
-            << Transmitter::instance().get_printful_state(s);
+            << NetSender::instance().get_printful_state(s);
         if(CLIENT_IDLE == s){
-            s = Transmitter::instance().get_state(true);
-            Transmitter::instance().wait_for_state_change(s,
+            s = NetSender::instance().get_state(true);
+            NetSender::instance().wait_for_state_change(s,
                 std::chrono::system_clock::now() + std::chrono::seconds(1));
         }
         else if(CLIENT_CONNECTING == s){
-            Transmitter::instance().wait_for_state_change(s,
+            NetSender::instance().wait_for_state_change(s,
                 std::chrono::system_clock::now() + std::chrono::seconds(10));
         }
         else{
             std::this_thread::sleep_for(std::chrono::seconds(5));
-            Transmitter::instance().get_state(true);
+            NetSender::instance().get_state(true);
         }
     };
 }

@@ -22,6 +22,10 @@ using huawei::proto::JournalMarker;
 using huawei::proto::RESULT;
 using huawei::proto::JournalElement;
 using std::string;
+// this uuid is used by dr site to create/seal journals of secodary volumes
+// GCTask will ignore this uuid, since that there is no need of lease in the
+// same process
+const string g_replicator_uuid = "replicator_uuid";
 
 class JournalMetaManager {
 public:

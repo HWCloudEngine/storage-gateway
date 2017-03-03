@@ -26,7 +26,7 @@
 #include "snapshot.h"
 #include "syncbarrier.h"
 #include "transaction.h"
-#include "sg_client/journal_entry.h"
+#include "common/journal_entry.h"
 
 using grpc::Channel;
 using grpc::ClientContext;
@@ -68,6 +68,8 @@ public:
     StatusCode sync_state();
 
     /*called by control layer*/
+    StatusCode create_snapshot(const CreateSnapshotReq* req, 
+                            CreateSnapshotAck* ack,JournalMarker& marker); // for replicate
     StatusCode create_snapshot(const CreateSnapshotReq* req, CreateSnapshotAck* ack) override;
     StatusCode delete_snapshot(const DeleteSnapshotReq* req, DeleteSnapshotAck* ack) override;
     StatusCode rollback_snapshot(const RollbackSnapshotReq* req, RollbackSnapshotAck* ack) override;
