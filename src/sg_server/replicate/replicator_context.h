@@ -14,6 +14,7 @@
 #include <mutex>
 #include "rpc/common.pb.h"
 #include "rep_type.h"
+#include "rep_task.h"
 #include "../consumer_interface.h"
 #include "../journal_meta_manager.h"
 using huawei::proto::JournalElement;
@@ -22,9 +23,9 @@ class ReplicatorContext:public IConsumer {
     class TaskWindow{
         uint64_t last_acked_id;
         uint64_t last_sent_id;
-        std::shared_ptr<RepTask> last_acked_task;
-        std::shared_ptr<RepTask> last_sent_task;
-        std::vector<std::shared_ptr<RepTask>> tasks;
+        std::shared_ptr<TransferTask> last_acked_task;
+        std::shared_ptr<TransferTask> last_sent_task;
+        std::vector<std::shared_ptr<TransferTask>> tasks;
         int window_size;
     public:
         TaskWindow(int size):
@@ -37,42 +38,42 @@ class ReplicatorContext:public IConsumer {
         bool has_free_slot(){
            return last_sent_id - last_acked_id < window_size;
         }
-        std::shared_ptr<RepTask> get_failed_task(){
+        std::shared_ptr<TransferTask> get_failed_task(){
             if(tasks.empty())
                 return nullptr;
             for(int i=0;i<tasks.size();i++){
-                if(tasks[i]->status == T_ERROR){
+                if(tasks[i]->get_status() == T_ERROR){
                     return tasks[i];
                 }
             }
             return nullptr;
         }
-        std::shared_ptr<RepTask>& get_last_sent_task(){
+        std::shared_ptr<TransferTask>& get_last_sent_task(){
             return last_sent_task;
         }
-        std::shared_ptr<RepTask>& get_last_acked_task(){
+        std::shared_ptr<TransferTask>& get_last_acked_task(){
             return last_acked_task;
         }
-        bool add_task(std::shared_ptr<RepTask>& task){
-            if(task->id <= last_acked_id 
-                || task->id - last_acked_id > window_size){
+        bool add_task(std::shared_ptr<TransferTask>& task){
+            if(task->get_id() <= last_acked_id 
+                || task->get_id() - last_acked_id > window_size){
                 return false; // out of task window
             }
             last_sent_task = task;
-            last_sent_id = task->id;
+            last_sent_id = task->get_id();
             tasks.push_back(last_sent_task);
             return true;
         }
-        bool ack_task(std::shared_ptr<RepTask>& task){
-            if(task->id <= last_acked_id || task->id > last_sent_id)// t id is not in window range
+        bool ack_task(std::shared_ptr<TransferTask>& task){
+            if(task->get_id() <= last_acked_id || task->get_id() > last_sent_id)// t id is not in window range
                 return false;
-            if(task->status != T_DONE)
+            if(task->get_status() != T_DONE)
                 return false;
             bool is_window_moved = false;
             while(!tasks.empty()){
-                if(tasks.front()->status == T_DONE){
+                if(tasks.front()->get_status() == T_DONE){
                     last_acked_task = tasks.front();
-                    last_acked_id = last_acked_task->id;
+                    last_acked_id = last_acked_task->get_id();
                     tasks.erase(tasks.begin());
                     is_window_moved = true;
                 }
@@ -85,8 +86,8 @@ class ReplicatorContext:public IConsumer {
 
 private:
     bool init_markers();
-    void recycle_task(std::shared_ptr<RepTask>& t);
-    std::shared_ptr<RepTask> construct_task(const JournalElement& e);
+    void recycle_task(std::shared_ptr<TransferTask>& t);
+    std::shared_ptr<TransferTask> construct_task(const JournalElement& e);
 
 public:
     ReplicatorContext(const std::string& vol,
@@ -101,11 +102,10 @@ public:
     }
     ~ReplicatorContext(){}
     // generate next task
-    std::shared_ptr<RepTask> get_next_replicate_task();
+    std::shared_ptr<TransferTask> get_next_replicate_task();
     // whether has journals which need to replicate
     bool has_journals_to_transfer();
-    // marker that has been tranferred, but not synced to meta data server(not persisted)
-    const JournalMarker& get_transferring_marker();
+
     // get producer marker,replicator should not tranfer journals more than this marker
     int get_producer_marker(JournalMarker& marker);
     virtual CONSUMER_TYPE get_type();
@@ -131,4 +131,14 @@ private:
     // prefetched consumable journals
     std::list<JournalElement> pending_journals_;
 };
+
+typedef struct MarkerContext{
+    ReplicatorContext* rep_ctx;
+    JournalMarker marker;
+    MarkerContext(ReplicatorContext* _rep_ctx,
+            const JournalMarker& _marker):
+            rep_ctx(_rep_ctx),
+            marker(_marker){}
+}MarkerContext;
+
 #endif

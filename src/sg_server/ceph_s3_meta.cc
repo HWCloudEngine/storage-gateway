@@ -81,19 +81,7 @@ static RESULT mkdir_if_not_exist(const char *path, mode_t mode)
 
     return(status);
 }
-static RESULT create_journal_file(const string& name) {
-    string path = name.substr(0,name.find_last_of('/'));
-    //make dir with previlege:read, write, execute/search by group,owner and other
-    if(DRS_OK != mkdir_if_not_exist(path.c_str(),S_IRWXG|S_IRWXU|S_IRWXO))
-        return INTERNAL_ERROR;
-    FILE* file = fopen(name.c_str(), "ab+");
-    if(nullptr != file){
-        fclose(file);
-        return DRS_OK;
-    }
-    LOG_ERROR << "create journal file " << name << " failed:" << strerror(errno);
-    return INTERNAL_ERROR;
-}
+
 RESULT delete_journal_file(const string& name) {
     int res = remove(name.c_str());
     if(0 == res || ENOENT == errno) // file deleted or not exist
@@ -121,6 +109,33 @@ string construct_write_open_index(const string& m_key,
 }
 string construct_volume_meta_key(const string& uuid){
     return g_volume_prefix + uuid;
+}
+
+RESULT CephS3Meta::create_journal_file(const string& name) {
+    string path = name.substr(0,name.find_last_of('/'));
+    //make dir with previlege:read, write, execute/search by group,owner and other
+    if(DRS_OK != mkdir_if_not_exist(path.c_str(),S_IRWXG|S_IRWXU|S_IRWXO))
+        return INTERNAL_ERROR;
+    // file exsits
+    if(access(name.c_str(),R_OK && W_OK) == 0){
+        return DRS_OK;
+    }
+    // create file
+    FILE* file = fopen(name.c_str(), "ab+");
+    if(nullptr != file){ // TODO:create sparse file
+#if 0
+//        fseek(file,max_journal_size_-1,SEEK_SET);
+//        fputc('\0',file);
+        char buf[1024] = {'\0'};
+        for(int i=0;i<max_journal_size_/1024; i++){
+            fwrite(buf,1,sizeof(buf),file);
+        }
+#endif
+        fclose(file);
+        return DRS_OK;
+    }
+    LOG_ERROR << "create journal file " << name << " failed:" << strerror(errno);
+    return INTERNAL_ERROR;
 }
 
 bool CephS3Meta::_get_journal_meta(const string& key, JournalMeta& meta){
@@ -501,11 +516,17 @@ RESULT CephS3Meta::seal_volume_journals(const string& uuid, const string& vol_id
             // no break, continue trying to delete in GC thread
         }
     }
+    // TODO: sg_client invoke this process
     // set producer marker if it's ahead of the last sealed journal
-    JournalMarker marker;
-    marker.set_cur_journal(journals[count-1]);
-    marker.set_pos(max_journal_size_);
-    set_producer_marker(vol_id,marker);
+    VolumeMeta meta;
+    res = read_volume_meta(vol_id,meta);
+    DR_ASSERT(DRS_OK == res);
+    if(REP_PRIMARY == meta.info().role()){
+        JournalMarker marker;
+        marker.set_cur_journal(journals[count-1]);
+        marker.set_pos(max_journal_size_);
+        set_producer_marker(vol_id,marker);
+    }
     return res;
 }
 
@@ -657,13 +678,18 @@ RESULT CephS3Meta::get_consumable_journals(const string& vol_id,
             LOG_ERROR << "list volume " << vol_id << " journals failed!";
             return INTERNAL_ERROR;
         }
-        JournalElement beg;
-        beg.set_journal(marker.cur_journal());
-        beg.set_start_offset(marker.pos());
-        beg.set_end_offset(max_journal_size_);
-        list.push_back(beg);
-        LOG_DEBUG << "get consumable journal 1:" << marker.cur_journal()
-            << "," << beg.start_offset() << ":" << beg.end_offset();
+        if(marker.pos() < max_journal_size_){
+            JournalElement beg;
+            beg.set_journal(marker.cur_journal());
+            beg.set_start_offset(marker.pos());
+            beg.set_end_offset(max_journal_size_);
+            list.push_back(beg);
+            LOG_DEBUG << "get consumable journal 1:" << marker.cur_journal()
+                << "," << beg.start_offset() << ":" << beg.end_offset();
+        }
+        else{
+            LOG_INFO << "journal consumed to EOF:" << marker.cur_journal();
+        }
         for(string key:journal_list){
             if(key.compare(producer_marker.cur_journal()) >= 0)
                 break;
@@ -678,14 +704,20 @@ RESULT CephS3Meta::get_consumable_journals(const string& vol_id,
                 return DRS_OK;
         }
         // add the last consumer journal
-        JournalElement end;
-        end.set_journal(producer_marker.cur_journal());
-        end.set_start_offset(0);
-        end.set_end_offset(producer_marker.pos());
-        list.push_back(end);
-        LOG_DEBUG << "get consumable journal end:"
-            << producer_marker.cur_journal()
-            << "," << end.start_offset() << ":" << end.end_offset();
+        if(producer_marker.pos() > 0){
+            JournalElement end;
+            end.set_journal(producer_marker.cur_journal());
+            end.set_start_offset(0);
+            end.set_end_offset(producer_marker.pos());
+            list.push_back(end);
+            LOG_DEBUG << "get consumable journal end:"
+                << producer_marker.cur_journal()
+                << "," << end.start_offset() << ":" << end.end_offset();
+        }
+        else{
+            LOG_INFO << "producer at begging of journal:"
+                << producer_marker.cur_journal();
+        }
     }
     return DRS_OK;
 }

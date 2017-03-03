@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "cache_recover.h"
-#include "../journal_entry.h"
+#include "../../common/journal_entry.h"
 
 void ProcessWorker::start()
 {

@@ -4,7 +4,7 @@
 #include <memory>
 #include <iostream>
 #include <google/protobuf/message.h>
-#include "common/define.h"
+#include "define.h"
 
 using google::protobuf::Message;
 using namespace std;
@@ -53,7 +53,10 @@ public:
     /*persist the JournalEntry into journal file*/
     size_t persist(int fd, off_t off);
     size_t persist(FILE* file, off_t off);
-    
+
+    /*copy serialized entry to data buffer*/
+    size_t copy_entry(string& buffer);
+
     /*read from journal file and parse into JournalEnry*/
     size_t parse(int fd, off_t off);
     size_t parse(FILE* file, off_t off);

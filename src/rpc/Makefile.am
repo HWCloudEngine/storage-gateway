@@ -2,6 +2,8 @@ noinst_LTLIBRARIES=librpc.la
 librpc_la_SOURCES=common.pb.cc   \
                   snapshot.pb.cc \
                   backup.pb.cc   \
+                  volume.pb.cc \
+                  replicate.pb.cc \
                   consumer.grpc.pb.cc consumer.pb.cc \
                   journal.pb.cc  \
                   writer.grpc.pb.cc  writer.pb.cc \
