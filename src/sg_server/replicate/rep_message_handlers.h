@@ -56,5 +56,7 @@ private:
             const string& vol_id,const int64_t& counter);
     std::shared_ptr<std::ofstream> get_fstream(const string& vol,
             const int64_t& counter);
+    // check whether the replicate direction is valid or not
+    bool validate_replicate(const string& vol_id);
 };
 #endif

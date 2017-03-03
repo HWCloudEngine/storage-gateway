@@ -27,6 +27,7 @@ enum StatusCode {
     sReplicationNotExist = 201;
     sReplicationMetaPersistError = 205;
     sInvalidOperation = 206;
+    sReplicateDenied = 207;
 
     // status for volume mgr
     sVolumeAlreadyExist = 300;

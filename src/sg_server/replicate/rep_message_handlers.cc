@@ -26,6 +26,10 @@ using huawei::proto::REPLAYER;
 using huawei::proto::StatusCode;
 using huawei::proto::sOk;
 using huawei::proto::sInternalError;
+using huawei::proto::VolumeMeta;
+using huawei::proto::VolumeInfo;
+using huawei::proto::REP_PRIMARY;
+using huawei::proto::REP_FAILED_OVER;
 
 RepMsgHandlers::RepMsgHandlers(std::shared_ptr<CephS3Meta> meta,
         const string& path):meta_(meta),
@@ -120,6 +124,11 @@ bool RepMsgHandlers::hanlde_replicate_data_req(const TransferRequest& req){
     bool ret = data_msg.ParseFromString(req.data());
     DR_ASSERT(ret == true);
 
+    if(!validate_replicate(data_msg.vol_id())){
+        LOG_ERROR << "the volume[" << data_msg.vol_id() << "] replicate was denied!";
+        return false;
+    }
+
     // get journal file fd && write data
     std::shared_ptr<std::ofstream> of = get_fstream(data_msg.vol_id(),
         data_msg.journal_counter());
@@ -160,6 +169,10 @@ bool RepMsgHandlers::handle_replicate_start_req(const TransferRequest& req){
     ReplicateStartReq msg;
     bool ret = msg.ParseFromString(req.data());
     DR_ASSERT(ret == true);
+    if(!validate_replicate(msg.vol_id())){
+        LOG_ERROR << "the volume[" << msg.vol_id() << "] replicate was denied!";
+        return false;
+    }
     // create journal
     std::shared_ptr<std::ofstream> of_p =
             create_journal(msg.vol_id(),msg.journal_counter());
@@ -257,5 +270,17 @@ std::shared_ptr<std::ofstream> RepMsgHandlers::get_fstream(const string& vol,
         return nullptr;
     }
     return it->second;
+}
+
+bool RepMsgHandlers::validate_replicate(const string& vol_id){
+    VolumeMeta meta;
+    RESULT res = meta_->read_volume_meta(vol_id,meta);
+    DR_ASSERT(res == DRS_OK);
+    if(meta.info().role() == REP_PRIMARY)
+        return false;
+    else if(meta.info().rep_status() == REP_FAILED_OVER)
+        return false;
+    else
+        return true;
 }
 

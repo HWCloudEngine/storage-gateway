@@ -14,6 +14,7 @@
 #include "../snap_reader.h"
 #include "rpc/message.pb.h"
 #include "common/journal_entry.h"
+#include "common/define.h"
 #include "common/crc32.h"
 using huawei::proto::StatusCode;
 using huawei::proto::transfer::MessageType;
