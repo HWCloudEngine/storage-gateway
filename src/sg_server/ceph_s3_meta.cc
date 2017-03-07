@@ -324,8 +324,8 @@ RESULT CephS3Meta::init() {
     s3Api_ptr_.reset(new CephS3Api(access_key.c_str(),
             secret_key.c_str(),host.c_str(),bucket_name.c_str()));
     string type;
-    if(false == parser->get<string>("journal_storage.type",type)){
-        LOG_FATAL << "config parse journal_storage.type error!";
+    if(false == parser->get<string>("global.journal_storage",type)){
+        LOG_FATAL << "config parse global.journal_storage error!";
         return INTERNAL_ERROR;
     }
     if(type.compare("ceph_fs") == 0){
@@ -410,25 +410,12 @@ RESULT CephS3Meta::create_journals_by_given_keys(const string& uuid,
             const string& vol_id,const std::list<string> &list){
     RESULT res;
     int count = 0;
-    int64_t counter;
-    res = get_journal_key_counter(vol_id,counter);
-    DR_ASSERT(res == DRS_OK)
     int64_t next;
     if(true != sg_util::extract_counter_from_object_key(list.back(),next)){
         return INTERNAL_ERROR;
     }
-    int max_trys = 5;
-    while(next > counter && max_trys-- > 0){
-        res = set_journal_key_counter(vol_id,counter,next);
-        if(res == DRS_OK)
-            break;
-    }
-    if(res != DRS_OK){
-        LOG_ERROR << "update " << vol_id << " journal counter failed!";
-        return res;
-    }
-    LOG_INFO << vol_id << " try creating journals from "
-        << counter << ",to " << next;
+    
+    LOG_INFO << vol_id << " try creating journals: " << next;
 
     for(auto it=list.begin();it!=list.end();++it) {
         JournalMeta meta;
@@ -518,6 +505,7 @@ RESULT CephS3Meta::seal_volume_journals(const string& uuid, const string& vol_id
     }
     // TODO: sg_client invoke this process
     // set producer marker if it's ahead of the last sealed journal
+    /*
     VolumeMeta meta;
     res = read_volume_meta(vol_id,meta);
     DR_ASSERT(DRS_OK == res);
@@ -527,6 +515,7 @@ RESULT CephS3Meta::seal_volume_journals(const string& uuid, const string& vol_id
         marker.set_pos(max_journal_size_);
         set_producer_marker(vol_id,marker);
     }
+    */
     return res;
 }
 

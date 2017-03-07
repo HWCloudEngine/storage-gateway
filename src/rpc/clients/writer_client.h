@@ -1,6 +1,6 @@
 #ifndef WRITER_CLIENT_HPP
 #define WRITER_CLIENT_HPP
-
+#include <map>
 #include <grpc++/grpc++.h>
 #include "../writer.grpc.pb.h"
 
@@ -15,6 +15,11 @@ using huawei::proto::SealJournalsResponse;
 using huawei::proto::RESULT;
 using huawei::proto::DRS_OK;
 using huawei::proto::INTERNAL_ERROR;
+using huawei::proto::JournalMarker;
+using huawei::proto::UpdateProducerMarkerRequest;
+using huawei::proto::UpdateProducerMarkerResponse;
+using huawei::proto::UpdateMultiProducerMarkersRequest;
+using huawei::proto::UpdateMultiProducerMarkersResponse;
 
 class WriterClient {
 public:
@@ -52,6 +57,7 @@ public:
         } 
         else 
         {
+            LOG_ERROR << "rpc error code:" << status.error_code();
             return false;
         }
     }
@@ -85,6 +91,46 @@ public:
         } 
         else 
         {
+            LOG_ERROR << "rpc error code:" << status.error_code();
+            return false;
+        }
+    }
+
+    bool update_producer_marker(const std::string& uuid,
+            const std::string& vol, const JournalMarker& marker){
+        UpdateProducerMarkerRequest request;
+        request.set_uuid(uuid);
+        request.set_vol_id(vol);
+        request.mutable_marker()->CopyFrom(marker);
+
+        UpdateProducerMarkerResponse reply;
+        ClientContext context;
+        Status status = stub_->UpdateProducerMarker(&context,request,&reply);
+        if(status.ok() && reply.result() == DRS_OK){
+            return true;
+        }
+        else{
+            LOG_ERROR << "rpc error code:" << status.error_code();
+            return false;
+        }
+    }
+
+    bool update_multi_producer_markers(const std::string& uuid,
+            const std::map<std::string,JournalMarker>& markers){
+        UpdateMultiProducerMarkersRequest request;
+        request.set_uuid(uuid);
+        for(auto it=markers.begin();it!=markers.end();it++){
+            (*request.mutable_markers())[it->first] = it->second;
+        }
+
+        UpdateMultiProducerMarkersResponse reply;
+        ClientContext context;
+        Status status = stub_->UpdateMultiProducerMarkers(&context,request,&reply);
+        if(status.ok() && reply.result() == DRS_OK){
+            return true;
+        }
+        else{
+            LOG_ERROR << "rpc error code:" << status.error_code();
             return false;
         }
     }

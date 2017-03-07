@@ -5,9 +5,11 @@
 #include <boost/asio.hpp>
 #include <boost/noncopyable.hpp>
 #include <boost/thread/thread.hpp>
+#include <sys/epoll.h>
 #include "volume.h"
 #include "common/rpc_server.h"
 #include "../rpc/clients/volume_inner_ctrl_client.h"
+#include "../rpc/clients/writer_client.h"
 
 using namespace std; 
 
@@ -23,7 +25,7 @@ class VolumeManager
 {
 public:
     VolumeManager(const std::string& host, const std::string& port):
-        host_(host), port_(port){};
+        host_(host), port_(port),running_(true){};
     virtual ~VolumeManager();
 
     VolumeManager(const VolumeManager& other) = delete;
@@ -59,11 +61,17 @@ private:
                         const char* req_body_buffer,
                         const char* rep_buffer,
                         const boost::system::error_code& error);
-    
+
+    // work method of producer marker update thread
+    void writer_thread_work();
+
+    int update_all_producer_markers();
+
     /*all volumes to be protected*/
     std::map<std::string, shared_ptr<Volume>> volumes;
     
     /*journal prefetch and seal*/
+    std::shared_ptr<WriterClient> writer_rpc_client;
     int_least64_t interval;
     int journal_limit;
     shared_ptr<CephS3LeaseClient> lease_client;
@@ -83,6 +91,16 @@ private:
     std::string host_;
     std::string port_;
     std::shared_ptr<VolInnerCtrlClient> vol_inner_client_;
+
+    bool running_;
+
+    // producer marker update related
+    int epoll_fd;
+    // thread to sync producer makers
+    std::unique_ptr<std::thread> writer_thread;
+    struct epoll_event* ep_events;
+    int max_ep_events_num;
+    int producer_marker_update_interval;
 };
 
 }
