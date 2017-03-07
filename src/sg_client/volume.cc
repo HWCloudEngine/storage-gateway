@@ -7,9 +7,13 @@ namespace Journal{
 
 Volume::Volume(raw_socket_t client_sock, const VolumeAttr& vol_attr,
                shared_ptr<ConfigParser> conf, 
-               shared_ptr<CephS3LeaseClient> lease_client)
+               shared_ptr<CephS3LeaseClient> lease_client,
+               shared_ptr<WriterClient> writer_rpc_client,
+               int epoll_fd)
                 :raw_socket_(client_sock), vol_attr_(vol_attr), conf_(conf), 
-                 lease_client_(lease_client)
+                 lease_client_(lease_client),
+                 writer_rpc_client_(writer_rpc_client),
+                 epoll_fd_(epoll_fd)
 {
 }
 
@@ -52,9 +56,9 @@ bool Volume::init()
     }
     
     /*todo read from config*/
-    if(!writer_->init(vol_attr_.vol_name(), string("localhost:50051"), conf_, 
+    if(!writer_->init(vol_attr_.vol_name(), conf_, 
                      idproxy_, cacheproxy_, snapshotproxy_, 
-                     lease_client_)){
+                     lease_client_,writer_rpc_client_,epoll_fd_)){
         LOG_ERROR << "init journal writer failed,vol_name:" << vol_attr_.vol_name();
         return false;
     }
@@ -102,9 +106,9 @@ shared_ptr<ReplicateProxy>& Volume::get_replicate_proxy() const
     return rep_proxy_;
 }
 
-JournalWriter& Volume::get_writer() const
+shared_ptr<JournalWriter> Volume::get_writer() const
 {
-    return *(writer_.get());
+    return writer_;
 }
 
 void Volume::start()
@@ -117,6 +121,10 @@ void Volume::stop()
 {
    /*stop network receive*/
     connection_->stop();
+}
+
+const string Volume::get_vol_id() const{
+    return vol_attr_.vol_name();
 }
 
 }

@@ -1,7 +1,9 @@
 #include "journal_writer.h"
 #include "../log/log.h"
-
+#include "rpc/message.pb.h"
 #include <cerrno>
+
+using huawei::proto::SnapshotMessage;
 
 namespace Journal{
 
@@ -12,7 +14,9 @@ JournalWriter::JournalWriter(BlockingQueue<shared_ptr<JournalEntry>>& write_queu
      reply_queue_(reply_queue),
      cur_file_ptr(NULL),
      cur_journal_size(0),
-     cur_lease_journal("", "")
+     cur_lease_journal("", ""),
+     written_size_since_last_update(0LLU),
+     producer_marker_hold_flag(false)
 {
 }
 
@@ -30,16 +34,19 @@ JournalWriter::~JournalWriter()
         //If we don't seal again, then we'll never have the chance to do that again.
         seal_journals(lease_client_->get_lease());
     }
+
+    producer_event.unregister_from_epoll_fd(epoll_fd);
 }
 
 
 bool JournalWriter::init(string vol,
-                         string rpc_addr,
                          shared_ptr<ConfigParser> conf,
                          shared_ptr<IDGenerator> idproxy,
                          shared_ptr<CacheProxy> cacheproxy,
                          shared_ptr<SnapshotProxy> snapshotproxy,
-                         shared_ptr<CephS3LeaseClient> lease_client)
+                         shared_ptr<CephS3LeaseClient> lease_client,
+                         shared_ptr<WriterClient> writer_client,
+                         int _epoll_fd)
  
 {
     vol_id = vol;
@@ -50,16 +57,27 @@ bool JournalWriter::init(string vol,
     lease_client_ = lease_client;
     cur_journal_size = 0;
 
-    rpc_client.reset(new WriterClient(grpc::CreateChannel(rpc_addr, 
-                        grpc::InsecureChannelCredentials())));
+    rpc_client = writer_client;
+    epoll_fd = _epoll_fd;
 
     std::string mnt = "/mnt/cephfs";
     config.journal_max_size = conf->get_default<int>("journal_writer.journal_max_size",32 * 1024 * 1024);
-    config.journal_mnt = conf->get_default("journal_writer.mnt",mnt);
+    config.journal_mnt = conf->get_default("ceph_fs.mount_point",mnt);
     config.write_timeout = conf->get_default("journal_writer.write_timeout",2);
     config.version = conf->get_default("journal_writer.version",0);
-    config.checksum_type = (checksum_type_t)conf->get_default("pre_processor.checksum_type",0);
+    config.checksum_type = (checksum_type_t)conf->get_default("journal_writer.checksum_type",0);
     config.journal_limit = conf->get_default("ceph_s3.journal_limit",4);
+    config.producer_written_size_threshold = conf->get_default(
+        "journal_writer.producer_written_size_threshold",4*1024*1024);
+
+    int e_fd = eventfd(0,EFD_NONBLOCK|EFD_CLOEXEC);
+    SG_ASSERT(e_fd != -1);
+    producer_event.set_event_fd(e_fd);
+    //Edge Triggered & wait for write event
+    producer_event.set_epoll_events_type(EPOLLIN|EPOLLET);
+    producer_event.set_epoll_data_ptr((void*)this);
+    // register event
+    SG_ASSERT(0 == producer_event.register_to_epoll_fd(epoll_fd));
 
     thread_ptr.reset(new boost::thread(boost::bind(&JournalWriter::work, this)));
     return true;
@@ -73,6 +91,29 @@ bool JournalWriter::deinit()
     return true;
 }
 
+void JournalWriter::clear_producer_event(){
+    producer_event.clear_event();
+}
+
+void JournalWriter::hold_producer_marker(){
+    LOG_DEBUG << "hold producer marker,vol=" << vol_id;
+    producer_marker_hold_flag.store(true);
+}
+
+void JournalWriter::unhold_producer_marker(){
+    LOG_DEBUG << "unhold producer marker,vol=" << vol_id;
+    producer_marker_hold_flag.store(false);
+}
+
+bool JournalWriter::is_producer_marker_holding(){
+    return producer_marker_hold_flag.load();
+}
+
+JournalMarker JournalWriter::get_cur_producer_marker(){
+    std::lock_guard<std::mutex> lck(producer_mtx);
+    return cur_producer_marker;
+}
+
 void JournalWriter::work()
 {
     bool success = false;
@@ -80,6 +121,26 @@ void JournalWriter::work()
     shared_ptr<JournalEntry> entry = nullptr;
     uint64_t entry_size = 0;
     uint64_t write_size = 0;
+
+    // update producer marker first when init, then the replicator
+    // could replicate the data written during last crashed/restart time
+    while(running_flag){
+        int res = get_next_journal();
+        if(res != 0){
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        }
+        else{
+            res = open_current_journal();
+            SG_ASSERT(0 == res);
+            SG_ASSERT(true == write_journal_header());
+
+            // update cached producer marker
+            std::lock_guard<std::mutex> lck(producer_mtx);
+            cur_producer_marker.set_cur_journal(cur_lease_journal.second);
+            cur_producer_marker.set_pos(cur_journal_size);
+            break;
+        }
+    }
 
     while(true)
     {
@@ -98,22 +159,44 @@ void JournalWriter::work()
 
         while(!success && (difftime(end,start) < config.write_timeout))
         {
-            if(!open_journal(entry_size))
+            // get journal file fd
+            if(cur_file_ptr == nullptr
+                || (entry_size + cur_journal_size) > config.journal_max_size){
+                to_seal_current_journal();
+                invalid_current_journal();
+                int res = get_next_journal();
+                if(res == 0){
+                    res = open_current_journal();
+                }
+                if(res != 0){
+                    time(&end);
+                    continue;
+                }
+                SG_ASSERT(true == write_journal_header());
+
+                // update cached producer marker
+                std::lock_guard<std::mutex> lck(producer_mtx);
+                cur_producer_marker.set_cur_journal(cur_lease_journal.second);
+                cur_producer_marker.set_pos(cur_journal_size);
+            }
+
+            // validate journal lease
+            if (!lease_client_->check_lease_validity(cur_lease_journal.first))
             {
+                // check lease valid failed
+                invalid_current_journal();
+                LOG_ERROR << "check lease validity result:false";
                 time(&end);
                 continue;
             }
 
-            std::string journal_file = config.journal_mnt + cur_lease_journal.second;
-            off_t journal_off = cur_journal_size;
-            
             /*persist to journal file*/
+            off_t journal_off = cur_journal_size;
             write_size = entry->persist(cur_file_ptr, journal_off);
             if(write_size != entry_size)
             {
                 LOG_ERROR << "write journal file: " << cur_lease_journal.second
                           << " failed:" << strerror(errno);
-                cur_journal_size += write_size;
                 time(&end);
                 continue;
             }
@@ -131,17 +214,44 @@ void JournalWriter::work()
                 cur_write_mark.set_pos(journal_off);
                 snapshot_proxy_->cmd_persist_notify(cur_write_mark); 
             }
-            // TODO: seal the journal if create snapshot for replication
 
             /*add to cache*/
+            std::string journal_file = config.journal_mnt + cur_lease_journal.second;
             cacheproxy_->write(journal_file, journal_off, entry);
 
+            // update journal offset
             cur_journal_size += write_size;
-            journal_off = cur_journal_size;
-
             success = true;
+
+            // update cached producer marker
+            std::unique_lock<std::mutex> lck(producer_mtx);
+            cur_producer_marker.set_cur_journal(cur_lease_journal.second);
+            cur_producer_marker.set_pos(cur_journal_size);
+            written_size_since_last_update += write_size;
+            lck.unlock();
+
+            // seal the journal while created a snapshot for replication
+            if(entry->get_type() == SNAPSHOT_CREATE){
+                std::shared_ptr<SnapshotMessage> msg
+                    = std::dynamic_pointer_cast<SnapshotMessage>(entry->get_message());
+                if(msg->snap_scene() == huawei::proto::FOR_REPLICATION){
+                    to_seal_current_journal();
+                    invalid_current_journal();
+                    LOG_INFO << "crerate snapshot for replication,seal current journal "
+                        << cur_lease_journal.second;
+                }
+            }
         }
 
+        // to update producer marker if enough io were written
+        if(producer_marker_hold_flag.load() == false
+                && written_size_since_last_update >= config.producer_written_size_threshold){
+            producer_event.trigger_event();
+            written_size_since_last_update = 0;
+            LOG_DEBUG << "trigger to update producer marker:" << vol_id;
+        }
+
+        // response to io scheduler
         if(entry->get_type() == IO_WRITE){
             send_reply(entry.get(),success);
         } else {
@@ -150,12 +260,7 @@ void JournalWriter::work()
     }
 }
 
-//The caller should check_lease_validity first
-bool JournalWriter::get_journal()
-{
-    cur_journal_size = 0;
-    cur_lease_journal = std::make_pair("", "");
-
+int JournalWriter::get_next_journal(){
     {
         std::unique_lock<std::recursive_mutex> journal_uk(journal_mtx_);
         if(journal_queue.empty())
@@ -166,97 +271,44 @@ bool JournalWriter::get_journal()
 
         if (journal_queue.empty())
         {
-            return false;
+            return -1;
         }
 
         cur_lease_journal = journal_queue.front();
         journal_queue.pop();
-        LOG_INFO << "journal_queue pop journal";
+        LOG_INFO << "journal_queue pop journal:" << cur_lease_journal.second;
     }
-
-    if (cur_lease_journal.first != "")
-    {
-        if (!lease_client_->check_lease_validity(cur_lease_journal.first))
-        {
-            // check lease valid failed
-            handle_lease_invalid();
-            LOG_ERROR << "check lease validity result:false";
-            return false;
-        }
-    }
-    else
-    {
-        // lease is null
-        handle_lease_invalid();
-        return false;
-    }
-
-    if(cur_lease_journal.second == "")
-    {
-        return false;
-    }
-    return true;
+    cur_journal_size = 0;
+    return 0;
 }
 
-bool JournalWriter::open_journal(uint64_t entry_size)
-{
+int JournalWriter::open_current_journal(){
     if (cur_lease_journal.second == "")
+        return -1;
+    std::string tmp = config.journal_mnt + cur_lease_journal.second;
+    cur_file_ptr = fopen(tmp.c_str(), "ab+");
+    if(NULL == cur_file_ptr)
     {
-        if(!get_journal())
-            return false;
+         LOG_ERROR << "open journal file: " << cur_lease_journal.second
+                   << " failed:" << strerror(errno);
+         return -1;
     }
 
-    // check lease valid for this journal
-    if (cur_lease_journal.first != ""){
-        if (!lease_client_->check_lease_validity(cur_lease_journal.first))
-        {
-            // check lease vaildity failed
-            handle_lease_invalid();
-            LOG_ERROR << "check lease validity result:false";
+    idproxy_->add_file(tmp);
+    return 0;
+}
 
-            if(!get_journal())
-                return false;
-        }
-    }
-    else
-    {
-        handle_lease_invalid();
-        return false;
-    }
-
-    if((entry_size + cur_journal_size) > config.journal_max_size)
-    {
+int JournalWriter::to_seal_current_journal(){
+    if(cur_lease_journal.first != "")
         seal_queue.push(cur_lease_journal);
-        LOG_INFO << "push journal:" << cur_lease_journal.second << "to seal queue ok";
-        if(NULL != cur_file_ptr)
-        {
-            fclose(cur_file_ptr);
-            cur_file_ptr = NULL;
-        }
+    return 0;
+}
 
-        if(!get_journal())
-            return false;
-    }
-
-    if (NULL == cur_file_ptr)
-    {
-        std::string tmp = config.journal_mnt + cur_lease_journal.second;
-        cur_file_ptr = fopen(tmp.c_str(), "ab+");
-        if(NULL == cur_file_ptr)
-        {
-             LOG_ERROR << "open journal file: " << cur_lease_journal.second
-                       << " failed:" << strerror(errno);
-             return false;
-        }
-        else
-        {
-            if(!write_journal_header())
-                return false;
-        }
-
-        idproxy_->add_file(tmp);
-    }
-    return true;
+int JournalWriter::close_current_journal_file(){
+    if(cur_file_ptr != nullptr)
+        fclose(cur_file_ptr);
+    cur_file_ptr = nullptr;
+    return 0;
 }
 
 bool JournalWriter::write_journal_header()
@@ -378,11 +430,17 @@ void JournalWriter::send_reply(JournalEntry* entry,bool success)
     }
 }
 
-void JournalWriter::handle_lease_invalid()
+void JournalWriter::invalid_current_journal()
 {
     cur_lease_journal = std::make_pair("", "");
     cur_journal_size = 0;
+    close_current_journal_file();
 }
+
+const string JournalWriter::get_vol_id() const{
+    return vol_id;
+}
+
 }
 
 

@@ -16,6 +16,8 @@ service Writer {
     rpc GetMultiWriteableJournals(GetMultiWriteableJournalsRequest) returns(GetMultiWriteableJournalsResponse) {}
     // seal journals of volumes
     rpc SealMultiJournals(SealMultiJournalsRequest) returns(SealMultiJournalsResponse) {}
+    // update multi producer markers
+    rpc UpdateMultiProducerMarkers(UpdateMultiProducerMarkersRequest) returns(UpdateMultiProducerMarkersResponse) {}
 }
 // journal writer messages
 message GetWriteableJournalsRequest {
@@ -78,3 +80,11 @@ message SealMultiJournalsResponse {
     RESULT result = 1 ;
 }
 
+message UpdateMultiProducerMarkersRequest{
+    string uuid = 1;
+    // volume-marker pairs in the map
+    map <string, JournalMarker> markers = 2;
+}
+message UpdateMultiProducerMarkersResponse{
+    RESULT result = 1;
+}

@@ -324,8 +324,8 @@ RESULT CephS3Meta::init() {
     s3Api_ptr_.reset(new CephS3Api(access_key.c_str(),
             secret_key.c_str(),host.c_str(),bucket_name.c_str()));
     string type;
-    if(false == parser->get<string>("journal_storage.type",type)){
-        LOG_FATAL << "config parse journal_storage.type error!";
+    if(false == parser->get<string>("global.journal_storage",type)){
+        LOG_FATAL << "config parse global.journal_storage error!";
         return INTERNAL_ERROR;
     }
     if(type.compare("ceph_fs") == 0){
@@ -410,25 +410,12 @@ RESULT CephS3Meta::create_journals_by_given_keys(const string& uuid,
             const string& vol_id,const std::list<string> &list){
     RESULT res;
     int count = 0;
-    int64_t counter;
-    res = get_journal_key_counter(vol_id,counter);
-    DR_ASSERT(res == DRS_OK)
     int64_t next;
     if(true != sg_util::extract_counter_from_object_key(list.back(),next)){
         return INTERNAL_ERROR;
     }
-    int max_trys = 5;
-    while(next > counter && max_trys-- > 0){
-        res = set_journal_key_counter(vol_id,counter,next);
-        if(res == DRS_OK)
-            break;
-    }
-    if(res != DRS_OK){
-        LOG_ERROR << "update " << vol_id << " journal counter failed!";
-        return res;
-    }
-    LOG_INFO << vol_id << " try creating journals from "
-        << counter << ",to " << next;
+    
+    LOG_INFO << vol_id << " try creating journals: " << next;
 
     for(auto it=list.begin();it!=list.end();++it) {
         JournalMeta meta;
@@ -518,15 +505,17 @@ RESULT CephS3Meta::seal_volume_journals(const string& uuid, const string& vol_id
     }
     // TODO: sg_client invoke this process
     // set producer marker if it's ahead of the last sealed journal
+    /*
     VolumeMeta meta;
     res = read_volume_meta(vol_id,meta);
-    DR_ASSERT(DRS_OK == res);
+    SG_ASSERT(DRS_OK == res);
     if(REP_PRIMARY == meta.info().role()){
         JournalMarker marker;
         marker.set_cur_journal(journals[count-1]);
         marker.set_pos(max_journal_size_);
         set_producer_marker(vol_id,marker);
     }
+    */
     return res;
 }
 
@@ -606,7 +595,7 @@ RESULT CephS3Meta::set_producer_marker(const string& vol_id,
     // update replicator producer marker, but not in some cases
     VolumeMeta meta;
     res = read_volume_meta(vol_id,meta);
-    DR_ASSERT(DRS_OK == res);
+    SG_ASSERT(DRS_OK == res);
     if(REP_ENABLED == meta.info().rep_status()
         && REP_PRIMARY == meta.info().role()){
         key = assemble_journal_marker_key(vol_id,REPLICATOR,false);
@@ -659,7 +648,7 @@ RESULT CephS3Meta::get_consumable_journals(const string& vol_id,
             << ":" << producer_marker.pos();
     }
     if(marker.cur_journal().compare(producer_marker.cur_journal()) == 0){
-        DR_ASSERT(marker.pos() <= producer_marker.pos());
+        SG_ASSERT(marker.pos() <= producer_marker.pos());
         if(marker.pos() == producer_marker.pos())
             return DRS_OK;
         JournalElement e;
@@ -759,11 +748,11 @@ RESULT CephS3Meta::recycle_journals(const string& vol_id,
         }
         string r_key = construct_recyled_index(*it);
         res = s3Api_ptr_->put_object(r_key.c_str(),&value,nullptr);
-        DR_ASSERT(DRS_OK == res);
+        SG_ASSERT(DRS_OK == res);
         string s_key = construct_sealed_index(*it);
         s3Api_ptr_->delete_object(s_key.c_str());
         res = s3Api_ptr_->delete_object(it->c_str());
-        DR_ASSERT(DRS_OK == res);
+        SG_ASSERT(DRS_OK == res);
     }
     return res;
 }
