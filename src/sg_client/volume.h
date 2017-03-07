@@ -33,7 +33,9 @@ public:
     explicit Volume(raw_socket_t client_sock, 
                     const VolumeAttr& vol_attr,
                     shared_ptr<ConfigParser> conf, 
-                    shared_ptr<CephS3LeaseClient> lease_client);
+                    shared_ptr<CephS3LeaseClient> lease_client,
+                    std::shared_ptr<WriterClient> writer_rpc_client,
+                    int epoll_fd);
 
     virtual ~Volume();
     
@@ -46,7 +48,9 @@ public:
     void start();
     void stop();
 
-    JournalWriter& get_writer()const;
+    const string get_vol_id() const;
+
+    shared_ptr<JournalWriter> get_writer()const;
     shared_ptr<SnapshotProxy>& get_snapshot_proxy()const;
     shared_ptr<BackupProxy>&   get_backup_proxy()const;
     shared_ptr<ReplicateProxy>& get_replicate_proxy()const;
@@ -61,6 +65,7 @@ private:
 
     shared_ptr<ConfigParser> conf_;
     shared_ptr<CephS3LeaseClient> lease_client_;
+    shared_ptr<WriterClient> writer_rpc_client_;
 
     /*queue */
     BlockingQueue<shared_ptr<JournalEntry>> entry_queue_;  /*connection and preprocessor*/
@@ -88,6 +93,9 @@ private:
     mutable shared_ptr<JournalWriter> writer_;        /*append to journal */
     shared_ptr<JournalReader>         reader_;        /*read io*/
     shared_ptr<JournalReplayer>       replayer_;      /*replay journal*/
+
+    // epoll fd to sync producer marker
+    int epoll_fd_;
 };
 
 }

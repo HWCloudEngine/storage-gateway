@@ -65,7 +65,7 @@ void TaskHandler::work(){
     // do TransferTask
     while(running_){
         std::shared_ptr<TransferTask> task = in_task_que_->pop();
-        DR_ASSERT(task != nullptr);
+        SG_ASSERT(task != nullptr);
         do_transfer(task,stream);
     }
 
@@ -85,7 +85,7 @@ int send_replicate_cmd(TransferRequest* req,
     if(stream->Write(*req)){
         TransferResponse res;
         if(stream->Read(&res)){ // blocked
-            DR_ASSERT(res.id() == req->id());
+            SG_ASSERT(res.id() == req->id());
             if(!res.status()){
                 return 0;
             }

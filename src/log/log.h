@@ -54,7 +54,7 @@ public:
         assert(0); \
         exit(1); \
     }while(0);
-#define DR_ASSERT(x) \
+#define SG_ASSERT(x) \
     if(!(x)){ \
         LOG_ERROR << "Assert failed:"#x"\n"; \
         DR_ERROR_OCCURED(); \
