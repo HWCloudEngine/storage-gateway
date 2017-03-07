@@ -61,7 +61,7 @@ std::shared_ptr<TransferTask> RepVolume::get_next_task(){
     if(base_sync_state_ == NEED_SYNC){
         //replicator consuming to checkpoint/snap marker?
         int result = replicator_consumed_to_checkpoint();
-        DR_ASSERT(result <= 0);
+        SG_ASSERT(result <= 0);
         if(result == 0){
         // whether base snapshot is created
             auto record_it = vol_meta_.records().rbegin();
@@ -69,7 +69,7 @@ std::shared_ptr<TransferTask> RepVolume::get_next_task(){
             SnapStatus snap_status;
             StatusCode ret = SnapClientWrapper::instance().get_client()->QuerySnapshot(
                         vol_id_,cur_snap,snap_status);
-            DR_ASSERT(ret == StatusCode::sOk);
+            SG_ASSERT(ret == StatusCode::sOk);
             if(snap_status == huawei::proto::SNAP_CREATED){
                 string pre_snap;
                 if(0 == get_last_shared_snap(pre_snap)){
@@ -82,7 +82,7 @@ std::shared_ptr<TransferTask> RepVolume::get_next_task(){
         }
     }
 
-    DR_ASSERT(nullptr != replicator_);
+    SG_ASSERT(nullptr != replicator_);
     return replicator_->get_next_replicate_task();
 }
 
@@ -172,14 +172,14 @@ void RepVolume::notify_rep_state_changed(){
 int RepVolume::load_volume_meta(){
     VolumeMeta meta;
     RESULT res = vol_mgr_->read_volume_meta(vol_id_,meta);
-    DR_ASSERT(DRS_OK == res);
+    SG_ASSERT(DRS_OK == res);
     vol_meta_.CopyFrom(meta);
     return 0;
 }
 
 int RepVolume::persist_replication_status(){
     RESULT res = vol_mgr_->update_volume_meta(vol_meta_);
-    DR_ASSERT(DRS_OK != res);
+    SG_ASSERT(DRS_OK != res);
     return 0;
 }
 
@@ -200,7 +200,7 @@ std::shared_ptr<TransferTask> RepVolume::generate_base_sync_task(
 }
 void RepVolume::recycle_base_sync_task(std::shared_ptr<TransferTask> t){
     // TODO:
-    DR_ASSERT(T_DONE == t->get_status());
+    SG_ASSERT(T_DONE == t->get_status());
     // set remote producer marker
     // persist replication base sync done
     // delete conresponding snapshots
@@ -215,13 +215,13 @@ int RepVolume::get_last_shared_snap(string& snap_id){
     auto records = vol_meta_.records();
     auto record_it = records.rbegin();
     // TODO:  for enable only, todo failback/reprotect
-    DR_ASSERT(REPLICATION_ENABLE == record_it->type());
+    SG_ASSERT(REPLICATION_ENABLE == record_it->type());
     record_it++;
-    DR_ASSERT(REPLICATION_DISABLE == record_it->type());
+    SG_ASSERT(REPLICATION_DISABLE == record_it->type());
     SnapStatus snap_status;
     StatusCode ret = SnapClientWrapper::instance().get_client()->QuerySnapshot(
                 vol_id_,record_it->snap_id(),snap_status);
-    DR_ASSERT(ret == StatusCode::sOk);
+    SG_ASSERT(ret == StatusCode::sOk);
     if(snap_status == huawei::proto::SNAP_CREATED){
         snap_id = record_it->snap_id();
         return 0;
@@ -237,7 +237,7 @@ int RepVolume::replicator_consumed_to_checkpoint(){
     const JournalMarker cp_m = record_it->marker();
     JournalMarker consumer_m;
     int result = replicator_->get_producer_marker(consumer_m);
-    DR_ASSERT(0 == result);
+    SG_ASSERT(0 == result);
     result = sg_util::marker_compare(consumer_m,cp_m);
     return result;
 }

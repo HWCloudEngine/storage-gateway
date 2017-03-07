@@ -77,7 +77,7 @@ bool RepMsgHandlers::handle_replicate_marker_req(const TransferRequest& req){
     // deserialize message from TransferRequest
     ReplicateMarkerReq msg;
     bool ret = msg.ParseFromString(req.data());
-    DR_ASSERT(ret == true);
+    SG_ASSERT(ret == true);
 
     LOG_DEBUG << "sync_marker, volume=" << msg.vol_id() << ",marker="
         << msg.marker().cur_journal() << ":" << msg.marker().pos();
@@ -98,7 +98,7 @@ bool RepMsgHandlers::handle_replicate_marker_req(const TransferRequest& req){
         }
     }
     result = meta_->set_producer_marker(msg.vol_id(),msg.marker());
-    DR_ASSERT(result == DRS_OK);
+    SG_ASSERT(result == DRS_OK);
     LOG_INFO << "update replayer producer marker to: "
         << msg.marker().cur_journal() << ":" << msg.marker().pos();
     return true;
@@ -108,7 +108,7 @@ bool RepMsgHandlers::hanlde_replicate_data_req(const TransferRequest& req){
     // deserialize message from TransferRequest
     ReplicateDataReq data_msg;
     bool ret = data_msg.ParseFromString(req.data());
-    DR_ASSERT(ret == true);
+    SG_ASSERT(ret == true);
 
     if(!validate_replicate(data_msg.vol_id())){
         LOG_ERROR << "the volume[" << data_msg.vol_id() << "] replicate was denied!";
@@ -144,7 +144,7 @@ bool RepMsgHandlers::hanlde_replicate_data_req(const TransferRequest& req){
         // TODO:replace with async io if has io bottleneck
         of->seekp(data_msg.offset());
         of->write(data_msg.data().c_str(),data_msg.data().length());
-        DR_ASSERT(of->fail()==0 && of->bad()==0);
+        SG_ASSERT(of->fail()==0 && of->bad()==0);
     }
     return true;
 }
@@ -154,7 +154,7 @@ bool RepMsgHandlers::handle_replicate_start_req(const TransferRequest& req){
     // deserialize message from TransferRequest
     ReplicateStartReq msg;
     bool ret = msg.ParseFromString(req.data());
-    DR_ASSERT(ret == true);
+    SG_ASSERT(ret == true);
     if(!validate_replicate(msg.vol_id())){
         LOG_ERROR << "the volume[" << msg.vol_id() << "] replicate was denied!";
         return false;
@@ -212,7 +212,7 @@ bool RepMsgHandlers::handle_replicate_end_req(const TransferRequest& req){
     // deserialize message from TransferRequest
     ReplicateEndReq msg;
     bool ret = msg.ParseFromString(req.data());
-    DR_ASSERT(ret == true);
+    SG_ASSERT(ret == true);
 
     // close & fflush journal files and seal the journal
     std::shared_ptr<std::ofstream> of = get_fstream(msg.vol_id(),
@@ -261,7 +261,7 @@ std::shared_ptr<std::ofstream> RepMsgHandlers::get_fstream(const string& vol,
 bool RepMsgHandlers::validate_replicate(const string& vol_id){
     VolumeMeta meta;
     RESULT res = meta_->read_volume_meta(vol_id,meta);
-    DR_ASSERT(res == DRS_OK);
+    SG_ASSERT(res == DRS_OK);
     if(meta.info().role() == REP_PRIMARY)
         return false;
     else if(meta.info().rep_status() == REP_FAILED_OVER)

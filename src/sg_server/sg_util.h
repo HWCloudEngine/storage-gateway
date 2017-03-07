@@ -44,7 +44,7 @@ inline bool extract_counter_from_object_key(const string& key,int64_t& cnt){
 inline bool get_path_by_journal_key(const string &key,string& path){
     JournalMeta meta;
     RESULT res = JournalMetaHandle::instance().get_journal_meta(key,meta);
-    DR_ASSERT(res == DRS_OK);
+    SG_ASSERT(res == DRS_OK);
     path = meta.path();
     return true;
 }

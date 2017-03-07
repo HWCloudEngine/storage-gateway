@@ -93,7 +93,7 @@ Status RepInnerCtrl::EnableReplication(ServerContext* context,
         << "marker:" << marker.cur_journal() << "," << marker.pos();
     VolumeMeta meta;
     RESULT res = meta_->read_volume_meta(local_vol,meta);
-    DR_ASSERT(DRS_OK == res);
+    SG_ASSERT(DRS_OK == res);
     if(!validate_replicate_operation(meta.info().rep_status(),REPLICATION_ENABLE)){
         LOG_ERROR << "enable replication " << local_vol
             << " failed:not allowed at current state,"
@@ -111,7 +111,7 @@ Status RepInnerCtrl::EnableReplication(ServerContext* context,
     op->mutable_marker()->CopyFrom(marker);
     op->set_is_synced(false);
     res = meta_->update_volume_meta(meta);
-    DR_ASSERT(DRS_OK == res);
+    SG_ASSERT(DRS_OK == res);
     notify_rep_state_changed(local_vol);
     response->set_status(sOk);
     return Status::OK;
@@ -132,7 +132,7 @@ Status RepInnerCtrl::DisableReplication(ServerContext* context,
 
     VolumeMeta meta;
     RESULT res = meta_->read_volume_meta(local_vol,meta);
-    DR_ASSERT(DRS_OK == res);
+    SG_ASSERT(DRS_OK == res);
     if(!validate_replicate_operation(meta.info().rep_status(),REPLICATION_DISABLE)){
         LOG_ERROR << "disable replication " << local_vol
             << " failed:not allowed at current state,"
@@ -150,7 +150,7 @@ Status RepInnerCtrl::DisableReplication(ServerContext* context,
     op->set_snap_id(op_id);
     op->mutable_marker()->CopyFrom(marker);
     res = meta_->update_volume_meta(meta);
-    DR_ASSERT(DRS_OK == res);
+    SG_ASSERT(DRS_OK == res);
     notify_rep_state_changed(local_vol);
     response->set_status(sOk);
     return Status::OK;
@@ -171,7 +171,7 @@ Status RepInnerCtrl::FailoverReplication(ServerContext* context,
 
     VolumeMeta meta;
     RESULT res = meta_->read_volume_meta(local_vol,meta);
-    DR_ASSERT(DRS_OK == res);
+    SG_ASSERT(DRS_OK == res);
     if(!validate_replicate_operation(meta.info().rep_status(),REPLICATION_FAILOVER)){
         LOG_ERROR << "failover replication " << local_vol
             << " failed:not allowed at current state,"
@@ -189,7 +189,7 @@ Status RepInnerCtrl::FailoverReplication(ServerContext* context,
     op->set_snap_id(op_id);
     op->mutable_marker()->CopyFrom(marker);
     res = meta_->update_volume_meta(meta);
-    DR_ASSERT(DRS_OK == res);
+    SG_ASSERT(DRS_OK == res);
     notify_rep_state_changed(local_vol);
     response->set_status(sOk);
     return Status::OK;
@@ -216,7 +216,7 @@ Status RepInnerCtrl::DeleteReplication(ServerContext* context,
 
     VolumeMeta meta;
     RESULT res = meta_->read_volume_meta(local_vol,meta);
-    DR_ASSERT(DRS_OK == res);
+    SG_ASSERT(DRS_OK == res);
     if(!validate_replicate_operation(meta.info().rep_status(),REPLICATION_DELETE)){
         LOG_ERROR << "delete replication " << local_vol
             << " failed:not allowed at current state,"
@@ -233,7 +233,7 @@ Status RepInnerCtrl::DeleteReplication(ServerContext* context,
     meta.mutable_info()->set_rep_enable(false);
     meta.mutable_info()->set_rep_status(REP_DELETING);
     res = meta_->update_volume_meta(meta);
-    DR_ASSERT(DRS_OK == res);
+    SG_ASSERT(DRS_OK == res);
     notify_rep_state_changed(local_vol);
     response->set_status(sOk);
     return Status::OK;
@@ -253,7 +253,7 @@ Status RepInnerCtrl::ReportCheckpoint(ServerContext* context,
     // TODO: use checkpoint machanism as remote snapshot to sync destination replication status
     VolumeMeta meta;
     RESULT res = meta_->read_volume_meta(local_vol,meta);
-    DR_ASSERT(DRS_OK == res);
+    SG_ASSERT(DRS_OK == res);
     bool found = false;
     RepStatus status = meta.info().rep_status();
     auto records = meta.records();
@@ -281,7 +281,7 @@ Status RepInnerCtrl::ReportCheckpoint(ServerContext* context,
             LOG_INFO << "update volume[" << local_vol << "] rep status to "
                 << status;
             res = meta_->update_volume_meta(meta);
-            DR_ASSERT(DRS_OK == res);
+            SG_ASSERT(DRS_OK == res);
         }
     }
     if(found && role == REP_PRIMARY){ // remote site drop snapshots?

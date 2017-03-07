@@ -81,7 +81,7 @@ bool get_local_ip(string& ip,const char* name="eth0",const int type=AF_INET){
 }
 
 int main(int argc, char** argv) {
-    std::string file="drserver.log";
+    std::string file="sg_server.log";
     DRLog::log_init(file);
     DRLog::set_log_level(SG_DEBUG);
     std::shared_ptr<CephS3Meta> meta(new CephS3Meta());
@@ -108,9 +108,9 @@ int main(int argc, char** argv) {
         return -1;
     }
     string type;
-    if(false == parser->get<string>("journal_storage.type",type)){
-        LOG_FATAL << "config parse journal_storage.type error!";
-        std::cerr << "config parse journal_storage.type error!" << std::endl;
+    if(false == parser->get<string>("global.journal_storage",type)){
+        LOG_FATAL << "config parse global.journal_storage error!";
+        std::cerr << "config parse global.journal_storage error!" << std::endl;
         return -1;
     }
     if(type.compare("ceph_fs") == 0){        

@@ -146,7 +146,7 @@ void GCTask::lease_check_task(){
             if(false == lease_->check_lease_existance(*list_it)){
                 LOG_DEBUG << *list_it << " lease not existance";
                 res = meta_ptr_->seal_opened_journals(it->first,*list_it);
-                DR_ASSERT(DRS_OK == res);
+                SG_ASSERT(DRS_OK == res);
             }
         }
     }
@@ -180,7 +180,7 @@ int GCTask::remove_volume(const std::string &vol_id){
 }
 
 void GCTask::register_consumer(const string& vol_id,IConsumer* c){
-    DR_ASSERT(c != nullptr);
+    SG_ASSERT(c != nullptr);
     LOG_INFO << "register consumer," << vol_id << ":" << c->get_type();
 
     std::lock_guard<std::mutex> lck(mtx_);
