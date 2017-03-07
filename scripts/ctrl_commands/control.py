@@ -1,38 +1,63 @@
 import argparse
 import ConfigParser
 import sys,uuid
-import snap_ctrl,replicate_ctrl
+import snap_ctrl,replicate_ctrl,volume_ctrl,backup_ctrl
 
-def snap(args,cp):
-    print ('action: %s' % args.action)
-    print ('volume: %s'%args.vol_id)
-    #host = cp.get('replicate','local_ip')
-    host = '127.0.0.1'
-    print ('rpc server host: %s' % host)
-    params = {'host':host,'port':'1111'}
+def snap(args,host,port):
+    print('snapshot (%s)' % args)
+
+    params = {'host':host,'port':port}
     ctrl = snap_ctrl.SnapCtrl(params)
-    ctrl.do(args)
+    res = ctrl.do(args)
 
-def replicate(args,cp):
-    print('operation uuid: %s' %args.op_id)
+def replicate(args,host,port):
     print('replicate (%s)' % args)
-    #host = cp.get('replicate','local_ip')
-    host = '127.0.0.1'
-    print ('rpc server host: %s' % host)
-    params = {'host':host,'port':'1111'}
+
+    params = {'host':host,'port':port}
     ctrl = replicate_ctrl.RepliacteCtrl(params)
-    ctrl.do(args)
+    res = ctrl.do(args)
+
+def volume(args,host,port):
+    print('volume %s \n' % args)
+
+    if args.action in ['get','disable','enable']:
+        if not args.vol_id:
+            print 'volume name is required!'
+            return
+
+    params = {'host':host,'port':port}
+    ctrl = volume_ctrl.VolumeCtrl(params)
+    res = ctrl.do(args)
+
+def backup(args,host,port):
+    print('volume %s ' % args)
+
+    params = {'host':host,'port':port}
+    ctrl = backup_ctrl.BackupCtrl(params)
+    res = ctrl.do(args)
 
 def run():
     #config parser
     config_file = '/etc/storage-gateway/config.ini'
     cp = ConfigParser.ConfigParser()
     cp.read(config_file)
+    try:
+        host_ = cp.get('ctrl_server','ip')
+        port_ = cp.getint('ctrl_server','port')
+    except Exception,ex:
+        host_ = '127.0.0.1'
+        port_ = 1111
+
+    print ('rpc control server host:port: %s:%s' %(host_, port_))
+
     #commands parser
     parser = argparse.ArgumentParser(description=
             'storage-gateway controler commands converter.')
+
+    sub_parsers = parser.add_subparsers(dest="cmd")
+    sub_parsers.required = True
+
     #snap args
-    sub_parsers = parser.add_subparsers()
     parser_snap = sub_parsers.add_parser('snap')
     parser_snap.add_argument('-v','--volume',help='volume id',dest='vol_id')
     parser_snap.add_argument('-a','--action',\
@@ -68,9 +93,54 @@ def run():
                          role:primary|secondary',choices=('primary','secondary'),
                          default='primary')
     parser_replicate.set_defaults(func=replicate)
+
+    #volume control args
+    parser_volume = sub_parsers.add_parser('volume')
+    parser_volume.add_argument('-a','--action',\
+                              choices=('list','enable','disable','get'),
+                              required=True)
+    parser_volume.add_argument('-v','--volume',help='volume id',dest='vol_id')
+    parser_volume.add_argument('-t','--type',help='list type:device|volume',
+                            dest='list_type',choices=('device','volume'),
+                            default='volume')
+    parser_volume.add_argument('-s','--size',help='volume size',
+                            dest='vol_size')
+    parser_volume.add_argument('-p','--device_path',help='block device path',
+                            dest='device_path')
+    parser_volume.set_defaults(func=volume)
+
+    #backup control args
+    parser_backup = sub_parsers.add_parser('backup')
+    parser_backup.add_argument('-a','--action',\
+                            choices=('list','create','delete','get','restore'),
+                            required=True)
+    parser_backup.add_argument('-v','--volume',help='volume id',dest='vol_id',
+                            required=True)
+    parser_backup.add_argument('-b','--backup_name',help='backup name',
+                            dest='backup_id')
+    parser_backup.add_argument('-s','--size',help='volume size',
+                            dest='vol_size')
+    parser_backup.add_argument('--volume2',help='new volume name',
+                            dest='vol_id2')
+    parser_backup.add_argument('--device2',help='new block device name',
+                            dest='device2')
+    parser_backup.add_argument('--size2',help='size of new volume',
+                            dest='vol_size2')
+    #backup optional params
+    parser_backup.add_argument('--mode',help='backup mode:full|incr|diff',
+                            dest='mode',choices=('full','incr','diff'))
+    parser_backup.add_argument('--store_mode',
+                            help='backup storage mode:file|object',
+                            dest='store_mode',choices=('file','object'))
+    parser_backup.add_argument('--chunk_size',help='chuck size',
+                            dest='chunk_size',default=1048576)
+    parser_backup.add_argument('--backup_path',help='backup path',
+                            dest='backup_path')
+    parser_backup.set_defaults(func=backup)
+
     #parse command line args and run
     args = parser.parse_args(sys.argv[1:])
-    args.func(args,cp)
+    args.func(args,host_,port_)
 
 if __name__ == '__main__':
     run()

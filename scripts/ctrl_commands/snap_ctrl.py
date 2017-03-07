@@ -1,6 +1,5 @@
 import sys,grpc
-sys.path.append('control_api')
-import snapshot_control_pb2
+from control_api import snapshot_control_pb2
 import common_pb2
 
 class SnapCtrl(snapshot_control_pb2.SnapshotControlStub):
