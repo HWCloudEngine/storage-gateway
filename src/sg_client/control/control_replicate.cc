@@ -40,7 +40,17 @@ std::shared_ptr<ReplicateProxy> ReplicateCtrl::get_replicate_proxy(
     if(it != volumes_.end()){
         return it->second->get_replicate_proxy();
     }
-    LOG_ERROR << "get_replicate_proxy vid:" << vol_name << "failed";
+    LOG_ERROR << "get_replicate_proxy vol-id:" << vol_name << " failed";
+    return nullptr;
+}
+
+std::shared_ptr<JournalWriter> ReplicateCtrl::get_journal_writer(
+        const string& vol_name){
+    auto it = volumes_.find(vol_name);
+    if(it != volumes_.end()){
+        return it->second->get_writer();
+    }
+    LOG_ERROR << "get_journal_writer vol-id:" << vol_name << " failed";
     return nullptr;
 }
 
@@ -86,7 +96,16 @@ Status ReplicateCtrl::EnableReplication(ServerContext* context,
         << "operation uuid:" << operate_id << "\n"
         << "role:" << role;
 
-    // TODO: 1. hold producer marker
+    // 1. hold producer marker
+    std::shared_ptr<JournalWriter> writer = get_journal_writer(local_vol);
+    if(writer == nullptr){
+        LOG_ERROR << "hold producer marker failed, vol[" << local_vol
+            << "] not found.";
+        response->set_status(StatusCode::sInternalError);
+        return Status::OK;
+    }
+    writer->hold_producer_marker();
+
     JournalMarker marker;
     if(RepRole::REP_PRIMARY == role){
     // 2. create snapshot for replication
@@ -113,8 +132,8 @@ Status ReplicateCtrl::EnableReplication(ServerContext* context,
         LOG_ERROR << "enable replication failed,vol_id=" << local_vol;
     }
 
-    // TODO:4. unhold producer marker
-
+    //4. unhold producer marker
+    writer->unhold_producer_marker();
     response->set_status(res);
     return Status::OK;
 }
@@ -132,7 +151,15 @@ Status ReplicateCtrl::DisableReplication(ServerContext* context,
         << "operation uuid:" << operate_id << "\n"
         << "role:" << role;
 
-    // TODO: 1. hold producer marker
+    // 1. hold producer marker
+    std::shared_ptr<JournalWriter> writer = get_journal_writer(local_vol);
+    if(writer == nullptr){
+        LOG_ERROR << "hold producer marker failed, vol[" << local_vol
+            << "] not found.";
+        response->set_status(StatusCode::sInternalError);
+        return Status::OK;
+    }
+    writer->hold_producer_marker();
 
     JournalMarker marker;
     if(RepRole::REP_PRIMARY == role){
@@ -160,7 +187,8 @@ Status ReplicateCtrl::DisableReplication(ServerContext* context,
         LOG_ERROR << "disable replication failed,vol_id=" << local_vol;
     }
 
-    // TODO:4. unhold producer marker
+    // 4. unhold producer marker
+    writer->unhold_producer_marker();
 
     response->set_status(res);
     return Status::OK;
@@ -179,9 +207,19 @@ Status ReplicateCtrl::FailoverReplication(ServerContext* context,
         << "operation uuid:" << operate_id << "\n"
         << "role:" << role;
 
+    // 1. hold producer marker
+    std::shared_ptr<JournalWriter> writer = get_journal_writer(local_vol);
+    if(writer == nullptr){
+        LOG_ERROR << "hold producer marker failed, vol[" << local_vol
+            << "] not found.";
+        response->set_status(StatusCode::sInternalError);
+        return Status::OK;
+    }
+    writer->hold_producer_marker();
+
     JournalMarker marker;
     if(RepRole::REP_PRIMARY == role){
-    // 1. create snapshot for replication
+    // 2. create snapshot for replication
         std::shared_ptr<ReplicateProxy> rep_proxy = get_replicate_proxy(local_vol);
         if(rep_proxy == nullptr){
             LOG_ERROR << "replicate proxy not found for volume: " << local_vol;
@@ -199,12 +237,16 @@ Status ReplicateCtrl::FailoverReplication(ServerContext* context,
         }
     }
 
-    // 2. update replicate meta
+    // 3. update replicate meta
     res = rep_ctrl_client_->failover_replication(operate_id,
         local_vol,role,marker);
     if(res){
         LOG_ERROR << "failover replication failed,vol_id=" << local_vol;
     }
+
+    // 4. unhold producer marker
+    writer->unhold_producer_marker();
+
     response->set_status(res);
     return Status::OK;
 }
