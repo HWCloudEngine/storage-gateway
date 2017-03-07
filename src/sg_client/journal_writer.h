@@ -36,6 +36,7 @@
 #include "../common/journal_entry.h"
 #include "../rpc/clients/writer_client.h"
 #include "../common/ceph_s3_lease.h"
+#include "epoll_event.h"
 
 using namespace std;
 
@@ -48,6 +49,8 @@ struct JournalWriterConf{
     int32_t version;
     checksum_type_t checksum_type;
     int32_t journal_limit;
+    // when written size greater than this threshold value, to update producer marker
+    uint64_t producer_written_size_threshold;
 };
 
 class JournalWriter :private boost::noncopyable
@@ -57,22 +60,34 @@ public:
                            BlockingQueue<struct IOHookReply*>& reply_queue);
     virtual ~JournalWriter();
     void work();
-    bool init(string vol, 
-              string rpc_addr,
+    bool init(string vol,
               shared_ptr<ConfigParser> conf,
               shared_ptr<IDGenerator> id_proxy, 
               shared_ptr<CacheProxy> cacheproxy,
               shared_ptr<SnapshotProxy> snapshotproxy,
-              shared_ptr<CephS3LeaseClient> lease_client);
+              shared_ptr<CephS3LeaseClient> lease_client,
+              shared_ptr<WriterClient> writer_client,
+              int _epoll_fd);
     bool deinit();
     //The following two function must be called in another thread,can't call in write thread
     //The write thread and another thread are single consumer/single producer module,communicate with lockfree queue
     bool get_writeable_journals(const std::string& uuid,const int limit);
     bool seal_journals(const std::string& uuid);
 
+    // producer marker related methods
+    void clear_producer_event();
+    int update_producer_marker();
+    void hold_producer_marker();
+    void unhold_producer_marker();
+    bool is_producer_marker_need_update();
+    JournalMarker get_cur_producer_marker();
 private:
-    bool open_journal(uint64_t entry_size);
-    bool get_journal();
+    int get_next_journal();
+    int open_current_journal();
+    int to_seal_current_journal();
+    int close_current_journal_file();
+    void invalid_current_journal();
+
     int64_t get_file_size(const char *path);
     bool write_journal_header();
     void send_reply(JournalEntry* entry,bool success);
@@ -112,6 +127,20 @@ private:
     
     struct JournalWriterConf config;
     bool running_flag;
+
+    // new written size in journals since last update of producer marker
+    uint64_t written_size_since_last_update;
+    EpollEvent producer_event;
+    //whether the producer marker need to update
+    std::atomic<bool> producer_marker_is_changed;
+    // whether to hold updating producer marker
+    std::atomic<bool> producer_marker_hold_flag;
+    // the producer marker which need update
+    JournalMarker cur_producer_marker;
+    // mutex for producer marker
+    std::mutex producer_mtx;
+    // epoll fd, created in VolumeMgr, which collects the writers' events
+    int epoll_fd;
 };
 
 }
