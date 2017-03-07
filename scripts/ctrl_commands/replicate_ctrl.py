@@ -1,8 +1,7 @@
 import sys,grpc
-sys.path.append('control_api')
-sys.path.append('journal')
-import journal_pb2,common_pb2
-import replicate_control_pb2
+import common_pb2,replicate_pb2
+from control_api import replicate_control_pb2
+from journal import journal_pb2
 
 class RepliacteCtrl():
     def __init__(self,args):
@@ -12,9 +11,9 @@ class RepliacteCtrl():
 
     def do(self,args):
         if args.role.upper() == 'PRIMARY':
-            self.role_ = common_pb2.REP_PRIMARY
+            self.role_ = replicate_pb2.REP_PRIMARY
         else:
-            self.role_ = common_pb2.REP_SECONDARY
+            self.role_ = replicate_pb2.REP_SECONDARY
         if args.action == 'create':
             res = self.CreateReplication(args)
         elif args.action == 'delete':
@@ -36,7 +35,7 @@ class RepliacteCtrl():
                 rep_uuid=args.uuid,
                 operate_id=args.op_id,
                 local_volume=args.vol_id,
-                peer_volumes=args.vol_id2,
+                peer_volumes=[args.vol_id2],
                 role=self.role_))
         print ('create replication result:%s' % res.status)
         return res
