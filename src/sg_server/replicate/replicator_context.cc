@@ -83,7 +83,7 @@ void ReplicatorContext::recycle_task(std::shared_ptr<TransferTask>& t){
     std::shared_ptr<TransferTask>& task = task_window_.get_last_acked_task();
     std::shared_ptr<RepContext> ctx = 
             std::dynamic_pointer_cast<RepContext>(task->get_context());
-    DR_ASSERT(ctx != nullptr);
+    SG_ASSERT(ctx != nullptr);
     JournalMarker temp_marker;
     temp_marker.set_cur_journal(
         sg_util::construct_journal_key(vol_,ctx->get_j_counter()));
@@ -128,7 +128,7 @@ bool ReplicatorContext::has_journals_to_transfer(){
         auto& task = task_window_.get_last_sent_task();
         std::shared_ptr<RepContext> ctx = 
             std::dynamic_pointer_cast<RepContext>(task->get_context());
-        DR_ASSERT(ctx != nullptr);
+        SG_ASSERT(ctx != nullptr);
         // compare journal marker of last sent task to producer marker
         JournalMarker temp_marker;
         temp_marker.set_cur_journal(
@@ -137,7 +137,7 @@ bool ReplicatorContext::has_journals_to_transfer(){
         int result = sg_util::marker_compare(temp_marker,p_marker);
         if(result < 0)
             return true;
-        DR_ASSERT(result <= 0);
+        SG_ASSERT(result <= 0);
     }
     else{
         if(sg_util::marker_compare(p_marker,c_marker_) > 0)
@@ -160,9 +160,9 @@ bool ReplicatorContext::init_markers(){
 std::shared_ptr<TransferTask> ReplicatorContext::construct_task(const JournalElement& e){
     JournalMeta meta;
     RESULT res = j_meta_mgr_->get_journal_meta(e.journal(),meta);
-    DR_ASSERT(res == DRS_OK);
+    SG_ASSERT(res == DRS_OK);
     int64_t c;
-    DR_ASSERT(true == sg_util::extract_counter_from_object_key(e.journal(),c));
+    SG_ASSERT(true == sg_util::extract_counter_from_object_key(e.journal(),c));
     auto f = std::bind(&ReplicatorContext::recycle_task,this,std::placeholders::_1);
     bool is_open = meta.status() == OPENED ? true:false;
     std::shared_ptr<RepContext> ctx(new RepContext(vol_,c,e.end_offset(),is_open,f));
