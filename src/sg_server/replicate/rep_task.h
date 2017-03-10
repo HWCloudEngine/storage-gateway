@@ -133,7 +133,7 @@ private:
     std::shared_ptr<RepContext> ctx;
 
     // internal params
-    bool end; // task done, ReplicateEndReq was sent
+    bool end; // ReplicateEndReq was constructed, sending
     bool all_data_sent; // all data was sent
     std::vector<DiffBlocks> diff_blocks;
     int vector_cursor; // cursor of DiffBlocks vector

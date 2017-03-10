@@ -17,7 +17,7 @@ using huawei::proto::VolumeMeta;
 using huawei::proto::RESULT;
 class VolumeMetaManager{
 public:
-    ~VolumeMetaManager(){}
+    virtual ~VolumeMetaManager(){}
     virtual RESULT list_volume_meta(std::list<VolumeMeta> &list) = 0;
     virtual RESULT read_volume_meta(const std::string& vol_id,
                 VolumeMeta& meta) = 0;

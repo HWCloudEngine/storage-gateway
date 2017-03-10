@@ -25,7 +25,6 @@ private:
     bool enable_;
     bool running_;
     std::mutex volume_mtx_;
-    std::string uuid_;
     std::string mount_path_;
     std::shared_ptr<CephS3Meta> meta_;
     // output queue

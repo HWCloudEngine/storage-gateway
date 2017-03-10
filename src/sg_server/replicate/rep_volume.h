@@ -12,8 +12,10 @@
 #define REP_VOLUME_H_
 #include <atomic>
 #include <string>
+#include <mutex>
 #include "replicator_context.h"
 #include "../volume_meta_manager.h"
+#include "sg_server/journal_meta_manager.h"
 #include "rep_task.h"
 typedef enum SyncStatus{
     NO_SYNC = 0,
@@ -28,14 +30,17 @@ class RepVolume{
     uint64_t last_served_time_;
     std::shared_ptr<ReplicatorContext> replicator_;
     SyncStatus base_sync_state_;
+    std::mutex vol_meta_mtx;
     VolumeMeta vol_meta_;
     RepStatus last_rep_status_;
     bool transient_state;
     std::atomic<bool> task_generating_flag_;
     std::shared_ptr<VolumeMetaManager> vol_mgr_;
+    std::shared_ptr<JournalMetaManager> journal_mgr_;
 public:
     RepVolume(const string& vol_id,
-            std::shared_ptr<VolumeMetaManager> vol_mgr);
+            std::shared_ptr<VolumeMetaManager> vol_mgr,
+            std::shared_ptr<JournalMetaManager> j_mgr);
     ~RepVolume();
     void register_replicator(std::shared_ptr<ReplicatorContext> reptr);
     int get_priority()const;

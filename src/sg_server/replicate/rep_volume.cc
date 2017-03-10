@@ -20,9 +20,11 @@ using huawei::proto::REP_PRIMARY;
 const uint64_t DEADLINE = 300; // TODO:
 
 RepVolume::RepVolume(const string& vol_id,
-        std::shared_ptr<VolumeMetaManager> vol_mgr):
+        std::shared_ptr<VolumeMetaManager> vol_mgr,
+        std::shared_ptr<JournalMetaManager> j_mgr):
         vol_id_(vol_id),
         vol_mgr_(vol_mgr),
+        journal_mgr_(j_mgr),
         transient_state(false){
     init();
 }
@@ -115,6 +117,7 @@ bool RepVolume::need_replicate(){
             // update replication status if replicator consumed to checkpoint
             // TODO: wait for snapshot created??
             RepStatus s = last_rep_status_==REP_DISABLING ? REP_DISABLED:REP_FAILED_OVER;
+            std::lock_guard<std::mutex> lck(vol_meta_mtx);
             vol_meta_.mutable_info()->set_rep_status(s);
             persist_replication_status();
             LOG_INFO << vol_id_ << " update replicate status to " << s;
@@ -141,7 +144,9 @@ bool RepVolume::operator <(const RepVolume& other){
 }
 
 void RepVolume::notify_rep_state_changed(){
+    std::unique_lock<std::mutex> lck(vol_meta_mtx);
     load_volume_meta();
+    lck.unlock();
     if(last_rep_status_ != vol_meta_.info().rep_status()){
         LOG_INFO << "volume[" << vol_id_ << "] replicate status changed:"
             << last_rep_status_ << " --> " << vol_meta_.info().rep_status();
@@ -187,8 +192,10 @@ std::shared_ptr<TransferTask> RepVolume::generate_base_sync_task(
                     const string& pre_snap,const string& cur_snap){
     // TODO:set journal key, remote journal counter should less than the snap entry j_counter
     auto record_it = vol_meta_.records().rbegin();
-    int64_t counter;
+    uint64_t counter;
     sg_util::extract_counter_from_object_key(record_it->marker().cur_journal(),counter);
+    // note: journals of synced snapshot, sub counter start at 1
+    counter++;
     auto f = std::bind(&RepVolume::recycle_base_sync_task,this,std::placeholders::_1);
     std::shared_ptr<RepContext> ctx(new RepContext(vol_id_, counter,
                             MAX_JOURNAL_SIZE_FOR_SNAP_SYNC,false,std::ref(f)));
@@ -196,15 +203,52 @@ std::shared_ptr<TransferTask> RepVolume::generate_base_sync_task(
     task->set_id(0);
     task->set_status(T_WAITING);
     task->set_ts(time(nullptr));
+
+    LOG_INFO << "generate base sync task:" << task->get_id()
+        << " volume:" << vol_id_
+        << " pre_snap:" << pre_snap
+        << " cur_snap:" << cur_snap
+        << " journal counter start at:" << counter;
     return task;
 }
 void RepVolume::recycle_base_sync_task(std::shared_ptr<TransferTask> t){
     // TODO:
     DR_ASSERT(T_DONE == t->get_status());
-    // set remote producer marker
+    // set remote producer marker: update status to enable will unhold producer marker
+
+    // TODO: set remote consumer marker??
+
+    std::unique_lock<std::mutex> lck(vol_meta_mtx);
+    load_volume_meta();
+    auto last_record = vol_meta_.mutable_records()->rbegin();
+    LOG_INFO << "last replicate record:"
+        << "volume:" << vol_meta_.info().vol_id()
+        << "volume status:" << vol_meta_.info().vol_status()
+        << "rep status:" << vol_meta_.info().rep_status()
+        << "operate id:" << last_record->operate_id()
+        << "  type:" << last_record->type()
+        << "  snap id:" << last_record->snap_id()
+        << "  synced:" << last_record->is_synced();
     // persist replication base sync done
+    last_record->set_is_synced(true);
+    persist_replication_status();
+
     // delete conresponding snapshots
+    string pre_snap;
+    DR_ASSERT(0 == get_last_shared_snap(pre_snap));
+    StatusCode status = SnapClientWrapper::instance().get_client()->DeleteSnapshot(vol_id_,pre_snap);
+    if(status){
+        LOG_ERROR << "delete snapshot[" << pre_snap << "] failed!";
+    }
+    status = SnapClientWrapper::instance().get_client()->DeleteSnapshot(vol_id_,last_record->snap_id());
+    if(status){
+        LOG_ERROR << "delete snapshot[" << last_record->snap_id() << "] failed!";
+    }
+
     // update replication status
+    vol_meta_.mutable_info()->set_rep_status(REP_ENABLED);
+    LOG_INFO << "update volume[" << vol_id_ << "] replicate status to enabled ";
+    persist_replication_status();
 }
 
 void RepVolume::clean_up(){
@@ -238,6 +282,6 @@ int RepVolume::replicator_consumed_to_checkpoint(){
     JournalMarker consumer_m;
     int result = replicator_->get_producer_marker(consumer_m);
     DR_ASSERT(0 == result);
-    result = sg_util::marker_compare(consumer_m,cp_m);
+    result = journal_mgr_->compare_marker(vol_id_,consumer_m,cp_m);
     return result;
 }

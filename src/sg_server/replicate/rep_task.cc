@@ -105,8 +105,8 @@ int JournalTask::init(){
     is.seekg(cur_off);
     DR_ASSERT(is.fail()==0 && is.bad()==0);
 
-    LOG_DEBUG << "task[" << get_id() << "] transfering journal "
-        << ctx->get_j_counter() << " from "
+    LOG_DEBUG << "transfering journal " << std::hex
+        << ctx->get_j_counter() << std::dec << " from "
         << start_off << " to " << ctx->get_end_off();
 
     buffer = (char*)malloc(JOURNAL_BLOCK_SIZE);
@@ -160,6 +160,7 @@ TransferRequest* JournalTask::get_next_package(){
 }
 
 int JournalTask::reset(){
+    end = false;
     cur_off = start_off;
     is.seekg(cur_off);
     return 0;
@@ -310,6 +311,7 @@ void DiffSnapTask::set_cur_snap(const std::string& _snap){
 }
 
 int DiffSnapTask::reset(){
+    end = false;
     vector_cursor = 0;
     array_cursor = 0;
     all_data_sent = false;

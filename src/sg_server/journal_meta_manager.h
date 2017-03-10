@@ -35,6 +35,9 @@ public:
             const string& vol_id,
             const int& limit, std::list<string> &list) = 0;
 
+    virtual RESULT create_journals_by_given_keys(const string& uuid,
+            const string& vol_id,const std::list<string> &list) = 0;
+    
     virtual RESULT seal_volume_journals(const string& uuid,
             const string& vol_id,
             const string journals[],const int& count) = 0;
@@ -59,6 +62,9 @@ public:
 
     virtual RESULT get_producer_marker(const string& vol_id,
             const CONSUMER_TYPE& type, JournalMarker& marker) = 0;
+
+    virtual int compare_marker(const string& vol_id,
+                const JournalMarker& m1, const JournalMarker& m2) = 0;
 
 };
 #endif

@@ -31,8 +31,11 @@ using huawei::proto::VolumeInfo;
 using huawei::proto::REP_PRIMARY;
 using huawei::proto::REP_FAILED_OVER;
 
-RepMsgHandlers::RepMsgHandlers(std::shared_ptr<CephS3Meta> meta,
-        const string& path):meta_(meta),
+RepMsgHandlers::RepMsgHandlers(std::shared_ptr<JournalMetaManager> meta,
+        std::shared_ptr<VolumeMetaManager> v_meta,
+        const string& path):
+        j_meta_(meta),
+        vol_meta_(v_meta),
         mount_path_(path){
     
 }
@@ -84,11 +87,11 @@ bool RepMsgHandlers::handle_replicate_marker_req(const TransferRequest& req){
 
     // get replayer producer marker, if failed, try to update it
     JournalMarker marker;
-    RESULT result = meta_->get_producer_marker(msg.vol_id(),REPLAYER,
+    RESULT result = j_meta_->get_producer_marker(msg.vol_id(),REPLAYER,
                 marker);
     if(result == DRS_OK){
         // compare the markers, if the one sent is bigger, update it
-        int cmp = sg_util::marker_compare(msg.marker(),marker);
+        int cmp = j_meta_->compare_marker(msg.vol_id(),msg.marker(),marker);
         if(cmp <= 0){
             LOG_WARN << "the new producer marker "
                 << msg.marker().cur_journal() << ":" << msg.marker().pos()
@@ -97,7 +100,7 @@ bool RepMsgHandlers::handle_replicate_marker_req(const TransferRequest& req){
             return true;
         }
     }
-    result = meta_->set_producer_marker(msg.vol_id(),msg.marker());
+    result = j_meta_->set_producer_marker(msg.vol_id(),msg.marker());
     DR_ASSERT(result == DRS_OK);
     LOG_INFO << "update replayer producer marker to: "
         << msg.marker().cur_journal() << ":" << msg.marker().pos();
@@ -137,7 +140,7 @@ bool RepMsgHandlers::hanlde_replicate_data_req(const TransferRequest& req){
     if(data_msg.data().length() > 0){
 
         uint32_t crc = crc32c(data_msg.data().c_str(),data_msg.data().length(),0);
-        LOG_DEBUG << "j_counter[" << data_msg.journal_counter()
+        LOG_DEBUG << "j_counter[" << std::hex << data_msg.journal_counter() << std::dec
             << "] receive data, len:" << data_msg.data().length()
             << ",offset:" << data_msg.offset() << ",crc:"
             << crc;
@@ -163,8 +166,8 @@ bool RepMsgHandlers::handle_replicate_start_req(const TransferRequest& req){
     std::shared_ptr<std::ofstream> of_p =
             create_journal(msg.vol_id(),msg.journal_counter());
     if(of_p == nullptr){
-        LOG_ERROR << "create journal " << msg.vol_id()
-            << ":" << msg.journal_counter() << " failed!";
+        LOG_ERROR << "create journal " << msg.vol_id() << ":"
+            << std::hex << msg.journal_counter() << std::dec << " failed!";
         return false;
     }
     // inset journal file to map
@@ -176,12 +179,12 @@ bool RepMsgHandlers::handle_replicate_start_req(const TransferRequest& req){
 }
 
 std::shared_ptr<std::ofstream> RepMsgHandlers::create_journal(
-            const string& vol_id,const int64_t& counter){
+            const string& vol_id,const uint64_t& counter){
     // create journal key&file 
     string key = sg_util::construct_journal_key(vol_id,counter);
     std::list<string> keys;
     keys.push_back(key);
-    RESULT res = meta_->create_journals_by_given_keys(
+    RESULT res = j_meta_->create_journals_by_given_keys(
         g_replicator_uuid,vol_id.c_str(),keys);
     if(res != DRS_OK){
         LOG_ERROR << "create_journals error!";
@@ -190,7 +193,7 @@ std::shared_ptr<std::ofstream> RepMsgHandlers::create_journal(
 
     // get journal file path
     JournalMeta meta;
-    res = meta_->get_journal_meta(key, meta);
+    res = j_meta_->get_journal_meta(key, meta);
     if(res != DRS_OK){
         LOG_ERROR << "get journal meta error!";
         return nullptr;
@@ -219,7 +222,8 @@ bool RepMsgHandlers::handle_replicate_end_req(const TransferRequest& req){
         msg.journal_counter());
     if(of == nullptr){
         LOG_ERROR << "file[" << msg.vol_id() << ":"
-            << msg.journal_counter() <<" not found!";
+            << std::hex << msg.journal_counter() << std::dec
+            <<" not found!";
         return false;
     }
 
@@ -239,7 +243,7 @@ bool RepMsgHandlers::handle_replicate_end_req(const TransferRequest& req){
     // seal the journal
     std::string key = sg_util::construct_journal_key(msg.vol_id(),msg.journal_counter());
     string keys_a[1]={key};
-    RESULT res = meta_->seal_volume_journals(g_replicator_uuid,msg.vol_id(),keys_a,1);
+    RESULT res = j_meta_->seal_volume_journals(g_replicator_uuid,msg.vol_id(),keys_a,1);
     if(res != DRS_OK){
         return false;
     }
@@ -248,7 +252,7 @@ bool RepMsgHandlers::handle_replicate_end_req(const TransferRequest& req){
 }
 
 std::shared_ptr<std::ofstream> RepMsgHandlers::get_fstream(const string& vol,
-        const int64_t& counter){
+        const uint64_t& counter){
     const Jkey key(vol,counter);
     std::lock_guard<std::mutex> lock(mutex_);
     auto it = js_map_.find(key);
@@ -260,7 +264,7 @@ std::shared_ptr<std::ofstream> RepMsgHandlers::get_fstream(const string& vol,
 
 bool RepMsgHandlers::validate_replicate(const string& vol_id){
     VolumeMeta meta;
-    RESULT res = meta_->read_volume_meta(vol_id,meta);
+    RESULT res = vol_meta_->read_volume_meta(vol_id,meta);
     DR_ASSERT(res == DRS_OK);
     if(meta.info().role() == REP_PRIMARY)
         return false;

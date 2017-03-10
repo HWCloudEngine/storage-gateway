@@ -19,19 +19,9 @@
 #include "log/log.h"
 #include "common/config_parser.h"
 #include "sg_util.h"
-const int64_t MAX_JOURNAL_COUNTER = 1000000000000L;
-const int64_t MIN_JOURNAL_COUNTER = 0L;
-#define INIT_JOURNAL_COUNTER (MIN_JOURNAL_COUNTER - 1)
-const string g_key_prefix = "/journals/";
-const string g_marker_prefix = "/markers/";
-const string g_writer_prefix = "/session/writer/";
-const string g_sealed = "/sealed/";
-const string g_replayer = "replayer";
-const string g_replicator = "replicator";
-const string g_recycled = "/recycled/";
-const string g_consumer = "consumer/";
-const string g_producer = "producer/";
-const string g_volume_prefix = "/volumes/";
+const uint64_t MAX_JOURNAL_COUNT = 1000LU; // TODO:config
+const uint64_t MIN_JOURNAL_COUNTER = 0LU;
+
 using std::unique_ptr;
 using huawei::proto::REP_FAILED_OVER;
 using huawei::proto::REP_ENABLED;
@@ -89,7 +79,7 @@ RESULT delete_journal_file(const string& name) {
     LOG_ERROR << "delete " << name << " failed:" << strerror(res);
     return INTERNAL_ERROR;
 }
-static string get_journal_filename(const string& vol_id,const int64_t& counter){
+static string get_journal_filename(const string& vol_id,const uint64_t& counter){
     return g_key_prefix + vol_id + "/" + sg_util::counter_to_string(counter);
 }
 string construct_sealed_index(const string& m_key){
@@ -109,6 +99,99 @@ string construct_write_open_index(const string& m_key,
 }
 string construct_volume_meta_key(const string& uuid){
     return g_volume_prefix + uuid;
+}
+
+std::shared_ptr<JournalHeadTail> init_head_tail_by_journals(
+            std::list<string>& list){
+
+    std::shared_ptr<JournalHeadTail> head_tail = std::make_shared<JournalHeadTail>();
+    uint64_t counter1;
+    if(true != sg_util::extract_counter_from_object_key(list.front(),counter1)){
+        LOG_ERROR << "extract counter from key [" << list.front() << "] failed!";
+        return nullptr;
+    }
+    uint64_t counter2;
+    if(true != sg_util::extract_counter_from_object_key(list.back(),counter2)){
+        LOG_ERROR << "extract counter from key [" << list.back() << "] failed!";
+        return nullptr;
+    }
+    if((counter2 >> SUB_COUNTER_BITS) + 1 == MAX_JOURNAL_COUNT){ // tail counter at next loop
+        uint64_t expected = 0;
+        for(auto it=list.begin();it!=list.end();++it){
+            // look for the discontinuous position
+            uint64_t missed_counter;
+            if(true != sg_util::extract_counter_from_object_key(*it,missed_counter)){
+                LOG_ERROR << "extract counter from key [" << *it << "] failed!";
+                return nullptr;
+            }
+            LOG_DEBUG << "extract counter:" << missed_counter;
+
+            if((missed_counter >> SUB_COUNTER_BITS) != expected){
+                // discontinuous position found
+                head_tail->tail = expected;
+
+                uint64_t head_counter;
+                if(true != sg_util::extract_counter_from_object_key(*it,head_counter)){
+                    LOG_ERROR << "extract counter from key [" << *it << "] failed!";
+                    return nullptr;
+                }
+                head_tail->head = head_counter >> SUB_COUNTER_BITS;
+
+                LOG_INFO << "init volume journal key counter (front):"
+                    << head_counter;
+                LOG_INFO << "init volume journal key counter (head/tail):"
+                    << head_tail->head << "/" << head_tail->tail;
+                break;
+            }
+            expected++;
+        }
+    }
+    else{        
+        head_tail->head = (counter1 >> SUB_COUNTER_BITS) % MAX_JOURNAL_COUNT;
+        head_tail->tail = ((counter2 >> SUB_COUNTER_BITS) + 1) % MAX_JOURNAL_COUNT;
+        LOG_INFO << "init volume journal key counter (front/rear):"
+                    << counter1 << "/" << counter2;
+        LOG_INFO << "init volume journal key counter (head/tail):"
+                    << head_tail->head << "/" << head_tail->tail;
+    }
+    //fool proof:counter is sequential
+    DR_ASSERT((head_tail->tail + MAX_JOURNAL_COUNT - head_tail->head) % MAX_JOURNAL_COUNT== list.size());
+    return head_tail;
+}
+
+// sort the journal list according JournalHeadTail
+void CephS3Meta::sort_journals(const string& vol_id, std::list<string>& list){
+
+    if(list.empty())
+        return;
+    std::shared_ptr<JournalHeadTail> head_tail = get_journal_key_counter(vol_id);
+    DR_ASSERT(head_tail != nullptr);
+    std::lock_guard<std::mutex> lck(head_tail->mtx);
+
+    LOG_DEBUG << "head:" << head_tail->head << ",tail:" << head_tail->tail;
+
+    if(head_tail->head <= head_tail->tail){
+        return;
+    }
+    else{
+        auto it=list.begin();
+        // move to head element,note:tail point to the element next to back(rear)
+        std::advance(it,head_tail->tail);
+        // confirm the counter:fool proof; TODO:delete later
+        uint64_t head_counter;
+        if(true != sg_util::extract_counter_from_object_key(*it,head_counter)){
+            LOG_ERROR << "extract counter from key [" << *it << "] failed!";
+            return;
+        }
+        DR_ASSERT((head_counter >> SUB_COUNTER_BITS) == head_tail->head);
+
+        // order
+        std::list<string> ordered_list;
+        ordered_list.splice(ordered_list.begin(),list,it,list.end());
+        ordered_list.splice(ordered_list.end(),list);
+        list.swap(ordered_list);
+    }
+
 }
 
 RESULT CephS3Meta::create_journal_file(const string& name) {
@@ -215,59 +298,83 @@ RESULT CephS3Meta::get_journal_meta(const string& key, JournalMeta& meta) {
         return INTERNAL_ERROR;
 }
 
-RESULT CephS3Meta::init_journal_key_counter(const string& vol_id,int64_t& cnt){
+int CephS3Meta::compare_journal_key(const string& vol_id,
+                const string& key1,const string& key2){
+    std::shared_ptr<JournalHeadTail> head_tail = get_journal_key_counter(vol_id);
+    DR_ASSERT(head_tail != nullptr);
+    uint64_t counter1;
+    uint64_t counter2;
+    DR_ASSERT(true == sg_util::extract_counter_from_object_key(key1,counter1));
+    DR_ASSERT(true == sg_util::extract_counter_from_object_key(key2,counter2));
+    if(head_tail->head < head_tail->tail){
+        return counter1 > counter2 ? 1:( counter1==counter2 ? 0:-1);
+    }
+    else{ // tail in at the next loop
+        if(counter1 < head_tail->head)
+            counter1 += MAX_JOURNAL_COUNT;
+        if(counter2 < head_tail->head)
+            counter2 += MAX_JOURNAL_COUNT;
+        return counter1 > counter2 ? 1:( counter1==counter2 ? 0:-1);
+    }
+}
+
+int CephS3Meta::compare_marker(const string& vol_id,
+            const JournalMarker& m1, const JournalMarker& m2){
+    int res = compare_journal_key(vol_id,m1.cur_journal(),m2.cur_journal());
+    if(res == 0){
+        return m1.pos() > m2.pos() ? 1:(m1.pos() == m2.pos() ? 0:-1);
+    }
+    else {
+        return res;
+    }
+}
+
+std::shared_ptr<JournalHeadTail> CephS3Meta::init_journal_key_counter(
+                            const string& vol_id){
     std::list<string> list;
-    int64_t counter1=0;
+    uint64_t counter1=0;
     string prefix = g_key_prefix + vol_id;
     RESULT res = s3Api_ptr_->list_objects(prefix.c_str(),nullptr,0,&list);
     if(DRS_OK != res) {
         LOG_ERROR << "list volume " << vol_id << " opened journals failed!";
-        return res;
+        return nullptr;
     }
     if(!list.empty()){
-        if(true != sg_util::extract_counter_from_object_key(list.back(),counter1)){
-            return INTERNAL_ERROR;
+        std::shared_ptr<JournalHeadTail> head_tail = init_head_tail_by_journals(list);
+        if(nullptr == head_tail){
+            LOG_ERROR << "init head_tail failed!,volume=" << vol_id;
+            return nullptr;
         }
-        std::shared_ptr<std::atomic<int64_t>> _c(new std::atomic<int64_t>(counter1));
-        counter_map_.insert(std::pair<string,std::shared_ptr<std::atomic<int64_t>>>(vol_id,_c));
-        cnt = counter1;
-        LOG_INFO << "init volume " << vol_id << " journal name counter:"
-            << cnt;
-        return DRS_OK;
+        boost::unique_lock<boost::shared_mutex> lck(counter_mtx);
+        counter_map_.insert(std::pair<string,std::shared_ptr<JournalHeadTail>>(vol_id,head_tail));
+
+        LOG_INFO << "init volume [" << vol_id << "] journal counter head:"
+            << head_tail->head << ",tail:" << head_tail->tail;
+        return head_tail;
     }
     else{
         LOG_INFO << "init volume " << vol_id << " journal name counter:"
             << MIN_JOURNAL_COUNTER;
-        cnt = INIT_JOURNAL_COUNTER;
-        std::shared_ptr<std::atomic<int64_t>> _c(new std::atomic<int64_t>(cnt));
-        counter_map_.insert(std::pair<string,std::shared_ptr<std::atomic<int64_t>>>(vol_id,_c));
-        return DRS_OK;
+        std::shared_ptr<JournalHeadTail> head_tail = std::make_shared<JournalHeadTail>();
+        head_tail->head = MIN_JOURNAL_COUNTER;
+        head_tail->tail = MIN_JOURNAL_COUNTER;
+        boost::unique_lock<boost::shared_mutex> lck(counter_mtx);
+
+        counter_map_.insert(std::pair<string,std::shared_ptr<JournalHeadTail>>(vol_id,head_tail));
+        return head_tail;
     }    
 }
-RESULT CephS3Meta::get_journal_key_counter(const string& vol_id,int64_t& cnt){
+
+std::shared_ptr<JournalHeadTail> CephS3Meta::get_journal_key_counter(
+                            const string& vol_id){
+    boost::shared_lock<boost::shared_mutex> read_lck(counter_mtx);
     auto it = counter_map_.find(vol_id);
     if(counter_map_.end() == it) { // volume not found
-        LOG_INFO << "get journal name counter:volume " << vol_id << " not found.";
-        return init_journal_key_counter(vol_id,cnt);
+        read_lck.unlock();
+        LOG_INFO << "get journal key counter:volume " << vol_id << " not found.";
+        return init_journal_key_counter(vol_id);
     }
-    cnt = (it->second)->load();
-    return DRS_OK;
-}
-RESULT CephS3Meta::set_journal_key_counter(const string& vol_id,
-        int64_t& expected,const int64_t& val){
-    auto it = counter_map_.find(vol_id);
-    if(counter_map_.end() == it) { // volume not found
-        LOG_ERROR << "set journal name counter failed:volume " << vol_id << " not found.";
-        return INTERNAL_ERROR;
-    }
-    int64_t temp = expected;
-    if(false == (it->second)->compare_exchange_weak(expected,val)){
-        LOG_WARN << "try to update " << vol_id << " journal counter from "
-            << temp << " to " << val << " failed, since old counter changed to "
-            << expected;
-        return INTERNAL_ERROR;
-    }
-    return DRS_OK;
+    return it->second;
 }
 
 // cephS3Meta member functions
@@ -343,28 +450,34 @@ RESULT CephS3Meta::init() {
 
 RESULT CephS3Meta::create_journals(const string& uuid,const string& vol_id,
         const int& limit, std::list<string>& list){
-    RESULT res;
-    int64_t counter;
-    string journals[limit];
-    res = get_journal_key_counter(vol_id,counter);
-    if(res != DRS_OK)
-        return res;
-    int max_trys = 5;
-    do{
-        int64_t new_counter = (counter + limit)%MAX_JOURNAL_COUNTER;
-        res = set_journal_key_counter(vol_id,counter,new_counter);
-    }while(DRS_OK != res && max_trys-- > 0);
-    if(res != DRS_OK){
-        LOG_ERROR << "update " << vol_id << " journal counter failed!";
-        return res;
-    }
-    counter++;// start at next journal counter
+
+    // get last journal counter
+    std::shared_ptr<JournalHeadTail> head_tail = get_journal_key_counter(vol_id);
+    if(head_tail == nullptr)
+        return INTERNAL_ERROR;
+
     LOG_INFO << vol_id << " creating journals from " 
-        << counter << ",number " << limit;
+        << head_tail->tail << ",number " << limit;
+
+    RESULT res = DRS_OK;
+    // create journals
+    string journals[limit];
     for(int i=0;i<limit;i++) {
-        // TODO:recycle counter?
-        int64_t next = (i+counter%MAX_JOURNAL_COUNTER);
+        // the lock here guarantee that only one thread meantain the journals
+        // of this volume, and keep the journal counter sequential
+        std::lock_guard<std::mutex> lck(head_tail->mtx);
+
+        // head is equal with tail means empty, head==tail+1%num means full,
+        // an empty slot can help to distinguish the head & tail
+        if((head_tail->tail + 1)% MAX_JOURNAL_COUNT == head_tail->head){
+            LOG_WARN << "volume[" << vol_id << "] journals counter used up.";
+            return list.empty()? INTERNAL_ERROR:DRS_OK;
+        }
+        uint64_t next = head_tail->tail;        
+        next = next << SUB_COUNTER_BITS;
         journals[i] = sg_util::construct_journal_key(vol_id,next);
+
+        // create journal key
         string filename = get_journal_filename(vol_id,next);
         JournalMeta meta;
         meta.set_path(filename);
@@ -380,7 +493,10 @@ RESULT CephS3Meta::create_journals(const string& uuid,const string& vol_id,
             LOG_ERROR << "update journal " << journals[i] << " opened status failed!";
             break;
         }
+        // update cache
         journal_meta_cache_.put(journals[i],meta);
+
+        // create journal index key, which will help in GC
         string o_key = construct_write_open_index(journals[i],vol_id,uuid);
         res = s3Api_ptr_->put_object(o_key.c_str(),nullptr,nullptr);
         if(DRS_OK != res){
@@ -393,12 +509,16 @@ RESULT CephS3Meta::create_journals(const string& uuid,const string& vol_id,
             break;
         }
         list.push_back(journals[i]);
+        head_tail->tail = (head_tail->tail + 1) % MAX_JOURNAL_COUNT;
     }
+
     if(DRS_OK != res){
         if(list.size() <= 0)
             return INTERNAL_ERROR;
         // roll back: delete partial meta
+        // TODO:recycle the pending journal file
         s3Api_ptr_->delete_object(journals[list.size()].c_str());
+        journal_meta_cache_.delete_key(journals[list.size()].c_str());
         string o_key = construct_write_open_index(journals[list.size()],vol_id,uuid);
         s3Api_ptr_->delete_object(o_key.c_str());
         return DRS_OK; // partial success
@@ -408,15 +528,9 @@ RESULT CephS3Meta::create_journals(const string& uuid,const string& vol_id,
 
 RESULT CephS3Meta::create_journals_by_given_keys(const string& uuid,
             const string& vol_id,const std::list<string> &list){
-    RESULT res;
+    RESULT res = DRS_OK;
+    uint64_t next;
     int count = 0;
-    int64_t next;
-    if(true != sg_util::extract_counter_from_object_key(list.back(),next)){
-        return INTERNAL_ERROR;
-    }
-    
-    LOG_INFO << vol_id << " try creating journals: " << next;
-
     for(auto it=list.begin();it!=list.end();++it) {
         JournalMeta meta;
         if(journal_meta_cache_.get(*it,meta))// journal existed
@@ -434,7 +548,8 @@ RESULT CephS3Meta::create_journals_by_given_keys(const string& uuid,
             res = INTERNAL_ERROR;
             break;
         }
-        res = s3Api_ptr_->put_object(it->c_str(),&meta_s,nullptr); // add journal major key
+        // persit journal major key
+        res = s3Api_ptr_->put_object(it->c_str(),&meta_s,nullptr);
         if(DRS_OK != res){
             LOG_ERROR << "create journal " << *it << " failed!";
             break;
@@ -442,6 +557,8 @@ RESULT CephS3Meta::create_journals_by_given_keys(const string& uuid,
         // update cache
         journal_meta_cache_.put(*it,meta);
         count++;
+
+        // persit journal index key
         string o_key = construct_write_open_index(*it,vol_id,uuid);
         res = s3Api_ptr_->put_object(o_key.c_str(),nullptr,nullptr);
         if(DRS_OK != res){
@@ -460,8 +577,10 @@ RESULT CephS3Meta::create_journals_by_given_keys(const string& uuid,
         // roll back: delete partial written meta
         string key = sg_util::construct_journal_key(vol_id,next);
         string o_key = construct_write_open_index(key,vol_id,uuid);
+        // TODO:recycle the pending journal file
         s3Api_ptr_->delete_object(o_key.c_str());
         s3Api_ptr_->delete_object(key.c_str());
+        journal_meta_cache_.delete_key(key);
         return INTERNAL_ERROR;
     }
     return res;
@@ -667,6 +786,9 @@ RESULT CephS3Meta::get_consumable_journals(const string& vol_id,
             LOG_ERROR << "list volume " << vol_id << " journals failed!";
             return INTERNAL_ERROR;
         }
+
+        sort_journals(vol_id,journal_list);
+
         if(marker.pos() < max_journal_size_){
             JournalElement beg;
             beg.set_journal(marker.cur_journal());
@@ -680,7 +802,7 @@ RESULT CephS3Meta::get_consumable_journals(const string& vol_id,
             LOG_INFO << "journal consumed to EOF:" << marker.cur_journal();
         }
         for(string key:journal_list){
-            if(key.compare(producer_marker.cur_journal()) >= 0)
+            if(compare_journal_key(vol_id,key,producer_marker.cur_journal()) >= 0)
                 break;
             JournalElement e;
             e.set_journal(key);
@@ -725,10 +847,10 @@ RESULT CephS3Meta::get_sealed_and_consumed_journals(
         return res;
     }
     for(auto it=sealed_journals.begin();it!=sealed_journals.end();++it){
-        int64_t counter;
+        uint64_t counter;
         sg_util::extract_counter_from_object_key(*it,counter);
         string key = sg_util::construct_journal_key(vol_id,counter);
-        if(key.compare(marker.cur_journal()) < 0) // TODO: to update when use recycled journals
+        if(compare_journal_key(vol_id,key,marker.cur_journal()) < 0)
             list.push_back(key);
         else
             break;
@@ -753,7 +875,16 @@ RESULT CephS3Meta::recycle_journals(const string& vol_id,
         s3Api_ptr_->delete_object(s_key.c_str());
         res = s3Api_ptr_->delete_object(it->c_str());
         DR_ASSERT(DRS_OK == res);
+        // delete cached keys
+        journal_meta_cache_.delete_key(*it);
     }
+    // recycle journal counter
+    std::shared_ptr<JournalHeadTail> head_tail = get_journal_key_counter(vol_id);
+    DR_ASSERT(head_tail != nullptr);
+    std::lock_guard<std::mutex> lck(head_tail->mtx);
+    head_tail->head = (head_tail->head + journals.size()) % MAX_JOURNAL_COUNT;
+    LOG_INFO << "update volume[" << vol_id << "] journal counter head at "
+        << head_tail->head;
     return res;
 }
 

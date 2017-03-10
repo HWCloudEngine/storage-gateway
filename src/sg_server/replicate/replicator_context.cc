@@ -61,6 +61,9 @@ std::shared_ptr<TransferTask> ReplicatorContext::get_next_replicate_task(){
     if(task){
         task->set_id(++seq_id_);
         task_window_.add_task(task);
+        LOG_INFO << "construct journal task[" << task->get_id() << "],journal:"
+            << pending_journals_.front().journal();
+
         pending_journals_.pop_front();
         return task;
     }
@@ -88,7 +91,7 @@ void ReplicatorContext::recycle_task(std::shared_ptr<TransferTask>& t){
     temp_marker.set_cur_journal(
         sg_util::construct_journal_key(vol_,ctx->get_j_counter()));
     temp_marker.set_pos(ctx->get_end_off());
-    int result = sg_util::marker_compare(temp_marker,c_marker_);
+    int result = j_meta_mgr_->compare_marker(vol_,temp_marker,c_marker_);
     if(result > 0){
         // 3. try to update new marker
         c_marker_.CopyFrom(temp_marker);
@@ -134,13 +137,13 @@ bool ReplicatorContext::has_journals_to_transfer(){
         temp_marker.set_cur_journal(
         sg_util::construct_journal_key(vol_,ctx->get_j_counter()));
         temp_marker.set_pos(ctx->get_end_off());
-        int result = sg_util::marker_compare(temp_marker,p_marker);
+        int result = j_meta_mgr_->compare_marker(vol_,temp_marker,p_marker);
         if(result < 0)
             return true;
         DR_ASSERT(result <= 0);
     }
     else{
-        if(sg_util::marker_compare(p_marker,c_marker_) > 0)
+        if(j_meta_mgr_->compare_marker(vol_,p_marker,c_marker_) > 0)
             return true;
     }
     return false;
@@ -161,7 +164,7 @@ std::shared_ptr<TransferTask> ReplicatorContext::construct_task(const JournalEle
     JournalMeta meta;
     RESULT res = j_meta_mgr_->get_journal_meta(e.journal(),meta);
     DR_ASSERT(res == DRS_OK);
-    int64_t c;
+    uint64_t c;
     DR_ASSERT(true == sg_util::extract_counter_from_object_key(e.journal(),c));
     auto f = std::bind(&ReplicatorContext::recycle_task,this,std::placeholders::_1);
     bool is_open = meta.status() == OPENED ? true:false;
