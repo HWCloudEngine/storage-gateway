@@ -45,8 +45,10 @@ message TransferResponse {
 message ReplicateDataReq{
     string vol_id = 1;
     uint64 journal_counter = 2;
-    uint64 offset = 3;
-    bytes data = 4;
+    // sub counter mainly used when syncing snapshot, otherwise set to 0
+    uint64 sub_counter = 3;
+    uint64 offset = 4;
+    bytes data = 5;
 }
 
 message ReplicateMarkerReq{
@@ -57,11 +59,15 @@ message ReplicateMarkerReq{
 message ReplicateStartReq{
     string vol_id = 1;
     uint64 journal_counter = 2;
+    // sub counter mainly used when syncing snapshot, otherwise set to 0
+    uint64 sub_counter = 3;
 }
 
 message ReplicateEndReq{
     string vol_id = 1;
     uint64 journal_counter = 2;
-    bool is_open = 3;
+    // sub counter mainly used when syncing snapshot, otherwise set to 0
+    uint64 sub_counter = 3;
+    bool is_open = 4;
 }
 

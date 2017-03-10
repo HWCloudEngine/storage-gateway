@@ -113,7 +113,7 @@ int main(int argc, char** argv) {
         std::cerr << "config parse global.journal_storage error!" << std::endl;
         return -1;
     }
-    if(type.compare("ceph_fs") == 0){        
+    if(type.compare("ceph_fs") == 0){
         if(false == parser->get<string>("ceph_fs.mount_point",mount_path)){
             LOG_FATAL << "config parse ceph_fs.mount_point error!";
             std::cerr << "config parse ceph_fs.mount_point error!" << std::endl;
@@ -141,7 +141,8 @@ int main(int argc, char** argv) {
 
     // init net receiver
     RpcServer repServer(ip2,port2,grpc::InsecureServerCredentials());
-    RepMsgHandlers rep_msg_handler(meta,mount_path);
+    RepMsgHandlers rep_msg_handler(meta/*JournalMetaManager*/,
+                    meta /*VolumeMetaManager*/,mount_path);
     NetReceiver netReceiver(rep_msg_handler);
     repServer.register_service(&netReceiver);
     LOG_INFO << "net receiver server listening on " << ip2 << ":" << port2;
@@ -189,7 +190,7 @@ int main(int argc, char** argv) {
     }
 
     // init gc thread
-    GCTask::instance().init(meta);
+    GCTask::instance().init(meta/*JournalGCManager*/,meta/*JournalMetaManager*/);
     // init volumes
     std::list<VolumeMeta> list;
     RESULT res = meta->list_volume_meta(list);

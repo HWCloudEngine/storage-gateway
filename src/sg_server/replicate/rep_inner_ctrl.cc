@@ -42,12 +42,12 @@ Status RepInnerCtrl::CreateReplication(ServerContext* context,
         << "peer volume count:" << request->peer_volumes_size() << "\n";
     VolumeMeta meta;
     RESULT res = meta_->read_volume_meta(local_vol,meta);
-//    if(NO_SUCH_KEY == res){
-//        LOG_ERROR << "create replication failed,volume not found:"
-//            << request.vol_id();
-//        response->set_status(sVolumeNotExist);
-//        return grpc::Status::OK;
-//    }
+    if(NO_SUCH_KEY == res){
+        LOG_ERROR << "create replication failed,volume not found:"
+            << request->local_volume();
+        response->set_status(sVolumeNotExist);
+        return grpc::Status::OK;
+    }
     meta.mutable_info()->set_rep_uuid(uuid);
     meta.mutable_info()->set_vol_id(local_vol);
     for(string vol:request->peer_volumes()){

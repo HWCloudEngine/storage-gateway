@@ -16,7 +16,7 @@
 #include "rep_type.h"
 #include "sg_server/transfer/transfer_task.h"
 #include "../snap_client_wrapper.h"
-#define MAX_JOURNAL_SIZE_FOR_SNAP_SYNC (1LU << 30)
+#define MAX_JOURNAL_SIZE_FOR_SNAP_SYNC (1LU << 15)
 class RepContext:public TaskContext{
 protected:
     std::string vol_id;
@@ -133,13 +133,13 @@ private:
     std::shared_ptr<RepContext> ctx;
 
     // internal params
-    bool end; // task done, ReplicateEndReq was sent
+    bool end; // ReplicateEndReq was constructed, sending
     bool all_data_sent; // all data was sent
     std::vector<DiffBlocks> diff_blocks;
     int vector_cursor; // cursor of DiffBlocks vector
     int array_cursor; // cursor of array in DiffBlock
     uint64_t cur_off; // pair with j_counter, indicate whether there was space in journal
-    int64_t cur_j_counter; // current journal counter, start from j_counter
+    int64_t sub_counter; // sub journal counter, start from 1
     uint64_t max_journal_size;
     char* buffer;
     uint64_t package_id;

@@ -16,7 +16,8 @@
 #include <map>
 #include <mutex>
 #include <cstdint>
-#include "sg_server/ceph_s3_meta.h"
+#include "sg_server/journal_meta_manager.h"
+#include "sg_server/volume_meta_manager.h"
 #include "rpc/transfer.grpc.pb.h"
 using std::string;
 using huawei::proto::transfer::TransferRequest;
@@ -25,8 +26,8 @@ using huawei::proto::StatusCode;
 
 typedef struct Jkey{
     string vol_;
-    int64_t c_;
-    Jkey(const string& vol,const int64_t& c):vol_(vol),c_(c){}
+    uint64_t c_;
+    Jkey(const string& vol,const uint64_t& c):vol_(vol),c_(c){}
     bool operator<(const Jkey& j2)const{
         if(c_ != j2.c_)
             return c_ < j2.c_;
@@ -37,11 +38,13 @@ typedef struct Jkey{
 class RepMsgHandlers{
 private:
     std::string mount_path_;
-    std::shared_ptr<CephS3Meta> meta_;
+    std::shared_ptr<JournalMetaManager> j_meta_;
+    std::shared_ptr<VolumeMetaManager> vol_meta_;
     std::mutex mutex_;
     std::map<const Jkey,std::shared_ptr<std::ofstream>> js_map_;
 public:
-    RepMsgHandlers(std::shared_ptr<CephS3Meta> meta,const std::string& path);
+    RepMsgHandlers(std::shared_ptr<JournalMetaManager> j_meta,
+                std::shared_ptr<VolumeMetaManager> v_meta, const std::string& path);
     ~RepMsgHandlers();
     StatusCode rep_handle(const TransferRequest& req);
 private:
@@ -51,9 +54,9 @@ private:
     bool handle_replicate_end_req(const TransferRequest& req);
     bool handle_replicate_marker_req(const TransferRequest& req);
     std::shared_ptr<std::ofstream>  create_journal(
-            const string& vol_id,const int64_t& counter);
+            const string& vol_id,const uint64_t& counter,const uint64_t& sub);
     std::shared_ptr<std::ofstream> get_fstream(const string& vol,
-            const int64_t& counter);
+            const uint64_t& counter);
     // check whether the replicate direction is valid or not
     bool validate_replicate(const string& vol_id);
 };
