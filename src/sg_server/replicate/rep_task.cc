@@ -55,7 +55,7 @@ int construct_transfer_data_request(TransferRequest* req,
     req->set_encode(EncodeType::NONE_EN);
     req->set_type(MessageType::REPLICATE_DATA);
     string temp;
-    DR_ASSERT(true == data_msg.SerializeToString(&temp));
+    SG_ASSERT(true == data_msg.SerializeToString(&temp));
     req->set_data(temp.c_str(),temp.length());
     return 0;
 }
@@ -71,7 +71,7 @@ int construct_transfer_start_request(TransferRequest* req,
     start_msg.set_vol_id(vol_id);
     start_msg.set_journal_counter(j_counter);
     string temp;
-    DR_ASSERT(true == start_msg.SerializeToString(&temp));
+    SG_ASSERT(true == start_msg.SerializeToString(&temp));
     req->set_data(temp.c_str(),temp.length());
     return 0;
 }
@@ -87,14 +87,14 @@ int construct_transfer_end_request(TransferRequest* req,
     end_msg.set_journal_counter(j_counter);
     end_msg.set_is_open(is_open);
     string temp;
-    DR_ASSERT(true == end_msg.SerializeToString(&temp));
+    SG_ASSERT(true == end_msg.SerializeToString(&temp));
     req->set_data(temp.c_str(),temp.length());
     return 0;
 }
 
 int JournalTask::init(){
     package_id = 0;
-    DR_ASSERT(ctx != nullptr);
+    SG_ASSERT(ctx != nullptr);
     is.open(path,std::fstream::in|std::ifstream::binary);
     if(!is.is_open()){
         LOG_ERROR << "open file:" << path << " of "
@@ -103,7 +103,7 @@ int JournalTask::init(){
     }
     cur_off = start_off;
     is.seekg(cur_off);
-    DR_ASSERT(is.fail()==0 && is.bad()==0);
+    SG_ASSERT(is.fail()==0 && is.bad()==0);
 
     LOG_DEBUG << "task[" << get_id() << "] transfering journal "
         << ctx->get_j_counter() << " from "
@@ -179,7 +179,7 @@ int DiffSnapTask::init(){
     // init diff_blocks
     StatusCode ret = SnapClientWrapper::instance().get_client()->DiffSnapshot(
             ctx->get_vol_id(),pre_snap,cur_snap,diff_blocks);
-    DR_ASSERT(ret == StatusCode::sOk);
+    SG_ASSERT(ret == StatusCode::sOk);
     if(diff_blocks.empty()){
         LOG_INFO << "there was no diff block in task[" << this->get_id()
                 << "]";
@@ -239,7 +239,7 @@ TransferRequest* DiffSnapTask::get_next_package(){
     size_t   diff_block_size = COW_BLOCK_SIZE;
     StatusCode ret = SnapClientWrapper::instance().get_client()->ReadSnapshot(
         ctx->get_vol_id(),cur_snap,buffer,diff_block_size,diff_block_off);
-    DR_ASSERT(ret == StatusCode::sOk);
+    SG_ASSERT(ret == StatusCode::sOk);
 
     //construct JournalEntry
     JournalEntry entry;

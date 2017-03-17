@@ -28,6 +28,9 @@ using huawei::proto::SealMultiJournalsRequest;
 using huawei::proto::SealMultiJournalsResponse;
 using huawei::proto::UpdateProducerMarkerRequest;
 using huawei::proto::UpdateProducerMarkerResponse;
+using huawei::proto::UpdateMultiProducerMarkersRequest;
+using huawei::proto::UpdateMultiProducerMarkersResponse;
+
 class WriterServiceImpl final : public Writer::Service {
 private:
     std::shared_ptr <JournalMetaManager> _meta;
@@ -47,7 +50,10 @@ public:
             GetMultiWriteableJournalsResponse* response);
     Status SealMultiJournals(ServerContext* context,
             const SealMultiJournalsRequest* request,
-            SealMultiJournalsResponse* response);    
+            SealMultiJournalsResponse* response);
+    Status UpdateMultiProducerMarkers(ServerContext* context,
+            const UpdateMultiProducerMarkersRequest* request,
+            UpdateMultiProducerMarkersResponse* response);
 };
 
 #endif

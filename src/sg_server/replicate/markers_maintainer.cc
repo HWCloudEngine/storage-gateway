@@ -45,7 +45,7 @@ void MarkersMaintainer::work(){
     while(running_){
         // get a marker context
         std::shared_ptr<MarkerContext> ctx = in_que_->pop();
-        DR_ASSERT(ctx != nullptr);
+        SG_ASSERT(ctx != nullptr);
         if(nullptr == ctx->rep_ctx){
             LOG_WARN << "ReplicatorContext is null when try to sync markers";
             return;
@@ -56,7 +56,7 @@ void MarkersMaintainer::work(){
         marker_req.set_vol_id(ctx->rep_ctx->get_vol_id());
         marker_req.mutable_marker()->CopyFrom(ctx->marker);
         string marker_req_str;
-        DR_ASSERT(true == marker_req.SerializeToString(&marker_req_str));
+        SG_ASSERT(true == marker_req.SerializeToString(&marker_req_str));
         TransferRequest req;
         req.set_type(MessageType::REPLICATE_MARKER);
         req.set_encode(EncodeType::NONE_EN);
@@ -69,7 +69,7 @@ void MarkersMaintainer::work(){
         else{
             TransferResponse res;
             if(stream->Read(&res)){ // blocked
-                DR_ASSERT(res.id() == req.id());
+                SG_ASSERT(res.id() == req.id());
                 if(res.status()){
                     LOG_ERROR << "destination handle marker sync cmd failed!";
                     continue;
