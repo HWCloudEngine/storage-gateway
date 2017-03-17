@@ -42,7 +42,8 @@ int construct_journal_entry(JournalEntry& entry,
 }
 
 int construct_transfer_data_request(TransferRequest* req,
-        const string& vol_id,const int64_t& j_counter, 
+        const string& vol_id,const int64_t& j_counter,
+        const int64_t& sub_counter,
         const char* buffer, const uint64_t& offset,
         const size_t& size,const uint64_t& id){
     ReplicateDataReq data_msg;
@@ -63,6 +64,7 @@ int construct_transfer_data_request(TransferRequest* req,
 int construct_transfer_start_request(TransferRequest* req,
                                 const string& vol_id,
                                 const int64_t& j_counter,
+                                const int64_t& sub_counter,
                                 const uint64_t& id){
     req->set_id(id);
     req->set_encode(EncodeType::NONE_EN);
@@ -78,6 +80,7 @@ int construct_transfer_start_request(TransferRequest* req,
 
 int construct_transfer_end_request(TransferRequest* req,
             const string& vol_id,const int64_t& j_counter,
+            const int64_t& sub_counter,
             const uint64_t& id, const bool& is_open){
     req->set_id(id);
     req->set_encode(EncodeType::NONE_EN);
@@ -105,8 +108,8 @@ int JournalTask::init(){
     is.seekg(cur_off);
     SG_ASSERT(is.fail()==0 && is.bad()==0);
 
-    LOG_DEBUG << "task[" << get_id() << "] transfering journal "
-        << ctx->get_j_counter() << " from "
+    LOG_DEBUG << "transfering journal " << std::hex
+        << ctx->get_j_counter() << std::dec << " from "
         << start_off << " to " << ctx->get_end_off();
 
     buffer = (char*)malloc(JOURNAL_BLOCK_SIZE);
@@ -126,7 +129,7 @@ TransferRequest* JournalTask::get_next_package(){
     if(cur_off >= ctx->get_end_off()){
         TransferRequest* req = new TransferRequest;
         construct_transfer_end_request(req,ctx->get_vol_id(),
-                ctx->get_j_counter(),++package_id,ctx->get_is_open());
+                ctx->get_j_counter(),0,++package_id,ctx->get_is_open());
         end = true;
         return req;
     }
@@ -136,11 +139,11 @@ TransferRequest* JournalTask::get_next_package(){
     if(is.read(buffer,size)){
 
     }
-    else if(is.eof() && is.gcount()>0){
+    else if(is.eof()){
         size = is.gcount();
         // TODO: remove this line if file created with padding filled
         ctx->set_end_off(cur_off + size);
-        LOG_DEBUG << "journal file[" << path << "] end at:" << cur_off + size;
+        LOG_WARN << "journal file[" << path << "] end at:" << cur_off + size;
     }
     else{
         LOG_ERROR << "read file[" << path << "] failed,required length["
@@ -150,7 +153,7 @@ TransferRequest* JournalTask::get_next_package(){
 
     TransferRequest* req = new TransferRequest;
     construct_transfer_data_request(req,ctx->get_vol_id(),ctx->get_j_counter(),
-            buffer,cur_off,size,++package_id);
+            0,buffer,cur_off,size,++package_id);
 
     uint32_t crc = crc32c(buffer,size,0);
     LOG_DEBUG << "transfer file[" << path << "] from "<< cur_off 
@@ -160,6 +163,7 @@ TransferRequest* JournalTask::get_next_package(){
 }
 
 int JournalTask::reset(){
+    end = false;
     cur_off = start_off;
     is.seekg(cur_off);
     return 0;
@@ -172,7 +176,8 @@ int DiffSnapTask::init(){
     array_cursor = 0;
     all_data_sent = false;
     cur_off = 0;
-    cur_j_counter = ctx->get_j_counter();
+    // sub counter should start at 1, or it will overlat the former journal
+    sub_counter = 1;
     package_id = 0;
     max_journal_size = MAX_JOURNAL_SIZE_FOR_SNAP_SYNC; // TODO
 
@@ -214,7 +219,7 @@ TransferRequest* DiffSnapTask::get_next_package(){
     if(all_data_sent){ // all data sent
         TransferRequest* req = new TransferRequest;
         construct_transfer_end_request(req,ctx->get_vol_id(),
-                ctx->get_j_counter(),++package_id,ctx->get_is_open());
+                ctx->get_j_counter(),sub_counter,++package_id,ctx->get_is_open());
         end = true;
         return req;
     }
@@ -227,7 +232,8 @@ TransferRequest* DiffSnapTask::get_next_package(){
         header.version = 0;
         header.reserve = 0;
         size_t size = sizeof(journal_file_header_t);
-        construct_transfer_data_request(req,ctx->get_vol_id(),cur_j_counter,
+        construct_transfer_data_request(req,ctx->get_vol_id(),
+            ctx->get_j_counter(),sub_counter,
             (char*)(&header),cur_off,size,++package_id);
         cur_off += size;
         return req;
@@ -251,7 +257,7 @@ TransferRequest* DiffSnapTask::get_next_package(){
     TransferRequest* req = new TransferRequest;
     // if no enough space in cur journal file, use next
     if(cur_off + size > max_journal_size){
-        cur_j_counter++;
+        sub_counter++;
         cur_off = 0;
         // full journal file header
         journal_file_header_t header;
@@ -261,12 +267,14 @@ TransferRequest* DiffSnapTask::get_next_package(){
         entry_string.insert(0,(char*)(&header),sizeof(journal_file_header_t));
         size += sizeof(journal_file_header_t);
 
-        construct_transfer_data_request(req,ctx->get_vol_id(),cur_j_counter,
+        construct_transfer_data_request(req,ctx->get_vol_id(),
+            ctx->get_j_counter(),sub_counter,
             entry_string.c_str(),cur_off,size,++package_id);
         cur_off += size;
     }
     else{
-        construct_transfer_data_request(req,ctx->get_vol_id(),cur_j_counter,
+        construct_transfer_data_request(req,ctx->get_vol_id(),
+            ctx->get_j_counter(),sub_counter,
             entry_string.c_str(),cur_off,size,++package_id);
         cur_off += size;
     }
@@ -310,11 +318,13 @@ void DiffSnapTask::set_cur_snap(const std::string& _snap){
 }
 
 int DiffSnapTask::reset(){
+    // TODO: resume at breakpoint
+    end = false;
     vector_cursor = 0;
     array_cursor = 0;
     all_data_sent = false;
     cur_off = 0;
-    cur_j_counter = ctx->get_j_counter();
+    sub_counter = 1;
     return 0;
 }
 

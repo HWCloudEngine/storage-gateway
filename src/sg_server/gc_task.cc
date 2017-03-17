@@ -18,14 +18,15 @@ using huawei::proto::INTERNAL_ERROR;
 using huawei::proto::REPLAYER;
 using huawei::proto::REPLICATOR;
 
-int get_least_marker(std::set<IConsumer*>& set,JournalMarker& marker){
+int GCTask::get_least_marker(const string& vol,std::set<IConsumer*>& set,
+            JournalMarker& marker){
     bool valid = false;
     for(auto& c:set){
         if(nullptr != c){
             if(valid){
                 JournalMarker temp;
                 if(c->get_consumer_marker(temp) == 0){
-                    if(sg_util::marker_compare(marker,temp) > 0)
+                    if(j_meta_ptr_->compare_marker(marker,temp) > 0)
                         marker.CopyFrom(temp);
                 }
             }
@@ -44,13 +45,15 @@ int get_least_marker(std::set<IConsumer*>& set,JournalMarker& marker){
         return -1;
 }
 
-int GCTask::init(std::shared_ptr<JournalGCManager> meta){
+int GCTask::init(std::shared_ptr<JournalGCManager> gc_meta,
+            std::shared_ptr<JournalMetaManager> j_meta){
     std::lock_guard<std::mutex> lck(mtx_);
     if(GC_running_){
         LOG_ERROR << "gc task is already running!";
         return -1;
     }
-    meta_ptr_=(meta);
+    gc_meta_ptr_ = gc_meta;
+    j_meta_ptr_ = j_meta;
     int gc_interval = 1*60*60;  // TODO:config in config file
     lease_.reset(new CephS3LeaseServer());
     string access_key;
@@ -112,16 +115,16 @@ void GCTask::do_GC(){
         if(set.empty())
             continue;
         JournalMarker marker;
-        if(0 != get_least_marker(set,marker))
+        if(0 != get_least_marker(it->first,set,marker))
             continue;
 
         auto& vol = it->first;
         std::list<string> list;
-        RESULT res = meta_ptr_->get_sealed_and_consumed_journals(vol,
+        RESULT res = gc_meta_ptr_->get_sealed_and_consumed_journals(vol,
             marker,0,list); // set limit=0 to get all matched journals
         if(res != DRS_OK || list.empty())
             continue;
-        res = meta_ptr_->recycle_journals(vol,list);
+        res = gc_meta_ptr_->recycle_journals(vol,list);
         if(res != DRS_OK){
             LOG_WARN << "recycle " << vol << " journals failed!";
             continue;
@@ -135,7 +138,7 @@ void GCTask::lease_check_task(){
     std::lock_guard<std::mutex> lck(mtx_);
     for(auto it=vols_.begin();it!=vols_.end();++it){
         std::list<string> list;
-        RESULT res = meta_ptr_->get_producer_id(it->first,list);
+        RESULT res = gc_meta_ptr_->get_producer_id(it->first,list);
         if(res != DRS_OK)
             continue;
         if(list.empty())
@@ -145,7 +148,7 @@ void GCTask::lease_check_task(){
                 continue;
             if(false == lease_->check_lease_existance(*list_it)){
                 LOG_DEBUG << *list_it << " lease not existance";
-                res = meta_ptr_->seal_opened_journals(it->first,*list_it);
+                res = gc_meta_ptr_->seal_opened_journals(it->first,*list_it);
                 SG_ASSERT(DRS_OK == res);
             }
         }

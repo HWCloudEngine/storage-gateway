@@ -27,7 +27,6 @@ RepScheduler::RepScheduler(std::shared_ptr<CephS3Meta> meta,
         running_(true),
         enable_(true),
         vol_queue_(vol_queue){
-    uuid_.append("uuid_replicator");// TODO:
 
     // start work thread which disapatch volume tasks
     work_thread_.reset(new std::thread(&RepScheduler::work,this));
@@ -48,7 +47,8 @@ int RepScheduler::add_volume(const string& vol_id){
         return -1;
     }
     lck.unlock();
-    std::shared_ptr<RepVolume> vol(new RepVolume(vol_id,meta_));
+    std::shared_ptr<RepVolume> vol(new RepVolume(vol_id,
+                meta_/*VolumeMetaManager*/,meta_/*JournalMetaManager*/));
     LOG_INFO << "add volume " << vol_id;
     std::shared_ptr<ReplicatorContext> reptr(
         new ReplicatorContext(vol_id,meta_,mount_path_));

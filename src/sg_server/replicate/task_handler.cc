@@ -104,7 +104,7 @@ int send_replicate_cmd(TransferRequest* req,
 
 void TaskHandler::do_transfer(std::shared_ptr<TransferTask> task,
                 grpc_stream_ptr& stream){
-    LOG_DEBUG << "start process transfer task, id=" << task->get_id();
+    LOG_DEBUG << "start transfer task, id=" << task->get_id();
 
     bool error_flag = false;
     while(task->has_next_package()){
@@ -159,5 +159,6 @@ void TaskHandler::do_transfer(std::shared_ptr<TransferTask> task,
             break;
         }
     }
+
 }
 
