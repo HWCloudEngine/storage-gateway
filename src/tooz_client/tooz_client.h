@@ -10,7 +10,7 @@
 #include <Python.h>
 #include <atomic>
 #include "tooz_api.h"
-#define SOCKET_FILE     "./sg_uds"
+
 #define BUF_MAX_LEN     4096
 using namespace std;
 class ToozClient

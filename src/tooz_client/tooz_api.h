@@ -8,5 +8,5 @@
 #define TOOZ_HEARTBEAT      "heartbeat"
 #define TOOZ_RUN_WATHCHERS  "run_watchers"
 
+#define SOCKET_FILE     "./sg_uds"
 #define HEARTBEAT_TIME      5
-
