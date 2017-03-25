@@ -16,7 +16,6 @@
 #include "rep_type.h"
 #include "sg_server/transfer/transfer_task.h"
 #include "../snap_client_wrapper.h"
-#define MAX_JOURNAL_SIZE_FOR_SNAP_SYNC (1LU << 15)
 class RepContext:public TaskContext{
 protected:
     std::string vol_id;

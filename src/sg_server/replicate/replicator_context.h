@@ -15,8 +15,9 @@
 #include "rpc/common.pb.h"
 #include "rep_type.h"
 #include "rep_task.h"
-#include "../consumer_interface.h"
-#include "../journal_meta_manager.h"
+#include "sg_server/consumer_interface.h"
+#include "sg_server/journal_meta_manager.h"
+#include "common/config.h"
 using huawei::proto::JournalElement;
 class ReplicatorContext:public IConsumer {
     // TODO: replace task windows with general sequential queue
@@ -82,25 +83,55 @@ class ReplicatorContext:public IConsumer {
             }
             return is_window_moved;
         }
+
+        int clear(){
+            for(auto it=tasks.begin(); it!=tasks.end(); ++it){
+                if((*it)->get_status() != T_DONE){
+                    return -1;
+                }
+            }
+            tasks.clear();
+            last_acked_id = last_sent_id;
+            last_sent_task = (nullptr);
+            last_acked_task = (nullptr);
+            return 0;
+        }
+
+        void cancel_all_tasks(){
+            for(auto it=tasks.begin(); it!=tasks.end(); ++it){
+                if((*it)->get_status() != T_DONE){
+                    (*it)->cancel();
+                }
+            }
+            tasks.clear();
+            last_acked_id = last_sent_id;
+            last_sent_task = (nullptr);
+            last_acked_task = (nullptr);
+        }
+
     };
 
 private:
-    bool init_markers();
     void recycle_task(std::shared_ptr<TransferTask>& t);
     std::shared_ptr<TransferTask> construct_task(const JournalElement& e);
 
 public:
     ReplicatorContext(const std::string& vol,
             std::shared_ptr<JournalMetaManager> j_meta_mgr,
-            const std::string& mount):
+            Configure& conf):
             IConsumer(vol),
             j_meta_mgr_(j_meta_mgr),
-            mount_path_(mount),
+            conf_(conf),
             task_window_(MAX_TASK_PER_VOL),
-            seq_id_(0L){
-        init_markers();
+            seq_id_(0L),
+            initialized_(false){
+        init();
     }
     ~ReplicatorContext(){}
+    // init resources:markers, slide windows
+    int init();
+    // cancel tasks
+    int cancel_all_tasks();
     // generate next task
     std::shared_ptr<TransferTask> get_next_replicate_task();
     // whether has journals which need to replicate
@@ -114,16 +145,17 @@ public:
     virtual int get_consumable_journals(const JournalMarker& marker,
             const int limit, std::list<JournalElement>& list);
 private:
-    std::string mount_path_;
+    Configure& conf_;
     // journal meta manager
     std::shared_ptr<JournalMetaManager> j_meta_mgr_;
     // set max task number in consuming slide window
     int max_pending_tasks_;
-    // replicator cached comsumer marker
-    JournalMarker c_marker_;
     // replicator temp consumer marker,which is used to mark max journal
     // in transmission
     JournalMarker temp_c_marker_;
+    // replicator cached comsumer marker
+    JournalMarker c_marker_;
+    bool initialized_;
     // sequence id for rep tasks
     uint64_t seq_id_;
     std::mutex mtx_;

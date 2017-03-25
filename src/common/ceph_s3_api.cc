@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include "ceph_s3_api.h"
 #include "log/log.h"
+#include "common/crc32.h"
 #ifndef SLEEP_UNITS_PER_SECOND
 #define SLEEP_UNITS_PER_SECOND 1
 #endif
@@ -80,10 +81,11 @@ static int putObjectDataCallback(int bufferSize, char *buffer,
     int res = 0;
     if(response->size > 0) {
         res = (response->size > bufferSize) ? bufferSize:response->size;
-        strncpy(buffer,meta_s->c_str()+(meta_s->length()-response->size),res);
+        memcpy(buffer,meta_s->c_str()+(meta_s->length()-response->size),res);
         response->size -= res;
     }
-//    std::cout << "obj len:" << meta_s->length() << " left:" << response->size << std::endl;
+//    LOG_DEBUG << "obj len:" << meta_s->length() << " left:" << response->size
+//        << " buffersize:" << bufferSize << " crc:" << crc32c(buffer,res,0);
     return res;
 }
 
@@ -91,7 +93,8 @@ static S3Status getObjectDataCallback(int bufferSize, const char *buffer, void *
 {
     string *value = (string*)(((s3_call_response_t*)callbackData)->pdata);
     value->append(buffer,bufferSize);
-//    LOG_DEBUG << "getObjectDataCallback, len:" << value->length() << ":" << bufferSize;
+//    LOG_DEBUG << "getObjectDataCallback, len:" << value->length() << ":" << bufferSize
+//        << ", crc:" << crc32c(buffer,bufferSize,0);
     return S3StatusOK;
 }
 
@@ -202,12 +205,14 @@ RESULT CephS3Api::put_object(const char* obj_name, const string* value,
     int64_t len = 0;
     if(nullptr != value)
         len = value->length();
-    LOG_DEBUG << "put object " << obj_name << ",length: " << len;
     s3_call_response_t response;
     response.pdata = (void*)(value);
     response.size = len;
     response.retries = MAX_RETRIES;
     response.retrySleepInterval = SLEEP_UNITS_PER_SECOND;
+    LOG_DEBUG << "put object " << obj_name << ",length: " << len
+        << ",crc: "
+        << (nullptr == value ? 0:crc32c(((string*)response.pdata)->c_str(),len,0));
     S3PutProperties properties;
     memset(&properties,0,sizeof(S3PutProperties));
     if(meta != nullptr && meta->size()){

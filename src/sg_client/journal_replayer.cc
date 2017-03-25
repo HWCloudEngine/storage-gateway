@@ -180,8 +180,9 @@ void JournalReplayer::replica_replay()
 
     /*replay each journal file*/
     for(auto it : journal_list){
-        string journal  = "/mnt/cephfs" + it.journal();
-        off_t start_pos = it.start_offset();
+        string journal  = conf_.journal_mount_point + it.path();
+        off_t start_pos = it.start_offset() == 0 
+            ? sizeof(journal_file_header_t) : it.start_offset();
         off_t end_pos   = it.end_offset();
         ret= replay_each_journal(journal, start_pos, end_pos);    
         /*replay ok, update in memory consumer marker*/
