@@ -44,7 +44,7 @@ ToozClient::ToozClient(){
 }
 
 ToozClient::~ToozClient(){
-
+    Py_Finalize();
 }
 void ToozClient::get_env()
 {
@@ -74,13 +74,14 @@ void ToozClient::run_watchers(){
 }
 
 void ToozClient::start_coordination(string backend_url, string member_id){
+    node_id = member_id;
     if(backend_url.empty()){
         printf("backed_url is empty\n");
         return;
     }
     py_instance_mutex.lock();
     if(!member_id.empty()){
-        PyObject_CallMethod(pInstance, TOOZ_START, "(s,s)", backend_url.c_str(), member_id.c_str());
+        PyObject_CallMethod(pInstance, TOOZ_START, "(s,s)", backend_url.c_str(), node_id.c_str());
     }else{
         //member_id set to uuid if none
         PyObject_CallMethod(pInstance, TOOZ_START, "(s)", backend_url.c_str());
@@ -105,8 +106,53 @@ void ToozClient::watch_group(string group_id){
     py_instance_mutex.lock();
     PyObject_CallMethod(pInstance, TOOZ_WATCH_GROUP, "(s)", group_id.c_str());
     py_instance_mutex.unlock();
-    start_callback_server_thread();
+    start_callback_server_thread(group_id);
     start_run_watchers_thread();
+}
+
+//used by sgclient
+void ToozClient::refresh_nodes_view(list<string> &nodes, string group_id){
+    py_instance_mutex.lock();
+    PyObject_CallMethod(pInstance, TOOZ_REFRESH_NODES_VIEW, "(s)", group_id.c_str());
+    py_instance_mutex.unlock();
+}
+
+void ToozClient::rehash_buckets_to_node(string group_id, int bucket_num=DEFAULT_BUCKET_NUM){
+    py_instance_mutex.lock();
+    PyObject *p_bucket_list = PyObject_CallMethod(pInstance, TOOZ_REHASH_BUCKETS_TO_NODES,
+                                                "(s,i)", group_id.c_str(), bucket_num);
+    py_instance_mutex.unlock();
+    if(p_bucket_list){
+        int size = PyList_GET_SIZE(p_bucket_list);
+        int i;
+        for(i=0; i<size; i++){
+            PyObject *p_bucket = PyList_GetItem(p_bucket_list, i);
+            string bucket = PyString_AsString(p_bucket);
+            buckets.push_back(bucket);
+        }
+    }
+}
+
+list<string> ToozClient::get_buckets(){
+    return buckets;
+}
+
+string ToozClient::get_node_id(){
+    return node_id;
+}
+
+//use by sgclient
+string ToozClient::get_node(string bucket_id){
+    py_instance_mutex.lock();
+    PyObject *node_list = PyObject_CallMethod(pInstance, TOOZ_GET_NODES, "(s)", bucket_id.c_str());
+    py_instance_mutex.unlock();
+    if(node_list && PyList_GET_SIZE(node_list) > 0){
+        PyObject *p_node = PyList_GetItem(node_list, 0);
+        string node = PyString_AsString(p_node);
+        return node;
+    }else{
+        return "";
+    }
 }
 
 void ToozClient::stop_coordination(){
@@ -116,7 +162,6 @@ void ToozClient::stop_coordination(){
     py_instance_mutex.lock();
     PyObject_CallMethod(pInstance, TOOZ_STOP, NULL);
     py_instance_mutex.unlock();
-    Py_Finalize();
 }
 
 void ToozClient::start_heartbeat_thread(){
@@ -124,30 +169,36 @@ void ToozClient::start_heartbeat_thread(){
 }
 
 void ToozClient::start_run_watchers_thread(){
-    watch_t = new thread(&ToozClient::run_watchers, *this);
+    watch_t = new thread(&ToozClient::run_watchers, this);
 }
 
-void ToozClient::start_callback_server_thread(){
-    callback_t = new thread(&ToozClient::callback_server, *this);
+void ToozClient::start_callback_server_thread(string group_id){
+    callback_t = new thread(&ToozClient::callback_server, this, group_id);
 }
 
 void ToozClient::stop_heartbeat_thread(){
     terminate_heartbeat= 0;
-    hb_t->join();
+    if(hb_t){
+        hb_t->join();
+    }
 }
 
 void ToozClient::stop_run_watchers_thread(){
     terminate_run_watchers= 0;
-    watch_t->join();
+    if(watch_t){
+        watch_t->join();
+    }
 }
 
 //TODO need to catch signal and close fd safely
 void ToozClient::stop_callback_thread(){
     terminate_callback = 0;
-    //callback_t->join();
+    if(callback_t){
+        //callback_t->join();
+    }
 }
 
-int ToozClient::callback(int connection_fd)
+int ToozClient::callback(int connection_fd, string group_id)
 {
 //TODO: use message queue
     int nbytes;
@@ -156,12 +207,11 @@ int ToozClient::callback(int connection_fd)
     buffer[nbytes] = 0;
     printf("get one message from tooz callback\n");
     printf("message: %s\n", buffer);
-    //nbytes = snprintf(buffer, BUF_MAX_LEN, "%s", "do something");
-    //write(connection_fd, buffer, nbytes);
+    rehash_buckets_to_node(group_id);
     return 0;
 }
 
-void ToozClient::callback_server(){
+void ToozClient::callback_server(string group_id){
     struct sockaddr_un address;
     int socket_fd, connection_fd;
     socklen_t address_length;
@@ -194,7 +244,7 @@ void ToozClient::callback_server(){
                                &address_length)) > -1)
     {
         while(terminate_callback){
-            callback(connection_fd);
+            callback(connection_fd, group_id);
         }
     }
     close(connection_fd);
