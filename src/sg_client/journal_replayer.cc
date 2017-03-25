@@ -53,7 +53,7 @@ bool JournalReplayer::init(const Configure& conf,
     rpc_client_ptr_.reset(new ReplayerClient(grpc::CreateChannel(conf_.sg_server_addr(),
                             grpc::InsecureChannelCredentials())));
 
-    cache_recover_ptr_.reset(new CacheRecovery(vol_attr_.vol_name(), rpc_client_ptr_, 
+    cache_recover_ptr_.reset(new CacheRecovery(conf_, vol_attr_.vol_name(), rpc_client_ptr_, 
                                 id_maker_ptr_, cache_proxy_ptr_));
     cache_recover_ptr_->start();
     //block until recover finish
@@ -122,28 +122,23 @@ bool JournalReplayer::replay_each_journal(const string& journal,
         }
         struct stat buf = {0};
         int ret = fstat(fd, &buf);
-        if(-1 == ret){
+        if(-1 == ret || !buf.st_size){
             LOG_ERROR << "stat " << journal.c_str() << "failed errno:" << errno;
             retval = false; 
             break;
         }
 
-        size_t size = buf.st_size;
-        if(size == 0){
-            retval = false;
-            break; 
-        }
-
         off_t start = start_pos;
-        off_t end   = (end_pos < size) ? end_pos : size;
+        off_t end   = (end_pos < buf.st_size) ? end_pos : buf.st_size;
         LOG_INFO << "open file:" << journal << " start:" << start 
-                 << " end:" << end << " size:" << size;
+                 << " end:" << end << " size:" << buf.st_size;
 
         while(start < end){
             string journal_file = journal;
             off_t  journal_off  = start;
             shared_ptr<JournalEntry> journal_entry = make_shared<JournalEntry>();
-            start = journal_entry->parse(fd, start); 
+            start = journal_entry->parse(fd, end, start); 
+	        if(start == -1) break;
             retval = process_journal_entry(journal_entry);
         }
 
@@ -171,32 +166,33 @@ void JournalReplayer::replica_replay()
     constexpr int limit = 10;
     list<JournalElement> journal_list; 
     bool ret = rpc_client_ptr_->GetJournalList(vol_attr_.vol_name(), journal_marker_, 
-                                          limit, journal_list);
+                                               limit, journal_list);
     if(!ret || journal_list.empty()){
-        LOG_ERROR << "get journal list failed";
+        LOG_ERROR << "get journal list failed ret:" << ret << " size:" << journal_list.size();
         usleep(200);
         return;
     }
 
     /*replay each journal file*/
     for(auto it : journal_list){
-        string journal  = "/mnt/cephfs" + it.journal();
+        /*TODO: replay it.journal by it.path next patch*/
+        string journal  = conf_.journal_mount_point + it.journal();
         off_t start_pos = it.start_offset();
         off_t end_pos   = it.end_offset();
         ret= replay_each_journal(journal, start_pos, end_pos);    
         /*replay ok, update in memory consumer marker*/
         if(ret){
-            update_consumer_marker(journal, end_pos);
+            update_consumer_marker(it.journal(), end_pos);
         }
     }
 }
 
-void JournalReplayer::normal_replay()
+bool JournalReplayer::normal_replay()
 {
     shared_ptr<CEntry> entry = cache_proxy_ptr_->pop();
     if(entry == nullptr){
         usleep(200);
-        return;
+        return false;
     }
 
     if (entry->get_cache_type() == CEntry::IN_MEM){
@@ -204,8 +200,8 @@ void JournalReplayer::normal_replay()
         LOG_INFO << "replay from memory";
         bool succeed = process_memory(entry->get_journal_entry());
         if (succeed){
-            update_consumer_marker(entry->get_journal_file(), 
-                    entry->get_journal_off());
+            string journal_key = entry->get_journal_file().substr(conf_.journal_mount_point.length());
+            update_consumer_marker(journal_key, entry->get_journal_off());
             cache_proxy_ptr_->reclaim(entry);
         }
     } else {
@@ -218,6 +214,7 @@ void JournalReplayer::normal_replay()
             cache_proxy_ptr_->reclaim(entry);
         }
     }
+    return true;
 }
 
 void JournalReplayer::replay_volume_loop()
@@ -360,9 +357,15 @@ bool JournalReplayer::process_file(shared_ptr<CEntry> entry)
         LOG_ERROR << "open journal file failed";
         return false;
     }
-    
+    struct stat buf = {0};
+    int ret = fstat(src_fd, &buf);
+    if(-1 == ret || !buf.st_size){
+	LOG_ERROR << "stat " << file_name.c_str() << "failed errno:" << errno;
+	return false;
+    }
+
     shared_ptr<JournalEntry> jentry = make_shared<JournalEntry>();
-    jentry->parse(src_fd, off);
+    jentry->parse(src_fd, buf.st_size, off);
        
     if(src_fd != -1){
         ::close(src_fd); 

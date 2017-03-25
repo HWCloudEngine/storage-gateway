@@ -7,10 +7,9 @@
 #include <memory>
 #include <map>
 #include "common.h"
-#include "../nedmalloc.h"
 #include "../message.h"
 #include "../seq_generator.h"
-#include "../../log/log.h"
+#include "log/log.h"
 
 using namespace std;
 
@@ -62,9 +61,6 @@ public:
     
     ~Bcache();
    
-    void init();
-    void fini();
-    
     int read(off_t off, size_t len, char* buf);
     
     /*CRUD*/
@@ -103,8 +99,7 @@ private:
                         const vector<Bkey>& miss_keys);
     
 private:
-    string              m_blkdev;
-    nedalloc::nedpool*  m_buffer_pool; 
+    string        m_blkdev;
     Mutex         m_mutex;
     bcache_map_t  m_bcache;
 }; 

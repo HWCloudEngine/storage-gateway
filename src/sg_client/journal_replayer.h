@@ -56,7 +56,7 @@ private:
    /*replay only slave is replicating*/
     void replica_replay();
     /*replay both master and failover on slave*/
-    void normal_replay();
+    bool normal_replay();
 
     bool replay_each_journal(const string& journal, 
                              const off_t& start_pos,
