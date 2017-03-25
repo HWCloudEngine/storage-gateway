@@ -53,7 +53,7 @@ bool JournalReplayer::init(const Configure& conf,
     rpc_client_ptr_.reset(new ReplayerClient(grpc::CreateChannel(conf_.sg_server_addr(),
                             grpc::InsecureChannelCredentials())));
 
-    cache_recover_ptr_.reset(new CacheRecovery(vol_attr_.vol_name(), rpc_client_ptr_, 
+    cache_recover_ptr_.reset(new CacheRecovery(conf_, vol_attr_.vol_name(), rpc_client_ptr_, 
                                 id_maker_ptr_, cache_proxy_ptr_));
     cache_recover_ptr_->start();
     //block until recover finish
@@ -171,7 +171,7 @@ void JournalReplayer::replica_replay()
     constexpr int limit = 10;
     list<JournalElement> journal_list; 
     bool ret = rpc_client_ptr_->GetJournalList(vol_attr_.vol_name(), journal_marker_, 
-                                          limit, journal_list);
+                                               limit, journal_list);
     if(!ret || journal_list.empty()){
         LOG_ERROR << "get journal list failed";
         usleep(200);

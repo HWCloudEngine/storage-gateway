@@ -102,8 +102,14 @@ size_t CEntry::get_mem_size()const
 
 int File::fid = 0;
 
-File::File(string file, off_t pos, bool eos)
-    :m_file(file), m_pos(pos),m_eos(eos)
+File::File(string file, off_t start_pos, bool eos)
+    :m_file(file), m_start_pos(start_pos), m_end_pos(UINT_MAX), m_eos(eos)
+{
+    fid++;
+}
+
+File::File(string file, off_t start_pos, off_t end_pos, bool eos)
+    :m_file(file), m_start_pos(start_pos), m_end_pos(end_pos), m_eos(eos)
 {
     fid++;
 }
