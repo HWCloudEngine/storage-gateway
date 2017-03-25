@@ -9,7 +9,7 @@
 #include <algorithm>
 #include "bcache.h"
 #include "common.h"
-#include "../../rpc/message.pb.h"
+#include "rpc/message.pb.h"
 
 using google::protobuf::Message;
 using huawei::proto::WriteMessage;
@@ -92,31 +92,13 @@ bool BkeyOffsetCompare(const Bkey& a, const Bkey& b)
 Bcache::Bcache(string bdev)
 {
     m_blkdev = bdev;
-    init();
     LOG_INFO << "Bcache create";
 }
 
 Bcache::~Bcache()
 {
     m_bcache.clear();
-    fini();
     LOG_INFO << "Bcache destroy";
-}
-
-void Bcache::init()
-{
-    const int bcache_mpool_size = 10*1024*1024;
-    m_buffer_pool = nedalloc::nedcreatepool(bcache_mpool_size, 1);
-    if(nullptr == m_buffer_pool){
-        LOG_ERROR << "Bcache init memory pool failed";
-    }
-}
-
-void Bcache::fini()
-{
-    if(m_buffer_pool){
-        nedalloc::neddestroypool(m_buffer_pool);
-    }
 }
 
 bool Bcache::add(Bkey key, shared_ptr<CEntry> value)

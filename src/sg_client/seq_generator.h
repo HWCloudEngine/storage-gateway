@@ -5,6 +5,7 @@
 #include <iostream>
 #include <string>
 #include <map>
+#include <mutex>
 
 using namespace std;
 
@@ -45,8 +46,8 @@ public:
     IoVersion get_version(string file);
     
 private:
-    string                  m_affiliate_volume;
-    uint32_t                m_journal_files_num;
+    mutex m_lock;
+    uint32_t m_journal_files_num;
     map<string, IoVersion*> m_journal_files;
 };
 
