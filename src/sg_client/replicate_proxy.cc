@@ -1,3 +1,5 @@
+#include <thread>
+#include <chrono>
 #include "replicate_proxy.h"
 #include "log/log.h"
 using huawei::proto::SnapScene;
@@ -39,6 +41,10 @@ StatusCode ReplicateProxy::create_transaction(const SnapReqHead& shead,
         const string& snap_name, const RepRole& role){
     StatusCode ret_code;
 
+    LOG_DEBUG << "replay a replicate snapshot:" << snap_name;
+    while(is_sync_item_exist(snap_name)){
+        std::this_thread::sleep_for(std::chrono::microseconds(100));
+    };
     // report sg_server that replayer got a replicate snap;
     // sg_server will validate this snapshot
     bool is_discard;
@@ -76,4 +82,19 @@ string ReplicateProxy::snap_name_to_operate_uuid(const string& snap_name){
     return snap_name;
 }
 
+void ReplicateProxy::add_sync_item(const std::string& actor,const std::string& action){
+    WriteLock write_lock(map_mtx_);
+    sync_map_.insert(std::pair<string,string>(actor,action));
+}
+
+void ReplicateProxy::delete_sync_item(const std::string& actor){
+    WriteLock write_lock(map_mtx_);
+    sync_map_.erase(actor);
+}
+
+bool ReplicateProxy::is_sync_item_exist(const std::string& actor){
+    ReadLock read_lock(map_mtx_);
+    auto it = sync_map_.find(actor);
+    return (it != sync_map_.end());
+}
 

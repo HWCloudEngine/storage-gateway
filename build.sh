@@ -53,7 +53,6 @@ $PROTOC -I ${PROTO_PATH} \
 #make soft-link of source files to expected dir
 ln -n $RPC_SOURCE_PATH/journal/* $RPC_SOURCE_PATH/
 ln -n $RPC_SOURCE_PATH/inner_command/* $RPC_SOURCE_PATH/
-ln -n $RPC_SOURCE_PATH/replication/* $RPC_SOURCE_PATH/
 ln -n $RPC_SOURCE_PATH/control_api/* $RPC_SOURCE_PATH/
 
 #auto generate Makefiles
@@ -72,9 +71,10 @@ mkdir -p build
 chmod +x ${CUR_PATH}/configure
 if [ 2 -eq $# ] && [ x"-debug" = x$2 ]
 then
-    ${CUR_PATH}/configure --prefix=${CUR_PATH} CXXFLAGS='-g2 -O0 -w' CFLAGS='-g2 -O0 -w'
+    ${CUR_PATH}/configure --prefix=${CUR_PATH} --disable-dependency-tracking \
+    CXXFLAGS='-g2 -O0 -w' CFLAGS='-g2 -O0 -w'
 else
-    ${CUR_PATH}/configure --prefix=${CUR_PATH}
+    ${CUR_PATH}/configure --prefix=${CUR_PATH} --disable-dependency-tracking
 fi
 
 make clean

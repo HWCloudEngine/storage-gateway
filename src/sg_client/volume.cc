@@ -5,12 +5,12 @@
 
 namespace Journal{
 
-Volume::Volume(const Configure& conf, const VolumeAttr& vol_attr, 
+Volume::Volume(const Configure& conf, const VolumeInfo& vol_info, 
                shared_ptr<CephS3LeaseClient> lease_client, 
                shared_ptr<WriterClient> writer_rpc_client,
                int epoll_fd,
                raw_socket_t client_sock)
-              :conf_(conf), vol_attr_(vol_attr), lease_client_(lease_client),
+              :conf_(conf), vol_attr_(vol_info), lease_client_(lease_client),
                writer_rpc_client_(writer_rpc_client), epoll_fd_(epoll_fd), 
                raw_socket_(client_sock) 
 {
@@ -41,7 +41,7 @@ bool Volume::init()
 
     pre_processor_.reset(new JournalPreProcessor(entry_queue_, write_queue_));
     reader_.reset(new JournalReader(read_queue_, reply_queue_));
-    writer_.reset(new JournalWriter(write_queue_, reply_queue_));
+    writer_.reset(new JournalWriter(write_queue_, reply_queue_,vol_attr_));
     replayer_.reset(new JournalReplayer(vol_attr_));
 
     if(!connection_->init(buffer_pool_)){
@@ -55,7 +55,7 @@ bool Volume::init()
     }
     
     /*todo read from config*/
-    if(!writer_->init(conf_, vol_attr_.vol_name(), 
+    if(!writer_->init(conf_, 
                       idproxy_, cacheproxy_, snapshotproxy_, 
                       lease_client_,writer_rpc_client_,epoll_fd_)){
         LOG_ERROR << "init journal writer failed,vol_name:" << vol_attr_.vol_name();
@@ -122,8 +122,12 @@ void Volume::stop()
     connection_->stop();
 }
 
-const string Volume::get_vol_id() const{
+const string Volume::get_vol_id() {
     return vol_attr_.vol_name();
+}
+
+void Volume::update_volume_attr(const VolumeInfo& info){
+    vol_attr_.update(info);    
 }
 
 }

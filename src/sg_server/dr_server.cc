@@ -14,9 +14,6 @@
 #include <thread>
 #include <vector>
 #include <sys/types.h>
-#include <ifaddrs.h>
-#include <sys/socket.h> //getnameinfo
-#include <netdb.h> //NI_MAXHOST
 #include "log/log.h"
 #include "ceph_s3_meta.h"
 #include "common/config_parser.h"
@@ -41,45 +38,6 @@
 #define DEFAULT_META_SERVER_PORT 50051
 #define DEFAULT_REPLICATE_PORT 50061
 #define MAX_TASK_COUNT_IN_QUEUE (128)
-
-bool get_local_ip(string& ip,const char* name="eth0",const int type=AF_INET){
-    struct ifaddrs *ifaddr, *ifa;
-    int family, s, n;
-    char host[NI_MAXHOST];
-    bool flag = false;
-
-    if(getifaddrs(&ifaddr) == -1){
-        LOG_ERROR << "getifaddrs failed!";
-        return false;
-    }
-
-    for(ifa = ifaddr, n = 0; ifa != NULL; ifa = ifa->ifa_next, n++){
-        if(ifa->ifa_addr == NULL)
-            continue;
-        family = ifa->ifa_addr->sa_family;
-
-        if(family != type)
-            continue;
-        if(0 != strcmp(ifa->ifa_name,name))
-            continue;
-        s = getnameinfo(ifa->ifa_addr,
-            (family == AF_INET) ? sizeof(struct sockaddr_in) :
-                sizeof(struct sockaddr_in6),
-            host, NI_MAXHOST,
-            NULL, 0, NI_NUMERICHOST);
-        if(s != 0) {
-            LOG_ERROR << "getnameinfo() failed: " << gai_strerror(s);
-            break;
-        }
-        flag = true;
-        ip.clear();
-        ip.append(host);
-        LOG_INFO << "get local ip address: " << host;
-    }
-
-    freeifaddrs(ifaddr);
-    return flag;
-}
 
 int main(int argc, char** argv) {
     std::string file="sg_server.log";
@@ -155,7 +113,7 @@ int main(int argc, char** argv) {
     MarkersMaintainer::instance().init(marker_ctx_que);
 
     // init replicate scheduler: replicate first stage: sort repVolume
-    RepScheduler rep_scheduler(meta,mount_path,rep_vol_que);
+    RepScheduler rep_scheduler(meta,conf,rep_vol_que);
     //init replicate control rpc server
     RepInnerCtrl rep_control(rep_scheduler,meta);
     metaServer.register_service(&rep_control);

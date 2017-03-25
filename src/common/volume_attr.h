@@ -5,7 +5,7 @@
 #include "rpc/snapshot.pb.h"
 #include "rpc/backup.pb.h"
 #include "rpc/volume.pb.h"
-
+#include "locks.h"
 using namespace std;
 using huawei::proto::VolumeInfo;
 using huawei::proto::SnapType;
@@ -22,10 +22,10 @@ public:
 
     void update(const VolumeInfo& vol_info);
 
-    string vol_name() const;
-    size_t vol_size() const;
-    string blk_device() const;
-    RepRole replicate_role() const;
+    string vol_name();
+    size_t vol_size();
+    string blk_device();
+    RepRole replicate_role();
 
     /*whether create snapshot allowable*/
     bool is_snapshot_allowable(const SnapType& snap_type);
@@ -52,6 +52,7 @@ public:
 
 private:
     VolumeInfo m_vol_info;
+    SharedMutex mtx;
 };
 
 #endif

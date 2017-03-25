@@ -20,6 +20,7 @@ using huawei::proto::UpdateProducerMarkerRequest;
 using huawei::proto::UpdateProducerMarkerResponse;
 using huawei::proto::UpdateMultiProducerMarkersRequest;
 using huawei::proto::UpdateMultiProducerMarkersResponse;
+using huawei::proto::JournalElement;
 
 class WriterClient {
 public:
@@ -28,7 +29,8 @@ public:
 
     // Assambles the client's payload, sends it and presents the response back
     // from the server.
-    bool GetWriteableJournals(const std::string& uuid, const std::string& vol, const int limit,std::list<std::string>& list_) 
+    bool GetWriteableJournals(const std::string& uuid,
+        const std::string& vol, const int limit,std::list<JournalElement>& list_) 
     {
         // Data we are sending to the server.
         GetWriteableJournalsRequest request;
