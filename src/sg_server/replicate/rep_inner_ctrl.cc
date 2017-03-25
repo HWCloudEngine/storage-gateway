@@ -102,7 +102,10 @@ Status RepInnerCtrl::EnableReplication(ServerContext* context,
         return grpc::Status::OK;
     }
     // update replication meta
-    meta.mutable_info()->set_rep_status(REP_ENABLING);
+    if(role == REP_PRIMARY)
+        meta.mutable_info()->set_rep_status(REP_ENABLING);
+    else// TODO: remote rep status not sync with primary
+        meta.mutable_info()->set_rep_status(REP_ENABLED);
     huawei::proto::OperationRecord* op = meta.add_records();
     op->set_operate_id(op_id);
     op->set_type(REPLICATION_ENABLE);
@@ -112,7 +115,8 @@ Status RepInnerCtrl::EnableReplication(ServerContext* context,
     op->set_is_synced(false);
     res = meta_->update_volume_meta(meta);
     SG_ASSERT(DRS_OK == res);
-    notify_rep_state_changed(local_vol);
+    if(role == REP_PRIMARY)
+        notify_rep_state_changed(local_vol);
     response->set_status(sOk);
     return Status::OK;
 }
@@ -142,7 +146,11 @@ Status RepInnerCtrl::DisableReplication(ServerContext* context,
     }
 
     // update replication meta
-    meta.mutable_info()->set_rep_status(REP_DISABLING);
+    if(role == REP_PRIMARY)
+        meta.mutable_info()->set_rep_status(REP_DISABLING);
+    else
+        meta.mutable_info()->set_rep_status(REP_DISABLED);
+
     huawei::proto::OperationRecord* op = meta.add_records();
     op->set_operate_id(op_id);
     op->set_type(REPLICATION_DISABLE);
@@ -151,7 +159,8 @@ Status RepInnerCtrl::DisableReplication(ServerContext* context,
     op->mutable_marker()->CopyFrom(marker);
     res = meta_->update_volume_meta(meta);
     SG_ASSERT(DRS_OK == res);
-    notify_rep_state_changed(local_vol);
+    if(role == REP_PRIMARY)
+        notify_rep_state_changed(local_vol);
     response->set_status(sOk);
     return Status::OK;
 }
@@ -163,7 +172,7 @@ Status RepInnerCtrl::FailoverReplication(ServerContext* context,
     const huawei::proto::RepRole& role = request->role();
     const string& op_id = request->operate_id();
     const JournalMarker& marker = request->marker();
-    LOG_INFO << "failvoer replication:\n"
+    LOG_INFO << "failover replication:\n"
         << "local volume:" << local_vol << "\n"
         << "operation uuid:" << op_id << "\n"
         << "role:" << role << "\n"
@@ -181,7 +190,11 @@ Status RepInnerCtrl::FailoverReplication(ServerContext* context,
     }
 
     // update replication meta
-    meta.mutable_info()->set_rep_status(REP_FAILING_OVER);
+    if(role == REP_PRIMARY)
+        meta.mutable_info()->set_rep_status(REP_FAILING_OVER);
+    else
+        meta.mutable_info()->set_rep_status(REP_FAILED_OVER);
+
     huawei::proto::OperationRecord* op = meta.add_records();
     op->set_operate_id(op_id);
     op->set_type(REPLICATION_FAILOVER);
@@ -190,7 +203,8 @@ Status RepInnerCtrl::FailoverReplication(ServerContext* context,
     op->mutable_marker()->CopyFrom(marker);
     res = meta_->update_volume_meta(meta);
     SG_ASSERT(DRS_OK == res);
-    notify_rep_state_changed(local_vol);
+    if(role == REP_PRIMARY)
+        notify_rep_state_changed(local_vol);
     response->set_status(sOk);
     return Status::OK;
 }
@@ -224,17 +238,21 @@ Status RepInnerCtrl::DeleteReplication(ServerContext* context,
         response->set_status(sInvalidOperation);
         return grpc::Status::OK;
     }
+
+    meta.mutable_info()->set_rep_enable(false);
+    if(role == REP_PRIMARY)
+        meta.mutable_info()->set_rep_status(REP_DELETING);
+    else
+        meta.mutable_info()->set_rep_status(REP_DELETED);
+    res = meta_->update_volume_meta(meta);
+    SG_ASSERT(DRS_OK == res);
+
     if(role == REP_PRIMARY){
         rep_.remove_volume(meta.info().vol_id());
     }
     else{
     // TODO:recycle journals???
     }
-    meta.mutable_info()->set_rep_enable(false);
-    meta.mutable_info()->set_rep_status(REP_DELETING);
-    res = meta_->update_volume_meta(meta);
-    SG_ASSERT(DRS_OK == res);
-    notify_rep_state_changed(local_vol);
     response->set_status(sOk);
     return Status::OK;
 }
@@ -250,47 +268,38 @@ Status RepInnerCtrl::ReportCheckpoint(ServerContext* context,
         << "operation uuid:" << op_id << "\n"
         << "role:" << role;
 
-    // TODO: use checkpoint machanism as remote snapshot to sync destination replication status
+    // TODO:  sync remote replication status
     VolumeMeta meta;
     RESULT res = meta_->read_volume_meta(local_vol,meta);
     SG_ASSERT(DRS_OK == res);
-    bool found = false;
-    RepStatus status = meta.info().rep_status();
-    auto records = meta.records();
-    for(auto it=records.rbegin(); it!=records.rend();it++){
-        if(it->operate_id().compare(op_id) == 0){
-            found = true;
-            LOG_INFO << "matched operation[" << op_id <<"] type:" << it->type()
-                << ",status:" << status;
-            if(role == REP_PRIMARY)
-                break;
-            // update remote site replication status
-            if(it->type() == REPLICATION_ENABLE && status == REP_ENABLING){
-                status = REP_ENABLED;
-            }
-            else if(it->type() == REPLICATION_DISABLE && status == REP_DISABLING){
-                status = REP_DISABLED;
-            }
-            else if(it->type() == REPLICATION_FAILOVER && status == REP_FAILING_OVER){
-                status = REP_FAILED_OVER;
-            }
-            else{
-                LOG_WARN << "volume[" << local_vol << "] rep status unchanged.";
+
+    if(role == REP_PRIMARY){
+        bool found = false;
+        RepStatus status = meta.info().rep_status();
+        auto records = meta.records();
+        for(auto it=records.rbegin(); it!=records.rend();it++){
+            LOG_DEBUG << "operate id:" << it->operate_id() << ",type:" << it->type();
+            if(it->operate_id().compare(op_id) == 0){
+                found = true;
+                LOG_INFO << "matched operation[" << op_id <<"] type:" << it->type()
+                    << ",status:" << status;
                 break;
             }
-            LOG_INFO << "update volume[" << local_vol << "] rep status to "
-                << status;
-            res = meta_->update_volume_meta(meta);
-            SG_ASSERT(DRS_OK == res);
+        }
+
+        if(found){
+            response->set_discard_snap(false);
+        }
+        else{
+            LOG_INFO << "discard volume[" << local_vol << "'s snapshot:" << op_id;
+            response->set_discard_snap(true);
         }
     }
-    if(found && role == REP_PRIMARY){ // remote site drop snapshots?
-        response->set_discard_snap(false);
-    }
-    else{
+    else{// remote site drop snapshots
         LOG_INFO << "discard volume[" << local_vol << "'s snapshot:" << op_id;
         response->set_discard_snap(true);
     }
+
     response->set_status(sOk);
     return Status::OK;
 }

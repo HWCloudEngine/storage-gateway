@@ -101,6 +101,10 @@ bool VolumeManager::init()
 
     vol_inner_client_.reset(new VolInnerCtrlClient(grpc::CreateChannel(conf.sg_server_addr(),
                     grpc::InsecureChannelCredentials())));
+    // init writer_rpc_client, which used to update producer markers
+    writer_rpc_client.reset(new WriterClient(
+            grpc::CreateChannel(conf.sg_server_addr(),grpc::InsecureChannelCredentials())));
+
     vol_ctrl = new VolumeControlImpl(conf, host_, port_,vol_inner_client_);
     ctrl_rpc_server->register_service(vol_ctrl);
 
@@ -129,12 +133,15 @@ void VolumeManager::periodic_task()
             auto vol = iter.second;
 
             std::shared_ptr<JournalWriter> writer = vol->get_writer();
-            if(!writer->get_writeable_journals(lease_uuid,conf.journal_limit)){
-                LOG_ERROR << "get_writeable_journals failed,vol_id:" << vol_id;
-            }
+            VolumeAttr& vol_attr = writer->get_vol_attr();
+            if(vol_attr.is_writable()){
+                if(!writer->get_writeable_journals(lease_uuid,conf.journal_limit)){
+                    LOG_ERROR << "get_writeable_journals failed,vol_id:" << vol_id;
+                }
 
-            if(!writer->seal_journals(lease_uuid)){
-                LOG_ERROR << "seal_journals failed,vol_id:" << vol_id;
+                if(!writer->seal_journals(lease_uuid)){
+                    LOG_ERROR << "seal_journals failed,vol_id:" << vol_id;
+                }
             }
         }
     }
@@ -190,10 +197,8 @@ void VolumeManager::read_req_body_cbt(raw_socket_t client_sock,
                  << " vol_status:" << volume_info.vol_status()
                  << " vol_size:" << volume_info.size();
 
-        VolumeAttr volume_attr(volume_info);
-
         /*create volume*/
-        shared_ptr<Volume> vol = make_shared<Volume>(conf, volume_attr, \
+        shared_ptr<Volume> vol = make_shared<Volume>(conf, volume_info, \
                                             lease_client, writer_rpc_client, \
                                             epoll_fd, client_sock);
         /*add to map*/
@@ -325,7 +330,7 @@ void VolumeManager::writer_thread_work(){
                     continue;
                 }
                 JournalMarker marker = writer->get_cur_producer_marker();
-                auto it = last_producer_markers.find(writer->get_vol_id());
+                auto it = last_producer_markers.find(writer->get_vol_attr().vol_name());
                 if(it != last_producer_markers.end()){
                     // if marker not changed, no need to update
                     if(is_markers_equal(marker,it->second)){

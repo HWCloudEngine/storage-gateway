@@ -100,7 +100,7 @@ private:
     
 private:
     string        m_blkdev;
-    Mutex         m_mutex;
+    SharedMutex         m_mutex;
     bcache_map_t  m_bcache;
 }; 
 

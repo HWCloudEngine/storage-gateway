@@ -26,11 +26,15 @@ using huawei::proto::StatusCode;
 
 typedef struct Jkey{
     string vol_;
-    uint64_t c_;
-    Jkey(const string& vol,const uint64_t& c):vol_(vol),c_(c){}
+    uint64_t c_; // journal counter
+    uint64_t sub_; // sub counter
+    Jkey(const string& vol,const uint64_t& c, const uint64_t& sub)
+        :vol_(vol),c_(c),sub_(sub){}
     bool operator<(const Jkey& j2)const{
         if(c_ != j2.c_)
             return c_ < j2.c_;
+        if(sub_ != j2.sub_)
+            return sub_ < j2.sub_;
         return vol_.compare(j2.vol_);
     }
 }Jkey;
@@ -56,7 +60,7 @@ private:
     std::shared_ptr<std::ofstream>  create_journal(
             const string& vol_id,const uint64_t& counter,const uint64_t& sub);
     std::shared_ptr<std::ofstream> get_fstream(const string& vol,
-            const uint64_t& counter);
+            const uint64_t& counter,const uint64_t& sub);
     // check whether the replicate direction is valid or not
     bool validate_replicate(const string& vol_id);
 };

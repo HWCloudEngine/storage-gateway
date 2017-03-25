@@ -2,6 +2,7 @@ noinst_PROGRAMS=sg_client
 AM_CPPFLAGS=-I$(top_srcdir)/src -I$(top_srcdir)/src/include \
             -I$(top_srcdir)/src/rpc -std=c++11
 ACLOCAL_AMFLAGS=-I m4
+AM_LDFLAGS = -rdynamic
 sg_client_SOURCES=$(top_srcdir)/src/common/crc32.c  \
                   $(top_srcdir)/src/common/xxhash.c \
                   $(top_srcdir)/src/common/utils.cc \

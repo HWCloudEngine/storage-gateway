@@ -22,31 +22,41 @@ VolumeAttr::~VolumeAttr()
 
 void VolumeAttr::update(const VolumeInfo& vol_info)
 {
+    LOG_INFO << m_vol_info.vol_id() << " attr changed:"
+        << " vol_status:" << vol_info.vol_status()
+        << ",rep_status:" << vol_info.rep_status()
+        << ",role:" << vol_info.role();
+    WriteLock lck(mtx);
     m_vol_info.CopyFrom(vol_info);
 }
 
-string VolumeAttr::vol_name() const
+string VolumeAttr::vol_name()
 {
+    ReadLock lck(mtx);
     return m_vol_info.vol_id();
 }
 
-size_t VolumeAttr::vol_size() const
+size_t VolumeAttr::vol_size()
 {
+    ReadLock lck(mtx);
     return m_vol_info.size();
 }
 
-string VolumeAttr::blk_device() const
+string VolumeAttr::blk_device()
 {
+    ReadLock lck(mtx);
     return m_vol_info.path();
 }
 
-RepRole VolumeAttr::replicate_role() const
+RepRole VolumeAttr::replicate_role()
 {
+    ReadLock lck(mtx);
     return m_vol_info.role();
 }
 
 bool VolumeAttr::is_snapshot_allowable(const SnapType& snap_type)
 {
+    ReadLock lck(mtx);
     /*todo: maybe sgclient should take volume in-use status*/
     if(m_vol_info.vol_status() != VolumeStatus::VOL_AVAILABLE){
         /*volume not already available, can not create snapshot*/
@@ -74,6 +84,7 @@ bool VolumeAttr::is_snapshot_allowable(const SnapType& snap_type)
 
 bool VolumeAttr::is_append_entry_need(const SnapType& snap_type)
 {
+    ReadLock lck(mtx);
     if(m_vol_info.rep_status() == RepStatus::REP_ENABLED){
         if(m_vol_info.role() == RepRole::REP_SECONDARY && 
            snap_type == SnapType::SNAP_REMOTE){
@@ -88,6 +99,7 @@ bool VolumeAttr::is_append_entry_need(const SnapType& snap_type)
 
 int VolumeAttr::current_replay_mode()
 {
+    ReadLock lck(mtx);
     if(!m_vol_info.rep_enable()){
         /*replicate disable use normal_replay*/
         return NORMAL_REPLAY_MODE;
@@ -113,6 +125,7 @@ int VolumeAttr::current_replay_mode()
 
 bool VolumeAttr::is_failover_occur()
 {
+    ReadLock lck(mtx);
     /* todo failover contain two case:
      * master crash: master can't get failover command, may be add manual work
      * plan migration: master can get failover command
@@ -126,6 +139,7 @@ bool VolumeAttr::is_failover_occur()
 
 bool VolumeAttr::is_backup_allowable(const BackupType& backup_type)
 {
+    ReadLock lck(mtx);
     /*todo: maybe sgclient should take volume in-use status*/
     if(m_vol_info.vol_status() != VolumeStatus::VOL_AVAILABLE){
         /*volume not already available, can not create snapshot*/
@@ -136,3 +150,20 @@ bool VolumeAttr::is_backup_allowable(const BackupType& backup_type)
     /*todo: handle failover and reverse*/
     return true;
 }
+
+bool VolumeAttr::is_writable(){
+    ReadLock lck(mtx);
+    // primary and not failover
+    if((m_vol_info.rep_status() != RepStatus::REP_FAILED_OVER
+        || m_vol_info.rep_status() != RepStatus::REP_FAILING_OVER)
+        && m_vol_info.role() == RepRole::REP_PRIMARY){
+        return true;
+    }
+    // secondary and failedover
+    if(m_vol_info.role() == RepRole::REP_SECONDARY && 
+       m_vol_info.rep_status() == RepStatus::REP_FAILED_OVER){
+        return true;
+    }
+    return false;
+}
+

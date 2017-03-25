@@ -51,7 +51,7 @@ public:
     RESULT get_journal_list(const std::string& vol,
             const JournalMarker& marker,
             const int& limit,
-            std::list<JournalElement> list,
+            std::list<JournalElement>& list,
             const CONSUMER_TYPE& type);
     RESULT update_consumer_marker(const std::string& vol,
             const CONSUMER_TYPE& type,

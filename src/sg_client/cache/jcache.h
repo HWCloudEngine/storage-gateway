@@ -77,7 +77,7 @@ private:
     /*original block device*/
     string m_blkdev;
     /*read and write lock*/
-    mutable Mutex m_mutex;
+    mutable SharedMutex m_mutex;
     /*act the same function as queue*/
     map<Jkey, shared_ptr<CEntry>> m_cache;
 };
