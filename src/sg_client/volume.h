@@ -30,7 +30,7 @@ namespace Journal{
 class Volume 
 {
 public:
-    explicit Volume(const Configure& conf, const VolumeAttr& vol_attr, 
+    explicit Volume(const Configure& conf, const VolumeInfo& vol_info, 
                     shared_ptr<CephS3LeaseClient> lease_client,
                     std::shared_ptr<WriterClient> writer_rpc_client,
                     int epoll_fd,
@@ -47,12 +47,15 @@ public:
     void start();
     void stop();
 
-    const string get_vol_id() const;
+    const string get_vol_id();
 
     shared_ptr<JournalWriter> get_writer()const;
     shared_ptr<SnapshotProxy>& get_snapshot_proxy()const;
     shared_ptr<BackupProxy>&   get_backup_proxy()const;
     shared_ptr<ReplicateProxy>& get_replicate_proxy()const;
+
+    // update volume attribute
+    void update_volume_attr(const VolumeInfo& info);
 
 private:
     Configure  conf_;

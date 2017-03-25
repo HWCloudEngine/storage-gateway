@@ -32,7 +32,7 @@ message GetWriteableJournalsRequest {
 message GetWriteableJournalsResponse {
     RESULT result = 1 ;
     // journal file paths are returned
-    repeated string journals = 2;
+    repeated JournalElement journals = 2;
 }
 message SealJournalsRequest {
     string uuid = 1;
@@ -66,10 +66,13 @@ message GetMultiWriteableJournalsRequest {
 message JournalArray {
     repeated string journal = 1;
 }
+message JournalElementArray{
+    repeated JournalElement journals = 1;
+}
 message GetMultiWriteableJournalsResponse {
     RESULT result = 1;
     // the map contains volume id and its journals
-    map <string, JournalArray > map = 2;
+    map <string, JournalElementArray > map = 2;
 }
 
 message SealMultiJournalsRequest {

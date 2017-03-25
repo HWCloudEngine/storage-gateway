@@ -30,7 +30,7 @@ Status WriterServiceImpl::GetWriteableJournals(ServerContext* context,
     //request->uuid();
     LOG_DEBUG << "request vol:" << request->vol_id() << ", journal count:"
         << request->limits();
-    std::list<string> list;
+    std::list<JournalElement> list;
     RESULT result = _meta->create_journals(request->uuid(),request->vol_id(),
         request->limits(),list);
     if(result != DRS_OK) {
@@ -39,9 +39,9 @@ Status WriterServiceImpl::GetWriteableJournals(ServerContext* context,
     }
     else {
         reply->set_result(DRS_OK);
-        for(std::list<string>::iterator it=list.begin(); it!=list.end(); ++it) {
-            std::string *journal = reply->add_journals();
-            *journal = *it;
+        for(std::list<JournalElement>::iterator it=list.begin(); it!=list.end(); ++it) {
+            JournalElement *journal = reply->add_journals();
+            journal->CopyFrom(*it);
         }
     }
     return Status::OK;

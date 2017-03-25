@@ -49,6 +49,7 @@ int construct_transfer_data_request(TransferRequest* req,
     ReplicateDataReq data_msg;
     data_msg.set_vol_id(vol_id);
     data_msg.set_journal_counter(j_counter);
+    data_msg.set_sub_counter(sub_counter);
     data_msg.set_offset(offset);
     data_msg.set_data(buffer,size);
 
@@ -72,6 +73,7 @@ int construct_transfer_start_request(TransferRequest* req,
     ReplicateStartReq start_msg;
     start_msg.set_vol_id(vol_id);
     start_msg.set_journal_counter(j_counter);
+    start_msg.set_sub_counter(sub_counter);
     string temp;
     SG_ASSERT(true == start_msg.SerializeToString(&temp));
     req->set_data(temp.c_str(),temp.length());
@@ -88,6 +90,7 @@ int construct_transfer_end_request(TransferRequest* req,
     ReplicateEndReq end_msg;
     end_msg.set_vol_id(vol_id);
     end_msg.set_journal_counter(j_counter);
+    end_msg.set_sub_counter(sub_counter);
     end_msg.set_is_open(is_open);
     string temp;
     SG_ASSERT(true == end_msg.SerializeToString(&temp));
@@ -179,12 +182,14 @@ int DiffSnapTask::init(){
     // sub counter should start at 1, or it will overlat the former journal
     sub_counter = 1;
     package_id = 0;
-    max_journal_size = MAX_JOURNAL_SIZE_FOR_SNAP_SYNC; // TODO
+    // set journal max size
+    max_journal_size = ctx->get_end_off();
 
     // init diff_blocks
     StatusCode ret = SnapClientWrapper::instance().get_client()->DiffSnapshot(
             ctx->get_vol_id(),pre_snap,cur_snap,diff_blocks);
     SG_ASSERT(ret == StatusCode::sOk);
+    LOG_DEBUG << diff_blocks.size() << " blocks in diffSnapTask.";
     if(diff_blocks.empty()){
         LOG_INFO << "there was no diff block in task[" << this->get_id()
                 << "]";
@@ -252,6 +257,12 @@ TransferRequest* DiffSnapTask::get_next_package(){
     construct_journal_entry(entry,buffer,diff_block_off,diff_block_size);
     string entry_string;
     size_t size = entry.copy_entry(entry_string);
+    LOG_DEBUG << "get snap diff block no:" << diff_block_off
+        << " ,vector cursor:" << vector_cursor
+        << " ,array cursor:" << array_cursor
+        << " ,entry len:" << entry.get_length()
+        << " ,entry crc:" << entry.get_crc()
+        << " ,entry_string len:" << entry_string.length();
 
     // construct transfer request
     TransferRequest* req = new TransferRequest;
@@ -270,12 +281,22 @@ TransferRequest* DiffSnapTask::get_next_package(){
         construct_transfer_data_request(req,ctx->get_vol_id(),
             ctx->get_j_counter(),sub_counter,
             entry_string.c_str(),cur_off,size,++package_id);
+
+        uint32_t crc = crc32c(entry_string.c_str(),size,0);
+        LOG_DEBUG << "transfer journal sub[" << sub_counter << "] from "<< cur_off 
+            << ",len [" << size << "],crc[" << crc << "].";
+
         cur_off += size;
     }
     else{
         construct_transfer_data_request(req,ctx->get_vol_id(),
             ctx->get_j_counter(),sub_counter,
             entry_string.c_str(),cur_off,size,++package_id);
+
+        uint32_t crc = crc32c(entry_string.c_str(),size,0);
+        LOG_DEBUG << "transfer journal sub[" << sub_counter << "] from "<< cur_off 
+            << ",len [" << size << "],crc[" << crc << "].";
+
         cur_off += size;
     }
 

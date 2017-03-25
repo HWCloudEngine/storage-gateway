@@ -85,12 +85,14 @@ void MarkersMaintainer::work(){
         int up_ret = ctx->rep_ctx->update_consumer_marker(ctx->marker);
         if(up_ret){
             LOG_ERROR << "update [" << ctx->rep_ctx->get_vol_id()
-                << "] consumer marker failed:"
+                << "] replicator consumer marker failed:"
                 << ctx->marker.cur_journal();
         }
-        LOG_INFO << "update [" << ctx->rep_ctx->get_vol_id()
-                << "] consumer marker to:"
+        else{
+            LOG_INFO << "update [" << ctx->rep_ctx->get_vol_id()
+                << "] replicator consumer marker to:"
                 << ctx->marker.cur_journal() << ":" << ctx->marker.pos();
+        }
     }
 
     // recycle rpc resource

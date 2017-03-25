@@ -102,7 +102,10 @@ Status RepInnerCtrl::EnableReplication(ServerContext* context,
         return grpc::Status::OK;
     }
     // update replication meta
-    meta.mutable_info()->set_rep_status(REP_ENABLING);
+    if(role == REP_PRIMARY)
+        meta.mutable_info()->set_rep_status(REP_ENABLING);
+    else// TODO: remote rep status not sync with primary
+        meta.mutable_info()->set_rep_status(REP_ENABLED);
     huawei::proto::OperationRecord* op = meta.add_records();
     op->set_operate_id(op_id);
     op->set_type(REPLICATION_ENABLE);
@@ -112,7 +115,8 @@ Status RepInnerCtrl::EnableReplication(ServerContext* context,
     op->set_is_synced(false);
     res = meta_->update_volume_meta(meta);
     SG_ASSERT(DRS_OK == res);
-    notify_rep_state_changed(local_vol);
+    if(role == REP_PRIMARY)
+        notify_rep_state_changed(local_vol);
     response->set_status(sOk);
     return Status::OK;
 }
@@ -151,7 +155,8 @@ Status RepInnerCtrl::DisableReplication(ServerContext* context,
     op->mutable_marker()->CopyFrom(marker);
     res = meta_->update_volume_meta(meta);
     SG_ASSERT(DRS_OK == res);
-    notify_rep_state_changed(local_vol);
+    if(role == REP_PRIMARY)
+        notify_rep_state_changed(local_vol);
     response->set_status(sOk);
     return Status::OK;
 }
@@ -190,7 +195,8 @@ Status RepInnerCtrl::FailoverReplication(ServerContext* context,
     op->mutable_marker()->CopyFrom(marker);
     res = meta_->update_volume_meta(meta);
     SG_ASSERT(DRS_OK == res);
-    notify_rep_state_changed(local_vol);
+    if(role == REP_PRIMARY)
+        notify_rep_state_changed(local_vol);
     response->set_status(sOk);
     return Status::OK;
 }
@@ -234,7 +240,8 @@ Status RepInnerCtrl::DeleteReplication(ServerContext* context,
     meta.mutable_info()->set_rep_status(REP_DELETING);
     res = meta_->update_volume_meta(meta);
     SG_ASSERT(DRS_OK == res);
-    notify_rep_state_changed(local_vol);
+    if(role == REP_PRIMARY)
+        notify_rep_state_changed(local_vol);
     response->set_status(sOk);
     return Status::OK;
 }
@@ -250,14 +257,16 @@ Status RepInnerCtrl::ReportCheckpoint(ServerContext* context,
         << "operation uuid:" << op_id << "\n"
         << "role:" << role;
 
-    // TODO: use checkpoint machanism as remote snapshot to sync destination replication status
+    // TODO: use checkpoint machanism  to sync destination replication status
     VolumeMeta meta;
     RESULT res = meta_->read_volume_meta(local_vol,meta);
     SG_ASSERT(DRS_OK == res);
+
     bool found = false;
     RepStatus status = meta.info().rep_status();
     auto records = meta.records();
     for(auto it=records.rbegin(); it!=records.rend();it++){
+        LOG_DEBUG << "operate id:" << it->operate_id() << ",type:" << it->type();
         if(it->operate_id().compare(op_id) == 0){
             found = true;
             LOG_INFO << "matched operation[" << op_id <<"] type:" << it->type()
@@ -282,6 +291,7 @@ Status RepInnerCtrl::ReportCheckpoint(ServerContext* context,
                 << status;
             res = meta_->update_volume_meta(meta);
             SG_ASSERT(DRS_OK == res);
+            break;
         }
     }
     if(found && role == REP_PRIMARY){ // remote site drop snapshots?
@@ -291,6 +301,7 @@ Status RepInnerCtrl::ReportCheckpoint(ServerContext* context,
         LOG_INFO << "discard volume[" << local_vol << "'s snapshot:" << op_id;
         response->set_discard_snap(true);
     }
+
     response->set_status(sOk);
     return Status::OK;
 }

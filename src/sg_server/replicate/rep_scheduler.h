@@ -19,13 +19,13 @@
 #include "common/blocking_queue.h"
 #include "rep_volume.h"
 #include "common/thread_pool.h"
-
+#include "common/config.h"
 class RepScheduler{
 private:
     bool enable_;
     bool running_;
     std::mutex volume_mtx_;
-    std::string mount_path_;
+    Configure& conf_;
     std::shared_ptr<CephS3Meta> meta_;
     // output queue
     BlockingQueue<std::shared_ptr<RepVolume>>& vol_queue_;
@@ -37,7 +37,7 @@ private:
     std::unique_ptr<std::thread> work_thread_;
 public:
     RepScheduler(std::shared_ptr<CephS3Meta> meta,
-            const string& mount,
+            Configure& conf,
             BlockingQueue<std::shared_ptr<RepVolume>>& vol_queue);
     ~RepScheduler();
     int add_volume(const std::string& vol_id);

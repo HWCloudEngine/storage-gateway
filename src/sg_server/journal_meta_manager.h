@@ -33,7 +33,7 @@ public:
 
     virtual RESULT create_journals(const string& uuid,
             const string& vol_id,
-            const int& limit, std::list<string> &list) = 0;
+            const int& limit, std::list<JournalElement> &list) = 0;
 
     virtual RESULT create_journals_by_given_keys(const string& uuid,
             const string& vol_id,const std::list<string> &list) = 0;
@@ -62,6 +62,9 @@ public:
 
     virtual RESULT get_producer_marker(const string& vol_id,
             const CONSUMER_TYPE& type, JournalMarker& marker) = 0;
+
+    virtual int compare_journal_key(const string& key1,
+            const string& key2) = 0;
 
     virtual int compare_marker(const JournalMarker& m1,
             const JournalMarker& m2) = 0;

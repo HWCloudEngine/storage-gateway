@@ -14,7 +14,8 @@
 #include <memory>
 #include <atomic>
 #include <mutex>
-#include <boost/thread/shared_mutex.hpp>
+#include <condition_variable>
+#include "common/locks.h"
 #include "common/libs3.h" // require ceph-libs3
 #include "common/config.h"
 #include "journal_meta_manager.h"
@@ -57,7 +58,7 @@ private:
     Configure conf_;
     std::unique_ptr<CephS3Api> s3Api_ptr_;
     string mount_path_;
-    boost::shared_mutex counter_mtx;
+    SharedMutex counter_mtx;
     // volume journal_name counters
     std::map<string,std::shared_ptr<JournalCounter>> counter_map_;
     // journal meta cache
@@ -72,12 +73,15 @@ private:
     LruCache<string,VolumeMeta> vol_cache_;
     // max journal size
     int max_journal_size_;
+    // mutex for replicator producer marker condition variable
+    std::mutex p_mtx_;
+    // condition variable for replicator producer marker
+    std::condition_variable p_cv_;
+
     std::shared_ptr<JournalCounter> init_journal_key_counter(
                             const string& vol_id);
     std::shared_ptr<JournalCounter> get_journal_key_counter(
                             const string& vol_id);
-
-    int compare_journal_key(const string& key1,const string& key2);
 
     bool get_marker(const string& vol_id,
         const CONSUMER_TYPE& type, JournalMarker& marker,bool is_consumer);
@@ -98,15 +102,22 @@ public:
     CephS3Meta(const Configure& conf);
     ~CephS3Meta();
 
+    // wait for any volume's replicator producer marker changed, or timeout(milliseconds)
+    virtual bool wait_for_replicator_producer_maker_changed(int timeout);
+
+    // journal meta management
+    virtual int compare_journal_key(const string& key1,const string& key2);
     virtual int compare_marker(const JournalMarker& m1,
             const JournalMarker& m2);
 
     virtual RESULT get_journal_meta(const string& key, JournalMeta& meta);
     virtual RESULT get_producer_marker(const string& vol_id,
             const CONSUMER_TYPE& type, JournalMarker& marker);
-    // journal meta management
+    virtual RESULT set_producer_marker(const string& vol_id,
+            const JournalMarker& marker);
+
     virtual RESULT create_journals(const string& uuid,const string& vol_id,
-            const int& limit, std::list<string> &list);
+            const int& limit, std::list<JournalElement> &list);
     virtual RESULT create_journals_by_given_keys(const string& uuid,
             const string& vol_id,const std::list<string> &list);
     virtual RESULT seal_volume_journals(const string& uuid,
@@ -120,8 +131,7 @@ public:
             const JournalMarker& marker,const int& limit,
             std::list<JournalElement> &list,
             const CONSUMER_TYPE& type);
-    virtual RESULT set_producer_marker(const string& vol_id,
-            const JournalMarker& marker);
+
     // gc management
     virtual RESULT get_sealed_and_consumed_journals(
             const string& vol_id, const JournalMarker& marker,const int& limit,

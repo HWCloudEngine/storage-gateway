@@ -20,10 +20,10 @@
 using std::string;
 
 RepScheduler::RepScheduler(std::shared_ptr<CephS3Meta> meta,
-        const string& mount,
+        Configure& conf,
         BlockingQueue<std::shared_ptr<RepVolume>>& vol_queue):
         meta_(meta),
-        mount_path_(mount),
+        conf_(conf),
         running_(true),
         enable_(true),
         vol_queue_(vol_queue){
@@ -47,12 +47,13 @@ int RepScheduler::add_volume(const string& vol_id){
         return -1;
     }
     lck.unlock();
-    std::shared_ptr<RepVolume> vol(new RepVolume(vol_id,
+    std::shared_ptr<RepVolume> vol(new RepVolume(vol_id,conf_,
                 meta_/*VolumeMetaManager*/,meta_/*JournalMetaManager*/));
     LOG_INFO << "add volume " << vol_id;
     std::shared_ptr<ReplicatorContext> reptr(
-        new ReplicatorContext(vol_id,meta_,mount_path_));
+        new ReplicatorContext(vol_id,meta_,conf_));
     vol->register_replicator(reptr);
+    vol->recover_replication();
     lck.lock();
     volumes_.insert(std::pair<std::string,std::shared_ptr<RepVolume>>(vol_id,vol));
     return 0;
@@ -125,10 +126,15 @@ void RepScheduler::wait_for_client_ready(){
 void RepScheduler::work(){
     wait_for_client_ready();
     while(running_){
-        if(!enable_ || volumes_.empty()){
+        if(volumes_.empty()){
             std::this_thread::sleep_for(std::chrono::seconds(1));
             continue;
         }
+        // wait for any volume producer marker changed or timeout,
+        // for not all journals could be replicated at one loop time,
+        // RepScheduler will check the that when timeout
+        meta_->wait_for_replicator_producer_maker_changed(1000);
+
         // sort volume by priority, and dispatch tasks
         std::unique_lock<std::mutex> lck(volume_mtx_);
         for(auto it=volumes_.begin();it!=volumes_.end();++it){
