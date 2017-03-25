@@ -15,7 +15,8 @@
 #include "common/config.h"
 #include "rpc/clients/replicate_inner_ctrl_client.h"
 #include "rpc/replicate_control.grpc.pb.h"
-#include "../volume.h"
+#include "sg_client/volume.h"
+#include "rpc/clients/volume_inner_ctrl_client.h"
 
 using grpc::ServerContext;
 using grpc::Status;
@@ -28,6 +29,8 @@ using huawei::proto::control::ReverseReplicationReq;
 using huawei::proto::control::DeleteReplicationReq;
 using Journal::Volume;
 using Journal::JournalWriter;
+using huawei::proto::ReplicateOperation;
+
 class ReplicateCtrl:public huawei::proto::control::ReplicateControl::Service{
     Status CreateReplication(ServerContext* context,
                                     const CreateReplicationReq* request,
@@ -51,12 +54,18 @@ class ReplicateCtrl:public huawei::proto::control::ReplicateControl::Service{
                 const string& vol_name);
     std::shared_ptr<JournalWriter> get_journal_writer(
         const string& vol_name);
+    void update_volume_attr(const string& volume);
+
+    StatusCode do_replicate_operation(const string& vol,
+        const string& op_id, const RepRole& role,const ReplicateOperation& op);
+
 public:
     ReplicateCtrl(const Configure& conf, std::map<string, std::shared_ptr<Volume>>& volumes);
     ~ReplicateCtrl();
 private:
     Configure conf_;
     std::unique_ptr<RepInnerCtrlClient> rep_ctrl_client_;
+    std::unique_ptr<VolInnerCtrlClient> vol_ctrl_client_;
     std::map<string, std::shared_ptr<Volume>>& volumes_;
     boost::uuids::random_generator uuid_generator_;
 };

@@ -11,7 +11,7 @@
 #include "markers_maintainer.h"
 #include "sg_server/sg_util.h"
 #include "sg_server/transfer/net_sender.h"
-#define MARKER_MAINTAINER_THREAD_COUNT (2)
+#define MARKER_MAINTAINER_THREAD_COUNT (1) // should always be 1, to keep marker updating in order
 using huawei::proto::transfer::ReplicateMarkerReq;
 using huawei::proto::transfer::MessageType;
 using huawei::proto::transfer::EncodeType;
@@ -85,12 +85,14 @@ void MarkersMaintainer::work(){
         int up_ret = ctx->rep_ctx->update_consumer_marker(ctx->marker);
         if(up_ret){
             LOG_ERROR << "update [" << ctx->rep_ctx->get_vol_id()
-                << "] consumer marker failed:"
+                << "] replicator consumer marker failed:"
                 << ctx->marker.cur_journal();
         }
-        LOG_INFO << "update [" << ctx->rep_ctx->get_vol_id()
-                << "] consumer marker to:"
+        else{
+            LOG_INFO << "update [" << ctx->rep_ctx->get_vol_id()
+                << "] replicator consumer marker to:"
                 << ctx->marker.cur_journal() << ":" << ctx->marker.pos();
+        }
     }
 
     // recycle rpc resource
