@@ -29,4 +29,6 @@ message JournalElement {
     uint64 start_offset = 2;
     // end offset of valid data
     uint64 end_offset = 3;
+    string path = 4;
+    JOURNAL_STATUS status = 5;
 }

@@ -26,7 +26,7 @@ RESULT ConsumerServiceImpl::get_journal_marker(const std::string& vol,
 RESULT ConsumerServiceImpl::get_journal_list(const std::string& vol,
         const JournalMarker& marker,
         const int& limit,
-        std::list<JournalElement> list,
+        std::list<JournalElement>& list,
         const CONSUMER_TYPE& type){
     return _meta->get_consumable_journals(vol,marker,limit,list,type);
 }

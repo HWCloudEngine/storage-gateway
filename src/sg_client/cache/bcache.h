@@ -105,7 +105,7 @@ private:
 private:
     string              m_blkdev;
     nedalloc::nedpool*  m_buffer_pool; 
-    Mutex         m_mutex;
+    SharedMutex         m_mutex;
     bcache_map_t  m_bcache;
 }; 
 

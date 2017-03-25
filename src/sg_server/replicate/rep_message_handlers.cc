@@ -120,10 +120,11 @@ bool RepMsgHandlers::hanlde_replicate_data_req(const TransferRequest& req){
 
     // get journal file fd && write data
     std::shared_ptr<std::ofstream> of = get_fstream(data_msg.vol_id(),
-        data_msg.journal_counter());
+        data_msg.journal_counter(),data_msg.sub_counter());
     if(of == nullptr){
         LOG_INFO << "journal file not found, create it:"
-            << data_msg.vol_id() << ":" << data_msg.journal_counter();
+            << data_msg.vol_id() << std::hex << ":" << data_msg.journal_counter()
+            << ":" << data_msg.sub_counter() << std::dec;
         of = create_journal(data_msg.vol_id(),data_msg.journal_counter(),
             data_msg.sub_counter());
         if(of == nullptr){
@@ -132,7 +133,8 @@ bool RepMsgHandlers::hanlde_replicate_data_req(const TransferRequest& req){
             return ret;
         }
         // inset journal file to map
-        const Jkey jkey(data_msg.vol_id(), data_msg.journal_counter());
+        const Jkey jkey(data_msg.vol_id(), data_msg.journal_counter(),
+            data_msg.sub_counter());
         std::unique_lock<std::mutex> lock(mutex_);
         js_map_.insert(std::pair<const Jkey,std::shared_ptr<std::ofstream>>(jkey,of));
         lock.unlock();
@@ -141,7 +143,8 @@ bool RepMsgHandlers::hanlde_replicate_data_req(const TransferRequest& req){
     if(data_msg.data().length() > 0){
 
         uint32_t crc = crc32c(data_msg.data().c_str(),data_msg.data().length(),0);
-        LOG_DEBUG << "j_counter[" << std::hex << data_msg.journal_counter() << std::dec
+        LOG_DEBUG << "j_counter[" << std::hex << data_msg.journal_counter()
+            << ":" << data_msg.sub_counter() << std::dec
             << "] receive data, len:" << data_msg.data().length()
             << ",offset:" << data_msg.offset() << ",crc:"
             << crc;
@@ -168,11 +171,12 @@ bool RepMsgHandlers::handle_replicate_start_req(const TransferRequest& req){
             create_journal(msg.vol_id(),msg.journal_counter(),msg.sub_counter());
     if(of_p == nullptr){
         LOG_ERROR << "create journal " << msg.vol_id() << ":"
-            << std::hex << msg.journal_counter() << std::dec << " failed!";
+            << std::hex << msg.journal_counter()
+            << ",sub_counter:" << msg.sub_counter() << std::dec << " failed!";
         return false;
     }
     // inset journal file to map
-    const Jkey jkey(msg.vol_id(),msg.journal_counter());
+    const Jkey jkey(msg.vol_id(),msg.journal_counter(),msg.sub_counter());
     std::lock_guard<std::mutex> lock(mutex_);
     js_map_.insert(std::pair<const Jkey,std::shared_ptr<std::ofstream>>(jkey,of_p));
 
@@ -220,10 +224,11 @@ bool RepMsgHandlers::handle_replicate_end_req(const TransferRequest& req){
 
     // close & fflush journal files and seal the journal
     std::shared_ptr<std::ofstream> of = get_fstream(msg.vol_id(),
-        msg.journal_counter());
+        msg.journal_counter(),msg.sub_counter());
     if(of == nullptr){
         LOG_ERROR << "file[" << msg.vol_id() << ":"
-            << std::hex << msg.journal_counter() << std::dec
+            << std::hex << msg.journal_counter()
+            << ":" << msg.sub_counter() << std::dec
             <<" not found!";
         return false;
     }
@@ -232,7 +237,7 @@ bool RepMsgHandlers::handle_replicate_end_req(const TransferRequest& req){
         of->close();
     }
     // remove journal ofstream
-    const Jkey jkey(msg.vol_id(),msg.journal_counter());
+    const Jkey jkey(msg.vol_id(),msg.journal_counter(),msg.sub_counter());
     std::unique_lock<std::mutex> lock(mutex_);
     js_map_.erase(jkey);
     lock.unlock();
@@ -254,8 +259,8 @@ bool RepMsgHandlers::handle_replicate_end_req(const TransferRequest& req){
 }
 
 std::shared_ptr<std::ofstream> RepMsgHandlers::get_fstream(const string& vol,
-        const uint64_t& counter){
-    const Jkey key(vol,counter);
+        const uint64_t& counter,const uint64_t& sub){
+    const Jkey key(vol,counter,sub);
     std::lock_guard<std::mutex> lock(mutex_);
     auto it = js_map_.find(key);
     if(it == js_map_.end()){

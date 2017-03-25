@@ -26,10 +26,13 @@ typedef enum SyncStatus{
 class RepVolume{
     std::string vol_id_;
     int priority_;
+    Configure& conf_;
     // last served time
     uint64_t last_served_time_;
     std::shared_ptr<ReplicatorContext> replicator_;
     SyncStatus base_sync_state_;
+    // sync task
+    std::shared_ptr<TransferTask> sync_task_;
     std::mutex vol_meta_mtx;
     VolumeMeta vol_meta_;
     RepStatus last_rep_status_;
@@ -38,7 +41,7 @@ class RepVolume{
     std::shared_ptr<VolumeMetaManager> vol_mgr_;
     std::shared_ptr<JournalMetaManager> journal_mgr_;
 public:
-    RepVolume(const string& vol_id,
+    RepVolume(const string& vol_id,Configure& conf,
             std::shared_ptr<VolumeMetaManager> vol_mgr,
             std::shared_ptr<JournalMetaManager> j_mgr);
     ~RepVolume();
@@ -54,14 +57,16 @@ public:
     bool operator <(const RepVolume& other);
     bool get_task_generating_flag()const;
     void set_task_generating_flag(bool flag);
+    // check transient replication state, and try recover
+    void recover_replication();
 private:
-    void init();
     int load_volume_meta();
     int persist_replication_status();
     // generate a task to sync base snapshot
     std::shared_ptr<TransferTask> generate_base_sync_task(
                 const string& pre_snap,const string& cur_snap);
     void recycle_base_sync_task(std::shared_ptr<TransferTask> t);
+    void resume_replicate();
     // recycle resources
     void clean_up();
     int get_last_shared_snap(string& snap_id);

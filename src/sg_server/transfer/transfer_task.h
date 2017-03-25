@@ -21,6 +21,7 @@ typedef enum TaskStatus{
     T_WAITING,
     T_RUNNING,
     T_DONE,
+    T_CANCELED,
     T_ERROR
 }TaskStatus;
 
@@ -53,6 +54,12 @@ public:
 
     // if failed & can not resume from breakpoint, reset the task and redo it
     virtual int reset() = 0;
+
+    // cancle task
+    virtual int cancel(){
+        set_status(T_CANCELED);
+        return 0;
+    }
 
     virtual void set_context(std::shared_ptr<TaskContext> _ctx){
         context = _ctx;

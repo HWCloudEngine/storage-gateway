@@ -26,12 +26,12 @@
 #include "common/config.h"
 #include "common/journal_entry.h"
 #include "common/ceph_s3_lease.h"
+#include "common/volume_attr.h"
 #include "seq_generator.h"
 #include "cache/cache_proxy.h"
 #include "snapshot/snapshot_proxy.h"
 #include "rpc/clients/writer_client.h"
 #include "message.h"
-#include "rpc/clients/writer_client.h"
 #include "epoll_event.h"
 
 using namespace std;
@@ -42,11 +42,11 @@ class JournalWriter :private boost::noncopyable
 {
 public:
     explicit JournalWriter(BlockingQueue<shared_ptr<JournalEntry>>& write_queue,
-                           BlockingQueue<struct IOHookReply*>& reply_queue);
+                           BlockingQueue<struct IOHookReply*>& reply_queue,
+                           VolumeAttr& vol_attr);
     virtual ~JournalWriter();
     void work();
     bool init(const Configure& conf,
-              string vol, 
               shared_ptr<IDGenerator> id_proxy, 
               shared_ptr<CacheProxy> cacheproxy,
               shared_ptr<SnapshotProxy> snapshotproxy,
@@ -59,13 +59,15 @@ public:
     bool get_writeable_journals(const std::string& uuid,const int limit);
     bool seal_journals(const std::string& uuid);
 
-    const string get_vol_id() const;
+    VolumeAttr& get_vol_attr();
     // producer marker related methods
     void clear_producer_event();
     void hold_producer_marker();
     void unhold_producer_marker();
     bool is_producer_marker_holding();
     JournalMarker get_cur_producer_marker();
+    // called by replicate control
+    int update_producer_marker(const JournalMarker& marker);
 private:
     int get_next_journal();
     int open_current_journal();
@@ -99,17 +101,17 @@ private:
     std::mutex rpc_mtx_;
     shared_ptr<WriterClient> rpc_client;
     boost::shared_ptr<boost::thread> thread_ptr;
-    std::queue<std::pair<std::string, std::string>> journal_queue;
-    std::queue<std::pair<std::string, std::string>> seal_queue;
+    std::queue<std::pair<std::string, JournalElement>> journal_queue;
+    std::queue<std::pair<std::string,JournalElement>> seal_queue;
     std::recursive_mutex journal_mtx_;
     std::mutex seal_mtx_;
     
     /*current operation journal file info*/
     FILE* cur_file_ptr;
-    std::pair<std::string, std::string> cur_lease_journal;
+    std::pair<std::string, JournalElement> cur_lease_journal;
     uint64_t cur_journal_size;
     
-    std::string vol_id;
+    VolumeAttr& vol_attr_;
     
     bool running_flag;
 

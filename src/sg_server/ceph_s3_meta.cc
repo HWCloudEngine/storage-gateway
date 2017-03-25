@@ -15,6 +15,7 @@
 #include <cerrno>
 #include <cstring>
 #include <sys/stat.h>
+#include <chrono>
 #include "ceph_s3_meta.h"
 #include "log/log.h"
 #include "common/config_parser.h"
@@ -173,7 +174,13 @@ bool CephS3Meta::_get_volume_meta(const string& id,VolumeMeta& meta){
         LOG_ERROR << "get volume meta failed:" << key;
         return false;
     }
-    return meta.ParseFromString(value);
+    if(meta.ParseFromString(value)){
+        return true;
+    }
+    else {
+        LOG_ERROR << "deserialize volume meta failed:" << id;
+        return false;
+    }
 }
 
 bool CephS3Meta::get_marker(const string& vol_id,
@@ -198,6 +205,7 @@ bool CephS3Meta::get_marker(const string& vol_id,
             return false;
         }
         else{
+            // TODO: how to init for secondary site
             marker.set_cur_journal(list.front());
             marker.set_pos(0L);
             return true;
@@ -245,18 +253,18 @@ std::shared_ptr<JournalCounter> CephS3Meta::init_journal_key_counter(
     if(!list.empty()){
         SG_ASSERT(true == sg_util::extract_major_counter_from_journal_key(
                 list.back(),journal_counter->next));
-        boost::unique_lock<boost::shared_mutex> lck(counter_mtx);
+        WriteLock lck(counter_mtx);
         counter_map_.insert(std::pair<string,std::shared_ptr<JournalCounter>>(vol_id,journal_counter));
 
-        LOG_INFO << "init volume [" << vol_id << "] journal counter :"
-            << journal_counter->next;
+        LOG_INFO << "init volume [" << vol_id << "] journal counter :" << std::hex
+            << journal_counter->next << std::dec;
         return journal_counter;
     }
     else{
         LOG_INFO << "init volume " << vol_id << " journal name counter:"
             << MIN_JOURNAL_COUNTER;
         journal_counter->next = MIN_JOURNAL_COUNTER;
-        boost::unique_lock<boost::shared_mutex> lck(counter_mtx);
+        WriteLock lck(counter_mtx);
         counter_map_.insert(std::pair<string,std::shared_ptr<JournalCounter>>(vol_id,journal_counter));
         return journal_counter;
     }    
@@ -264,7 +272,7 @@ std::shared_ptr<JournalCounter> CephS3Meta::init_journal_key_counter(
 
 std::shared_ptr<JournalCounter> CephS3Meta::get_journal_key_counter(
                             const string& vol_id){
-    boost::shared_lock<boost::shared_mutex> read_lck(counter_mtx);
+    ReadLock read_lck(counter_mtx);
     auto it = counter_map_.find(vol_id);
     if(counter_map_.end() == it) { // volume not found
         read_lck.unlock();
@@ -305,50 +313,20 @@ CephS3Meta::~CephS3Meta() {
 }
 
 RESULT CephS3Meta::init() {
-    string access_key;
-    string secret_key;
-    string host;
-    string bucket_name;
-    std::unique_ptr<ConfigParser> parser(new ConfigParser(DEFAULT_CONFIG_FILE));
-    if(false == parser->get<string>("ceph_s3.access_key",access_key)){
-        LOG_FATAL << "config parse ceph_s3.access_key error!";
-        return INTERNAL_ERROR;
-    }
-    if(false == parser->get<string>("ceph_s3.secret_key",secret_key)){
-        LOG_FATAL << "config parse ceph_s3.secret_key error!";
-        return INTERNAL_ERROR;
-    }
-    // port number is necessary if not using default 80/443
-    if(false == parser->get<string>("ceph_s3.host",host)){
-        LOG_FATAL << "config parse ceph_s3.host error!";
-        return INTERNAL_ERROR;
-    }
-    if(false == parser->get<string>("ceph_s3.bucket",bucket_name)){
-        LOG_FATAL << "config parse ceph_s3.bucket error!";
-        return INTERNAL_ERROR;
-    }
+    string access_key = conf_.ceph_s3_access_key;
+    string secret_key = conf_.ceph_s3_secret_key;
+    string host = conf_.ceph_s3_host;
+    string bucket_name = conf_.ceph_s3_bucket;
     s3Api_ptr_.reset(new CephS3Api(access_key.c_str(),
             secret_key.c_str(),host.c_str(),bucket_name.c_str()));
-    string type;
-    if(false == parser->get<string>("global.journal_storage",type)){
-        LOG_FATAL << "config parse global.journal_storage error!";
-        return INTERNAL_ERROR;
-    }
-    if(type.compare("ceph_fs") == 0){
-        if(false == parser->get<string>("ceph_fs.mount_point",mount_path_)){
-            LOG_FATAL << "config parse ceph_fs.mount_point error!";
-            return INTERNAL_ERROR;
-        }
-    }
-    else
-        DR_ERROR_OCCURED();
+    mount_path_ = conf_.journal_mount_point;
     max_journal_size_ = conf_.journal_max_size;
     
     return mkdir_if_not_exist((mount_path_+g_key_prefix).c_str(),S_IRWXG|S_IRWXU|S_IRWXO);
 }
 
 RESULT CephS3Meta::create_journals(const string& uuid,const string& vol_id,
-        const int& limit, std::list<string>& list){
+        const int& limit, std::list<JournalElement>& list){
 
     // get last journal counter
     std::shared_ptr<JournalCounter> journal_counter = get_journal_key_counter(vol_id);
@@ -400,7 +378,13 @@ RESULT CephS3Meta::create_journals(const string& uuid,const string& vol_id,
             LOG_ERROR << "creat file " << mount_path_+filename << " failed!" ;
             break;
         }
-        list.push_back(journals[i]);
+        JournalElement e;
+        e.set_journal(journals[i]);
+        e.set_path(meta.path());
+        e.set_status(meta.status());
+        e.set_start_offset(0);
+        e.set_end_offset(max_journal_size_);
+        list.push_back(e);
         journal_counter->next ++;
         // update cache
         journal_meta_cache_.put(journals[i],meta);
@@ -421,6 +405,12 @@ RESULT CephS3Meta::create_journals(const string& uuid,const string& vol_id,
 
 RESULT CephS3Meta::create_journals_by_given_keys(const string& uuid,
             const string& vol_id,const std::list<string> &list){
+    // get counter mutex, since that there may be 2 or more thread create journals concurrently
+    std::shared_ptr<JournalCounter> journal_counter = get_journal_key_counter(vol_id);
+    if(journal_counter == nullptr)
+        return INTERNAL_ERROR;    
+    std::lock_guard<std::mutex> lck(journal_counter->mtx);
+
     RESULT res = DRS_OK;
     int count = 0;
     for(auto it=list.begin();it!=list.end();++it) {
@@ -561,9 +551,21 @@ RESULT CephS3Meta::update_consumer_marker(const string& vol_id,
     return DRS_OK;
 }
 
+bool CephS3Meta::wait_for_replicator_producer_maker_changed(
+        int timeout){
+    std::unique_lock<std::mutex> lck(p_mtx_);
+    if(p_cv_.wait_for(lck,std::chrono::milliseconds(timeout)) == 
+        std::cv_status::timeout) {
+        return false;
+    }
+    else {
+        return true;
+    }
+}
+
 RESULT CephS3Meta::set_producer_marker(const string& vol_id,
         const JournalMarker& marker){
-    LOG_DEBUG << "set producer marker" << marker.cur_journal()
+    LOG_DEBUG << "try set producer marker " << marker.cur_journal()
         << ":" << marker.pos();
     // if new marker is ahead of the old marker, drop it
     JournalMarker old_marker;
@@ -571,7 +573,7 @@ RESULT CephS3Meta::set_producer_marker(const string& vol_id,
         int c = old_marker.cur_journal().compare(marker.cur_journal());
         if(c > 0 || (c==0 && old_marker.pos() >= marker.pos())){
             LOG_WARN << "new producer marker is ahead of old marker:"
-                << old_marker.cur_journal();
+                << old_marker.cur_journal() << ":" << old_marker.pos();
             return DRS_OK;
         }
     }
@@ -581,7 +583,7 @@ RESULT CephS3Meta::set_producer_marker(const string& vol_id,
         LOG_ERROR << vol_id << " serialize marker failed!";
         return INTERNAL_ERROR;
     }
-    // update replayer producer marker
+    // update replayer producer marker, secondary site use
     string key = assemble_journal_marker_key(vol_id,REPLAYER,false);
     RESULT res = s3Api_ptr_->put_object(key.c_str(),&marker_s,nullptr);
     if(DRS_OK != res){
@@ -595,8 +597,8 @@ RESULT CephS3Meta::set_producer_marker(const string& vol_id,
     VolumeMeta meta;
     res = read_volume_meta(vol_id,meta);
     SG_ASSERT(DRS_OK == res);
-    if(REP_ENABLED == meta.info().rep_status()
-        && REP_PRIMARY == meta.info().role()){
+    if(REP_PRIMARY == meta.info().role()
+        && REP_ENABLED == meta.info().rep_status()){
         key = assemble_journal_marker_key(vol_id,REPLICATOR,false);
         RESULT res = s3Api_ptr_->put_object(key.c_str(),&marker_s,nullptr);
         if(DRS_OK != res){
@@ -605,6 +607,11 @@ RESULT CephS3Meta::set_producer_marker(const string& vol_id,
             return res;
         }
         replicator_Pmarker_cache_.put(vol_id,marker);
+        LOG_INFO << "set replicator producer marker " << marker.cur_journal()
+            << ":" << marker.pos();
+        // trigger rep_scheduler start replicate
+        std::lock_guard<std::mutex> lck(p_mtx_);
+        p_cv_.notify_all();
     }
     return DRS_OK;
 }
@@ -635,19 +642,9 @@ RESULT CephS3Meta::get_consumable_journals(const string& vol_id,
         return INTERNAL_ERROR;
     }
 
-    const char* marker_key = marker.cur_journal().c_str();
-    string prefix = g_key_prefix+vol_id;
-    std::list<string> journal_list;
-    RESULT res = s3Api_ptr_->list_objects(prefix.c_str(),marker_key,
-            0,&journal_list);
-    if(DRS_OK != res){
-        LOG_ERROR << "list volume " << vol_id << " journals failed!";
-        return INTERNAL_ERROR;
-    }
-
     // for replayer at primary role, shoule return all journals, ignore the producer marker
     VolumeMeta meta;
-    res = read_volume_meta(vol_id,meta);
+    RESULT res = read_volume_meta(vol_id,meta);
     if(DRS_OK != res){
         LOG_ERROR << "get volume[" << vol_id << "] meta failed!";
         return INTERNAL_ERROR;
@@ -667,9 +664,16 @@ RESULT CephS3Meta::get_consumable_journals(const string& vol_id,
 
     // add consumer marker to consumable list
     if(marker.pos() < max_journal_size_){
-        JournalElement beg;
+        JournalElement beg;        
         beg.set_journal(marker.cur_journal());
         beg.set_start_offset(marker.pos());
+        JournalMeta m;
+        if(get_journal_meta(marker.cur_journal(),m) != DRS_OK){
+            LOG_ERROR << "get journal meta failed:" << marker.cur_journal();
+            return INTERNAL_ERROR;
+        }
+        beg.set_status(m.status());
+        beg.set_path(m.path());
         if(false == ignore_producer_marker 
             && compare_journal_key(marker.cur_journal(),producer_marker.cur_journal()) == 0){
             SG_ASSERT(marker.pos() <= producer_marker.pos());
@@ -691,8 +695,20 @@ RESULT CephS3Meta::get_consumable_journals(const string& vol_id,
     else{ // journal was consumed to end of file, ignore
         LOG_INFO << "journal consumed to EOF:" << marker.cur_journal();
     }
+
+    // get journal list, for replicator, if consumer marker and producmer marker
+    // in the same journal, not need to get this list
+    const char* marker_key = marker.cur_journal().c_str();
+    string prefix = g_key_prefix+vol_id;
+    std::list<string> journal_list;
+    res = s3Api_ptr_->list_objects(prefix.c_str(),marker_key,
+            0,&journal_list);
+    if(DRS_OK != res){
+        LOG_ERROR << "list volume " << vol_id << " journals failed!";
+        return INTERNAL_ERROR;
+    }
     // add journals
-    for(string key:journal_list){
+    for(string& key:journal_list){
         if(false == ignore_producer_marker
             && compare_journal_key(key,producer_marker.cur_journal()) >= 0)
             break;
@@ -700,6 +716,13 @@ RESULT CephS3Meta::get_consumable_journals(const string& vol_id,
         e.set_journal(key);
         e.set_start_offset(0);
         e.set_end_offset(max_journal_size_);
+        JournalMeta m;
+        if(get_journal_meta(key,m) != DRS_OK){
+            LOG_ERROR << "get journal meta failed:" << key;
+            return INTERNAL_ERROR;
+        }
+        e.set_status(m.status());
+        e.set_path(m.path());
         list.push_back(e);
         LOG_DEBUG << "get consumable journal @:" << key;
         // if have enough journals,return
@@ -712,6 +735,13 @@ RESULT CephS3Meta::get_consumable_journals(const string& vol_id,
         end.set_journal(producer_marker.cur_journal());
         end.set_start_offset(0);
         end.set_end_offset(producer_marker.pos());
+        JournalMeta m;
+        if(get_journal_meta(producer_marker.cur_journal(),m) != DRS_OK){
+            LOG_ERROR << "get journal meta failed:" << producer_marker.cur_journal();
+            return INTERNAL_ERROR;
+        }
+        end.set_status(m.status());
+        end.set_path(m.path());
         list.push_back(end);
         LOG_DEBUG << "get consumable journal last:"
             << producer_marker.cur_journal()

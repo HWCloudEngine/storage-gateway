@@ -136,7 +136,9 @@ void GCTask::lease_check_task(){
             if(false == lease_->check_lease_existance(*list_it)){
                 LOG_DEBUG << *list_it << " lease not existance";
                 res = gc_meta_ptr_->seal_opened_journals(it->first,*list_it);
-                SG_ASSERT(DRS_OK == res);
+                if(DRS_OK != res){
+                    LOG_ERROR << "seal opened journals failed!";
+                }
             }
         }
     }
