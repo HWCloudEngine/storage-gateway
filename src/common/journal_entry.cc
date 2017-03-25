@@ -193,7 +193,7 @@ size_t JournalEntry::copy_entry(string& buffer){
     return size;
 }
 
-size_t JournalEntry::parse(int fd, off_t off)
+ssize_t JournalEntry::parse(int fd, size_t fsize, off_t off)
 {
     off_t start = off;
     
@@ -204,7 +204,19 @@ size_t JournalEntry::parse(int fd, off_t off)
     iov[1].iov_base = &length;
     iov[1].iov_len  = sizeof(length);
     size_t read_ret = preadv(fd, iov, 2, start);
-    assert(read_ret == (sizeof(type) + sizeof(length)));
+    if(read_ret != (sizeof(type) + sizeof(length))){
+        LOG_ERROR << "parse type and length failed";
+        return -1;
+    }
+    if(type != IO_WRITE && type != SNAPSHOT_CREATE && type != SNAPSHOT_DELETE &&
+       type != SNAPSHOT_ROLLBACK){
+        LOG_ERROR << "parse type failed";
+        return -1; 
+    }
+    if((off + length) > fsize){
+        LOG_ERROR << "parse length over region failed";
+        return -1;
+    }
     start += read_ret;
 
     /*for store serialize data*/
@@ -218,7 +230,10 @@ size_t JournalEntry::parse(int fd, off_t off)
     iov1[1].iov_base = &crc;
     iov1[1].iov_len  = sizeof(crc);
     read_ret = preadv(fd, iov1, 2, start);
-    assert(read_ret == (length + sizeof(crc))) ;
+    if(read_ret != (length + sizeof(crc))){
+        LOG_ERROR << "parse data and crc failed";
+        return -1;
+    }
     start += read_ret;
 
     /*message parse*/
@@ -253,7 +268,7 @@ size_t JournalEntry::parse(int fd, off_t off)
 }
 
 /*todo: optimize*/
-size_t JournalEntry::parse(FILE* file, off_t off)
+ssize_t JournalEntry::parse(FILE* file, off_t off)
 {
     off_t start = off;
     /*read type*/

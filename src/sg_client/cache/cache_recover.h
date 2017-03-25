@@ -1,6 +1,5 @@
 #ifndef __CACHE_RECOVER_H
 #define __CACHE_RECOVER_H
-
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -15,15 +14,14 @@
 #include <map>
 #include <functional>
 
-#include "../../log/log.h"
-#include "../../common/blocking_queue.h"
-#include "../../rpc/consumer.pb.h"
-#include "../../rpc/clients/replayer_client.h"
-
+#include "log/log.h"
+#include "common/blocking_queue.h"
+#include "common/config.h"
+#include "rpc/consumer.pb.h"
+#include "rpc/clients/replayer_client.h"
 #include "../nedmalloc.h"
 #include "../seq_generator.h"
 #include "../message.h"
-
 #include "common.h"
 #include "cache_proxy.h"
 
@@ -35,15 +33,10 @@ class IWorker
 {
 public:
     IWorker(){}
-    virtual ~IWorker(){}
+    virtual ~IWorker() = default;
 
-    void register_consumer(IWorker* worker){
-        m_consumer.push_back(worker);
-    }
-    
-    void register_producer(IWorker* worker){
-        m_producer.push_back(worker);
-    }
+    void register_consumer(IWorker* worker);
+    void register_producer(IWorker* worker);
     
     /*start worker*/
     virtual void start() = 0;
@@ -66,15 +59,14 @@ protected:
     IRoute*               m_router{nullptr};
 };
 
-/*worker: read journal file and dispatch item to DestWorker*/
+/*worker: read journal file and add to cache*/
 class ProcessWorker: public IWorker
 {
 public:
     ProcessWorker() = default;
     ProcessWorker(shared_ptr<IDGenerator> id_maker, 
-                  shared_ptr<CacheProxy> cache_proxy)
-        :m_id_generator(id_maker), m_cache_proxy(cache_proxy){}
-    virtual ~ProcessWorker(){}
+                  shared_ptr<CacheProxy>  cache_proxy);
+    virtual ~ProcessWorker() = default;
 
     void start() override;
     void stop()  override;
@@ -96,12 +88,8 @@ class SrcWorker: public IWorker
 {
 public:
     SrcWorker() = default;
-    SrcWorker(string vol,shared_ptr<ReplayerClient> rpc_cli)
-            :m_volume(vol), m_grpc_client(rpc_cli){
-    }
-
-    virtual ~SrcWorker(){
-    }
+    SrcWorker(Configure& conf, string vol,shared_ptr<ReplayerClient> rpc_cli);
+    virtual ~SrcWorker() = default;
     
     void start() override;
     void stop() override;
@@ -113,28 +101,22 @@ private:
     void broadcast_consumer_exit();
 
 private:
-    string m_volume;
+    Configure& m_conf;
+    string     m_volume;
     shared_ptr<ReplayerClient> m_grpc_client;
     JournalMarker  m_latest_marker;
 };
-
 
 /*Cache Reovery entry*/
 class CacheRecovery
 {
 public:
     CacheRecovery() = default;
-    CacheRecovery(string volume, shared_ptr<ReplayerClient> rpc_cli, 
+    CacheRecovery(Configure& conf, string volume, 
+                  shared_ptr<ReplayerClient> rpc_cli, 
                   shared_ptr<IDGenerator> id_maker,
-                  shared_ptr<CacheProxy> cache_proxy){
-        m_volume       = volume;
-        m_grpc_client  = rpc_cli;
-        m_id_generator = id_maker;
-        m_cache_proxy  = cache_proxy;
-    }
-
-    ~CacheRecovery(){
-    }
+                  shared_ptr<CacheProxy> cache_proxy);
+    ~CacheRecovery() = default;
     
     /*start cache recover*/
     void start();
@@ -142,7 +124,8 @@ public:
     void stop();
 
 private:
-    string  m_volume; 
+    Configure& m_conf;
+    string     m_volume; 
     shared_ptr<ReplayerClient> m_grpc_client;
     shared_ptr<IDGenerator> m_id_generator;
     shared_ptr<CacheProxy>  m_cache_proxy;
