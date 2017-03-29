@@ -86,8 +86,11 @@ class Coordination():
 
     def watch_group(self, group_id):
         logging.debug('watch_group group_id=%s', group_id)
-        self._coordinator.watch_join_group(group_id, self._join_group_callback)
-        self._coordinator.watch_leave_group(group_id, self._leave_group_callback)
+        try:
+            self._coordinator.watch_join_group(group_id, self._join_group_callback)
+            self._coordinator.watch_leave_group(group_id, self._leave_group_callback)
+        except coordination.ToozError:
+            logging.exception("Error watch group: %s.", group_id)
 
     def stop(self):
         try:
@@ -102,9 +105,12 @@ class Coordination():
             logging.exception("Error closing socket.")
 
     def run_watchers(self):
-        if self._coordinator:
-            self._coordinator.run_watchers()
-            logging.debug('run_watcher')
+        try:
+            if self._coordinator:
+                self._coordinator.run_watchers()
+                logging.debug('run_watcher')
+        except coordination.ToozError:
+            logging.exception("Error run watchers.")
 
     def heartbeat(self):
         if self._coordinator:
@@ -119,15 +125,21 @@ class Coordination():
 
     #get nodes view remotely from tooz
     def refresh_nodes_view(self, group_id):
-        members = self.get_members(group_id)
-        self.hashring = hashring.HashRing(members)
+        try:
+            members = self.get_members(group_id)
+            self.hashring = hashring.HashRing(members)
+        except coordination.ToozError:
+                logging.exception('Error refresh nodes view.')
 
     #calculate node locally by hashring
     def get_nodes(self, data, ignore_nodes=None, replicas=1):
         if self.hashring is None:
             return []
-        node_set = self.hashring.get_nodes(self.encode(data), ignore_nodes, replicas)
-        return list(node_set)
+        try:
+            node_set = self.hashring.get_nodes(self.encode(data), ignore_nodes, replicas)
+            return list(node_set)
+        except coordination.ToozError:
+            logging.exception('Error getting nodes.')
 
     def rehash_buckets_to_node(self, group_id, bucket_num=DEFAULT_BUCKET_NUMBER):
         """

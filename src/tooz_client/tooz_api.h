@@ -1,3 +1,6 @@
+#ifndef _TOOZ_API_H
+#define _TOOZ_API_H
+
 #define TOOZ_API                        "tooz_api"
 #define TOOZ_COORDINATION               "Coordination"
 #define TOOZ_START                      "start"
@@ -14,3 +17,5 @@
 #define SOCKET_FILE                     "./sg_uds"
 #define HEARTBEAT_TIME                  5
 #define DEFAULT_BUCKET_NUM              1024
+
+#endif

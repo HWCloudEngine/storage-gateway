@@ -110,11 +110,13 @@ void ToozClient::watch_group(string group_id){
     start_run_watchers_thread();
 }
 
-//used by sgclient
-void ToozClient::refresh_nodes_view(list<string> &nodes, string group_id){
+//only used by sgclient, short connection
+void ToozClient::refresh_nodes_view(string backend_url, string group_id){
+    start_coordination(backend_url, "");
     py_instance_mutex.lock();
     PyObject_CallMethod(pInstance, TOOZ_REFRESH_NODES_VIEW, "(s)", group_id.c_str());
     py_instance_mutex.unlock();
+    stop_coordination();
 }
 
 void ToozClient::rehash_buckets_to_node(string group_id, int bucket_num=DEFAULT_BUCKET_NUM){
@@ -122,19 +124,21 @@ void ToozClient::rehash_buckets_to_node(string group_id, int bucket_num=DEFAULT_
     PyObject *p_bucket_list = PyObject_CallMethod(pInstance, TOOZ_REHASH_BUCKETS_TO_NODES,
                                                 "(s,i)", group_id.c_str(), bucket_num);
     py_instance_mutex.unlock();
+    old_buckets = new_buckets;
+    new_buckets.clear();
     if(p_bucket_list){
         int size = PyList_GET_SIZE(p_bucket_list);
         int i;
         for(i=0; i<size; i++){
             PyObject *p_bucket = PyList_GetItem(p_bucket_list, i);
             string bucket = PyString_AsString(p_bucket);
-            buckets.push_back(bucket);
+            new_buckets.push_back(bucket);
         }
     }
 }
 
 list<string> ToozClient::get_buckets(){
-    return buckets;
+    return new_buckets;
 }
 
 string ToozClient::get_node_id(){
@@ -198,17 +202,28 @@ void ToozClient::stop_callback_thread(){
     }
 }
 
-int ToozClient::callback(int connection_fd, string group_id)
+int ToozClient::callback(char *event_type)
 {
 //TODO: use message queue
-    int nbytes;
-    char buffer[BUF_MAX_LEN];
-    nbytes = read(connection_fd, buffer, BUF_MAX_LEN);
-    buffer[nbytes] = 0;
-    printf("get one message from tooz callback\n");
-    printf("message: %s\n", buffer);
-    rehash_buckets_to_node(group_id);
-    return 0;
+    if(0 == strncmp(event_type, TOOZ_JOIN_GROUP, sizeof(TOOZ_JOIN_GROUP))){
+        for(auto & cb : callback_list){
+            printf("join group callback\n");
+            cb->join_group_callback(old_buckets, new_buckets);
+        }
+    }else{
+        for(auto & cb : callback_list){
+            printf("leave group callback\n");
+            cb->leave_group_callback(old_buckets, new_buckets);
+        }
+    }
+}
+
+void ToozClient::register_callback(ICallback *callback){
+    callback_list.push_back(callback);
+}
+
+void ToozClient::unregister_callback(ICallback *callback){
+    callback_list.remove(callback);
 }
 
 void ToozClient::callback_server(string group_id){
@@ -218,8 +233,7 @@ void ToozClient::callback_server(string group_id){
     pid_t child;
     printf("start callback server\n");
     socket_fd = socket(PF_UNIX, SOCK_STREAM, 0);
-    if(socket_fd < 0)
-    {
+    if(socket_fd < 0){
         printf("socket() failed\n");
         return ;
     }
@@ -229,22 +243,26 @@ void ToozClient::callback_server(string group_id){
     snprintf(address.sun_path, PATH_MAX, "%s",SOCKET_FILE);
     if(bind(socket_fd,
          (struct sockaddr *) &address,
-         sizeof(struct sockaddr_un)) != 0)
-    {
+         sizeof(struct sockaddr_un)) != 0){
         printf("bind() failed\n");
         return ;
     }
-    if(listen(socket_fd, 5) != 0)
-    {
+    if(listen(socket_fd, 5) != 0){
         printf("listen() failed\n");
         return ;
     }
     if((connection_fd = accept(socket_fd,
                                (struct sockaddr *) &address,
-                               &address_length)) > -1)
-    {
+                               &address_length)) > -1){
         while(terminate_callback){
-            callback(connection_fd, group_id);
+            int nbytes;
+            char event_type[BUF_MAX_LEN];
+            nbytes = read(connection_fd, event_type, BUF_MAX_LEN);
+            event_type[nbytes] = 0;
+            printf("get one message from tooz callback\n");
+            printf("event_type: %s\n", event_type);
+            rehash_buckets_to_node(group_id);
+            callback(event_type);
         }
     }
     close(connection_fd);
