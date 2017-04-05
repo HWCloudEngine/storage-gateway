@@ -19,7 +19,7 @@ using huawei::proto::RESULT;
 using huawei::proto::DRS_OK;
 using huawei::proto::VolumeMeta;
 using huawei::proto::VolumeInfo;
-using huawei::proto::VOLUME_STATUS;
+using huawei::proto::VolumeStatus;
 using huawei::proto::REPLAYER;
 using huawei::proto::REPLICATOR;
 using huawei::proto::sOk;
@@ -35,15 +35,24 @@ Status VolInnerCtrl::CreateVolume(ServerContext* context,
     const string& vol = request->vol_id();
     const string& path = request->path();
     const uint64_t size = request->size();
-    const VOLUME_STATUS& status = request->status();
+    const VolumeStatus& status = request->status();
     VolumeMeta meta;
+    // TODO: to delete if sg_client can confirm whether exist before create volume
+    RESULT res = vmeta_->read_volume_meta(vol,meta);
+    if(DRS_OK == res){
+ //       response->set_status(sVolumeAlreadyExist);
+        LOG_WARN << "create volume[" << vol << "] failed, already exist!";
+    }
+    else{
+        meta.Clear();
+    }
     VolumeInfo* info = meta.mutable_info();
     info->set_vol_id(vol);
     info->set_path(path);
     info->set_size(size);
     info->set_vol_status(status);
-    info->set_rep_enable(false);
-    RESULT res = vmeta_->create_volume(meta);
+//    info->set_rep_enable(false);
+    res = vmeta_->create_volume(meta);
     if(DRS_OK == res){
         LOG_INFO << "create volume[" << vol << "] meta:\n"
             << "path=" << path << "\n"
@@ -61,6 +70,7 @@ Status VolInnerCtrl::CreateVolume(ServerContext* context,
     }
     return Status::OK;
 }
+
 Status VolInnerCtrl::UpdateVolumeStatus(ServerContext* context,
         const UpdateVolumeStatusReq* request, UpdateVolumeStatusRes* response){
     const string& vol = request->vol_id();
@@ -86,12 +96,12 @@ Status VolInnerCtrl::UpdateVolumeStatus(ServerContext* context,
     }
     return Status::OK;
 }
+
 Status VolInnerCtrl::GetVolume(ServerContext* context,
         const GetVolumeReq* request, GetVolumeRes* response){
     const string& vol = request->vol_id();
     VolumeMeta meta;
     RESULT res = vmeta_->read_volume_meta(vol,meta);
-
     if(DRS_OK == res){
         response->mutable_info()->CopyFrom(meta.info());
         response->set_status(sOk);
@@ -100,32 +110,52 @@ Status VolInnerCtrl::GetVolume(ServerContext* context,
         response->set_status(sVolumeNotExist);
     }
     else{
+        LOG_ERROR << "get volume[" << vol << "] failed!";
         response->set_status(sInternalError);
     }
     return Status::OK;
 }
+
 Status VolInnerCtrl::ListVolume(ServerContext* context,
         const ListVolumeRes* request, ListVolumeRes* response){
-    // TODO: implement
-    response->set_status(sInternalError);
+    std::list<VolumeMeta> list;
+    RESULT res = vmeta_->list_volume_meta(list);
+    if(DRS_OK == res){
+        response->set_status(sOk);
+        LOG_DEBUG << "list volume, volume count:" << list.size();
+        for(auto meta:list){
+            LOG_DEBUG << " volume:" << meta.info().vol_id();
+            LOG_DEBUG << "  vol status:" << meta.info().vol_status();
+            LOG_DEBUG << "  replicate status:" << meta.info().rep_status();
+            response->add_volumes()->CopyFrom(meta.info());
+        }
+    }
+    else{
+        response->set_status(sInternalError);
+    }
     return Status::OK;
 }
 Status VolInnerCtrl::DeleteVolume(ServerContext* context,
         const GetVolumeReq* request, GetVolumeRes* response){
     const string& vol = request->vol_id();
+
+    // TODO: confirm that replication is deleted
     RESULT res = vmeta_->delete_volume(vol);
     if(DRS_OK == res){
+        LOG_INFO << "delete volume[" << vol << "], done!";
+        GCTask::instance().unregister_consumer(vol,REPLAYER);
+        GCTask::instance().unregister_consumer(vol,REPLICATOR);
+        GCTask::instance().remove_volume(vol);
         response->set_status(sOk);
     }
     else if(NO_SUCH_KEY == res){
+        LOG_WARN << "delete volume[" << vol << "], not found!";
         response->set_status(sVolumeNotExist);
     }
     else{
+        LOG_ERROR << "delete volume[" << vol << "] failed!";
         response->set_status(sInternalError);
     }
-    GCTask::instance().unregister_consumer(vol,REPLAYER);
-    GCTask::instance().unregister_consumer(vol,REPLICATOR);
-    GCTask::instance().remove_volume(vol);
     return Status::OK;
 }
 

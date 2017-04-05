@@ -2,28 +2,39 @@ noinst_PROGRAMS=sg_server
 AM_CPPFLAGS=-I$(top_srcdir)/src -I$(top_srcdir)/src/include \
             -I$(top_srcdir)/src/rpc -std=c++11
 ACLOCAL_AMFLAGS=-I m4
+AM_LDFLAGS = -rdynamic
 sg_server_SOURCES=dr_server.cc \
                   consumer_service.cc \
                   writer_service.cc \
-                  ceph_s3_meta.cc \
-                  ceph_s3_api.cc \
                   gc_task.cc \
-                  ceph_s3_lease.cc \
+                  ceph_s3_meta.cc \
                   volume_inner_control.cc \
                   replicate/rep_scheduler.cc \
-                  replicate/rep_receiver.cc \
-                  replicate/rep_transmitter.cc \
+                  replicate/task_handler.cc \
                   replicate/rep_inner_ctrl.cc \
                   replicate/rep_volume.cc \
                   replicate/replicator_context.cc \
                   replicate/markers_maintainer.cc \
                   replicate/rep_task_generator.cc \
+                  replicate/rep_task.cc \
+                  replicate/rep_message_handlers.cc \
+                  transfer/net_sender.cc \
+                  transfer/net_receiver.cc \
+                  $(top_srcdir)/src/common/crc32.c \
+                  $(top_srcdir)/src/common/config.cc \
+                  $(top_srcdir)/src/common/journal_entry.cc \
+                  $(top_srcdir)/src/common/ceph_s3_lease.cc \
+                  $(top_srcdir)/src/common/ceph_s3_api.cc \
                   ../common/utils.cc       \
                   ../common/block_store.cc \
                   ../common/index_store.cc \
-                  backup/backup_util.cc    \
-                  backup/backup_mds.cc \
-                  backup/backup_mgr.cc \
+                  ../common/volume_attr.cc \
+                  backup/backup_util.cc \
+                  backup/backup_ctx.cc  \
+                  backup/backup_task.cc \
+                  backup/backup_mds.cc  \
+                  backup/backup_mgr.cc  \
+                  backup/backup_msg_handler.cc  \
                   snapshot/snapshot_util.cc \
                   snapshot/snapshot_mds.cc \
                   snapshot/snapshot_mgr.cc 

@@ -19,19 +19,10 @@
 #include "log/log.h"
 #include "common/config_parser.h"
 #include "sg_util.h"
-const int64_t MAX_JOURNAL_COUNTER = 1000000000000L;
-const int64_t MIN_JOURNAL_COUNTER = 0L;
-#define INIT_JOURNAL_COUNTER (MIN_JOURNAL_COUNTER - 1)
-const string g_key_prefix = "/journals/";
-const string g_marker_prefix = "/markers/";
-const string g_writer_prefix = "/session/writer/";
-const string g_sealed = "/sealed/";
-const string g_replayer = "replayer";
-const string g_replicator = "replicator";
-const string g_recycled = "/recycled/";
-const string g_consumer = "consumer/";
-const string g_producer = "producer/";
-const string g_volume_prefix = "/volumes/";
+// TODO:config, alert if more than MAX_JOURNAL_COUNT journals not consumed
+const uint64_t MAX_JOURNAL_COUNT = 10000LU;
+const uint64_t MIN_JOURNAL_COUNTER = 0LU;
+
 using std::unique_ptr;
 using huawei::proto::REP_FAILED_OVER;
 using huawei::proto::REP_ENABLED;
@@ -81,19 +72,7 @@ static RESULT mkdir_if_not_exist(const char *path, mode_t mode)
 
     return(status);
 }
-static RESULT create_journal_file(const string& name) {
-    string path = name.substr(0,name.find_last_of('/'));
-    //make dir with previlege:read, write, execute/search by group,owner and other
-    if(DRS_OK != mkdir_if_not_exist(path.c_str(),S_IRWXG|S_IRWXU|S_IRWXO))
-        return INTERNAL_ERROR;
-    FILE* file = fopen(name.c_str(), "ab+");
-    if(nullptr != file){
-        fclose(file);
-        return DRS_OK;
-    }
-    LOG_ERROR << "create journal file " << name << " failed:" << strerror(errno);
-    return INTERNAL_ERROR;
-}
+
 RESULT delete_journal_file(const string& name) {
     int res = remove(name.c_str());
     if(0 == res || ENOENT == errno) // file deleted or not exist
@@ -101,8 +80,9 @@ RESULT delete_journal_file(const string& name) {
     LOG_ERROR << "delete " << name << " failed:" << strerror(res);
     return INTERNAL_ERROR;
 }
-static string get_journal_filename(const string& vol_id,const int64_t& counter){
-    return g_key_prefix + vol_id + "/" + sg_util::counter_to_string(counter);
+static string get_journal_filename(const string& vol_id,const string& key){
+    string counter_str = key.substr(key.find_last_of("/") + 1,string::npos);
+    return g_key_prefix + vol_id + "/" + counter_str;
 }
 string construct_sealed_index(const string& m_key){
     string sub = m_key.substr(g_key_prefix.length(),m_key.length()-g_key_prefix.length());
@@ -121,6 +101,40 @@ string construct_write_open_index(const string& m_key,
 }
 string construct_volume_meta_key(const string& uuid){
     return g_volume_prefix + uuid;
+}
+
+string get_journal_key_by_index_key(const string& index){
+    string sub = index;
+    sub.erase(0,sub.find_first_of("/")+1);
+    sub.erase(0,sub.find_first_of("/")+1);
+    return g_key_prefix + sub;
+}
+
+RESULT CephS3Meta::create_journal_file(const string& name) {
+    string path = name.substr(0,name.find_last_of('/'));
+    //make dir with previlege:read, write, execute/search by group,owner and other
+    if(DRS_OK != mkdir_if_not_exist(path.c_str(),S_IRWXG|S_IRWXU|S_IRWXO))
+        return INTERNAL_ERROR;
+    // file exsits
+    if(access(name.c_str(),R_OK && W_OK) == 0){
+        return DRS_OK;
+    }
+    // create file
+    FILE* file = fopen(name.c_str(), "ab+");
+    if(nullptr != file){ // TODO:create sparse file
+#if 0
+//        fseek(file,max_journal_size_-1,SEEK_SET);
+//        fputc('\0',file);
+        char buf[1024] = {'\0'};
+        for(int i=0;i<max_journal_size_/1024; i++){
+            fwrite(buf,1,sizeof(buf),file);
+        }
+#endif
+        fclose(file);
+        return DRS_OK;
+    }
+    LOG_ERROR << "create journal file " << name << " failed:" << strerror(errno);
+    return INTERNAL_ERROR;
 }
 
 bool CephS3Meta::_get_journal_meta(const string& key, JournalMeta& meta){
@@ -200,63 +214,69 @@ RESULT CephS3Meta::get_journal_meta(const string& key, JournalMeta& meta) {
         return INTERNAL_ERROR;
 }
 
-RESULT CephS3Meta::init_journal_key_counter(const string& vol_id,int64_t& cnt){
+int CephS3Meta::compare_journal_key(const string& key1,
+        const string& key2){
+    return key1.compare(key2);
+}
+
+int CephS3Meta::compare_marker(const JournalMarker& m1,
+        const JournalMarker& m2){
+    int res = compare_journal_key(m1.cur_journal(),m2.cur_journal());
+    if(res == 0){
+        return m1.pos() > m2.pos() ? 1:(m1.pos() == m2.pos() ? 0:-1);
+    }
+    else {
+        return res;
+    }
+}
+
+std::shared_ptr<JournalCounter> CephS3Meta::init_journal_key_counter(
+                            const string& vol_id){
     std::list<string> list;
-    int64_t counter1=0;
+    uint64_t counter1=0;
     string prefix = g_key_prefix + vol_id;
     RESULT res = s3Api_ptr_->list_objects(prefix.c_str(),nullptr,0,&list);
     if(DRS_OK != res) {
         LOG_ERROR << "list volume " << vol_id << " opened journals failed!";
-        return res;
+        return nullptr;
     }
+    std::shared_ptr<JournalCounter> journal_counter =
+            std::make_shared<JournalCounter>();
     if(!list.empty()){
-        if(true != sg_util::extract_counter_from_object_key(list.back(),counter1)){
-            return INTERNAL_ERROR;
-        }
-        std::shared_ptr<std::atomic<int64_t>> _c(new std::atomic<int64_t>(counter1));
-        counter_map_.insert(std::pair<string,std::shared_ptr<std::atomic<int64_t>>>(vol_id,_c));
-        cnt = counter1;
-        LOG_INFO << "init volume " << vol_id << " journal name counter:"
-            << cnt;
-        return DRS_OK;
+        SG_ASSERT(true == sg_util::extract_major_counter_from_journal_key(
+                list.back(),journal_counter->next));
+        boost::unique_lock<boost::shared_mutex> lck(counter_mtx);
+        counter_map_.insert(std::pair<string,std::shared_ptr<JournalCounter>>(vol_id,journal_counter));
+
+        LOG_INFO << "init volume [" << vol_id << "] journal counter :"
+            << journal_counter->next;
+        return journal_counter;
     }
     else{
         LOG_INFO << "init volume " << vol_id << " journal name counter:"
             << MIN_JOURNAL_COUNTER;
-        cnt = INIT_JOURNAL_COUNTER;
-        std::shared_ptr<std::atomic<int64_t>> _c(new std::atomic<int64_t>(cnt));
-        counter_map_.insert(std::pair<string,std::shared_ptr<std::atomic<int64_t>>>(vol_id,_c));
-        return DRS_OK;
+        journal_counter->next = MIN_JOURNAL_COUNTER;
+        boost::unique_lock<boost::shared_mutex> lck(counter_mtx);
+        counter_map_.insert(std::pair<string,std::shared_ptr<JournalCounter>>(vol_id,journal_counter));
+        return journal_counter;
     }    
 }
-RESULT CephS3Meta::get_journal_key_counter(const string& vol_id,int64_t& cnt){
+
+std::shared_ptr<JournalCounter> CephS3Meta::get_journal_key_counter(
+                            const string& vol_id){
+    boost::shared_lock<boost::shared_mutex> read_lck(counter_mtx);
     auto it = counter_map_.find(vol_id);
     if(counter_map_.end() == it) { // volume not found
-        LOG_INFO << "get journal name counter:volume " << vol_id << " not found.";
-        return init_journal_key_counter(vol_id,cnt);
+        read_lck.unlock();
+        LOG_INFO << "get journal key counter:volume " << vol_id << " not found.";
+        return init_journal_key_counter(vol_id);
     }
-    cnt = (it->second)->load();
-    return DRS_OK;
-}
-RESULT CephS3Meta::set_journal_key_counter(const string& vol_id,
-        int64_t& expected,const int64_t& val){
-    auto it = counter_map_.find(vol_id);
-    if(counter_map_.end() == it) { // volume not found
-        LOG_ERROR << "set journal name counter failed:volume " << vol_id << " not found.";
-        return INTERNAL_ERROR;
-    }
-    int64_t temp = expected;
-    if(false == (it->second)->compare_exchange_weak(expected,val)){
-        LOG_WARN << "try to update " << vol_id << " journal counter from "
-            << temp << " to " << val << " failed, since old counter changed to "
-            << expected;
-        return INTERNAL_ERROR;
-    }
-    return DRS_OK;
+    return it->second;
 }
 
 // cephS3Meta member functions
-CephS3Meta::CephS3Meta():
+CephS3Meta::CephS3Meta(const Configure& conf):
+    conf_(conf),
     journal_meta_cache_(1000,std::bind(&CephS3Meta::_get_journal_meta,
         this,std::placeholders::_1,std::placeholders::_2)),
 
@@ -280,6 +300,7 @@ CephS3Meta::CephS3Meta():
         this,std::placeholders::_1,std::placeholders::_2)) {
     init();
 }
+
 CephS3Meta::~CephS3Meta() {
 }
 
@@ -309,8 +330,8 @@ RESULT CephS3Meta::init() {
     s3Api_ptr_.reset(new CephS3Api(access_key.c_str(),
             secret_key.c_str(),host.c_str(),bucket_name.c_str()));
     string type;
-    if(false == parser->get<string>("journal_storage.type",type)){
-        LOG_FATAL << "config parse journal_storage.type error!";
+    if(false == parser->get<string>("global.journal_storage",type)){
+        LOG_FATAL << "config parse global.journal_storage error!";
         return INTERNAL_ERROR;
     }
     if(type.compare("ceph_fs") == 0){
@@ -321,36 +342,37 @@ RESULT CephS3Meta::init() {
     }
     else
         DR_ERROR_OCCURED();
-    max_journal_size_ = parser->get_default<int>(
-        "journal_writer.journal_max_size",32 * 1024 * 1024);
+    max_journal_size_ = conf_.journal_max_size;
+    
     return mkdir_if_not_exist((mount_path_+g_key_prefix).c_str(),S_IRWXG|S_IRWXU|S_IRWXO);
 }
 
 RESULT CephS3Meta::create_journals(const string& uuid,const string& vol_id,
         const int& limit, std::list<string>& list){
-    RESULT res;
-    int64_t counter;
+
+    // get last journal counter
+    std::shared_ptr<JournalCounter> journal_counter = get_journal_key_counter(vol_id);
+    if(journal_counter == nullptr)
+        return INTERNAL_ERROR;
+
+    LOG_INFO << vol_id << " creating journals from " << std::hex
+        << journal_counter->next << std::dec << ",number " << limit;
+
+    RESULT res = DRS_OK;
+    // create journals
     string journals[limit];
-    res = get_journal_key_counter(vol_id,counter);
-    if(res != DRS_OK)
-        return res;
-    int max_trys = 5;
-    do{
-        int64_t new_counter = (counter + limit)%MAX_JOURNAL_COUNTER;
-        res = set_journal_key_counter(vol_id,counter,new_counter);
-    }while(DRS_OK != res && max_trys-- > 0);
-    if(res != DRS_OK){
-        LOG_ERROR << "update " << vol_id << " journal counter failed!";
-        return res;
-    }
-    counter++;// start at next journal counter
-    LOG_INFO << vol_id << " creating journals from " 
-        << counter << ",number " << limit;
     for(int i=0;i<limit;i++) {
-        // TODO:recycle counter?
-        int64_t next = (i+counter%MAX_JOURNAL_COUNTER);
+        // the lock here guarantee that only one thread meantain the journals
+        // of this volume, and keep the journal counter sequential
+        std::lock_guard<std::mutex> lck(journal_counter->mtx);
+
+        // TODO: if un-consumed journals increases abnormally, disable?
+
+        uint64_t next = journal_counter->next;
         journals[i] = sg_util::construct_journal_key(vol_id,next);
-        string filename = get_journal_filename(vol_id,next);
+
+        // create journal key
+        string filename = get_journal_filename(vol_id,journals[i]);
         JournalMeta meta;
         meta.set_path(filename);
         meta.set_status(OPENED);
@@ -365,7 +387,8 @@ RESULT CephS3Meta::create_journals(const string& uuid,const string& vol_id,
             LOG_ERROR << "update journal " << journals[i] << " opened status failed!";
             break;
         }
-        journal_meta_cache_.put(journals[i],meta);
+
+        // create journal index key, which will help in GC
         string o_key = construct_write_open_index(journals[i],vol_id,uuid);
         res = s3Api_ptr_->put_object(o_key.c_str(),nullptr,nullptr);
         if(DRS_OK != res){
@@ -378,11 +401,16 @@ RESULT CephS3Meta::create_journals(const string& uuid,const string& vol_id,
             break;
         }
         list.push_back(journals[i]);
+        journal_counter->next ++;
+        // update cache
+        journal_meta_cache_.put(journals[i],meta);
     }
+
     if(DRS_OK != res){
         if(list.size() <= 0)
             return INTERNAL_ERROR;
         // roll back: delete partial meta
+        // TODO:recycle the pending journal file
         s3Api_ptr_->delete_object(journals[list.size()].c_str());
         string o_key = construct_write_open_index(journals[list.size()],vol_id,uuid);
         s3Api_ptr_->delete_object(o_key.c_str());
@@ -393,37 +421,14 @@ RESULT CephS3Meta::create_journals(const string& uuid,const string& vol_id,
 
 RESULT CephS3Meta::create_journals_by_given_keys(const string& uuid,
             const string& vol_id,const std::list<string> &list){
-    RESULT res;
+    RESULT res = DRS_OK;
     int count = 0;
-    int64_t counter;
-    res = get_journal_key_counter(vol_id,counter);
-    DR_ASSERT(res == DRS_OK)
-    int64_t next;
-    if(true != sg_util::extract_counter_from_object_key(list.back(),next)){
-        return INTERNAL_ERROR;
-    }
-    int max_trys = 5;
-    while(next > counter && max_trys-- > 0){
-        res = set_journal_key_counter(vol_id,counter,next);
-        if(res == DRS_OK)
-            break;
-    }
-    if(res != DRS_OK){
-        LOG_ERROR << "update " << vol_id << " journal counter failed!";
-        return res;
-    }
-    LOG_INFO << vol_id << " try creating journals from "
-        << counter << ",to " << next;
-
     for(auto it=list.begin();it!=list.end();++it) {
         JournalMeta meta;
         if(journal_meta_cache_.get(*it,meta))// journal existed
             continue;
-        if(true != sg_util::extract_counter_from_object_key(*it,next)){
-            res = INTERNAL_ERROR;
-            break;
-        }
-        string filename = get_journal_filename(vol_id,next);
+
+        string filename = get_journal_filename(vol_id,*it);
         meta.set_path(filename);
         meta.set_status(OPENED);
         string meta_s;
@@ -432,14 +437,16 @@ RESULT CephS3Meta::create_journals_by_given_keys(const string& uuid,
             res = INTERNAL_ERROR;
             break;
         }
-        res = s3Api_ptr_->put_object(it->c_str(),&meta_s,nullptr); // add journal major key
+
+        count++;
+        // persit journal major key
+        res = s3Api_ptr_->put_object(it->c_str(),&meta_s,nullptr);
         if(DRS_OK != res){
             LOG_ERROR << "create journal " << *it << " failed!";
             break;
         }
-        // update cache
-        journal_meta_cache_.put(*it,meta);
-        count++;
+
+        // persit journal index key
         string o_key = construct_write_open_index(*it,vol_id,uuid);
         res = s3Api_ptr_->put_object(o_key.c_str(),nullptr,nullptr);
         if(DRS_OK != res){
@@ -451,15 +458,21 @@ RESULT CephS3Meta::create_journals_by_given_keys(const string& uuid,
             LOG_ERROR << "creat file " << mount_path_+filename << " failed!" ;
             break;
         }
+        // update cache
+        journal_meta_cache_.put(*it,meta);
     }
     if(DRS_OK != res){
-        if(count <= 0)
+        if(count <= 1)
             return INTERNAL_ERROR;
         // roll back: delete partial written meta
-        string key = sg_util::construct_journal_key(vol_id,next);
+        auto it = list.begin();
+        std::advance(it,count - 1);
+        string key = *it;
         string o_key = construct_write_open_index(key,vol_id,uuid);
+        // TODO:recycle the pending journal file
         s3Api_ptr_->delete_object(o_key.c_str());
         s3Api_ptr_->delete_object(key.c_str());
+        journal_meta_cache_.delete_key(key);
         return INTERNAL_ERROR;
     }
     return res;
@@ -501,11 +514,7 @@ RESULT CephS3Meta::seal_volume_journals(const string& uuid, const string& vol_id
             // no break, continue trying to delete in GC thread
         }
     }
-    // set producer marker if it's ahead of the last sealed journal
-    JournalMarker marker;
-    marker.set_cur_journal(journals[count-1]);
-    marker.set_pos(max_journal_size_);
-    set_producer_marker(vol_id,marker);
+
     return res;
 }
 
@@ -585,7 +594,7 @@ RESULT CephS3Meta::set_producer_marker(const string& vol_id,
     // update replicator producer marker, but not in some cases
     VolumeMeta meta;
     res = read_volume_meta(vol_id,meta);
-    DR_ASSERT(DRS_OK == res);
+    SG_ASSERT(DRS_OK == res);
     if(REP_ENABLED == meta.info().rep_status()
         && REP_PRIMARY == meta.info().role()){
         key = assemble_journal_marker_key(vol_id,REPLICATOR,false);
@@ -625,68 +634,90 @@ RESULT CephS3Meta::get_consumable_journals(const string& vol_id,
         LOG_ERROR << vol_id << " 's marker is not initialized!";
         return INTERNAL_ERROR;
     }
-    char* end_marker = nullptr;
-    JournalMarker producer_marker;
-    RESULT res = get_producer_marker(vol_id,type,producer_marker);
+
+    const char* marker_key = marker.cur_journal().c_str();
+    string prefix = g_key_prefix+vol_id;
+    std::list<string> journal_list;
+    RESULT res = s3Api_ptr_->list_objects(prefix.c_str(),marker_key,
+            0,&journal_list);
     if(DRS_OK != res){
-        LOG_ERROR << "get producer marker failed:" << vol_id;
-        return res;
+        LOG_ERROR << "list volume " << vol_id << " journals failed!";
+        return INTERNAL_ERROR;
+    }
+
+    // for replayer at primary role, shoule return all journals, ignore the producer marker
+    VolumeMeta meta;
+    res = read_volume_meta(vol_id,meta);
+    if(DRS_OK != res){
+        LOG_ERROR << "get volume[" << vol_id << "] meta failed!";
+        return INTERNAL_ERROR;
+    }
+    bool ignore_producer_marker = false;
+    JournalMarker producer_marker;
+    if(REPLAYER == type && REP_PRIMARY == meta.info().role()){
+        ignore_producer_marker = true;
     }
     else{
-        end_marker = const_cast<char*>(producer_marker.cur_journal().c_str());
-        LOG_INFO << "producer marker,type=" << type << ":" << end_marker
-            << ":" << producer_marker.pos();
-    }
-    if(marker.cur_journal().compare(producer_marker.cur_journal()) == 0){
-        DR_ASSERT(marker.pos() <= producer_marker.pos());
-        if(marker.pos() == producer_marker.pos())
-            return DRS_OK;
-        JournalElement e;
-        e.set_journal(marker.cur_journal());
-        e.set_start_offset(marker.pos());
-        e.set_end_offset(producer_marker.pos());
-        list.push_back(e);
-    }
-    else{
-        const char* marker_key = marker.cur_journal().c_str();
-        string prefix = g_key_prefix+vol_id;
-        std::list<string> journal_list;
-        res = s3Api_ptr_->list_objects(prefix.c_str(),marker_key,
-                0,&journal_list);
+        res = get_producer_marker(vol_id,type,producer_marker);
         if(DRS_OK != res){
-            LOG_ERROR << "list volume " << vol_id << " journals failed!";
-            return INTERNAL_ERROR;
+            LOG_ERROR << "get producer marker failed:" << vol_id;
+            return res;
         }
+    }
+
+    // add consumer marker to consumable list
+    if(marker.pos() < max_journal_size_){
         JournalElement beg;
         beg.set_journal(marker.cur_journal());
         beg.set_start_offset(marker.pos());
-        beg.set_end_offset(max_journal_size_);
-        list.push_back(beg);
-        LOG_DEBUG << "get consumable journal 1:" << marker.cur_journal()
-            << "," << beg.start_offset() << ":" << beg.end_offset();
-        for(string key:journal_list){
-            if(key.compare(producer_marker.cur_journal()) >= 0)
-                break;
-            JournalElement e;
-            e.set_journal(key);
-            e.set_start_offset(0);
-            e.set_end_offset(max_journal_size_);
-            list.push_back(e);
-            LOG_DEBUG << "get consumable journal:" << key;
-            // if have enough journals,return
-            if(list.size() >= limit)
-                return DRS_OK;
+        if(false == ignore_producer_marker 
+            && compare_journal_key(marker.cur_journal(),producer_marker.cur_journal()) == 0){
+            SG_ASSERT(marker.pos() <= producer_marker.pos());
+            if(marker.pos() < producer_marker.pos()){
+                beg.set_end_offset(producer_marker.pos());
+                list.push_back(beg);
+                LOG_DEBUG << "get consumable journal:" << marker.cur_journal()
+                    << "," << beg.start_offset() << ":" << beg.end_offset();
+            }
+            return DRS_OK;
         }
-        // add the last consumer journal
+        else{
+            beg.set_end_offset(max_journal_size_);
+            list.push_back(beg);
+            LOG_DEBUG << "get consumable journal 1:" << marker.cur_journal()
+                << "," << beg.start_offset() << ":" << beg.end_offset();
+        }
+    }
+    else{ // journal was consumed to end of file, ignore
+        LOG_INFO << "journal consumed to EOF:" << marker.cur_journal();
+    }
+    // add journals
+    for(string key:journal_list){
+        if(false == ignore_producer_marker
+            && compare_journal_key(key,producer_marker.cur_journal()) >= 0)
+            break;
+        JournalElement e;
+        e.set_journal(key);
+        e.set_start_offset(0);
+        e.set_end_offset(max_journal_size_);
+        list.push_back(e);
+        LOG_DEBUG << "get consumable journal @:" << key;
+        // if have enough journals,return
+        if(list.size() >= limit)
+            return DRS_OK;
+    }
+    // add the last consumer journal, producer marker
+    if(false == ignore_producer_marker && producer_marker.pos() > 0){
         JournalElement end;
         end.set_journal(producer_marker.cur_journal());
         end.set_start_offset(0);
         end.set_end_offset(producer_marker.pos());
         list.push_back(end);
-        LOG_DEBUG << "get consumable journal end:"
+        LOG_DEBUG << "get consumable journal last:"
             << producer_marker.cur_journal()
             << "," << end.start_offset() << ":" << end.end_offset();
     }
+
     return DRS_OK;
 }
 
@@ -704,10 +735,8 @@ RESULT CephS3Meta::get_sealed_and_consumed_journals(
         return res;
     }
     for(auto it=sealed_journals.begin();it!=sealed_journals.end();++it){
-        int64_t counter;
-        sg_util::extract_counter_from_object_key(*it,counter);
-        string key = sg_util::construct_journal_key(vol_id,counter);
-        if(key.compare(marker.cur_journal()) < 0) // TODO: to update when use recycled journals
+        string key = get_journal_key_by_index_key(*it);
+        if(compare_journal_key(key,marker.cur_journal()) < 0)
             list.push_back(key);
         else
             break;
@@ -727,11 +756,13 @@ RESULT CephS3Meta::recycle_journals(const string& vol_id,
         }
         string r_key = construct_recyled_index(*it);
         res = s3Api_ptr_->put_object(r_key.c_str(),&value,nullptr);
-        DR_ASSERT(DRS_OK == res);
+        SG_ASSERT(DRS_OK == res);
         string s_key = construct_sealed_index(*it);
         s3Api_ptr_->delete_object(s_key.c_str());
         res = s3Api_ptr_->delete_object(it->c_str());
-        DR_ASSERT(DRS_OK == res);
+        SG_ASSERT(DRS_OK == res);
+        // delete cached keys
+        journal_meta_cache_.delete_key(*it);
     }
     return res;
 }
@@ -754,6 +785,7 @@ RESULT CephS3Meta::get_producer_id(const string& vol_id,
     });
     return DRS_OK;
 }
+
 RESULT CephS3Meta::seal_opened_journals(const string& vol_id,
         const string& uuid){
     std::list<string> list;
@@ -775,6 +807,7 @@ RESULT CephS3Meta::seal_opened_journals(const string& vol_id,
     std::copy(list.begin(),list.end(),keys_a);
     return seal_volume_journals(uuid,vol_id,keys_a,list.size());
 }
+
 RESULT CephS3Meta::list_volumes(std::list<string>& list){
     string prefix = g_key_prefix;
     RESULT res = s3Api_ptr_->list_objects(prefix.c_str(),nullptr,0,&list,"/");

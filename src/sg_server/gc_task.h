@@ -17,14 +17,18 @@
 #include <map>
 #include <set>
 #include <atomic>
-#include "ceph_s3_lease.h"
+#include "common/ceph_s3_lease.h"
+#include "common/config.h"
 #include "journal_gc_manager.h"
+#include "journal_meta_manager.h"
 #include "consumer_interface.h"
+
 class GCTask{
 typedef std::map<std::string,std::set<IConsumer*>> vc_map_t;
 typedef std::pair<std::string,std::set<IConsumer*>> vc_pair_t;
 private:
-    std::shared_ptr<JournalGCManager> meta_ptr_;
+    std::shared_ptr<JournalGCManager> gc_meta_ptr_;
+    std::shared_ptr<JournalMetaManager> j_meta_ptr_;
     std::unique_ptr<CephS3LeaseServer> lease_;
     std::string mount_path_;
     std::unique_ptr<std::thread> thread_GC_;
@@ -40,7 +44,8 @@ private:
     vc_map_t vols_;
     std::mutex mtx_;
 public:
-    int init(std::shared_ptr<JournalGCManager> meta);
+    int init(const Configure& conf, std::shared_ptr<JournalGCManager> gc_meta,
+            std::shared_ptr<JournalMetaManager> j_meta);
     static GCTask& instance(){
         static GCTask task;
         return task;
@@ -68,5 +73,7 @@ private:
     void do_GC();
     void lease_check_task();
     void clean_up();
+    int get_least_marker(const string& vol,std::set<IConsumer*>& set,
+            JournalMarker& marker);
 };
 #endif

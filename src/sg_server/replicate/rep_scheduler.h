@@ -15,7 +15,7 @@
 #include <mutex>
 #include "../ceph_s3_meta.h"
 #include "rpc/consumer.pb.h"
-#include "rep_transmitter.h"
+#include "task_handler.h"
 #include "common/blocking_queue.h"
 #include "rep_volume.h"
 #include "common/thread_pool.h"
@@ -25,7 +25,6 @@ private:
     bool enable_;
     bool running_;
     std::mutex volume_mtx_;
-    std::string uuid_;
     std::string mount_path_;
     std::shared_ptr<CephS3Meta> meta_;
     // output queue

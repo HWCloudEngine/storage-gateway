@@ -75,9 +75,46 @@ Status WriterServiceImpl::SealJournals(ServerContext* context,
 Status WriterServiceImpl::UpdateProducerMarker(ServerContext* context,
         const UpdateProducerMarkerRequest* request,
         UpdateProducerMarkerResponse* response){
-    // TODO: implement
-    Status status(grpc::UNIMPLEMENTED,"not implemented!");
-    return status;
+    if(_meta == nullptr){
+        LOG_ERROR << "journal meta is not init.";
+        Status status(grpc::INTERNAL,"journal meta is not init.");
+        return status;
+    }
+    // TODO: confirm uuid validity
+    const string& uuid = request->uuid();
+    const string& vol_id = request->vol_id();
+    const JournalMarker& marker = request->marker();
+
+    RESULT res = _meta->set_producer_marker(vol_id,marker);
+    if(res != DRS_OK){
+        response->set_result(INTERNAL_ERROR);
+    }
+    else {
+        response->set_result(DRS_OK);
+    }
+    return Status::OK;
+}
+
+Status WriterServiceImpl::UpdateMultiProducerMarkers(ServerContext* context,
+            const UpdateMultiProducerMarkersRequest* request,
+            UpdateMultiProducerMarkersResponse* response){
+    if(_meta == nullptr){
+        LOG_ERROR << "journal meta is not init.";
+        Status status(grpc::INTERNAL,"journal meta is not init.");
+        return status;
+    }
+    // TODO: confirm uuid validity
+    const string& uuid = request->uuid();
+    auto& map = request->markers();
+
+    response->set_result(DRS_OK);
+    for(auto it=map.begin();it!=map.end();it++){
+        RESULT res = _meta->set_producer_marker(it->first,it->second);
+        if(res != DRS_OK){
+            response->set_result(INTERNAL_ERROR);
+        }
+    }
+    return Status::OK;
 }
 
 Status WriterServiceImpl::GetMultiWriteableJournals(ServerContext* context, 

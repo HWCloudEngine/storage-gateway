@@ -18,14 +18,15 @@ using huawei::proto::INTERNAL_ERROR;
 using huawei::proto::REPLAYER;
 using huawei::proto::REPLICATOR;
 
-int get_least_marker(std::set<IConsumer*>& set,JournalMarker& marker){
+int GCTask::get_least_marker(const string& vol,std::set<IConsumer*>& set,
+            JournalMarker& marker){
     bool valid = false;
     for(auto& c:set){
         if(nullptr != c){
             if(valid){
                 JournalMarker temp;
                 if(c->get_consumer_marker(temp) == 0){
-                    if(sg_util::marker_compare(marker,temp) > 0)
+                    if(j_meta_ptr_->compare_marker(marker,temp) > 0)
                         marker.CopyFrom(temp);
                 }
             }
@@ -44,40 +45,29 @@ int get_least_marker(std::set<IConsumer*>& set,JournalMarker& marker){
         return -1;
 }
 
-int GCTask::init(std::shared_ptr<JournalGCManager> meta){
+int GCTask::init(const Configure& conf, std::shared_ptr<JournalGCManager> gc_meta,
+            std::shared_ptr<JournalMetaManager> j_meta){
     std::lock_guard<std::mutex> lck(mtx_);
     if(GC_running_){
         LOG_ERROR << "gc task is already running!";
         return -1;
     }
-    meta_ptr_=(meta);
+    gc_meta_ptr_ = gc_meta;
+    j_meta_ptr_ = j_meta;
     int gc_interval = 1*60*60;  // TODO:config in config file
     lease_.reset(new CephS3LeaseServer());
     string access_key;
     string secret_key;
     string host;
     string bucket_name;
-    std::unique_ptr<ConfigParser> parser(new ConfigParser(DEFAULT_CONFIG_FILE));
-    if(false == parser->get<string>("ceph_s3.access_key",access_key)){
-        LOG_FATAL << "config parse ceph_s3.access_key error!";
-        return INTERNAL_ERROR;
-    }
-    if(false == parser->get<string>("ceph_s3.secret_key",secret_key)){
-        LOG_FATAL << "config parse ceph_s3.secret_key error!";
-        return INTERNAL_ERROR;
-    }
-    // port number is necessary if not using default 80/443
-    if(false == parser->get<string>("ceph_s3.host",host)){
-        LOG_FATAL << "config parse ceph_s3.host error!";
-        return INTERNAL_ERROR;
-    }
-    if(false == parser->get<string>("ceph_s3.bucket",bucket_name)){
-        LOG_FATAL << "config parse ceph_s3.bucket error!";
-        return INTERNAL_ERROR;
-    }
-    lease_check_window_ = parser->get_default<int>("ceph_s3.expire_window",10);
-    GC_window_ = parser->get_default<int>("ceph_s3.gc_window",100);
-    parser.reset();
+    
+    access_key = conf.ceph_s3_access_key;
+    secret_key = conf.ceph_s3_secret_key;
+    host = conf.ceph_s3_host;
+    bucket_name = conf.ceph_s3_bucket;
+    lease_check_window_ = conf.lease_expire_window;
+    GC_window_  = conf.gc_window;
+
     lease_->init(access_key.c_str(),
             secret_key.c_str(),host.c_str(),bucket_name.c_str(),gc_interval);
     tick_ = 1;
@@ -112,16 +102,16 @@ void GCTask::do_GC(){
         if(set.empty())
             continue;
         JournalMarker marker;
-        if(0 != get_least_marker(set,marker))
+        if(0 != get_least_marker(it->first,set,marker))
             continue;
 
         auto& vol = it->first;
         std::list<string> list;
-        RESULT res = meta_ptr_->get_sealed_and_consumed_journals(vol,
+        RESULT res = gc_meta_ptr_->get_sealed_and_consumed_journals(vol,
             marker,0,list); // set limit=0 to get all matched journals
         if(res != DRS_OK || list.empty())
             continue;
-        res = meta_ptr_->recycle_journals(vol,list);
+        res = gc_meta_ptr_->recycle_journals(vol,list);
         if(res != DRS_OK){
             LOG_WARN << "recycle " << vol << " journals failed!";
             continue;
@@ -135,17 +125,18 @@ void GCTask::lease_check_task(){
     std::lock_guard<std::mutex> lck(mtx_);
     for(auto it=vols_.begin();it!=vols_.end();++it){
         std::list<string> list;
-        RESULT res = meta_ptr_->get_producer_id(it->first,list);
+        RESULT res = gc_meta_ptr_->get_producer_id(it->first,list);
         if(res != DRS_OK)
             continue;
         if(list.empty())
             continue;
         for(auto list_it=list.begin();list_it!=list.end();++list_it){
+            if(list_it->compare(g_replicator_uuid) == 0) // ignore replicator uuid
+                continue;
             if(false == lease_->check_lease_existance(*list_it)){
                 LOG_DEBUG << *list_it << " lease not existance";
-                std::list<string> key_list;
-                res = meta_ptr_->seal_opened_journals(it->first,*list_it);
-                DR_ASSERT(DRS_OK == res);
+                res = gc_meta_ptr_->seal_opened_journals(it->first,*list_it);
+                SG_ASSERT(DRS_OK == res);
             }
         }
     }
@@ -179,7 +170,7 @@ int GCTask::remove_volume(const std::string &vol_id){
 }
 
 void GCTask::register_consumer(const string& vol_id,IConsumer* c){
-    DR_ASSERT(c != nullptr);
+    SG_ASSERT(c != nullptr);
     LOG_INFO << "register consumer," << vol_id << ":" << c->get_type();
 
     std::lock_guard<std::mutex> lck(mtx_);

@@ -1,0 +1,132 @@
+syntax = "proto3";
+package huawei.proto.transfer;
+import "common.proto";
+import "backup.proto";
+import "journal/journal.proto";
+
+service DataTransfer {
+    rpc transfer(stream TransferRequest) returns(stream TransferResponse) {}
+}
+
+enum MessageType {
+    UNKNOWN_TYPE = 0;
+    // replicate messages(1--6):
+    REPLICATE_START = 1;
+    REPLICATE_DATA = 2;
+    REPLICATE_END = 3;
+    REPLICATE_MARKER = 4;
+
+    // backup messages(7--*):
+    REMOTE_BACKUP_CREATE_START = 7;
+    REMOTE_BACKUP_UPLOAD_DATA  = 8;
+    REMOTE_BACKUP_CREATE_END   = 9;
+    REMOTE_BACKUP_DELETE = 10;
+    REMOTE_BACKUP_DOWNLOAD_DATA = 11;
+}
+
+enum EncodeType {
+    UNKNOWN_EN = 0;
+    NONE_EN = 1;
+}
+
+message TransferRequest {
+    // common header
+    uint64 id = 1;
+    EncodeType encode = 2;
+    MessageType type = 3;
+
+    // data :serailized message
+    bytes data = 4;
+}
+
+message TransferResponse {
+    uint64 id = 1;
+    EncodeType encode = 2;
+    MessageType type = 3;
+    StatusCode status = 4;
+
+    bytes data = 5;
+}
+
+message ReplicateDataReq{
+    string vol_id = 1;
+    uint64 journal_counter = 2;
+    // sub counter mainly used when syncing snapshot, otherwise set to 0
+    uint64 sub_counter = 3;
+    uint64 offset = 4;
+    bytes data = 5;
+}
+
+message ReplicateMarkerReq{
+    string vol_id = 1;
+    JournalMarker marker = 2;
+}
+
+message ReplicateStartReq{
+    string vol_id = 1;
+    uint64 journal_counter = 2;
+    // sub counter mainly used when syncing snapshot, otherwise set to 0
+    uint64 sub_counter = 3;
+}
+
+message ReplicateEndReq{
+    string vol_id = 1;
+    uint64 journal_counter = 2;
+    // sub counter mainly used when syncing snapshot, otherwise set to 0
+    uint64 sub_counter = 3;
+    bool is_open = 4;
+}
+
+/***************remote backup*****************/
+message RemoteBackupStartReq {
+    string vol_name = 1; 
+    uint64 vol_size = 2;
+    string backup_name = 3;
+    BackupMode backup_mode = 4;
+    BackupType backup_type = 5;
+}
+
+message RemoteBackupStartAck {
+    StatusCode status = 1;
+}
+
+message RemoteBackupEndReq {
+    string vol_name = 1; 
+    string backup_name = 2;
+}
+
+message RemoteBackupEndAck {
+    StatusCode status = 1;
+}
+
+message RemoteBackupDeleteReq {
+    string vol_name = 1; 
+    string backup_name = 2;
+}
+
+message RemoteBackupDeleteAck {
+    StatusCode status = 1;
+}
+
+message UploadDataReq {
+    string vol_name = 1; 
+    string backup_name = 2;
+    uint64 blk_no = 3;
+    uint64 blk_off = 4;
+    bytes  blk_data = 5;
+}
+
+message UploadDataAck {
+    StatusCode status = 1;
+}
+
+message DownloadDataReq {
+    string vol_name = 1; 
+    string backup_name = 2;
+}
+
+message DownloadDataAck {
+    uint64 blk_no = 1;
+    bytes  blk_data = 2;
+    bool   blk_over = 3; //no blk data any more
+}

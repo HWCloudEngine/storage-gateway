@@ -1,16 +1,22 @@
 #ifndef VOL_ATTR_H
 #define VOL_ATTR_H
 #include <string>
-#include "../rpc/common.pb.h"
-#include "../rpc/snapshot.pb.h"
+#include "rpc/common.pb.h"
+#include "rpc/snapshot.pb.h"
+#include "rpc/backup.pb.h"
+#include "rpc/volume.pb.h"
 
 using namespace std;
 using huawei::proto::VolumeInfo;
 using huawei::proto::SnapType;
+using huawei::proto::BackupType;
+using huawei::proto::RepRole;
 
 class VolumeAttr
 {
 public:
+    VolumeAttr() = default;
+    VolumeAttr(const string& vol_name, const size_t& vol_size);
     VolumeAttr(const VolumeInfo& vol_info);
     ~VolumeAttr();
 
@@ -19,7 +25,8 @@ public:
     string vol_name() const;
     size_t vol_size() const;
     string blk_device() const;
-    
+    RepRole replicate_role() const;
+
     /*whether create snapshot allowable*/
     bool is_snapshot_allowable(const SnapType& snap_type);
 
@@ -39,6 +46,9 @@ public:
 
     /*true: fail over, false: no failover*/
     bool is_failover_occur();
+
+    /*whether create backup allowable*/
+    bool is_backup_allowable(const BackupType& backup_type);
 
 private:
     VolumeInfo m_vol_info;

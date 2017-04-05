@@ -3,7 +3,7 @@
 #include <atomic>
 #include <boost/asio.hpp>
 #include "nedmalloc.h"
-#include "journal_entry.h"
+#include "common/journal_entry.h"
 #include "seq_generator.h"
 #include "cache/cache_proxy.h"
 #include "connection.h"
@@ -11,11 +11,11 @@
 #include "journal_writer.h"
 #include "journal_reader.h"
 #include "journal_replayer.h"
-#include "../common/config_parser.h"
-#include "../common/blocking_queue.h"
-#include "../common/volume_attr.h"
-#include "../sg_server/ceph_s3_lease.h"
-#include "../rpc/common.pb.h"
+#include "common/config.h"
+#include "common/blocking_queue.h"
+#include "common/volume_attr.h"
+#include "common/ceph_s3_lease.h"
+#include "rpc/common.pb.h"
 #include "snapshot/snapshot_proxy.h"
 #include "backup/backup_decorator.h"
 #include "backup/backup_proxy.h"
@@ -30,10 +30,11 @@ namespace Journal{
 class Volume 
 {
 public:
-    explicit Volume(raw_socket_t client_sock, 
-                    const VolumeAttr& vol_attr,
-                    shared_ptr<ConfigParser> conf, 
-                    shared_ptr<CephS3LeaseClient> lease_client);
+    explicit Volume(const Configure& conf, const VolumeAttr& vol_attr, 
+                    shared_ptr<CephS3LeaseClient> lease_client,
+                    std::shared_ptr<WriterClient> writer_rpc_client,
+                    int epoll_fd,
+                    raw_socket_t client_sock);
 
     virtual ~Volume();
     
@@ -46,20 +47,25 @@ public:
     void start();
     void stop();
 
-    JournalWriter& get_writer()const;
+    const string get_vol_id() const;
+
+    shared_ptr<JournalWriter> get_writer()const;
     shared_ptr<SnapshotProxy>& get_snapshot_proxy()const;
     shared_ptr<BackupProxy>&   get_backup_proxy()const;
-    
+    shared_ptr<ReplicateProxy>& get_replicate_proxy()const;
+
 private:
+    Configure  conf_;
+    VolumeAttr vol_attr_;
+    shared_ptr<CephS3LeaseClient> lease_client_;
+    shared_ptr<WriterClient> writer_rpc_client_;
     /*socket*/
     mutable raw_socket_t raw_socket_;
+    // epoll fd to sync producer marker
+    int epoll_fd_;
+
     /*memory pool for receive io hook data from raw socket*/
     nedalloc::nedpool* buffer_pool_;
-    
-    VolumeAttr vol_attr_;
-
-    shared_ptr<ConfigParser> conf_;
-    shared_ptr<CephS3LeaseClient> lease_client_;
 
     /*queue */
     BlockingQueue<shared_ptr<JournalEntry>> entry_queue_;  /*connection and preprocessor*/
@@ -77,13 +83,17 @@ private:
 
     /*backup relevant*/
     mutable shared_ptr<BackupProxy> backupproxy_;
-    
+
+    /*replicate proxy */
+    mutable shared_ptr<ReplicateProxy> rep_proxy_;
+
     /*work thread*/ 
     shared_ptr<Connection>           connection_;    /*network receive and send*/
     shared_ptr<JournalPreProcessor>  pre_processor_; /*request merge and crc*/
     mutable shared_ptr<JournalWriter> writer_;        /*append to journal */
     shared_ptr<JournalReader>         reader_;        /*read io*/
     shared_ptr<JournalReplayer>       replayer_;      /*replay journal*/
+
 };
 
 }

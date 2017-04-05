@@ -13,25 +13,53 @@
 #include <cstdint>
 #include <memory>
 #include <atomic>
+#include <mutex>
+#include <boost/thread/shared_mutex.hpp>
 #include "common/libs3.h" // require ceph-libs3
+#include "common/config.h"
 #include "journal_meta_manager.h"
 #include "journal_gc_manager.h"
 #include "volume_meta_manager.h"
-#include "ceph_s3_api.h"
+#include "common/ceph_s3_api.h"
 #include "lru_cache.h"
 using huawei::proto::JournalMeta;
 using huawei::proto::JournalArray;
 using google::protobuf::int64;
 using huawei::proto::VolumeMeta;
 using huawei::proto::VolumeInfo;
+// major counter occupys Most significant 64 bits, monotone increase counter
+#define MAJOR_COUNTER_BITS (64)
+// sub counter occupys Least significant 16 bits(binary), which used for synced snapshot
+#define SUB_COUNTER_BITS (16)
+// hex number of printed counter in journal key
+#define PRINT_COUNTER_BITS (20)
+const string g_key_prefix = "/journals/";
+const string g_marker_prefix = "/markers/";
+const string g_writer_prefix = "/session/writer/";
+const string g_sealed = "/sealed/";
+const string g_replayer = "replayer";
+const string g_replicator = "replicator";
+const string g_recycled = "/recycled/";
+const string g_consumer = "consumer/";
+const string g_producer = "producer/";
+const string g_volume_prefix = "/volumes/";
+
+// struct that contains head/tail counter of journals in a volume
+typedef struct JournalCounter{
+    uint64_t next;
+    std::mutex mtx;
+}JournalCounter;
+
 class CephS3Meta:public JournalMetaManager,
         public JournalGCManager,
         public VolumeMetaManager {
 private:
+    Configure conf_;
     std::unique_ptr<CephS3Api> s3Api_ptr_;
     string mount_path_;
+    boost::shared_mutex counter_mtx;
     // volume journal_name counters
-    std::map<string,std::shared_ptr<std::atomic<int64_t>>> counter_map_;
+    std::map<string,std::shared_ptr<JournalCounter>> counter_map_;
     // journal meta cache
     LruCache<string,JournalMeta> journal_meta_cache_;
     // produer marker cache
@@ -44,13 +72,17 @@ private:
     LruCache<string,VolumeMeta> vol_cache_;
     // max journal size
     int max_journal_size_;
-    RESULT init_journal_key_counter(const string& vol_id,int64_t& cnt);
-    RESULT get_journal_key_counter(const string& vol_id,int64_t& cnt);
-    RESULT set_journal_key_counter(const string& vol_id,
-            int64_t& expected,const int64_t& val);
+    std::shared_ptr<JournalCounter> init_journal_key_counter(
+                            const string& vol_id);
+    std::shared_ptr<JournalCounter> get_journal_key_counter(
+                            const string& vol_id);
+
+    int compare_journal_key(const string& key1,const string& key2);
+
     bool get_marker(const string& vol_id,
         const CONSUMER_TYPE& type, JournalMarker& marker,bool is_consumer);
     RESULT init();
+    RESULT create_journal_file(const string& name);
     // default get function for LruCaches
     bool _get_journal_meta(const string& key, JournalMeta& meta);
     bool _get_replayer_producer_marker(const string& key,
@@ -63,8 +95,12 @@ private:
             JournalMarker& marker);
     bool _get_volume_meta(const string& key,VolumeMeta& info);
 public:
-    CephS3Meta();
+    CephS3Meta(const Configure& conf);
     ~CephS3Meta();
+
+    virtual int compare_marker(const JournalMarker& m1,
+            const JournalMarker& m2);
+
     virtual RESULT get_journal_meta(const string& key, JournalMeta& meta);
     virtual RESULT get_producer_marker(const string& vol_id,
             const CONSUMER_TYPE& type, JournalMarker& marker);
