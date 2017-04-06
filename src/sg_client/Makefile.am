@@ -11,7 +11,8 @@ sg_client_SOURCES=$(top_srcdir)/src/common/crc32.c  \
                   $(top_srcdir)/src/common/block_store.cc   \
                   $(top_srcdir)/src/common/ceph_s3_lease.cc \
                   $(top_srcdir)/src/common/ceph_s3_api.cc   \
-                  $(top_srcdir)/src/common/journal_entry.cc    \
+                  $(top_srcdir)/src/common/journal_entry.cc \
+                  $(top_srcdir)/src/common/block_dev.cc     \
                   control/control_snapshot.cc  \
                   control/control_backup.cc    \
                   control/control_replicate.cc \

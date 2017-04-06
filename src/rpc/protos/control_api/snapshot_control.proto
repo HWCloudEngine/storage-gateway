@@ -1,5 +1,6 @@
 syntax = "proto3";
 import "snapshot.proto";
+import "volume.proto";
 package huawei.proto.control;
 
 /*northern oriented rpc service interface*/
@@ -11,6 +12,8 @@ service SnapshotControl {
     rpc DeleteSnapshot(DeleteSnapshotReq) returns(DeleteSnapshotAck){}
     rpc DiffSnapshot(DiffSnapshotReq) returns(DiffSnapshotAck){}
     rpc ReadSnapshot(ReadSnapshotReq) returns(ReadSnapshotAck){}
+    rpc CreateVolumeFromSnap(CreateVolumeFromSnapReq) returns(CreateVolumeFromSnapAck){}
+    rpc QueryVolumeFromSnap(QueryVolumeFromSnapReq) returns(QueryVolumeFromSnapAck){}
 }
 
 message CreateSnapshotReq {
@@ -88,4 +91,25 @@ message ReadSnapshotReq {
 message ReadSnapshotAck {
     SnapAckHead header = 1;
     bytes data = 2;
+}
+
+message CreateVolumeFromSnapReq {
+    SnapReqHead header = 1;
+    string new_vol_name = 2;
+    string new_blk_device = 3;
+    string vol_name = 4;
+    string snap_name = 5;
+}
+
+message CreateVolumeFromSnapAck {
+    SnapAckHead header = 1;
+}
+
+message QueryVolumeFromSnapReq {
+    string new_vol_name = 2;
+}
+
+message QueryVolumeFromSnapAck {
+    SnapAckHead  header = 1;
+    VolumeStatus vol_status = 2;
 }

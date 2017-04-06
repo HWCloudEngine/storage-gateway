@@ -258,6 +258,10 @@ public:
         return entry_number() == 0 ? true : false; 
     }
 
+    bool full()const {
+        return entry_number() == m_queue_max_items ? true : false; 
+    }
+
     DT& operator[](size_t idx){
         std::unique_lock<std::mutex> mlock(m_mtx);
         return m_queue[idx]; 
