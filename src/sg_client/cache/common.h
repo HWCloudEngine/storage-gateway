@@ -5,8 +5,7 @@
 #include <string>
 #include <memory>
 #include <boost/thread/shared_mutex.hpp>
-#include "../nedmalloc.h"
-#include "../../common/journal_entry.h"
+#include "common/journal_entry.h"
 #include "../seq_generator.h"
 
 using namespace std;
@@ -107,7 +106,8 @@ public:
     static int fid;
 public:
     File() = default;
-    File(string file, off_t pos, bool eos);
+    File(string file, off_t start_pos, bool eos);
+    File(string file, off_t start_pos, off_t end_pos, bool eos);
     virtual ~File(){}
 
     int  open();
@@ -121,8 +121,9 @@ public:
     string m_file;  /*file name*/ 
     int    m_fd;    /*file descriptor*/
     size_t m_size;  /*file size*/
-    off_t  m_pos;   /*valid data offset*/
-    bool   m_eos;   /*end of stream, true: can not get journal file anymore*/
+    off_t  m_start_pos;/*reply from start_pos*/
+    off_t  m_end_pos; /*reply untill end_pos*/
+    bool   m_eos; /*end of stream, true: can not get journal file anymore*/
 };
 
 /*interface use to route or dispatch*/

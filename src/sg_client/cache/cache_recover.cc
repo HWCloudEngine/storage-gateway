@@ -1,8 +1,24 @@
 #include <stdlib.h>
 #include <string.h>
 #include "cache_recover.h"
-#include "../../common/journal_entry.h"
+#include "common/journal_entry.h"
 
+void IWorker::register_consumer(IWorker* worker)
+{
+    m_consumer.push_back(worker);
+}
+
+void IWorker::register_producer(IWorker* worker)
+{
+    m_producer.push_back(worker);
+}
+
+ProcessWorker::ProcessWorker(shared_ptr<IDGenerator> id_maker, 
+                             shared_ptr<CacheProxy> cache_proxy)
+           :m_id_generator(id_maker), m_cache_proxy(cache_proxy)
+{
+}
+ 
 void ProcessWorker::start()
 {
     m_router = new HashRoute();
@@ -14,6 +30,7 @@ void ProcessWorker::start()
    
 void ProcessWorker::stop()
 {
+    LOG_INFO << "process worker stop";
     if(m_thread){
         m_thread->join();
         delete m_thread;
@@ -25,7 +42,7 @@ void ProcessWorker::stop()
         delete m_router;
     }
     m_consumer.clear();
-    LOG_INFO << "process worker stop";
+    LOG_INFO << "process worker stop ok";
 }
 
 void ProcessWorker::loop()
@@ -35,10 +52,11 @@ void ProcessWorker::loop()
         if(!file->m_eos){
             /*normal, read each file, and add to cache*/
             process_file(file); 
+            LOG_INFO << "process worker doing";
         } else {
             /*no more file , process exit*/
             m_run = false;
-            LOG_INFO << "process worker discharge out";
+            LOG_INFO << "process worker done";
         }
         delete file; 
     }
@@ -56,31 +74,39 @@ void ProcessWorker::process_file(File* file)
 
     int ret = file->open(); 
     if(ret == -1){
+        LOG_ERROR << "open file:" << file->m_file << "failed";
         return;
     }
 
-    LOG_INFO << "Process file:" << file->m_file << " pos:"  << file->m_pos
-             << " size:" << file->m_size << " eos:"  << file->m_eos; 
+    LOG_INFO << "process file:" << file->m_file << " start_pos:"  << file->m_start_pos
+             << " end_pos:" << file->m_end_pos << " size:" << file->m_size 
+             << " eos:"  << file->m_eos; 
 
-    if(file->m_size > 0){
-        off_t start = file->m_pos;
-        off_t end   = file->m_size;
-        while(start < end){
-            string journal_file = file->m_file;
-            off_t  journal_off  = start;
-            shared_ptr<JournalEntry> journal_entry = nullptr; 
-            ssize_t ret = file->read_entry(start, journal_entry);
-            if(ret == -1){
-                LOG_ERROR << "Process file read entry failed";
-                break;
-            }
-            start += ret;
-            m_cache_proxy->write(journal_file, journal_off, journal_entry);
+    assert(file->m_size != 0);
+
+    off_t start = file->m_start_pos;
+    off_t end   = file->m_end_pos;
+    while(start < end){
+        string journal_file = file->m_file;
+        off_t  journal_off  = start;
+        shared_ptr<JournalEntry> journal_entry = nullptr; 
+        ssize_t ret = file->read_entry(start, journal_entry);
+        if(ret == -1){
+            LOG_ERROR << "process file read entry failed";
+            break;
         }
+        start = ret;
+        m_cache_proxy->write(journal_file, journal_off, journal_entry);
     }
 
     file->close();
     m_id_generator->del_file(file->m_file);
+}
+
+SrcWorker::SrcWorker(Configure& conf, string vol, 
+                     shared_ptr<ReplayerClient> rpc_cli)
+        :m_conf(conf), m_volume(vol), m_grpc_client(rpc_cli)
+{
 }
 
 void SrcWorker::start()
@@ -95,6 +121,7 @@ void SrcWorker::start()
 
 void SrcWorker::stop()
 {
+    LOG_INFO << "src worker stop";
     if(m_thread){
         m_thread->join();
         delete m_thread;
@@ -103,7 +130,7 @@ void SrcWorker::stop()
     if(m_router){
         delete m_router;
     }
-    LOG_INFO << "src worker stop";
+    LOG_INFO << "src worker stop ok";
 }
 
 void SrcWorker::broadcast_consumer_exit()
@@ -116,33 +143,19 @@ void SrcWorker::broadcast_consumer_exit()
 
 void SrcWorker::loop()
 {
-    /*todo: 
-     * dr server should modify, 
-     * if no journal marker exist return false when GetJournalMarker
-     * other than meaningless journal marker
-     */
     bool ret = m_grpc_client->GetJournalMarker(m_volume, m_latest_marker); 
     if(!ret){
         LOG_ERROR << "src worker get journal marker failed";
-        /*notify next chain(process worker) exit*/
         broadcast_consumer_exit();
         return;
     }
-    
-    /*dispatch the first journal*/
-    string name = m_latest_marker.cur_journal();
-    off_t  pos  = m_latest_marker.pos();
-    File* file = new File(name, pos, false); 
-    int cidx = m_router->route(file->fid, m_consumer.size());
-    m_consumer[cidx]->enqueue(file);
-    
-    LOG_INFO << "src worker journamarker file: " << name << " pos:" << pos;
+
     while(m_run){
         /*get journal file list from drserver*/
-        int limit = 10;
+        const int limit = 10;
         list<JournalElement> journal_list; 
-        bool ret = m_grpc_client->GetJournalList(m_volume, m_latest_marker, 
-                                                limit, journal_list);
+        ret = m_grpc_client->GetJournalList(m_volume, m_latest_marker, limit, 
+                                            journal_list);
         if(!ret || journal_list.empty()){
             LOG_ERROR << "src worker get journal list failed";
             m_run = false;
@@ -150,12 +163,13 @@ void SrcWorker::loop()
             break;
         }
        
-        /*dispatch file to next chain*/
+        /*dispatch file to process work*/
         for(auto it : journal_list){
-            name = "/mnt/cephfs" + it.journal();
-            pos  = sizeof(journal_file_header_t);
-            File* file = new File(name, pos, false); 
-            cidx = m_router->route(file->fid, m_consumer.size());
+            string name = m_conf.journal_mount_point + it.journal();
+            off_t start_pos = it.start_offset() == 0 ? sizeof(journal_file_header_t) : it.start_offset();
+            off_t end_pos = it.end_offset();
+            File* file = new File(name, start_pos, false); 
+            int cidx = m_router->route(file->fid, m_consumer.size());
             m_consumer[cidx]->enqueue(file);
         }
 
@@ -163,12 +177,13 @@ void SrcWorker::loop()
             /*more journal file again, renew latest marker*/ 
             auto rit = journal_list.rbegin();
             m_latest_marker.set_cur_journal(rit->journal());
-            m_latest_marker.set_pos(0);
+            m_latest_marker.set_pos(rit->end_offset());
+            LOG_INFO << "src worker replay doing";
         } else {
             /*notify next chain that here no file any more*/
             m_run = false;
             broadcast_consumer_exit();
-            LOG_INFO << "src worker discharge out";
+            LOG_INFO << "src worker replay done";
             break;
         }
     }    
@@ -180,6 +195,16 @@ void SrcWorker::enqueue(void* item)
 }
 
 
+CacheRecovery::CacheRecovery(Configure& conf, string volume, 
+                             shared_ptr<ReplayerClient> rpc_cli, 
+                             shared_ptr<IDGenerator> id_maker,
+                             shared_ptr<CacheProxy> cache_proxy)
+    :m_conf(conf),m_volume(volume),m_grpc_client(rpc_cli),m_id_generator(id_maker),
+    m_cache_proxy(cache_proxy)
+{
+
+}
+
 void CacheRecovery::start()
 {
     LOG_INFO << "CacheRecovery start";
@@ -190,7 +215,7 @@ void CacheRecovery::start()
         m_processor[i].start();
     }
     
-    m_src_worker = new SrcWorker(m_volume, m_grpc_client);
+    m_src_worker = new SrcWorker(m_conf, m_volume, m_grpc_client);
     for(int i = 0; i < m_processor_num; i++){
         m_src_worker->register_consumer(&m_processor[i]);
         m_processor[i].register_producer(m_src_worker);

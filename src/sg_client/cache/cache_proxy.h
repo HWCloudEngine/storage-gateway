@@ -13,7 +13,7 @@
 #include "bcache.h"
 #include "../nedmalloc.h"
 #include "../seq_generator.h"
-#include "../../log/log.h"
+#include "log/log.h"
 using namespace std;
 
 class CacheProxy
@@ -33,11 +33,10 @@ public:
     ~CacheProxy();
   
     /*journal writer or cache recover add cache*/
-    void write(string journal_file, off_t  journal_off,
-               shared_ptr<JournalEntry> journal_entry);
+    void write(string journal_file, off_t  journal_off, shared_ptr<JournalEntry> journal_entry);
 
     /*io hook read*/
-    int  read(off_t  off, size_t len, char*  buf); 
+    int read(off_t  off, size_t len, char*  buf); 
     
     /*journal replayer call*/
     shared_ptr<CEntry> pop();                                     
@@ -71,7 +70,8 @@ private:
     thread*            evict_thread;
     mutex              evict_lock;
     condition_variable evict_cond;
-
+    
+    mutex    cache_lock;
     /*accelerate journal replay*/
     Jcache*  jcache;
     /*accelerate read cache*/

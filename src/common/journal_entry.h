@@ -58,8 +58,8 @@ public:
     size_t copy_entry(string& buffer);
 
     /*read from journal file and parse into JournalEnry*/
-    size_t parse(int fd, off_t off);
-    size_t parse(FILE* file, off_t off);
+    ssize_t parse(int fd, size_t fsize, off_t off);
+    ssize_t parse(FILE* file, off_t off);
 
     /*persit data size*/
     size_t get_persit_size()const;

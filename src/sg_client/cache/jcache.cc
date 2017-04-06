@@ -1,4 +1,4 @@
-#include "../../log/log.h"
+#include "log/log.h"
 #include "jcache.h"
 
 Jkey::Jkey(IoVersion seq)
@@ -122,6 +122,7 @@ shared_ptr<CEntry> Jcache::pop()
     /*here has read lock, so put it in block*/
     {
         if(empty()){
+            //LOG_ERROR << "jcache pop empty";
             return nullptr; 
         }
     }
