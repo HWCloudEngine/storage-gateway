@@ -7,13 +7,14 @@
 #include <grpc++/grpc++.h>
 #include "../snapshot.pb.h"
 #include "../snapshot_control.grpc.pb.h"
+#include "../volume.pb.h"
 
 using namespace std;
 
 using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
-
+using huawei::proto::VolumeStatus;
 using huawei::proto::SnapStatus;
 using huawei::proto::DiffBlocks;
 using huawei::proto::StatusCode;
@@ -33,6 +34,11 @@ using huawei::proto::control::DiffSnapshotReq;
 using huawei::proto::control::DiffSnapshotAck;
 using huawei::proto::control::ReadSnapshotReq;
 using huawei::proto::control::ReadSnapshotAck;
+using huawei::proto::control::CreateVolumeFromSnapReq;
+using huawei::proto::control::CreateVolumeFromSnapAck;
+using huawei::proto::control::QueryVolumeFromSnapReq;
+using huawei::proto::control::QueryVolumeFromSnapAck;
+
 
 /*snapshot and other control rpc client*/
 class SnapshotCtrlClient 
@@ -135,6 +141,33 @@ public:
             return ack.header().status();
         }
         memcpy((char*)buf, ack.data().data(), len);
+        return ack.header().status();
+    }
+
+    StatusCode CreateVolumeFromSnap(const string& vol_name, const string& snap_name,
+                                    const string& new_vol, const string& new_blk){
+        CreateVolumeFromSnapReq req;
+        req.set_vol_name(vol_name);
+        req.set_snap_name(snap_name);
+        req.set_new_vol_name(new_vol);
+        req.set_new_blk_device(new_blk);
+        CreateVolumeFromSnapAck ack;
+        ClientContext context;
+
+        grpc::Status status = m_ctrl_stub->CreateVolumeFromSnap(&context, req, &ack);
+        if(!status.ok()){
+            return ack.header().status();
+        }
+        return ack.header().status();
+    }
+
+    StatusCode QueryVolumeFromSnap(const string& new_vol, VolumeStatus& new_vol_status){
+        QueryVolumeFromSnapReq req;
+        req.set_new_vol_name(new_vol);
+        QueryVolumeFromSnapAck ack;
+        ClientContext context;
+        grpc::Status status = m_ctrl_stub->QueryVolumeFromSnap(&context, req, &ack);
+        new_vol_status = ack.vol_status();
         return ack.header().status();
     }
 
