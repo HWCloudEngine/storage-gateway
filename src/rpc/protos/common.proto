@@ -22,6 +22,7 @@ enum StatusCode {
     sSnapUpdateError = 104;
     sSnapMetaPersistError = 105;
     sSnapCreateDenied = 106;
+    sSnapCreateVolumeBusy = 107;
 
     // status for replicate
     sReplicationNotExist = 201;
