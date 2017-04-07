@@ -57,7 +57,8 @@ class ReplicateCtrl:public huawei::proto::control::ReplicateControl::Service{
     void update_volume_attr(const string& volume);
 
     StatusCode do_replicate_operation(const string& vol,
-        const string& op_id, const RepRole& role,const ReplicateOperation& op);
+        const string& op_id, const RepRole& role,const ReplicateOperation& op,
+        const string& snap_name);
 
 public:
     ReplicateCtrl(const Configure& conf, std::map<string, std::shared_ptr<Volume>>& volumes);

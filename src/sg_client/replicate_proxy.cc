@@ -2,8 +2,7 @@
 #include <chrono>
 #include "replicate_proxy.h"
 #include "log/log.h"
-using huawei::proto::SnapScene;
-using huawei::proto::SnapType;
+#include "common/utils.h"
 
 ReplicateProxy::ReplicateProxy(const Configure& conf, const string& vol_name,
             const size_t& vol_size,
@@ -21,15 +20,16 @@ ReplicateProxy::~ReplicateProxy(){
 }
 
 StatusCode ReplicateProxy::create_snapshot(const string& snap_name,
-        JournalMarker& marker){
+        JournalMarker& marker,const string& checkpoint_id,
+        const SnapScene& snap_scene,const SnapType& snap_type){
     CreateSnapshotReq req;
     CreateSnapshotAck ack;
 
     req.mutable_header()->set_seq_id(0);
-    req.mutable_header()->set_scene(SnapScene::FOR_REPLICATION);
-    req.mutable_header()->set_snap_type(SnapType::SNAP_LOCAL);
+    req.mutable_header()->set_scene(snap_scene);
+    req.mutable_header()->set_snap_type(snap_type);
     req.mutable_header()->set_replication_uuid("");
-    req.mutable_header()->set_checkpoint_uuid("");
+    req.mutable_header()->set_checkpoint_uuid(checkpoint_id);
     req.set_vol_name(vol_name_);
     req.set_vol_size(vol_size_);
     req.set_snap_name(snap_name);
@@ -48,10 +48,11 @@ StatusCode ReplicateProxy::create_transaction(const SnapReqHead& shead,
     // report sg_server that replayer got a replicate snap;
     // sg_server will validate this snapshot
     bool is_discard;
-    ret_code = rep_inner_client_->report_checkpoint(snap_name,
+    ret_code = rep_inner_client_->report_checkpoint(shead.checkpoint_uuid(),
         vol_name_,role,is_discard);
     if(ret_code != StatusCode::sOk){
-        LOG_ERROR << "report replicate checkpoint failed, volume:" << vol_name_;
+        LOG_ERROR << "report replicate checkpoint failed, volume:" << vol_name_
+            << ",operation id:" << shead.checkpoint_uuid();
         return ret_code;
     }
     if(!is_discard){
@@ -70,16 +71,6 @@ StatusCode ReplicateProxy::create_transaction(const SnapReqHead& shead,
         }
     }
     return ret_code;
-}
-
-// generate  snap_name by operate uuid
-string ReplicateProxy::operate_uuid_to_snap_name(const string& operate_id){
-    return operate_id;
-}
-
-// extract operate uuid from snap_name
-string ReplicateProxy::snap_name_to_operate_uuid(const string& snap_name){
-    return snap_name;
 }
 
 void ReplicateProxy::add_sync_item(const std::string& actor,const std::string& action){

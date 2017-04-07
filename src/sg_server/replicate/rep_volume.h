@@ -64,7 +64,7 @@ private:
     int persist_replication_status();
     // generate a task to sync base snapshot
     std::shared_ptr<TransferTask> generate_base_sync_task(
-                const string& pre_snap,const string& cur_snap);
+        const string& pre_snap,const string& cur_snap,bool has_pre_snap);
     void recycle_base_sync_task(std::shared_ptr<TransferTask> t);
     void resume_replicate();
     // recycle resources

@@ -180,9 +180,16 @@ class BaseSnapTask:public TransferTask {
 private:
     std::string base_snap;
     uint64_t vol_size;
+
     // internal memebers
     bool end;
     uint64_t package_id;
+    std::shared_ptr<RepContext> ctx;
+    uint64_t read_off; // where to read from
+    char* buffer;
+    uint64_t cur_off; // pair with j_counter, indicate whether there was space in journal
+    int64_t sub_counter; // sub journal counter, start from 1
+    uint64_t max_journal_size;
 
 public:
     BaseSnapTask(const std::string& _base,
@@ -192,11 +199,17 @@ public:
             vol_size(_vol_size),
             TransferTask(_context),
             package_id(0),
+            cur_off(0),
+            ctx(_context),
             end(false){
         init();
     }
 
-    ~BaseSnapTask(){}
+    ~BaseSnapTask(){
+        if(buffer){
+            free(buffer);
+        }
+    }
 
     std::string& get_base_snap();
     void set_base_snap(const std::string& _snap);

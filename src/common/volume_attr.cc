@@ -54,6 +54,16 @@ RepRole VolumeAttr::replicate_role()
     return m_vol_info.role();
 }
 
+RepStatus VolumeAttr::replicate_status(){
+    ReadLock lck(mtx);
+    return m_vol_info.rep_status();
+}
+
+void VolumeAttr::set_replicate_status(const RepStatus& status){
+    WriteLock lck(mtx);
+    m_vol_info.set_rep_status(status);
+}
+
 bool VolumeAttr::is_snapshot_allowable(const SnapType& snap_type)
 {
     ReadLock lck(mtx);
@@ -113,8 +123,7 @@ int VolumeAttr::current_replay_mode()
     }
 
     if(m_vol_info.role() == RepRole::REP_SECONDARY && 
-       (m_vol_info.rep_status() == RepStatus::REP_FAILED_OVER || 
-        m_vol_info.rep_status() == RepStatus::REP_FAILING_OVER)){
+       (m_vol_info.rep_status() == RepStatus::REP_FAILED_OVER)){
         /*cur volume is secondary, failover occur on cur volume*/ 
         return NORMAL_REPLAY_MODE;
     }

@@ -42,7 +42,7 @@ class RepInnerCtrl:public huawei::proto::inner::ReplicateInnerControl::Service{
     grpc::Status FailoverReplication(ServerContext* context,
             const FailoverReplicationInnerReq* request,
             ReplicationInnerCommonRes* response);
-    grpc::Status ReverseReplication(ClientContext* context,
+    grpc::Status ReverseReplication(ServerContext* context,
             const ReverseReplicationInnerReq* request,
             ReplicationInnerCommonRes* response);
     grpc::Status DeleteReplication(ServerContext* context,
@@ -55,6 +55,7 @@ class RepInnerCtrl:public huawei::proto::inner::ReplicateInnerControl::Service{
     void notify_rep_state_changed(const string& vol);
     bool validate_replicate_operation(const RepStatus& status,
             const ReplicateOperation& op);
+    void delete_snapshots_for_replication(const string& vol_id);
 public:
     RepInnerCtrl(RepScheduler& rep,
             std::shared_ptr<CephS3Meta> meta):

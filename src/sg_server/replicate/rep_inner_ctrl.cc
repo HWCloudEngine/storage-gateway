@@ -34,10 +34,12 @@ Status RepInnerCtrl::CreateReplication(ServerContext* context,
     const huawei::proto::RepRole& role = request->role();
     const string& op_id = request->operate_id();
     const JournalMarker& marker = request->marker();
+    const string& snap_id = request->snap_id();
     LOG_INFO << "create replication:\n"
         << "local volume:" << local_vol << "\n"
         << "replication uuid:" << uuid << "\n"
         << "operation uuid:" << op_id << "\n"
+        << "snap_id:" << snap_id << "\n"
         << "role:" << role << "\n"
         << "peer volume count:" << request->peer_volumes_size() << "\n";
     VolumeMeta meta;
@@ -62,7 +64,7 @@ Status RepInnerCtrl::CreateReplication(ServerContext* context,
     record->set_operate_id(op_id);
     record->set_type(REPLICATION_CREATE);
     record->set_time(time(nullptr));
-    record->set_snap_id(op_id);
+    record->set_snap_id(snap_id);
     record->mutable_marker()->CopyFrom(marker);
     res = meta_->create_volume(meta);// TODO: replace with update_volume_meta api
     if(DRS_OK != res){
@@ -86,11 +88,14 @@ Status RepInnerCtrl::EnableReplication(ServerContext* context,
     const huawei::proto::RepRole& role = request->role();
     const string& op_id = request->operate_id();
     const JournalMarker& marker = request->marker();
+    const string& snap_id = request->snap_id();
     LOG_INFO << "enable replication:\n"
         << "local volume:" << local_vol << "\n"
         << "operation uuid:" << op_id << "\n"
+        << "snap_id:" << snap_id << "\n"
         << "role:" << role << "\n"
         << "marker:" << marker.cur_journal() << "," << marker.pos();
+
     VolumeMeta meta;
     RESULT res = meta_->read_volume_meta(local_vol,meta);
     SG_ASSERT(DRS_OK == res);
@@ -110,13 +115,16 @@ Status RepInnerCtrl::EnableReplication(ServerContext* context,
     op->set_operate_id(op_id);
     op->set_type(REPLICATION_ENABLE);
     op->set_time(time(nullptr));
-    op->set_snap_id(op_id);
+    op->set_snap_id(snap_id);
     op->mutable_marker()->CopyFrom(marker);
     op->set_is_synced(false);
     res = meta_->update_volume_meta(meta);
     SG_ASSERT(DRS_OK == res);
-    if(role == REP_PRIMARY)
+    if(role == REP_PRIMARY){
+        // add volume to replicate scheduler(failover->reverse->enable),if exsit, not add
+        rep_.add_volume(local_vol);
         notify_rep_state_changed(local_vol);
+    }
     response->set_status(sOk);
     return Status::OK;
 }
@@ -128,9 +136,11 @@ Status RepInnerCtrl::DisableReplication(ServerContext* context,
     const huawei::proto::RepRole& role = request->role();
     const string& op_id = request->operate_id();
     const JournalMarker& marker = request->marker();
+    const string& snap_id = request->snap_id();
     LOG_INFO << "disable replication:\n"
         << "local volume:" << local_vol << "\n"
         << "operation uuid:" << op_id << "\n"
+        << "snap_id:" << snap_id << "\n"
         << "role:" << role << "\n"
         << "marker:" << marker.cur_journal() << "," << marker.pos();
 
@@ -146,16 +156,18 @@ Status RepInnerCtrl::DisableReplication(ServerContext* context,
     }
 
     // update replication meta
-    if(role == REP_PRIMARY)
+    if(role == REP_PRIMARY){
         meta.mutable_info()->set_rep_status(REP_DISABLING);
-    else
+    }
+    else{
         meta.mutable_info()->set_rep_status(REP_DISABLED);
+    }
 
     huawei::proto::OperationRecord* op = meta.add_records();
     op->set_operate_id(op_id);
     op->set_type(REPLICATION_DISABLE);
     op->set_time(time(nullptr));
-    op->set_snap_id(op_id);
+    op->set_snap_id(snap_id);
     op->mutable_marker()->CopyFrom(marker);
     res = meta_->update_volume_meta(meta);
     SG_ASSERT(DRS_OK == res);
@@ -172,11 +184,15 @@ Status RepInnerCtrl::FailoverReplication(ServerContext* context,
     const huawei::proto::RepRole& role = request->role();
     const string& op_id = request->operate_id();
     const JournalMarker& marker = request->marker();
+    const bool& need_sync = request->need_sync();
+    const string& snap_id = request->snap_id();
     LOG_INFO << "failover replication:\n"
         << "local volume:" << local_vol << "\n"
         << "operation uuid:" << op_id << "\n"
         << "role:" << role << "\n"
-        << "marker:" << marker.cur_journal() << "," << marker.pos();
+        << "marker:" << marker.cur_journal() << "," << marker.pos() << "\n"
+        << "need sync:" << need_sync << "\n"
+        << "snap_id:" << snap_id;
 
     VolumeMeta meta;
     RESULT res = meta_->read_volume_meta(local_vol,meta);
@@ -190,16 +206,23 @@ Status RepInnerCtrl::FailoverReplication(ServerContext* context,
     }
 
     // update replication meta
-    if(role == REP_PRIMARY)
+    if(role == REP_PRIMARY){
         meta.mutable_info()->set_rep_status(REP_FAILING_OVER);
-    else
-        meta.mutable_info()->set_rep_status(REP_FAILED_OVER);
+    }
+    else{
+        if(need_sync){
+            meta.mutable_info()->set_rep_status(REP_FAILING_OVER);
+        }
+        else{
+            meta.mutable_info()->set_rep_status(REP_FAILED_OVER);
+        }
+    }
 
     huawei::proto::OperationRecord* op = meta.add_records();
     op->set_operate_id(op_id);
     op->set_type(REPLICATION_FAILOVER);
     op->set_time(time(nullptr));
-    op->set_snap_id(op_id);
+    op->set_snap_id(snap_id);
     op->mutable_marker()->CopyFrom(marker);
     res = meta_->update_volume_meta(meta);
     SG_ASSERT(DRS_OK == res);
@@ -209,12 +232,47 @@ Status RepInnerCtrl::FailoverReplication(ServerContext* context,
     return Status::OK;
 }
 
-Status RepInnerCtrl::ReverseReplication(ClientContext* context,
+Status RepInnerCtrl::ReverseReplication(ServerContext* context,
         const ReverseReplicationInnerReq* request,
         ReplicationInnerCommonRes* response){
-    // TODO:
-    Status status(grpc::INTERNAL,"not implement.");
-    return status;
+    const string& local_vol = request->vol_id();
+    const huawei::proto::RepRole& role = request->role();
+    const string& op_id = request->operate_id();
+    LOG_INFO << "reverse replication:\n"
+        << "local volume:" << local_vol << "\n"
+        << "operation uuid:" << op_id << "\n"
+        << "role:" << role;
+
+    VolumeMeta meta;
+    RESULT res = meta_->read_volume_meta(local_vol,meta);
+    SG_ASSERT(DRS_OK == res);
+    if(!validate_replicate_operation(meta.info().rep_status(),REPLICATION_REVERSE)){
+        LOG_ERROR << "reverse replication " << local_vol
+            << " failed:not allowed at current state,"
+            << meta.info().rep_status();
+        response->set_status(sInvalidOperation);
+        return grpc::Status::OK;
+    }
+
+    // update replication meta
+    if(role == REP_PRIMARY){
+        meta.mutable_info()->set_role(REP_SECONDARY);
+    }
+    else{
+        meta.mutable_info()->set_role(REP_PRIMARY);
+    }
+    // update replicate status to disabled
+    meta.mutable_info()->set_rep_status(REP_DISABLED);
+
+    huawei::proto::OperationRecord* op = meta.add_records();
+    op->set_operate_id(op_id);
+    op->set_type(REPLICATION_REVERSE);
+    op->set_time(time(nullptr));
+    res = meta_->update_volume_meta(meta);
+    SG_ASSERT(DRS_OK == res);
+
+    response->set_status(sOk);
+    return Status::OK;
 }
 
 Status RepInnerCtrl::DeleteReplication(ServerContext* context,
@@ -240,13 +298,12 @@ Status RepInnerCtrl::DeleteReplication(ServerContext* context,
     }
 
     meta.mutable_info()->set_rep_enable(false);
-    if(role == REP_PRIMARY)
-        meta.mutable_info()->set_rep_status(REP_DELETING);
-    else
-        meta.mutable_info()->set_rep_status(REP_DELETED);
+    meta.mutable_info()->set_rep_status(REP_DELETED);
     res = meta_->update_volume_meta(meta);
     SG_ASSERT(DRS_OK == res);
 
+    // delete all snapshots created for replication
+    delete_snapshots_for_replication(local_vol);
     if(role == REP_PRIMARY){
         rep_.remove_volume(meta.info().vol_id());
     }
@@ -268,14 +325,13 @@ Status RepInnerCtrl::ReportCheckpoint(ServerContext* context,
         << "operation uuid:" << op_id << "\n"
         << "role:" << role;
 
-    // TODO:  sync remote replication status
     VolumeMeta meta;
     RESULT res = meta_->read_volume_meta(local_vol,meta);
     SG_ASSERT(DRS_OK == res);
 
+    RepStatus status = meta.info().rep_status();
     if(role == REP_PRIMARY){
         bool found = false;
-        RepStatus status = meta.info().rep_status();
         auto records = meta.records();
         for(auto it=records.rbegin(); it!=records.rend();it++){
             LOG_DEBUG << "operate id:" << it->operate_id() << ",type:" << it->type();
@@ -291,13 +347,34 @@ Status RepInnerCtrl::ReportCheckpoint(ServerContext* context,
             response->set_discard_snap(false);
         }
         else{
-            LOG_INFO << "discard volume[" << local_vol << "'s snapshot:" << op_id;
+            LOG_INFO << "discard volume " << local_vol
+                << "'s snapshot of operation:" << op_id;
             response->set_discard_snap(true);
         }
     }
-    else{// remote site drop snapshots
-        LOG_INFO << "discard volume[" << local_vol << "'s snapshot:" << op_id;
-        response->set_discard_snap(true);
+    else{// remote site drop snapshots,except for failover
+        if(REP_FAILING_OVER == status){
+            auto it = meta.records().rbegin();
+            if(meta.records().rend() != it && it->operate_id().compare(op_id) == 0){
+                // update replication status to "failedover"
+                meta.mutable_info()->set_rep_status(REP_FAILED_OVER);
+                res = meta_->update_volume_meta(meta);
+                SG_ASSERT(DRS_OK == res);
+                response->set_discard_snap(false);
+                LOG_INFO << "update volume[" << local_vol
+                    << "] status to failedover.";
+            }
+            else{
+                LOG_INFO << "discard volume " << local_vol
+                    << "'s snapshot of operation:" << op_id;
+                response->set_discard_snap(true);
+            }
+        }
+        else{
+            LOG_INFO << "discard volume " << local_vol
+                << "'s snapshot of operation:" << op_id;
+            response->set_discard_snap(true);
+        }
     }
 
     response->set_status(sOk);
@@ -318,18 +395,26 @@ bool RepInnerCtrl::validate_replicate_operation(
                 return true;
             else
                 return false;
+
         case REPLICATION_DISABLE:
             if(status == REP_ENABLED)
                 return true;
             else
                 return false;
+
         case REPLICATION_FAILOVER:
             if(status == REP_ENABLED)
                 return true;
             else
                 return false;
+
+        case REPLICATION_REVERSE:
+            if(status == REP_FAILED_OVER)
+                return true;
+            else
+                return false;
+
         case REPLICATION_QUERY:
-        case REPLICATION_LIST:
         case REPLICATION_DELETE:
         default:
             return true;
@@ -337,3 +422,12 @@ bool RepInnerCtrl::validate_replicate_operation(
     return false;
 }
 
+void RepInnerCtrl::delete_snapshots_for_replication(
+        const string& vol_id){
+    VolumeMeta meta;
+    RESULT res = meta_->read_volume_meta(vol_id,meta);
+    SG_ASSERT(DRS_OK == res);
+    for(auto it=meta.records().begin(); it!=meta.records().end(); ++it){
+        SnapClientWrapper::instance().get_client()->DeleteSnapshot(vol_id,it->snap_id());
+    }
+}

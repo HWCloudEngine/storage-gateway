@@ -14,6 +14,7 @@
 #include "control_replicate.h"
 #include "common/config_parser.h"
 #include "log/log.h"
+#include "common/utils.h"
 using std::string;
 using huawei::proto::sOk;
 using huawei::proto::sInternalError;
@@ -75,7 +76,8 @@ void ReplicateCtrl::update_volume_attr(const string& volume){
 }
 
 StatusCode ReplicateCtrl::do_replicate_operation(const string& vol,
-        const string& op_id, const RepRole& role, const ReplicateOperation& op){
+        const string& op_id, const RepRole& role, const ReplicateOperation& op,
+        const string& snap_name){
     StatusCode res = sOk;
     // 1. hold producer marker
     //  for enable, here hold producer marker to confirm that the replicator
@@ -94,16 +96,17 @@ StatusCode ReplicateCtrl::do_replicate_operation(const string& vol,
     }
 
     writer->hold_producer_marker();
-    string snap_name = rep_proxy->operate_uuid_to_snap_name(op_id);
     // 2. hold replayer until replicate operation was finished
     rep_proxy->add_sync_item(snap_name,"enable");
 
     do{
         JournalMarker marker;
         // 3. create snapshot for replication
-        res = rep_proxy->create_snapshot(snap_name,marker);
+        SnapScene scene = op == ReplicateOperation::REPLICATION_FAILOVER ?
+            SnapScene::FOR_REPLICATION_FAILOVER : SnapScene::FOR_REPLICATION;
+        res = rep_proxy->create_snapshot(snap_name,marker,op_id,scene,SnapType::SNAP_LOCAL);
         if(res){
-            LOG_ERROR << "create snapshot[" << op_id << "] for volume["
+            LOG_ERROR << "create snapshot[" << snap_name << "] for volume["
                 << vol << "] enable failed!";
             break;
         }
@@ -117,22 +120,22 @@ StatusCode ReplicateCtrl::do_replicate_operation(const string& vol,
         switch(op){
             case ReplicateOperation::REPLICATION_ENABLE:
                 res = rep_ctrl_client_->enable_replication(op_id,
-                    vol,role,marker);
+                    vol,role,marker,snap_name);
                 break;
             case ReplicateOperation::REPLICATION_DISABLE:
                 res = rep_ctrl_client_->disable_replication(op_id,
-                    vol,role,marker);
+                    vol,role,marker,snap_name);
                 break;
             case ReplicateOperation::REPLICATION_FAILOVER:
                 res = rep_ctrl_client_->failover_replication(op_id,
-                    vol,role,marker);
+                    vol,role,marker,true,snap_name);
                 break;
             default:
                 break;
         }
         if(res){
             LOG_ERROR << "do replication operation failed,vol_id=" << vol
-                << "operation type:" << op;
+                << ",operation type:" << op;
             break;
         }
     }while(false);
@@ -161,7 +164,6 @@ Status ReplicateCtrl::CreateReplication(ServerContext* context,
         LOG_INFO << "\t" << request->peer_volumes(i);
     }
 
-
     StatusCode res = rep_ctrl_client_->create_replication(operate_id,
         rep_id,local_vol,peer_vols,role);
     if(res){
@@ -188,14 +190,16 @@ Status ReplicateCtrl::EnableReplication(ServerContext* context,
         << "role:" << role;
 
     if(RepRole::REP_PRIMARY == role){
+        string snap_name = operate_uuid_to_snap_name(operate_id);
         res = do_replicate_operation(local_vol,operate_id,role,
-            ReplicateOperation::REPLICATION_ENABLE);
+            ReplicateOperation::REPLICATION_ENABLE,snap_name);
     }
     else{
         // update replication meta directly on secondary role
         JournalMarker marker; // not use
+        string snap_name; // not use
         res = rep_ctrl_client_->enable_replication(operate_id,
-            local_vol,role,marker);
+            local_vol,role,marker,snap_name);
         if(res){
             LOG_ERROR << "enable replication failed,vol_id=" << local_vol;
         }
@@ -220,14 +224,16 @@ Status ReplicateCtrl::DisableReplication(ServerContext* context,
         << "role:" << role;
 
     if(RepRole::REP_PRIMARY == role){
+        string snap_name = operate_uuid_to_snap_name(operate_id);
         res = do_replicate_operation(local_vol,operate_id,role,
-            ReplicateOperation::REPLICATION_DISABLE);
+            ReplicateOperation::REPLICATION_DISABLE,snap_name);
     }
     else{
         // update replication meta directly on secondary role
         JournalMarker marker;
+        string snap_name; // not use for secondary
         res = rep_ctrl_client_->disable_replication(operate_id,
-            local_vol,role,marker);
+            local_vol,role,marker,snap_name);
         if(res){
             LOG_ERROR << "disable replication failed,vol_id=" << local_vol;
         }
@@ -243,23 +249,51 @@ Status ReplicateCtrl::FailoverReplication(ServerContext* context,
         ReplicationCommonRes* response){
     const string& local_vol = request->vol_id();
     const RepRole& role = request->role();
+    const string& cp_id = request->checkpoint_id();
+    string snap_id = request->snap_id();
     StatusCode res;
-
-    string operate_id = boost::uuids::to_string(uuid_generator_());
+    string operate_id;
+    bool need_sync = false;
+    if(cp_id.length() == 0 || snap_id.length() == 0){
+        operate_id = boost::uuids::to_string(uuid_generator_());
+        snap_id = operate_uuid_to_snap_name(operate_id);
+    }
+    else{
+        operate_id = cp_id;
+        need_sync = true;
+    }
     LOG_INFO << "failover replication:\n"
         << "local volume:" << local_vol << "\n"
         << "operation uuid:" << operate_id << "\n"
-        << "role:" << role;
+        << "checkpoint uuid:" << cp_id << "\n"
+        << "snapshot uuid:" << snap_id << "\n"
+        << "role:" << role << "\n"
+        << "need sync:" << need_sync;
 
     if(RepRole::REP_PRIMARY == role){
         res = do_replicate_operation(local_vol,operate_id,role,
-            ReplicateOperation::REPLICATION_FAILOVER);
+            ReplicateOperation::REPLICATION_FAILOVER,snap_id);
     }
     else{
+        JournalMarker marker; // not use
+        if(need_sync){
+            // create remote snapshot meta at secondary site
+            std::shared_ptr<ReplicateProxy> rep_proxy = get_replicate_proxy(local_vol);
+            if(nullptr != rep_proxy){
+                res = rep_proxy->create_snapshot(snap_id,marker,operate_id,
+                    SnapScene::FOR_REPLICATION_FAILOVER,SnapType::SNAP_REMOTE);
+                if(res){
+                    LOG_ERROR << "create remote snapshot meta failed for volume:"
+                        << local_vol;
+                }
+            }
+            else{
+                LOG_ERROR << "replicate proxy not found for volume: " << local_vol;
+            }
+        }
         // update replication meta directly on secondary role
-        JournalMarker marker;
         res = rep_ctrl_client_->failover_replication(operate_id,
-            local_vol,role,marker);
+            local_vol,role,marker,need_sync,snap_id);
         if(res){
             LOG_ERROR << "failover replication failed,vol_id=" << local_vol;
         }
@@ -273,8 +307,23 @@ Status ReplicateCtrl::FailoverReplication(ServerContext* context,
 Status ReplicateCtrl::ReverseReplication(ServerContext* context,
         const ReverseReplicationReq* request,
         ReplicationCommonRes* response){
-    // TODO: implement
-    response->set_status(sInternalError);
+    const string& local_vol = request->vol_id();
+    const RepRole& role = request->role();
+
+    string operate_id = boost::uuids::to_string(uuid_generator_());
+    LOG_INFO << "reverse replication:\n"
+        << "local volume:" << local_vol << "\n"
+        << "operation uuid:" << operate_id << "\n"
+        << "role:" << role;
+
+    StatusCode res = rep_ctrl_client_->reverse_replication(operate_id,
+        local_vol,role);
+    if(res){
+        LOG_ERROR << "reverse replication failed,vol_id=" << local_vol;
+    }
+
+    update_volume_attr(local_vol);
+    response->set_status(res);
     return Status::OK;
 }
 
