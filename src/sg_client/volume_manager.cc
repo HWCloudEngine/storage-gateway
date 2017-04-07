@@ -338,7 +338,8 @@ void VolumeManager::writer_thread_work(){
                     }
                 }
                 // last one not found or changed, need to update
-                markers_to_update.insert(std::pair<string,JournalMarker>(it->first,marker));
+                markers_to_update.insert(std::pair<string,JournalMarker>(
+                    writer->get_vol_attr().vol_name(),marker));
             }
             LOG_DEBUG << "invoked to update producer marker";
             update_producer_markers(markers_to_update);

@@ -17,6 +17,8 @@
 #include "../rpc/clients/volume_inner_ctrl_client.h"
 #include "common/locks.h"
 using huawei::proto::RepRole;
+using huawei::proto::SnapScene;
+using huawei::proto::SnapType;
 
 class ReplicateProxy{
 public:
@@ -24,15 +26,13 @@ public:
             std::shared_ptr<SnapshotProxy> snapshot_proxy);
     ~ReplicateProxy();
     // snapshot
-    StatusCode create_snapshot(const string& operate_id,JournalMarker& marker);
+    StatusCode create_snapshot(const string& operate_id,
+            JournalMarker& marker,const string& checkpoint_id,
+            const SnapScene& snap_scene,const SnapType& snap_type);
 
     // transaction
     StatusCode create_transaction(const SnapReqHead& shead,
             const string& snap_name, const RepRole& role);
-
-    // mapings between replicate operate uuid and snapshot name
-    string snap_name_to_operate_uuid(const string& snap_name);
-    string operate_uuid_to_snap_name(const string& operate_id);
 
     // sync operation
     void add_sync_item(const std::string& actor,const std::string& action);

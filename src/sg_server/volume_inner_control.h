@@ -31,7 +31,7 @@ class VolInnerCtrl:public huawei::proto::inner::VolumeInnerControl::Service{
     ::grpc::Status GetVolume(ServerContext* context,
             const GetVolumeReq* request, GetVolumeRes* response);
     ::grpc::Status ListVolume(ServerContext* context,
-            const ListVolumeRes* request, ListVolumeRes* response);
+            const ListVolumeReq* request, ListVolumeRes* response);
     ::grpc::Status DeleteVolume(ServerContext* context,
         const GetVolumeReq* request, GetVolumeRes* response);
     void init();

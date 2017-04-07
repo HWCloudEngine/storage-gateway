@@ -231,7 +231,7 @@ Status VolumeControlImpl::ListDevices(ServerContext* context,
         {
             res->add_devices()->append("/dev/" + t);
         }
-        res->set_status(StatusCode::sInternalError);
+        res->set_status(StatusCode::sOk);
         return Status::OK;
     }
 }

@@ -61,12 +61,13 @@ public:
         }
     }
     StatusCode enable_replication(const string& op_id,const string& vol_id,
-        const RepRole& role,const JournalMarker& marker){
+        const RepRole& role,const JournalMarker& marker,const string& snap_id){
         EnableReplicationInnerReq req;
         req.set_operate_id(op_id);
         req.set_vol_id(vol_id);
         req.set_role(role);
         req.mutable_marker()->CopyFrom(marker);
+        req.set_snap_id(snap_id);
         ClientContext context;
         ReplicationInnerCommonRes res;
         grpc::Status status = stub_->EnableReplication(&context,req,&res);
@@ -79,12 +80,13 @@ public:
         }
     }
     StatusCode disable_replication(const string& op_id,const string& vol_id,
-        const RepRole& role,const JournalMarker& marker){
+        const RepRole& role,const JournalMarker& marker,const string& snap_id){
         DisableReplicationInnerReq req;
         req.set_operate_id(op_id);
         req.set_vol_id(vol_id);
         req.set_role(role);
         req.mutable_marker()->CopyFrom(marker);
+        req.set_snap_id(snap_id);
         ClientContext context;
         ReplicationInnerCommonRes res;
         grpc::Status status = stub_->DisableReplication(&context,req,&res);
@@ -97,12 +99,16 @@ public:
         }
     }
     StatusCode failover_replication(const string& op_id,const string& vol_id,
-        const RepRole& role,const JournalMarker& marker){
+        const RepRole& role,const JournalMarker& marker,const bool& need_sync,
+        const string& snap_id){
         FailoverReplicationInnerReq req;
         req.set_operate_id(op_id);
         req.set_vol_id(vol_id);
         req.set_role(role);
         req.mutable_marker()->CopyFrom(marker);
+        req.set_need_sync(need_sync);
+        req.set_snap_id(snap_id);
+
         ClientContext context;
         ReplicationInnerCommonRes res;
         grpc::Status status = stub_->FailoverReplication(&context,req,&res);
@@ -115,12 +121,11 @@ public:
         }
     }
     StatusCode reverse_replication(const string& op_id,const string& vol_id,
-        const RepRole& role,const JournalMarker& marker){
+        const RepRole& role){
         ReverseReplicationInnerReq req;
         req.set_operate_id(op_id);
         req.set_vol_id(vol_id);
         req.set_role(role);
-        req.mutable_marker()->CopyFrom(marker);
         ClientContext context;
         ReplicationInnerCommonRes res;
         grpc::Status status = stub_->ReverseReplication(&context,req,&res);

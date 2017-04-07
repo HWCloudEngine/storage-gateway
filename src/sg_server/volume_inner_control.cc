@@ -108,7 +108,7 @@ Status VolInnerCtrl::GetVolume(ServerContext* context,
 }
 
 Status VolInnerCtrl::ListVolume(ServerContext* context,
-        const ListVolumeRes* request, ListVolumeRes* response){
+        const ListVolumeReq* request, ListVolumeRes* response){
     std::list<VolumeMeta> list;
     RESULT res = vmeta_->list_volume_meta(list);
     if(DRS_OK == res){
@@ -122,6 +122,7 @@ Status VolInnerCtrl::ListVolume(ServerContext* context,
         }
     }
     else{
+        LOG_ERROR << "list volume meta failed!";
         response->set_status(sInternalError);
     }
     return Status::OK;
