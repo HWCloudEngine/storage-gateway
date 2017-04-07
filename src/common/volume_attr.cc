@@ -130,7 +130,7 @@ bool VolumeAttr::is_failover_occur()
      * master crash: master can't get failover command, may be add manual work
      * plan migration: master can get failover command
      */
-    if(//m_vol_info.role() == RepRole::REP_SECONDARY && 
+    if(m_vol_info.role() == RepRole::REP_SECONDARY && 
        m_vol_info.rep_status() == RepStatus::REP_FAILED_OVER){
         return true;
     }
