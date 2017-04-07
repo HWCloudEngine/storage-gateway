@@ -44,6 +44,8 @@ using huawei::proto::inner::SyncAck;
 using huawei::proto::inner::ReadBlock;
 using huawei::proto::inner::RollBlock;
 using huawei::proto::inner::UpdateEvent;
+using huawei::proto::SnapScene;
+using huawei::proto::RepStatus;
 
 #define ALIGN_UP(v,align) (((v)+(align)-1) & ~((align)-1))
 
@@ -176,6 +178,13 @@ StatusCode SnapshotProxy::create_snapshot(const CreateSnapshotReq* req,
         /*spawn journal entry*/
         shared_ptr<JournalEntry> entry = spawn_journal_entry(req->header(),sname,
                                                              SNAPSHOT_CREATE); 
+        /*if failover, update volum repstatus to failing over,reject io*/
+        if(req->header().scene() == SnapScene::FOR_REPLICATION_FAILOVER){
+            LOG_INFO << "update rep status to failingover,volume:" << vname;
+            m_vol_attr.set_replicate_status(RepStatus::REP_FAILING_OVER);
+            // TODO:connection should reject write io or BlockingQueue provides clear api
+        }
+
         /*push journal entry to entry queue*/
         m_entry_queue.push(entry);
         /*todo: wait journal writer persist journal entry ok and ack*/

@@ -11,6 +11,7 @@ using huawei::proto::VolumeInfo;
 using huawei::proto::SnapType;
 using huawei::proto::BackupType;
 using huawei::proto::RepRole;
+using huawei::proto::RepStatus;
 
 class VolumeAttr
 {
@@ -50,8 +51,12 @@ public:
     /*whether create backup allowable*/
     bool is_backup_allowable(const BackupType& backup_type);
 
+    /*whether volume is writable*/
     bool is_writable();
 
+    RepStatus replicate_status();
+
+    void set_replicate_status(const RepStatus& status);
 private:
     VolumeInfo m_vol_info;
     mutable SharedMutex mtx;

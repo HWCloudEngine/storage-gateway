@@ -16,6 +16,7 @@
 
 #include "../log/log.h"
 #include "../rpc/message.pb.h"
+#include "common/utils.h"
 
 using google::protobuf::Message;
 using huawei::proto::WriteMessage;
@@ -315,10 +316,27 @@ bool JournalReplayer::handle_ctrl_cmd(shared_ptr<JournalEntry> entry)
             switch(type){
                 case SNAPSHOT_CREATE:
                     {
-                        LOG_INFO << "journal_replayer create snapshot:" << snap_name;
-                        string operate_id = rep_proxy_ptr_->snap_name_to_operate_uuid(snap_name);
-                        rep_proxy_ptr_->create_transaction(shead, operate_id,
+                        LOG_INFO << "journal_replayer create rep snapshot:" << snap_name;
+                        rep_proxy_ptr_->create_transaction(shead, snap_name,
                                 vol_attr_.replicate_role());
+                        break;
+                    }
+                default:
+                    break;
+            }
+        } else if(scene == SnapScene::FOR_REPLICATION_FAILOVER){
+            switch(type){
+                case SNAPSHOT_CREATE:
+                    {
+                        LOG_INFO << "journal_replayer create failover snapshot:"
+                            << snap_name;
+                        rep_proxy_ptr_->create_transaction(shead, snap_name,
+                                vol_attr_.replicate_role());
+                        if(vol_attr_.replicate_role() == RepRole::REP_SECONDARY){
+                            vol_attr_.set_replicate_status(RepStatus::REP_FAILED_OVER);
+                            LOG_INFO << "update rep status to failedover,volume:"
+                                << vol_attr_.vol_name();
+                        }
                         break;
                     }
                 default:

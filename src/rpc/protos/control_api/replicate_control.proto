@@ -38,6 +38,10 @@ message FailoverReplicationReq{
     string vol_id = 1;// require, primary volume id
     RepRole role = 2; // default:SECONDARY
     string operate_id = 3;
+    // if primary is alive, SGS provides uniform checkpoint
+    // id for both primary and secondary
+    string checkpoint_id = 4;
+    string snap_id = 5;
 }
 message ReverseReplicationReq{
     string vol_id = 1;// require, primary volume id
