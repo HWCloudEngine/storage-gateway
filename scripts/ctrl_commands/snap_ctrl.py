@@ -1,6 +1,6 @@
 import sys,grpc
 from control_api import snapshot_control_pb2
-import common_pb2
+import snapshot_pb2
 
 class SnapCtrl(snapshot_control_pb2.SnapshotControlStub):
     def __init__(self,args):
@@ -27,7 +27,7 @@ class SnapCtrl(snapshot_control_pb2.SnapshotControlStub):
     def CreateSnapshot(self,args):
         res = self.stub.CreateSnapshot(
                 snapshot_control_pb2.CreateSnapshotReq(
-                header=common_pb2.SnapReqHead(
+                header=snapshot_pb2.SnapReqHead(
                     seq_id=args.seq_id,
                     snap_type=args.type,
                     replication_uuid=args.rep_uuid,
@@ -39,7 +39,7 @@ class SnapCtrl(snapshot_control_pb2.SnapshotControlStub):
 
     def DeleteSnapshot(self,args):
         res = self.stub.DeleteSnapshot(snapshot_control_pb2.DeleteSnapshotReq(
-                header=common_pb2.SnapReqHead(
+                header=snapshot_pb2.SnapReqHead(
                     seq_id=args.seq_id,
                     snap_type=args.type,
                     replication_uuid=args.rep_uuid,
@@ -51,30 +51,32 @@ class SnapCtrl(snapshot_control_pb2.SnapshotControlStub):
 
     def ListSnapshot(self,args):
         res = self.stub.ListSnapshot(snapshot_control_pb2.ListSnapshotReq(
-                header=common_pb2.SnapReqHead(
+                header=snapshot_pb2.SnapReqHead(
                     seq_id=args.seq_id,
                     snap_type=args.type,
                     replication_uuid=args.rep_uuid,
                     checkpoint_uuid=args.cp_uuid),
                 vol_name=args.vol_id))
-        print ('list snapshot result:%s' % res.header.status)
-        if(res.ret == 0 and len(res.snap_name) > 0):
+        print ('list snapshot result:%s,size:%s' % 
+        (res.header.status,len(res.snap_name)))
+        if(res.header.status == 0 and len(res.snap_name) > 0):
             for name in res.snap_name:
                 print name
 
     def RollbackSnapshot(self,args):
         res = self.stub.RollbackSnapshot(snapshot_control_pb2.RollbackSnapshotReq(
-                header=common_pb2.SnapReqHead(
+                header=snapshot_pb2.SnapReqHead(
                     seq_id=args.seq_id,
                     snap_type=args.type,
                     replication_uuid=args.rep_uuid,
                     checkpoint_uuid=args.cp_uuid),
                 vol_name=args.vol_id,
                 snap_name=args.snap_id))
+        print ('list snapshot result:%s' % res.header.status)
 
     def DiffSnapshot(self,args):
         res = self.stub.DiffSnapshot(snapshot_control_pb2.DiffSnapshotReq(
-                header=common_pb2.SnapReqHead(
+                header=snapshot_pb2.SnapReqHead(
                     seq_id=args.seq_id,
                     snap_type=args.type,
                     replication_uuid=args.rep_uuid,
@@ -85,7 +87,7 @@ class SnapCtrl(snapshot_control_pb2.SnapshotControlStub):
 
     def ReadSnapshot(self,args):
         res = self.stub.ReadSnapshot(snapshot_control_pb2.ReadSnapshotReq(
-                header=common_pb2.SnapReqHead(
+                header=snapshot_pb2.SnapReqHead(
                     seq_id=args.seq_id,
                     snap_type=args.type,
                     replication_uuid=args.rep_uuid,
@@ -94,4 +96,5 @@ class SnapCtrl(snapshot_control_pb2.SnapshotControlStub):
                 snap_name=args.snap_id,
                 off=args.offset,
                 len=args.length))
+
 """todo other snap action"""

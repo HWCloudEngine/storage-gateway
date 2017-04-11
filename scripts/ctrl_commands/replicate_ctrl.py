@@ -60,6 +60,8 @@ class RepliacteCtrl():
         res = self.stub.FailoverReplication(replicate_control_pb2.FailoverReplicationReq(
             vol_id=args.vol_id,
             operate_id=args.op_id,
+            checkpoint_id=args.cp_id,
+            snap_id=args.snap_id,
             role=self.role_))
         print ('failover replication result:%s' % res.status)
         return res

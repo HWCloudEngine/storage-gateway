@@ -26,8 +26,9 @@ class VolumeCtrl():
     def ListVolumes(self,args):
         res = self.stub.ListVolumes(volume_control_pb2.ListVolumesReq())
         print ('list volumes result:%s\n' % res.status)
-        for i in res.volumes:
-            print ('volumes: %s' % res.volumes.get(i))
+        for info in res.volumes:
+            print ('volumes: %s' % info)
+            print "\n"
         return res
 
     def ListDevices(self,args):
