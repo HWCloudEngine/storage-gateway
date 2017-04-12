@@ -13,6 +13,10 @@
 #define TOOZ_REFRESH_NODES_VIEW         "refresh_nodes_view"
 #define TOOZ_GET_NODES                  "get_nodes"
 #define TOOZ_REHASH_BUCKETS_TO_NODES    "rehash_buckets_to_node"
+#define TOOZ_GET_MEMBERS                "get_members"
+
+#define TOOZ_OK                         0
+#define TOOZ_ERROR                      -1
 
 #define SOCKET_FILE                     "./sg_uds"
 #define HEARTBEAT_TIME                  5

@@ -5,7 +5,7 @@ AC_PREREQ(2.59)
 AC_INIT(rpc_server, 1.0, huawei@huawei.com)
 # Checks for header files.
 AM_CONFIG_HEADER(config.h)
-AM_INIT_AUTOMAKE
+AM_INIT_AUTOMAKE([subdir-objects])
 AC_CONFIG_MACRO_DIR([m4])
 # Checks for programs.
 #AC_PROG_CC
@@ -26,4 +26,5 @@ AC_OUTPUT([Makefile
         src/sg_server/Makefile
         src/sg_client/Makefile
         src/test/Makefile
+        src/multi-instance/test/Makefile
     ])

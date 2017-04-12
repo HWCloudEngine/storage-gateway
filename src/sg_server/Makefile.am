@@ -1,6 +1,6 @@
 noinst_PROGRAMS=sg_server
 AM_CPPFLAGS=-I$(top_srcdir)/src -I$(top_srcdir)/src/include \
-            -I$(top_srcdir)/src/rpc -std=c++11
+            -I$(top_srcdir)/src/rpc -I$(top_srcdir)/src/multi-instance -I$(top_srcdir)/src/log -I/usr/include/python2.7 -Wno-write-strings -std=c++11
 ACLOCAL_AMFLAGS=-I m4
 AM_LDFLAGS = -rdynamic
 sg_server_SOURCES=dr_server.cc \
@@ -35,18 +35,21 @@ sg_server_SOURCES=dr_server.cc \
                   backup/backup_mds.cc  \
                   backup/backup_mgr.cc  \
                   backup/backup_msg_handler.cc  \
+                  backup/backup_callback.cc  \
+                  ../multi-instance/tooz_client.cc  \
                   snapshot/snapshot_util.cc \
                   snapshot/snapshot_mds.cc \
-                  snapshot/snapshot_mgr.cc 
+                  snapshot/snapshot_mgr.cc
 
 sg_server_LDADD=${top_srcdir}/src/rpc/librpc.la \
-                 ${top_srcdir}/src/log/liblog.la 
+                 ${top_srcdir}/src/log/liblog.la
 
-sg_server_LDFLAGS=-D_GNU_SOURCE -L$(top_srcdir)/lib -L/usr/local/lib 
+sg_server_LDFLAGS=-D_GNU_SOURCE -L$(top_srcdir)/lib -L/usr/local/lib -L/usr/lib/python2.7
 DEFS+=-D_GNU_SOURCE -DBOOST_ALL_DYN_LINK
 LIBS=-lpthread -ldl \
      -lboost_system -lboost_log_setup -lboost_log -lboost_date_time -lboost_thread \
      -lprotobuf -ldl -lgrpc -lgrpc++ \
      -ls3 -lrados \
-     -lrocksdb -lz -lsnappy -lbz2
-SUBDIRS=../rpc 
+     -lrocksdb -lz -lsnappy -lbz2 \
+     -lpython2.7
+SUBDIRS=../rpc
