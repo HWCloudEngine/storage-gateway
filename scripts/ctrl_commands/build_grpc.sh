@@ -9,6 +9,11 @@ then
     if [[ $has_tool != grpcio-tools* ]] ;then
         pip install grpcio-tools
     fi
+
+    rm -rf ${build_home}/sg_control/control_api
+    rm -rf ${build_home}/control_api
+    rm -rf ${build_home}/journal
+
     #generate grpc python source files from protos
     python -m grpc.tools.protoc -I${proto_path} --python_out=. \
         --grpc_python_out=. ${proto_path}/control_api/snapshot_control.proto \
@@ -27,6 +32,15 @@ then
     echo "" > __init__.py
     cd ${build_home}/journal/
     echo "" > __init__.py
+
+    cd ${build_home}
+    mv *_pb* ${build_home}/control_api
+    mv -f ${build_home}/journal ${build_home}/control_api
+    mv -f ${build_home}/control_api ${build_home}/sg_control
+
+    # install
+    cd ${build_home}
+    python setup.py install
 
 elif [ "$1"a = "clean"a ]
 then

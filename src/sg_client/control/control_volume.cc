@@ -265,17 +265,12 @@ Status VolumeControlImpl::EnableSG(ServerContext* context,
                 res->set_status(StatusCode::sOk);
                 return Status::OK;
             }
-            else
-            {
-                remove_config(volume_id);
-            }
+            remove_config(volume_id);
         }
+        delete_volume(volume_id);
     }
-    else
-    {
-        res->set_status(StatusCode::sInternalError);
-        return Status::CANCELLED;
-    }
+    res->set_status(StatusCode::sInternalError);
+    return Status::CANCELLED;
 }
 
 Status VolumeControlImpl::DisableSG(ServerContext* context,
@@ -298,17 +293,11 @@ Status VolumeControlImpl::DisableSG(ServerContext* context,
                 res->set_status(StatusCode::sOk);
                 return Status::OK;
             }
-            else
-            {
-                update_target(target_iqn);
-            }
+            update_target(target_iqn);
         }
-        else
-        {
-            std::string config;
-            generate_config(volume_id, volume.path(), target_iqn, config);
-            persist_config(volume_id, config);
-        }
+        std::string config;
+        generate_config(volume_id, volume.path(), target_iqn, config);
+        persist_config(volume_id, config);
     }
 
     res->set_status(StatusCode::sInternalError);
