@@ -224,3 +224,17 @@ StatusCode BackupMgr::handle_download(const DownloadDataReq* req,
     CMD_DO(vname, do_remote_download, req, stream);
     CMD_POST_1(vname, "download", ret);
 }
+
+void BackupMgr::join_group_callback(const list<string> &old_buckets, const list<string> &new_buckets)
+{
+    //TODO do backup change group action
+    LOG_INFO << "join_group_callback, old buckets size:" << old_buckets.size();
+    LOG_INFO << "join_group_callback, new buckets size:" << new_buckets.size();
+}
+
+void BackupMgr::leave_group_callback(const list<string> &old_buckets, const list<string> &new_buckets)
+{
+    //TODO do backup change group action
+    LOG_INFO << "leave_group_back, old buckets size:" << old_buckets.size();
+    LOG_INFO << "leave_group_back, new buckets size:" << new_buckets.size();
+}

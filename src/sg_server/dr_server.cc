@@ -1,14 +1,5 @@
-/**********************************************
-* Copyright (c) 2016 Huawei Technologies Co., Ltd. All rights reserved.
-* 
-* File name:	rpc_server.cc
-* Author: 
-* Date:			2016/07/06
-* Version: 		1.0
-* Description:
-* 
-**********************************************/
 #include <iostream>
+#include <sstream>
 #include <memory>
 #include <string>
 #include <thread>
@@ -17,6 +8,7 @@
 #include <ifaddrs.h>
 #include <sys/socket.h> //getnameinfo
 #include <netdb.h> //NI_MAXHOST
+#include <unistd.h>
 #include "log/log.h"
 #include "ceph_s3_meta.h"
 #include "common/config_parser.h"
@@ -37,6 +29,7 @@
 #include "replicate/rep_message_handlers.h"
 #include "transfer/net_sender.h"
 #include "transfer/net_receiver.h"
+#include "tooz_client.h"
 
 #define DEFAULT_META_SERVER_PORT 50051
 #define DEFAULT_REPLICATE_PORT 50061
@@ -111,6 +104,27 @@ int main(int argc, char** argv) {
     metaServer.register_service(&volInnerCtrl);
     metaServer.register_service(&snapMgr);
     metaServer.register_service(&backupMgr);
+
+    //multi-instance
+    ToozClient tc;
+    string backend_url = conf.cluster_backend_url;
+    string group_id = conf.cluster_group_id;
+    stringstream member_id_ss;
+    member_id_ss << conf.meta_server_ip << ":" << conf.meta_server_port;
+    string member_id = member_id_ss.str();
+    LOG_INFO << "backend_url=" << backend_url << " group_id=" << group_id << " member_id=" << member_id;
+    tc.start_coordination(backend_url, member_id);
+    tc.join_group(group_id);
+    while(tc.get_cluster_size(group_id) < conf.cluster_server_number){
+        LOG_DEBUG << "wait other server join group";
+        sleep(5);
+    }
+    tc.watch_group(group_id);
+    tc.rehash_buckets_to_node(group_id);
+    LOG_INFO << "multi_instance start";
+    tc.register_callback(&backupMgr);
+    LOG_INFO << "manager buckets size=" << tc.get_buckets().size();
+
 
     // init net receiver
     string ip2 = conf.replicate_local_ip;
@@ -195,5 +209,6 @@ int main(int argc, char** argv) {
     }
     metaServer.join();
     repServer.join();
+    tc.stop_coordination();
     return 0;
 }

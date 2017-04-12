@@ -10,6 +10,7 @@
 #include "rpc/backup_inner_control.pb.h"
 #include "rpc/backup_inner_control.grpc.pb.h"
 #include "backup_mds.h"
+#include "cluster/callback_interface.h"
 
 using grpc::Server;
 using grpc::ServerBuilder;
@@ -48,7 +49,7 @@ using huawei::proto::transfer::DownloadDataAck;
 using namespace std;
 
 /*work on storage gateway server, all snapshot api gateway */
-class BackupMgr final: public BackupInnerControl::Service 
+class BackupMgr final: public BackupInnerControl::Service, public ICallback
 {
 
 public:
@@ -72,22 +73,21 @@ public:
     grpc::Status Restore(ServerContext* context, const RestoreBackupInReq* req, 
                          ServerWriter<RestoreBackupInAck>* writer);
 
-
     /*register as message handler to net receiver*/
     StatusCode handle_remote_create_start(const RemoteBackupStartReq* req, 
                                           RemoteBackupStartAck* ack);
-
     StatusCode handle_remote_create_end(const RemoteBackupEndReq* req, 
                                          RemoteBackupEndAck* ack);
-
     StatusCode handle_remote_create_upload(UploadDataReq* req, UploadDataAck* ack);
-
     StatusCode handle_remote_delete(const RemoteBackupDeleteReq* req, 
                                     RemoteBackupDeleteAck* ack);
-	
     StatusCode handle_download(const DownloadDataReq* req, 
                                ServerReaderWriter<TransferResponse,TransferRequest>* stream);
-  
+
+    /*register callback to cluster group*/
+    virtual void join_group_callback(const list<string> &old_buckets, const list<string> &new_buckets);
+    virtual void leave_group_callback(const list<string> &old_buckets, const list<string> &new_buckets);
+
 private:
     /*each volume has a snapshot mds*/
     mutex m_mutex;

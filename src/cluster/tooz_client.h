@@ -16,6 +16,10 @@
 #include "tooz_api.h"
 #include "callback_interface.h"
 #define BUF_MAX_LEN     4096
+
+//on linux sun_path is 108 bytes in size
+#define SUN_PATH_MAX 108
+
 using namespace std;
 class ToozClient
 {
@@ -23,23 +27,23 @@ public:
     ToozClient();
     ~ToozClient();
     //connect to tooz, backend_url="driver_type://ip:port", member_id will be set to uuid if None
-    void start_coordination(string backend_url, string member_id);
+    int start_coordination(string backend_url, string member_id);
 
     //join group and send heartbeat to tooz periodically
-    void join_group(string group_id);
-    void leave_group(string group_id);
+    int join_group(string group_id);
+    int leave_group(string group_id);
 
     //watch group changed.
-    void watch_group(string group_id);
+    int watch_group(string group_id);
 
     //disconnet with tooz
-    void stop_coordination();
+    int stop_coordination();
 
     //use consistent hashring to rebalance buckets to node
-    void rehash_buckets_to_node(string group_id, int bucket_num);
+    int rehash_buckets_to_node(string group_id, int bucket_num=DEFAULT_BUCKET_NUM);
 
     //used only by sg-client. Get new node view from tooz. It's a short connection. connection will open/close automatically
-    void refresh_nodes_view(string backend_url, string group_id);
+    int refresh_nodes_view(string backend_url, string group_id);
 
     //used only sg-client, calculate node locally by hashring
     string get_node(string bucket_id);
@@ -49,6 +53,9 @@ public:
 
     //get sg-server node-id, such as "ip:port"
     string get_node_id();
+
+    //get number of cluster nodes
+    int get_cluster_size(string group_id);
 
     //register callback function, trigger when group changed
     void register_callback(ICallback *callback);
