@@ -5,7 +5,7 @@ using namespace std;
 
 #define DEFAULT_CONFIG_FILE "/etc/storage-gateway/config.ini"
 
-class Configure 
+class Configure
 {
 public:
     Configure() = default;
@@ -23,7 +23,7 @@ public:
     /*ctrl server*/
     string ctrl_server_ip;
     int    ctrl_server_port;
-    
+
     /*global*/
     int    global_max_volume_count;
     string global_journal_meta_storage;
@@ -32,14 +32,14 @@ public:
     /*ceph s3*/
     string ceph_s3_access_key;
     string ceph_s3_secret_key;
-    string ceph_s3_host;     
+    string ceph_s3_host;
     string ceph_s3_bucket;
-    
+
     /*lease*/
     int lease_renew_window;
     int lease_expire_window;
     int lease_validity_window;
-    
+
     /*journal*/
     int journal_interval;
     int journal_limit;
@@ -53,7 +53,7 @@ public:
     /*sg server*/
     string meta_server_ip;
     int    meta_server_port;
-    
+
     /*gc window*/
     int gc_window;
 
@@ -61,6 +61,11 @@ public:
     string replicate_local_ip;
     string replicate_remote_ip;
     int    replicate_port;
+
+    /*cluster*/
+    string cluster_backend_url;
+    string cluster_group_id;
+    int    cluster_server_number;
 };
 
 #endif

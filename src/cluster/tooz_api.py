@@ -18,6 +18,8 @@ logging.getLogger('').addHandler(console)
 
 DEFAULT_BUCKET_NUMBER = 2**10
 SOCKET_FILE = './sg_uds'
+TOOZ_OK = 0
+TOOZ_ERROR = -1
 class Coordination():
     def __init__(self):
         self.sock = None
@@ -36,8 +38,10 @@ class Coordination():
             self._coordinator = coordination.get_coordinator(backend_url, self._my_id)
             self._coordinator.start()
             logging.info("Coordination backend started successfully.")
+            return TOOZ_OK
         except coordination.ToozError:
             logging.exception("Error connecting to coordination backend.")
+            return TOOZ_ERROR
 
     def join_group(self, group_id):
         logging.debug('join group = %s', group_id)
@@ -45,15 +49,19 @@ class Coordination():
             request = self._coordinator.join_group_create(group_id)
             if request:
                 request.get()
+            return TOOZ_OK
         except coordination.ToozError:
             logging.exception("Error join group.")
+            return TOOZ_ERROR
 
     def leave_group(self, group_id):
         try:
             if self._coordinator:
                 self._coordinator.leave_group(group_id)
+            return TOOZ_OK
         except coordination.ToozError:
             logging.exception("Error leave group.")
+            return TOOZ_ERROR
 
     def _join_group_callback(self, event):
         try:
@@ -62,15 +70,22 @@ class Coordination():
                 self.sock.connect(self.socket_file)
             self.sock.send("join_group")
             logging.debug('join group callback')
+            return TOOZ_OK
         except Exception:
             logging.exception('Error join group callback')
+            return TOOZ_ERROR
 
     def _leave_group_callback(self, event):
-        if self.sock is None:
-            self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            self.sock.connect(self.socket_file)
-        self.sock.send('leave_group')
-        logging.debug('leave group callback')
+        try:
+            if self.sock is None:
+                self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                self.sock.connect(self.socket_file)
+            self.sock.send('leave_group')
+            logging.debug('leave group callback')
+            return TOOZ_OK
+        except Exception:
+            logging.exception('Error leave group callback')
+            return TOOZ_ERROR
 
     def get_members(self, group_id):
         if not self._coordinator:
@@ -89,8 +104,10 @@ class Coordination():
         try:
             self._coordinator.watch_join_group(group_id, self._join_group_callback)
             self._coordinator.watch_leave_group(group_id, self._leave_group_callback)
+            return TOOZ_OK
         except coordination.ToozError:
             logging.exception("Error watch group: %s.", group_id)
+            return TOOZ_ERROR
 
     def stop(self):
         try:
@@ -98,19 +115,25 @@ class Coordination():
                 self._coordinator.stop()
         except coordination.ToozError:
             logging.exception("Error stop coordinator.")
+            return TOOZ_ERROR
+
         try:
             if self.sock:
                 self.sock.close()
+            return TOOZ_OK
         except Exception:
             logging.exception("Error closing socket.")
+            return TOOZ_ERROR
 
     def run_watchers(self):
         try:
             if self._coordinator:
                 self._coordinator.run_watchers()
                 logging.debug('run_watcher')
+            return TOOZ_OK
         except coordination.ToozError:
             logging.exception("Error run watchers.")
+            return TOOZ_ERROR
 
     def heartbeat(self):
         if self._coordinator:
@@ -122,14 +145,18 @@ class Coordination():
                 logging.debug('heartbeat')
             except coordination.ToozError:
                 logging.exception('Error sending a heartbeat to coordination backend.')
+                return TOOZ_ERROR
+        return TOOZ_OK
 
     #get nodes view remotely from tooz
     def refresh_nodes_view(self, group_id):
         try:
             members = self.get_members(group_id)
             self.hashring = hashring.HashRing(members)
+            return TOOZ_OK
         except coordination.ToozError:
-                logging.exception('Error refresh nodes view.')
+            logging.exception('Error refresh nodes view.')
+            return TOOZ_ERROR
 
     #calculate node locally by hashring
     def get_nodes(self, data, ignore_nodes=None, replicas=1):
@@ -140,6 +167,7 @@ class Coordination():
             return list(node_set)
         except coordination.ToozError:
             logging.exception('Error getting nodes.')
+            return []
 
     def rehash_buckets_to_node(self, group_id, bucket_num=DEFAULT_BUCKET_NUMBER):
         """
@@ -168,8 +196,30 @@ class Coordination():
             return my_buckets
         except coordination.ToozError:
             logging.exception("Error getting group membership info from coordination backend")
+            return []
 
     @staticmethod
     def encode(value):
         """encode to bytes"""
         return six.text_type(value).encode('utf-8')
+
+if __name__ == '__main__':
+    import pdb
+    #pdb.set_trace()
+    backend_url = "kazoo://162.3.111.245:2181"
+    group = "sgserver_group"
+    member = "node2"
+    coordinator = Coordination()
+    coordinator.start(backend_url, member_id=member)
+    coordinator.join_group(group)
+    #pdb.set_trace()
+    coordinator.heartbeat()
+    coordinator.run_watchers()
+    print coordinator.get_nodes("bucket1")
+    #coordinator.refresh_nodes_view(group)
+    print coordinator.get_nodes("bucket1")
+    
+    #coordinator.rehash_buckets_to_node(group, 100)
+    logging.debug("members=%s",coordinator.get_members(group))
+    time.sleep(20)
+    coordinator.stop()

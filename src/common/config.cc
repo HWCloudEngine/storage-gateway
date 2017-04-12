@@ -46,6 +46,10 @@ void Configure::init(const string& conf_file)
     replicate_local_ip   = config_parser.get_default("replicate.local_ip", string("127.0.0.1"));
     replicate_remote_ip  = config_parser.get_default("replicate.remote_ip", string("127.0.0.1"));
     replicate_port       = config_parser.get_default("replicate.port", 50061);
+
+    cluster_backend_url = config_parser.get_default("cluster.backend_url", string("kazoo://127.0.0.1:2181"));
+    cluster_group_id = config_parser.get_default("cluster.group_id", string("127.0.0.1:50051"));
+    cluster_server_number = config_parser.get_default("cluster.server_number", 1);
 }
 
 string Configure::sg_server_addr()const

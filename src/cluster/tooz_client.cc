@@ -10,12 +10,16 @@
 #include <sys/un.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <limits.h>
 #include "tooz_client.h"
+#include "log.h"
 atomic_long terminate_heartbeat(1);
 atomic_long terminate_run_watchers(1);
 atomic_long terminate_callback(1);
 mutex py_instance_mutex;
+
+#include <iostream>
+using namespace std;
+
 //TODO use log instead of printf
 ToozClient::ToozClient(){
     PyObject *pModule = NULL, *pDict = NULL, *pClass = NULL;
@@ -24,22 +28,22 @@ ToozClient::ToozClient(){
     pModule = PyImport_ImportModule(TOOZ_API);
     if(!pModule){
         PyErr_Print();
-        printf("load tooz api file error\n");
+        LOG_ERROR << "load tooz api file error";
     }
     pDict = PyModule_GetDict(pModule);
     if(!pDict){
         PyErr_Print();
-        printf("load tooz module error\n");
+        LOG_ERROR << "load tooz module error";
     }
     pClass = PyDict_GetItemString(pDict, TOOZ_COORDINATION);
     if(!pClass){
         PyErr_Print();
-        printf("load tooz class error\n");
+        LOG_ERROR << "load tooz class error";
     }
     pInstance = PyInstance_New(pClass, NULL, NULL);
     if(!pInstance){
         PyErr_Print();
-        printf("load tooz instance error\n");
+        LOG_ERROR << "load tooz instance error";
     }
 }
 
@@ -55,7 +59,6 @@ void ToozClient::get_env()
 
 void ToozClient::heartbeat(){
     while(terminate_heartbeat){
-        printf("c:heartbeat\n");
         py_instance_mutex.lock();
         PyObject_CallMethod(pInstance, TOOZ_HEARTBEAT, NULL);
         py_instance_mutex.unlock();
@@ -65,7 +68,6 @@ void ToozClient::heartbeat(){
 
 void ToozClient::run_watchers(){
     while(terminate_run_watchers){
-        printf("c:run watcher\n");
         py_instance_mutex.lock();
         PyObject_CallMethod(pInstance, TOOZ_RUN_WATHCHERS, NULL);
         py_instance_mutex.unlock();
@@ -73,53 +75,106 @@ void ToozClient::run_watchers(){
     }
 }
 
-void ToozClient::start_coordination(string backend_url, string member_id){
+int ToozClient::start_coordination(string backend_url, string member_id){
     node_id = member_id;
     if(backend_url.empty()){
-        printf("backed_url is empty\n");
-        return;
+        LOG_WARN << "backed_url is empty";
+        return TOOZ_OK;
     }
     py_instance_mutex.lock();
+    PyObject * result = NULL;
     if(!member_id.empty()){
-        PyObject_CallMethod(pInstance, TOOZ_START, "(s,s)", backend_url.c_str(), node_id.c_str());
+        result = PyObject_CallMethod(pInstance, TOOZ_START, "(s,s)", backend_url.c_str(), node_id.c_str());
     }else{
         //member_id set to uuid if none
-        PyObject_CallMethod(pInstance, TOOZ_START, "(s)", backend_url.c_str());
+        result = PyObject_CallMethod(pInstance, TOOZ_START, "(s)", backend_url.c_str());
     }
     py_instance_mutex.unlock();
+    int status = TOOZ_ERROR;
+    if(result == NULL){
+        PyErr_Print();
+    }else{
+        PyArg_Parse(result, "i", &status);
+    }
+    return status;
 }
 
-void ToozClient::join_group(string group_id){
+int ToozClient::join_group(string group_id){
     py_instance_mutex.lock();
-    PyObject_CallMethod(pInstance, TOOZ_JOIN_GROUP, "(s)", group_id.c_str());
+    PyObject * result = NULL;
+    result = PyObject_CallMethod(pInstance, TOOZ_JOIN_GROUP, "(s)", group_id.c_str());
     py_instance_mutex.unlock();
-    start_heartbeat_thread();
+    int status = TOOZ_ERROR;
+    if(result == NULL){
+        PyErr_Print();
+    }else{
+        PyArg_Parse(result, "i", &status);
+    }
+    if(status == TOOZ_OK){
+        LOG_DEBUG << "start heartbeat thread";
+        start_heartbeat_thread();
+    }
+    return status;
 }
 
-void ToozClient::leave_group(string group_id){
+int ToozClient::leave_group(string group_id){
     py_instance_mutex.lock();
-    PyObject_CallMethod(pInstance, TOOZ_LEAVE_GROUP, "(s)", group_id.c_str());
+    PyObject * result = NULL;
+    result = PyObject_CallMethod(pInstance, TOOZ_LEAVE_GROUP, "(s)", group_id.c_str());
     py_instance_mutex.unlock();
+    int status = TOOZ_ERROR;
+    if(result == NULL){
+        PyErr_Print();
+    }else{
+        PyArg_Parse(result, "i", &status);
+    }
+    return status;
 }
 
-void ToozClient::watch_group(string group_id){
+int ToozClient::watch_group(string group_id){
     py_instance_mutex.lock();
-    PyObject_CallMethod(pInstance, TOOZ_WATCH_GROUP, "(s)", group_id.c_str());
+    PyObject * result = NULL;
+    result = PyObject_CallMethod(pInstance, TOOZ_WATCH_GROUP, "(s)", group_id.c_str());
     py_instance_mutex.unlock();
-    start_callback_server_thread(group_id);
-    start_run_watchers_thread();
+    int status = TOOZ_ERROR;
+    if(result == NULL){
+        PyErr_Print();
+    }else{
+        PyArg_Parse(result, "i", &status);
+    }
+    if(status == TOOZ_OK){
+        start_callback_server_thread(group_id);
+        start_run_watchers_thread();
+    }
+    return status;
 }
 
 //only used by sgclient, short connection
-void ToozClient::refresh_nodes_view(string backend_url, string group_id){
-    start_coordination(backend_url, "");
+int ToozClient::refresh_nodes_view(string backend_url, string group_id){
+    int ret = start_coordination(backend_url, "");
+    if(ret == TOOZ_ERROR){
+        LOG_ERROR << "ERROR start coordination, backend_url=" << backend_url << " group_id=" << group_id;
+        return TOOZ_ERROR;
+    }
+    
     py_instance_mutex.lock();
-    PyObject_CallMethod(pInstance, TOOZ_REFRESH_NODES_VIEW, "(s)", group_id.c_str());
+    PyObject * result = NULL;
+    result = PyObject_CallMethod(pInstance, TOOZ_REFRESH_NODES_VIEW, "(s)", group_id.c_str());
     py_instance_mutex.unlock();
-    stop_coordination();
+    int status = TOOZ_ERROR;
+    if(result == NULL){
+        PyErr_Print();
+    }else{
+        PyArg_Parse(result, "i", &status);
+    }
+    ret = stop_coordination();
+    if(ret == TOOZ_ERROR){
+        LOG_WARN << "failed to stop coordination, backend_url=" << backend_url << " group_id=" << group_id;
+    }
+    return status;
 }
 
-void ToozClient::rehash_buckets_to_node(string group_id, int bucket_num=DEFAULT_BUCKET_NUM){
+int ToozClient::rehash_buckets_to_node(string group_id, int bucket_num){
     py_instance_mutex.lock();
     PyObject *p_bucket_list = PyObject_CallMethod(pInstance, TOOZ_REHASH_BUCKETS_TO_NODES,
                                                 "(s,i)", group_id.c_str(), bucket_num);
@@ -134,6 +189,10 @@ void ToozClient::rehash_buckets_to_node(string group_id, int bucket_num=DEFAULT_
             string bucket = PyString_AsString(p_bucket);
             new_buckets.push_back(bucket);
         }
+        return TOOZ_OK;
+    }else{
+        LOG_ERROR << "ERROR rehash bucket to node, bucket_num=" << bucket_num;
+        return TOOZ_ERROR;
     }
 }
 
@@ -159,13 +218,31 @@ string ToozClient::get_node(string bucket_id){
     }
 }
 
-void ToozClient::stop_coordination(){
+int ToozClient::get_cluster_size(string group_id){
+    
+    py_instance_mutex.lock();
+    PyObject *member_list = PyObject_CallMethod(pInstance, TOOZ_GET_MEMBERS, "(s)", group_id.c_str());
+    py_instance_mutex.unlock();
+    if(member_list){
+        return PyList_GET_SIZE(member_list);
+    }else{
+        return 0;
+    }
+}
+
+int ToozClient::stop_coordination(){
     stop_heartbeat_thread();
     stop_run_watchers_thread();
     stop_callback_thread();
     py_instance_mutex.lock();
-    PyObject_CallMethod(pInstance, TOOZ_STOP, NULL);
+    PyObject * result = NULL;
+    result = PyObject_CallMethod(pInstance, TOOZ_STOP, NULL);
     py_instance_mutex.unlock();
+    int status = TOOZ_ERROR;
+    if(result){
+        PyArg_Parse(result, "i", &status);
+    }
+    return status;
 }
 
 void ToozClient::start_heartbeat_thread(){
@@ -207,12 +284,12 @@ int ToozClient::callback(char *event_type)
 //TODO: use message queue
     if(0 == strncmp(event_type, TOOZ_JOIN_GROUP, sizeof(TOOZ_JOIN_GROUP))){
         for(auto & cb : callback_list){
-            printf("join group callback\n");
+            LOG_INFO << "join group callback";
             cb->join_group_callback(old_buckets, new_buckets);
         }
     }else{
         for(auto & cb : callback_list){
-            printf("leave group callback\n");
+            LOG_INFO << "leave group callback";
             cb->leave_group_callback(old_buckets, new_buckets);
         }
     }
@@ -231,24 +308,24 @@ void ToozClient::callback_server(string group_id){
     int socket_fd, connection_fd;
     socklen_t address_length;
     pid_t child;
-    printf("start callback server\n");
+    LOG_INFO << "start callback server";
     socket_fd = socket(PF_UNIX, SOCK_STREAM, 0);
     if(socket_fd < 0){
-        printf("socket() failed\n");
+        LOG_ERROR << "socket() failed";
         return ;
     }
     unlink(SOCKET_FILE);
     memset(&address, 0, sizeof(struct sockaddr_un));
     address.sun_family = AF_UNIX;
-    snprintf(address.sun_path, PATH_MAX, "%s",SOCKET_FILE);
+    snprintf(address.sun_path, SUN_PATH_MAX, "%s", SOCKET_FILE);
     if(bind(socket_fd,
          (struct sockaddr *) &address,
          sizeof(struct sockaddr_un)) != 0){
-        printf("bind() failed\n");
+        LOG_ERROR << "bind() failed";
         return ;
     }
     if(listen(socket_fd, 5) != 0){
-        printf("listen() failed\n");
+        LOG_ERROR << "listen() failed";
         return ;
     }
     if((connection_fd = accept(socket_fd,
@@ -259,8 +336,8 @@ void ToozClient::callback_server(string group_id){
             char event_type[BUF_MAX_LEN];
             nbytes = read(connection_fd, event_type, BUF_MAX_LEN);
             event_type[nbytes] = 0;
-            printf("get one message from tooz callback\n");
-            printf("event_type: %s\n", event_type);
+            LOG_DEBUG << "get one message from tooz callback";
+            LOG_DEBUG << "event_type=" << event_type;
             rehash_buckets_to_node(group_id);
             callback(event_type);
         }

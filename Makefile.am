@@ -4,4 +4,5 @@ SUBDIRS = src/log \
           src/rpc \
           src/sg_server \
           src/sg_client \
-          src/test 
+          src/test \
+          src/cluster/test
