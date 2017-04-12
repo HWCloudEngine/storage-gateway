@@ -61,6 +61,11 @@ public:
     string replicate_local_ip;
     string replicate_remote_ip;
     int    replicate_port;
+
+    /*cluster*/
+    string cluster_backend_url;
+    string cluster_group_id;
+    int    cluster_server_number;
 };
 
 #endif

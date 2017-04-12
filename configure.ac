@@ -26,4 +26,5 @@ AC_OUTPUT([Makefile
         src/sg_server/Makefile
         src/sg_client/Makefile
         src/test/Makefile
+        src/multi-instance/Makefile
     ])
