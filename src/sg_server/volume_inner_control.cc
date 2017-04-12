@@ -128,7 +128,7 @@ Status VolInnerCtrl::ListVolume(ServerContext* context,
     return Status::OK;
 }
 Status VolInnerCtrl::DeleteVolume(ServerContext* context,
-        const GetVolumeReq* request, GetVolumeRes* response){
+        const DeleteVolumeReq* request, DeleteVolumeRes* response){
     const string& vol = request->vol_id();
 
     // TODO: confirm that replication is deleted

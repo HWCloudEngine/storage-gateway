@@ -22,6 +22,8 @@ using huawei::proto::inner::GetVolumeReq;
 using huawei::proto::inner::GetVolumeRes;
 using huawei::proto::inner::ListVolumeReq;
 using huawei::proto::inner::ListVolumeRes;
+using huawei::proto::inner::DeleteVolumeReq;
+using huawei::proto::inner::DeleteVolumeRes;
 
 class VolInnerCtrl:public huawei::proto::inner::VolumeInnerControl::Service{
     ::grpc::Status CreateVolume(ServerContext* context,
@@ -33,7 +35,7 @@ class VolInnerCtrl:public huawei::proto::inner::VolumeInnerControl::Service{
     ::grpc::Status ListVolume(ServerContext* context,
             const ListVolumeReq* request, ListVolumeRes* response);
     ::grpc::Status DeleteVolume(ServerContext* context,
-        const GetVolumeReq* request, GetVolumeRes* response);
+        const DeleteVolumeReq* request, DeleteVolumeRes* response);
     void init();
 public:
     VolInnerCtrl(std::shared_ptr<VolumeMetaManager> v_meta,
