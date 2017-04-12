@@ -254,6 +254,7 @@ std::shared_ptr<JournalCounter> CephS3Meta::init_journal_key_counter(
         SG_ASSERT(true == sg_util::extract_major_counter_from_journal_key(
                 list.back(),journal_counter->next));
         WriteLock lck(counter_mtx);
+        journal_counter->next ++;
         counter_map_.insert(std::pair<string,std::shared_ptr<JournalCounter>>(vol_id,journal_counter));
 
         LOG_INFO << "init volume [" << vol_id << "] journal counter :" << std::hex
@@ -448,6 +449,11 @@ RESULT CephS3Meta::create_journals_by_given_keys(const string& uuid,
             LOG_ERROR << "creat file " << mount_path_+filename << " failed!" ;
             break;
         }
+        // update journal counter;if failover, the counter should be in sequence
+        uint64_t m_cnt;
+        SG_ASSERT(true == sg_util::extract_major_counter_from_journal_key(*it,m_cnt));
+        journal_counter->next = journal_counter->next > m_cnt+1 ?
+            journal_counter->next : m_cnt+1;
         // update cache
         journal_meta_cache_.put(*it,meta);
     }

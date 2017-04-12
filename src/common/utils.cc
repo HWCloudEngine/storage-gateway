@@ -25,3 +25,14 @@ std::string snap_to_backup_name(std::string snap_name)
     
     return snap_name.erase(pos, SUFFIX.length());
 }
+
+// generate  snap_name by operate uuid
+std::string operate_uuid_to_snap_name(const std::string& operate_id){
+    return operate_id;
+}
+
+// extract operate uuid from snap_name
+std::string snap_name_to_operate_uuid(const std::string& snap_name){
+    return snap_name;
+}
+

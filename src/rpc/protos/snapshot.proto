@@ -6,10 +6,12 @@ package huawei.proto;
 enum SnapScene {
     /*common snapshot*/
     FOR_NORMAL = 0;
-    /*interal snapshot for replication disable and enable*/
-    FOR_REPLICATION = 1;
     /*interal snapshot for backup*/
     FOR_BACKUP = 2;
+    /*interal snapshot for replication disable and enable*/
+    FOR_REPLICATION = 3;
+    /*snapshot checkpoint for replication scheduled failover*/
+    FOR_REPLICATION_FAILOVER = 4;
 }
 
 enum SnapType {

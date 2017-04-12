@@ -26,30 +26,35 @@ message CreateReplicationInnerReq{
     repeated string peer_volumes = 4;
     RepRole role = 5;
     JournalMarker marker = 6; //optional,position of control snapshot entry in journal
+    string snap_id = 7;
 }
 message EnableReplicationInnerReq{
     string operate_id = 1; // require, unique operation uuid,used both for snap uuid?
     string vol_id = 2; // retrieve the replication via volume id
     RepRole role = 3;
     JournalMarker marker = 4; //position of control snapshot entry in journal
+    string snap_id = 5;
 }
 message DisableReplicationInnerReq{
     string operate_id = 1; // require, operation uuid,used both for snap uuid?
     string vol_id = 2;
     RepRole role = 3;
     JournalMarker marker = 4; //position of control snapshot entry in journal
+    string snap_id = 5;
 }
 message FailoverReplicationInnerReq{
     string operate_id = 1; // require, operation uuid,used both for snap uuid?
     string vol_id = 2; // retrieve the replication via uuid
     RepRole role = 3;
     JournalMarker marker = 4; //required for primary,ending position of replication
+    // if primary is alive, DR site should wait for data syncing before changed to failedover
+    bool need_sync = 5;
+    string snap_id = 6;
 }
 message ReverseReplicationInnerReq{
     string operate_id = 1; // require, unique uuid
     string vol_id = 2; // retrieve the replication via uuid
     RepRole role = 3;
-    JournalMarker marker = 4; //position of control request entry in journal
 }
 message DeleteReplicationInnerReq{
     string operate_id = 1; // require, unique uuid

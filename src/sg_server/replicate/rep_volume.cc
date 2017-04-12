@@ -31,7 +31,7 @@ RepVolume::RepVolume(const string& vol_id,
         task_generating_flag_(false),
         transient_state(false),
         base_sync_state_(NO_SYNC){
-
+    load_volume_meta();
 }
 RepVolume::~RepVolume(){
 }
@@ -101,19 +101,25 @@ std::shared_ptr<TransferTask> RepVolume::get_next_task(){
         SnapStatus snap_status;
         StatusCode ret = SnapClientWrapper::instance().get_client()->QuerySnapshot(
                     vol_id_,cur_snap,snap_status);
-        SG_ASSERT(ret == StatusCode::sOk);
+        if(ret != StatusCode::sOk){
+            LOG_WARN << "query snapshot failed:" << ret << ",volume=" << vol_id_;
+            return nullptr;
+        }
         if(snap_status == huawei::proto::SNAP_CREATED){
             string pre_snap;
             if(0 == get_last_shared_snap(pre_snap)){
                 LOG_INFO << "start to sync diff snapshot: pre:" << pre_snap
                     << ",cur:" << cur_snap;
-                sync_task_ = generate_base_sync_task(pre_snap,cur_snap);
-                base_sync_state_ = SYNCING;
-                return sync_task_;
+                sync_task_ = generate_base_sync_task(pre_snap,cur_snap,true);
             }
             else{
-                LOG_WARN << "base snapshot " << pre_snap << " not created!";
+                // TODO:remote volume should be clean, or fullfilled with zero
+                LOG_WARN << "pre snapshot of " << cur_snap << " not created!";
+                LOG_INFO << "start to sync base snapshot:" << cur_snap;
+                sync_task_ = generate_base_sync_task(pre_snap,cur_snap,false);
             }
+            base_sync_state_ = SYNCING;
+            return sync_task_;
         }
         LOG_DEBUG << "snapshot " << cur_snap << " not created.";
         // should not replicate any journals if sync is not done
@@ -131,15 +137,15 @@ void RepVolume::register_replicator(
         std::shared_ptr<ReplicatorContext> reptr) {
     replicator_ = reptr;
     if(vol_meta_.info().role() == REP_PRIMARY
-        && vol_meta_.info().rep_status() == REP_ENABLED){
+        && vol_meta_.info().rep_status() != REP_DISABLED
+        && vol_meta_.info().rep_status() != REP_FAILED_OVER){
         GCTask::instance().register_consumer(vol_id_,reptr.get());
     }
 }
 
 bool RepVolume::need_replicate(){
     if(last_rep_status_ == REP_DISABLED
-        || last_rep_status_ == REP_FAILED_OVER
-        || last_rep_status_ == REP_DELETING)
+        || last_rep_status_ == REP_FAILED_OVER)
         return false;
 
     if(base_sync_state_ != SYNCING && replicator_->has_journals_to_transfer())
@@ -168,10 +174,8 @@ bool RepVolume::need_replicate(){
             LOG_INFO << vol_id_ << " update replicate status to " << s;
             last_rep_status_ = s;
             transient_state = false;
-            // unregister consumer when disabled
-            if(vol_meta_.info().rep_status() == REP_DISABLED){
-                GCTask::instance().unregister_consumer(vol_id_,REPLICATOR);
-            }
+            // unregister consumer when disabled/failedover
+            GCTask::instance().unregister_consumer(vol_id_,REPLICATOR);
         }
     }
 
@@ -184,13 +188,6 @@ void RepVolume::delete_rep_volume(){
 
     // cancel all tasks
     replicator_->cancel_all_tasks();
-    // update volume status
-    std::unique_lock<std::mutex> lck(vol_meta_mtx);
-    load_volume_meta();
-    vol_meta_.mutable_info()->set_rep_status(REP_DELETED);
-    persist_replication_status();
-    last_rep_status_ = REP_DELETED;
-    LOG_INFO << "update volume[" << vol_id_ << "] replicate status to deleted.";
     clean_up();
 }
 
@@ -249,7 +246,7 @@ int RepVolume::persist_replication_status(){
 }
 
 std::shared_ptr<TransferTask> RepVolume::generate_base_sync_task(
-                    const string& pre_snap,const string& cur_snap){
+            const string& pre_snap,const string& cur_snap,bool has_pre_snap){
     // TODO:set journal key, remote journal counter should less than the snap entry j_counter
     auto record_it = vol_meta_.records().rbegin();
     uint64_t counter;
@@ -259,7 +256,13 @@ std::shared_ptr<TransferTask> RepVolume::generate_base_sync_task(
     auto f = std::bind(&RepVolume::recycle_base_sync_task,this,std::placeholders::_1);
     std::shared_ptr<RepContext> ctx(new RepContext(vol_id_, counter,
                             conf_.journal_max_size,false,std::ref(f)));
-    std::shared_ptr<TransferTask> task(new DiffSnapTask(pre_snap,cur_snap,ctx));
+    std::shared_ptr<TransferTask> task;
+    if(has_pre_snap){
+        task.reset(new DiffSnapTask(pre_snap,cur_snap,ctx));
+    }
+    else{
+        task.reset(new BaseSnapTask(cur_snap,vol_meta_.info().size(),ctx));
+    }
     task->set_id(0);
     task->set_status(T_WAITING);
     task->set_ts(time(nullptr));
@@ -357,7 +360,16 @@ int RepVolume::get_last_shared_snap(string& snap_id){
     // TODO:  for enable only, todo failback/reprotect
     SG_ASSERT(REPLICATION_ENABLE == record_it->type());
     record_it++;
-    SG_ASSERT(REPLICATION_DISABLE == record_it->type());
+    if(REPLICATION_DISABLE != record_it->type()){ // look for pre snapshot
+        SG_ASSERT(REPLICATION_REVERSE == record_it->type());
+        record_it++;
+        if(REPLICATION_FAILOVER != record_it->type()){
+            LOG_WARN << "pre replicate operation is neither failover nor disable\
+                ,volume:" << vol_id_;
+            return -1;
+        }
+    }
+
     SnapStatus snap_status;
     StatusCode ret = SnapClientWrapper::instance().get_client()->QuerySnapshot(
                 vol_id_,record_it->snap_id(),snap_status);
