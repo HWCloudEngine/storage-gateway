@@ -156,11 +156,18 @@ StatusCode BackupMds::get_backup(const GetBackupInReq* req, GetBackupInAck* ack)
     string vol_name = req->vol_name();
     string backup_name = req->backup_name();
     LOG_INFO << "Get backup vname:" << m_ctx->vol_name() << " bname:" << backup_name;
+    if(!m_ctx->is_backup_exist(backup_name)){
+        ack->set_status(StatusCode::sBackupNotExist);
+        LOG_INFO << "Get backup vname:" << m_ctx->vol_name() << " bname:" << backup_name
+                 << "failed not exist";
+        return StatusCode::sBackupNotExist;
+    }
     BackupStatus backup_status = m_ctx->get_backup_status(backup_name);
+    ack->set_backup_status(backup_status);
     ack->set_status(StatusCode::sOk);
-    LOG_INFO << "Get backup vname:" << m_ctx->vol_name() << " bname:" << backup_name 
-             << " bstatus:" << backup_status << " ok";
-    return StatusCode::sOk; 
+    LOG_INFO << "Get backup vname:" << m_ctx->vol_name() << " bname:" << backup_name
+        << " bstatus:" << backup_status << " ok";
+    return StatusCode::sOk;
 }
 
 StatusCode BackupMds::delete_backup(const DeleteBackupInReq* req, DeleteBackupInAck* ack)
