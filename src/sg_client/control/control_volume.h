@@ -10,7 +10,7 @@
  ************************************************/
 #ifndef VOLUME_CONTROL_H_
 #define VOLUME_CONTROL_H_
-
+#include <iostream>
 #include <list>
 #include <string>
 #include <grpc++/grpc++.h>
@@ -27,6 +27,26 @@ using grpc::ServerContext;
 using grpc::Status;
 
 using namespace huawei::proto;
+
+class LunTuple
+{
+public:
+    LunTuple(uint32_t tid, string iqn, uint32_t lun, 
+            string volume_name, string block_device);
+    LunTuple(const LunTuple& other);
+    LunTuple& operator=(const LunTuple& other);
+    ~LunTuple(){}
+
+    friend ostream& operator<<(ostream& cout, const LunTuple& lun);
+
+public:
+    uint32_t tid_;
+    string   iqn_;
+    uint32_t lun_;
+    string   volume_name_;
+    string   block_device_;
+};
+
 
 class VolumeControlImpl final: public control::VolumeControl::Service
 {
@@ -50,29 +70,39 @@ private:
     bool execute_cmd(const std::string& command, std::string& result);
 
     bool create_volume(const std::string& volume_id, size_t size,
-            const std::string& device);
+                       const std::string& device);
     std::string get_target_iqn(const std::string& volume_id);
     bool generate_config(const std::string& volume_id,
-            const std::string& device, const std::string& target_iqn,
-            std::string& config);
+                         const std::string& device, const std::string& target_iqn,
+                         std::string& config);
     bool persist_config(const std::string& volume_id,
-            const std::string& config);
+                        const std::string& config);
     bool update_target(const std::string& target_iqn);
     bool get_target(const std::string& target_iqn);
-    bool remove_target(const std::string& target_iqn);
     bool remove_config(const std::string& volume_id);
     bool remove_device(const std::string& device);
     bool delete_volume(const std::string& volume_id);
 
     bool update_volume_status(const std::string& volume_id,
-            const huawei::proto::VolumeStatus& status);
-    
+                              const huawei::proto::VolumeStatus& status);
+
+    bool add_target(const LunTuple& lun);
+    bool remove_target(uint32_t tid);
+    bool add_lun(const LunTuple& lun);
+    bool remove_lun(const LunTuple& lun);
+    bool acl_bind(const LunTuple& lun);
+    bool acl_unbind(const LunTuple& lun);
+ 
     Configure conf_;
     std::shared_ptr<VolInnerCtrlClient> vol_inner_client_;
     std::string host_;
     std::string port_;
     std::string target_path_;
     std::string target_prefix_;
+    
+    static int tid_id;
+    static int lun_id;
+    std::map<string, LunTuple> tgt_luns_;
 };
 
 #endif /* VOLUME_CONTROL_H_ */

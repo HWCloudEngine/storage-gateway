@@ -44,10 +44,25 @@ using huawei::proto::inner::SyncAck;
 using huawei::proto::inner::ReadBlock;
 using huawei::proto::inner::RollBlock;
 using huawei::proto::inner::UpdateEvent;
-using huawei::proto::SnapScene;
-using huawei::proto::RepStatus;
 
 #define ALIGN_UP(v,align) (((v)+(align)-1) & ~((align)-1))
+
+SnapshotProxy::SnapshotProxy(const Configure& conf, VolumeAttr& vol_attr, 
+                             BlockingQueue<shared_ptr<JournalEntry>>& entry_queue)
+    :m_conf(conf), m_vol_attr(vol_attr), m_entry_queue(entry_queue)
+{
+    LOG_INFO << "create proxy vname:" << m_vol_attr.vol_name();
+    init();
+    LOG_INFO << "create proxy vname:" << m_vol_attr.vol_name() << " ok";
+}
+
+SnapshotProxy::~SnapshotProxy()
+{
+    LOG_INFO << "delete proxy vname:" << m_vol_attr.vol_name();
+    fini();
+    LOG_INFO << "delete proxy vname:" << m_vol_attr.vol_name() << " ok";
+}
+
 
 bool SnapshotProxy::init()
 {        
@@ -178,7 +193,6 @@ StatusCode SnapshotProxy::create_snapshot(const CreateSnapshotReq* req,
         /*spawn journal entry*/
         shared_ptr<JournalEntry> entry = spawn_journal_entry(req->header(),sname,
                                                              SNAPSHOT_CREATE); 
-
         /*push journal entry to entry queue*/
         m_entry_queue.push(entry);
         /*todo: wait journal writer persist journal entry ok and ack*/

@@ -20,10 +20,11 @@ CacheProxy::CacheProxy(string blk_dev, shared_ptr<IDGenerator> id_maker)
 
 CacheProxy::~CacheProxy()
 {
+    LOG_INFO << "CacheProxy destroy";
     stop_cache_evict_thr();
     delete bcache;
     delete jcache;
-    LOG_INFO << "CacheProxy destroy";
+    LOG_INFO << "CacheProxy destroy ok";
 }
 
 /*journal write call*/
@@ -156,9 +157,10 @@ void CacheProxy::start_cache_evict_thr()
 void CacheProxy::stop_cache_evict_thr()
 {
     evict_run = false;
-    unique_lock<mutex> lock(evict_lock);
+    LOG_INFO << "stop cache evict thr";
     evict_cond.notify_all();
     evict_thread->join();
+    LOG_INFO << "stop cache evict thr ok";
     delete evict_thread;
 }
 

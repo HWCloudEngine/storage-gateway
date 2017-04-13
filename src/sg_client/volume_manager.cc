@@ -198,8 +198,8 @@ void VolumeManager::read_req_body_cbt(raw_socket_t client_sock,
                  << " vol_size:" << volume_info.size();
 
         /*create volume*/
-        shared_ptr<Volume> vol = make_shared<Volume>(conf, volume_info, \
-                                            lease_client, writer_rpc_client, \
+        shared_ptr<Volume> vol = make_shared<Volume>(*this, conf, volume_info, \
+                                            lease_client, writer_rpc_client,   \
                                             epoll_fd, client_sock);
         /*add to map*/
         std::unique_lock<std::mutex> lk(mtx);
@@ -338,8 +338,8 @@ void VolumeManager::writer_thread_work(){
                     }
                 }
                 // last one not found or changed, need to update
-                markers_to_update.insert(std::pair<string,JournalMarker>(
-                    writer->get_vol_attr().vol_name(),marker));
+                markers_to_update.insert({writer->get_vol_attr().vol_name(), marker});
+
             }
             LOG_DEBUG << "invoked to update producer marker";
             update_producer_markers(markers_to_update);
@@ -355,6 +355,7 @@ void VolumeManager::writer_thread_work(){
 
 int  VolumeManager::update_all_producer_markers(){
     std::map<string,JournalMarker> markers_to_update;
+    std::unique_lock<std::mutex> lk(mtx);
     for(auto it=volumes.begin();it!=volumes.end();it++){
         std::shared_ptr<JournalWriter> writer = it->second->get_writer();
         if(nullptr == writer){
@@ -373,4 +374,30 @@ int  VolumeManager::update_all_producer_markers(){
     }
     update_producer_markers(markers_to_update);
 }
+
+bool VolumeManager::del_volume(const string& vol)
+{
+    LOG_INFO << "del volume :" << vol << " on sg server";
+    StatusCode ret = vol_inner_client_->delete_volume(vol);
+    if(ret){
+        LOG_ERROR << "del volume from sgserver failed ret:" << ret;
+        return false;
+    }
+    LOG_INFO << "del volume :" << vol << " on sg server ok";
+
+    std::unique_lock<std::mutex> lk(mtx);
+    auto it = volumes.find(vol);
+    if(it == volumes.end()){
+        LOG_ERROR << "del volume vol:" << vol << "not exist";
+        return false;
+    }
+    
+    LOG_INFO << "stop volume:" << vol;
+    it->second->stop();
+    LOG_INFO << "stop volume:" << vol << " ok";
+
+    volumes.erase(vol);
+    return true;
+}
+
 }

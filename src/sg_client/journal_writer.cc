@@ -19,10 +19,12 @@ JournalWriter::JournalWriter(BlockingQueue<shared_ptr<JournalEntry>>& write_queu
      written_size_since_last_update(0LLU),
      producer_marker_hold_flag(false)
 {
+    LOG_INFO << "JournalWriter create";
 }
 
 JournalWriter::~JournalWriter()
 {
+    LOG_INFO << "JournalWriter destory ";
     if(NULL != cur_file_ptr)
     {
         fclose(cur_file_ptr);
@@ -37,6 +39,7 @@ JournalWriter::~JournalWriter()
     }
 
     producer_event.unregister_from_epoll_fd(epoll_fd);
+    LOG_INFO << "JournalWriter destory ok";
 }
 
 
@@ -84,6 +87,7 @@ bool JournalWriter::init(const Configure& conf,
 bool JournalWriter::deinit()
 {
     running_flag = false;
+    write_queue_.stop();
     thread_ptr->join();
     return true;
 }
