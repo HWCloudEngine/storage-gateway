@@ -12,10 +12,12 @@ JournalPreProcessor::JournalPreProcessor(BlockingQueue<shared_ptr<JournalEntry>>
      write_queue_(write_queue),
      worker_threads()
 {
+    LOG_INFO << "JournalProcessor create";
 }
 
 JournalPreProcessor::~JournalPreProcessor()
 {
+    LOG_INFO << "JournalProcessor destroy ";
 }
 
 void JournalPreProcessor::work()
@@ -54,6 +56,7 @@ bool JournalPreProcessor::init(const Configure& conf)
 bool JournalPreProcessor::deinit()
 {
     running_flag = false;
+    entry_queue_.stop();
     worker_threads.join_all();
     return true;
 }

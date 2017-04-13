@@ -35,7 +35,7 @@ class JournalReplayer
 {
 public:
     explicit JournalReplayer(VolumeAttr& vol_attr); 
-    ~JournalReplayer(){}
+    ~JournalReplayer();
 
     JournalReplayer(const JournalReplayer& r) = delete;
     JournalReplayer& operator=(const JournalReplayer& r) = delete;
@@ -90,6 +90,7 @@ private:
     std::shared_ptr<ReplayerClient> rpc_client_ptr_;
 
     /*replay thread*/
+    std::atomic_bool  running_;
     std::unique_ptr<boost::thread> replay_thread_ptr_;
     /*update mark thread*/
     std::unique_ptr<boost::thread> update_thread_ptr_;

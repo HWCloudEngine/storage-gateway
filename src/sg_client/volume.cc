@@ -1,24 +1,27 @@
 #include <boost/bind.hpp>
 #include <algorithm>
-#include "../log/log.h"
+#include "log/log.h"
+#include "volume_manager.h"
 #include "volume.h"
 
 namespace Journal{
 
-Volume::Volume(const Configure& conf, const VolumeInfo& vol_info, 
-               shared_ptr<CephS3LeaseClient> lease_client, 
-               shared_ptr<WriterClient> writer_rpc_client,
-               int epoll_fd,
+Volume::Volume(VolumeManager& vol_manager, const Configure& conf, 
+               const VolumeInfo& vol_info, shared_ptr<CephS3LeaseClient> lease_client, 
+               shared_ptr<WriterClient> writer_rpc_client, int epoll_fd, 
                raw_socket_t client_sock)
-              :conf_(conf), vol_attr_(vol_info), lease_client_(lease_client),
-               writer_rpc_client_(writer_rpc_client), epoll_fd_(epoll_fd), 
-               raw_socket_(client_sock) 
+              : vol_manager_(vol_manager), conf_(conf), vol_attr_(vol_info), 
+                lease_client_(lease_client),
+                writer_rpc_client_(writer_rpc_client), epoll_fd_(epoll_fd), 
+                raw_socket_(client_sock) 
 {
 }
 
 Volume::~Volume()
 {
+    LOG_INFO << "volume destroy ";
     fini();
+    LOG_INFO << "volume destroy ok";
 }
 
 bool Volume::init()                  
@@ -36,7 +39,7 @@ bool Volume::init()
     backupdecorator_.reset(new BackupDecorator(vol_attr_.vol_name(), snapshotproxy_));
     backupproxy_.reset(new BackupProxy(conf_, vol_attr_, backupdecorator_));
 
-    connection_.reset(new Connection(raw_socket_, entry_queue_, read_queue_, reply_queue_));
+    connection_.reset(new Connection(vol_manager_, raw_socket_, entry_queue_, read_queue_, reply_queue_));
     rep_proxy_.reset(new ReplicateProxy(conf_, vol_attr_.vol_name(), vol_attr_.vol_size(),snapshotproxy_));
 
     pre_processor_.reset(new JournalPreProcessor(entry_queue_, write_queue_));
@@ -78,16 +81,22 @@ bool Volume::init()
 
 void Volume::fini()
 {
-    replayer_->deinit();
-    writer_->deinit();
-    reader_->deinit();
-    pre_processor_->deinit();
+    LOG_INFO << "Volume fini" ;
     connection_->deinit();
-    
+    LOG_INFO << "Volume fini connection deinit" ;
+    reader_->deinit();
+    LOG_INFO << "Volume fini reader deinit" ;
+    pre_processor_->deinit();
+    LOG_INFO << "Volume fini processor deinit" ;
+    writer_->deinit();
+    LOG_INFO << "Volume fini writer deinit" ;
+    replayer_->deinit();
+    LOG_INFO << "Volume fini replayer deinit" ;
     if (buffer_pool_ != NULL){
         nedalloc::neddestroypool(buffer_pool_);
         buffer_pool_ = NULL;
     }
+    LOG_INFO << "Volume fini ok" ;
 }
 
 shared_ptr<SnapshotProxy>& Volume::get_snapshot_proxy() const
@@ -119,7 +128,9 @@ void Volume::start()
 void Volume::stop()
 {
    /*stop network receive*/
+    LOG_INFO << "volume stop ";
     connection_->stop();
+    LOG_INFO << "volume stop ok";
 }
 
 const string Volume::get_vol_id() {

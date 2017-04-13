@@ -18,27 +18,29 @@
 
 #include "common/define.h"
 #include "rpc/message.pb.h"
+#include "volume_manager.h"
 
 using huawei::proto::WriteMessage;
 using huawei::proto::DiskPos;
 
 namespace Journal{
 
-Connection::Connection(raw_socket_t& socket_, 
+Connection::Connection(VolumeManager& vol_manager, raw_socket_t& socket_, 
                        BlockingQueue<shared_ptr<JournalEntry>>& entry_queue,
                        BlockingQueue<struct IOHookRequest>& read_queue,
                        BlockingQueue<struct IOHookReply*>&  reply_queue)
-                        :raw_socket_(socket_),
+                        :vol_manager_(vol_manager), raw_socket_(socket_),
                          entry_queue_(entry_queue),
                          read_queue_(read_queue),
                          reply_queue_(reply_queue),
                          buffer_pool(NULL)
 {
+    LOG_INFO << "Connection create";
 }
 
 Connection::~Connection()
 {
-
+    LOG_INFO << "Connection destroy ";
 }
 
 bool Connection::init(nedalloc::nedpool* buffer)
@@ -53,6 +55,7 @@ bool Connection::init(nedalloc::nedpool* buffer)
 bool Connection::deinit()
 {
     running_flag = false;
+    reply_queue_.stop();
     reply_thread_->join();
     return true;
 }
@@ -69,6 +72,7 @@ void Connection::start()
 
 void Connection::stop()
 {
+    LOG_INFO << "connection stop";
     boost::system::error_code ignored_ec;
     #ifndef _USE_UNIX_DOMAIN
     raw_socket_->shutdown(boost::asio::ip::tcp::socket::shutdown_both,ignored_ec);
@@ -76,6 +80,7 @@ void Connection::stop()
     raw_socket_->shutdown(boost::asio::local::stream_protocol::socket::shutdown_both,
                           ignored_ec);
     #endif
+    LOG_INFO << "connection stop ok";
 }
 
 void Connection::read_request_header()
@@ -103,9 +108,39 @@ void Connection::dispatch(IOHookRequest* header_ptr)
         case SYNC_CACHE:
             //send_reply(true);
             break;
+        case DEL_VOLUME:
+            read_delete_volume_req(header_ptr);
+            break;
         default:
             LOG_ERROR << "unsupported request type:" << header_ptr->type;
     }
+}
+
+void Connection::read_delete_volume_req(const IOHookRequest* req)
+{
+    assert(req->type == DEL_VOLUME);
+    if (req->len > 0){
+        del_vol_req_t* req = (del_vol_req_t*)malloc(sizeof(del_vol_req_t));
+        boost::asio::async_read(*raw_socket_,
+                boost::asio::buffer((char*)req, sizeof(del_vol_req_t)),
+                boost::bind(&Connection::handle_delete_volume_req, 
+                            this, req, boost::asio::placeholders::error));
+    }
+}
+
+void Connection::handle_delete_volume_req(del_vol_req_t* req, 
+                                          const boost::system::error_code& e)
+{
+    /*send reply to tgt*/
+    struct IOHookReply reply;
+    memset(&reply, 0, sizeof(reply));
+    reply.magic = MESSAGE_MAGIC;
+    boost::asio::write(*raw_socket_,boost::asio::buffer(&reply, sizeof(struct IOHookReply)));
+    
+    string vol_name(req->volume_name);
+    LOG_INFO << "delete volume :" << vol_name;
+    vol_manager_.del_volume(vol_name);
+    LOG_INFO << "delete volume :" << vol_name << " ok";
 }
 
 void Connection::handle_request_header(const boost::system::error_code& e)
@@ -270,6 +305,8 @@ void Connection::handle_send_data(IOHookReply* reply,const boost::system::error_
     {
         LOG_ERROR << "send reply data failed, reply id:" << reply->handle;
     }
+
     delete []reply;
 }
+
 }

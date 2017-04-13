@@ -19,10 +19,12 @@ JournalWriter::JournalWriter(BlockingQueue<shared_ptr<JournalEntry>>& write_queu
      written_size_since_last_update(0LLU),
      producer_marker_hold_flag(false)
 {
+    LOG_INFO << "JournalWriter create ";
 }
 
 JournalWriter::~JournalWriter()
 {
+    LOG_INFO << "JournalWriter destroy ";
     if(NULL != cur_file_ptr)
     {
         fclose(cur_file_ptr);
@@ -37,9 +39,8 @@ JournalWriter::~JournalWriter()
     }
 
     producer_event.unregister_from_epoll_fd(epoll_fd);
+    LOG_INFO << "JournalWriter destroy ok";
 }
-
-
 bool JournalWriter::init(const Configure& conf,
                          shared_ptr<IDGenerator> idproxy,
                          shared_ptr<CacheProxy> cacheproxy,
@@ -84,6 +85,7 @@ bool JournalWriter::init(const Configure& conf,
 bool JournalWriter::deinit()
 {
     running_flag = false;
+    write_queue_.stop();
     thread_ptr->join();
     return true;
 }
@@ -128,15 +130,9 @@ void JournalWriter::work()
     uint64_t entry_size = 0;
     uint64_t write_size = 0;
 
-IS_WRITABLE:
-    //wait until volume is writable
-    while(!vol_attr_.is_writable() && running_flag){
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
-    }
-
     // update producer marker first when init, then the replicator
     // could replicate the data written during last crashed/restart time
-    while(vol_attr_.is_writable() && running_flag){
+    while(RepRole::REP_PRIMARY == vol_attr_.replicate_role() && running_flag){
         int res = get_next_journal();
         if(res != 0){
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
@@ -154,12 +150,15 @@ IS_WRITABLE:
         }
     }
 
-    while(running_flag)
+    while(true)
     {
         bool ret = write_queue_.pop(entry);
         if(!ret){
             return; 
         }
+
+        if (running_flag == false)
+            return;
         
         success = false;
         time(&start);
@@ -243,7 +242,7 @@ IS_WRITABLE:
             if(entry->get_type() == SNAPSHOT_CREATE){
                 std::shared_ptr<SnapshotMessage> msg
                     = std::dynamic_pointer_cast<SnapshotMessage>(entry->get_message());
-                if(msg->snap_scene() >= huawei::proto::FOR_REPLICATION){
+                if(msg->snap_scene() == huawei::proto::FOR_REPLICATION){
                     to_seal_current_journal();
                     invalid_current_journal();
                     LOG_INFO << "crerate snapshot for replication,seal current journal "
@@ -263,16 +262,7 @@ IS_WRITABLE:
         // response to io scheduler
         if(entry->get_type() == IO_WRITE){
             send_reply(entry.get(),success);
-        }else if(entry->get_type() == SNAPSHOT_CREATE) {
-            std::shared_ptr<SnapshotMessage> msg
-                = std::dynamic_pointer_cast<SnapshotMessage>(entry->get_message());
-            if(msg->snap_scene() == huawei::proto::FOR_REPLICATION_FAILOVER){
-                LOG_INFO << "snapshot for failover was insert, check volume["
-                    << vol_attr_.vol_name() << "] writable?";
-                goto IS_WRITABLE;
-                // TODO:connection should reject write io or BlockingQueue provides clear api
-            }
-        }else {
+        } else {
             ;
         }
     }
