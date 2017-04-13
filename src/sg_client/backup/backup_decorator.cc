@@ -74,7 +74,7 @@ StatusCode BackupDecorator::create_transaction(const SnapReqHead& shead, const s
     /*check bakcup status*/
     BackupStatus backup_status;
     ret = m_backup_inner_rpc_client->GetBackup(m_vol_name, backup_name, backup_status);
-    if(ret != StatusCode::sOk || backup_status != BackupStatus::BACKUP_CREATING){
+    if(ret != StatusCode::sOk){
         /*delete snapshot*/ 
         ret = m_snapshot_proxy->do_update(shead, snap_name, UpdateEvent::DELETE_EVENT);
         /*delete backup*/

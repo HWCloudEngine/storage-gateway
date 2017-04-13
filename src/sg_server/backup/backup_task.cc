@@ -200,7 +200,6 @@ void LocalCreateTask::work()
     backupid_t backup_id = m_ctx->spawn_backup_id();
     /*update backup attr*/
     it->second.backup_id = backup_id;
-    it->second.backup_status = BackupStatus::BACKUP_AVAILABLE;
     /*prepare backup block map*/
     map<block_t, backup_object_t> block_map;
     m_ctx->cur_blocks_map().insert({backup_id, block_map});
@@ -213,7 +212,9 @@ void LocalCreateTask::work()
     } else {
         ;
     }
-   
+
+    it->second.backup_status = BackupStatus::BACKUP_AVAILABLE;
+
     /*db persist*/
     IndexStore::Transaction transaction = m_ctx->index_store()->fetch_transaction();
     string pkey = spawn_latest_backup_id_key();
