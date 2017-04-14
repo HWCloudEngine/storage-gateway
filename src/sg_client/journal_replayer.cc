@@ -16,7 +16,6 @@
 
 #include "../log/log.h"
 #include "../rpc/message.pb.h"
-#include "common/utils.h"
 
 using google::protobuf::Message;
 using huawei::proto::WriteMessage;
@@ -35,6 +34,12 @@ namespace Journal
 JournalReplayer::JournalReplayer(VolumeAttr& vol_attr)
                 :vol_attr_(vol_attr)
 {
+    LOG_INFO << "JournalReplayer create ";
+} 
+
+JournalReplayer::~JournalReplayer()
+{
+    LOG_INFO << "JournalReplayer destroy";
 }
 
 bool JournalReplayer::init(const Configure& conf,
@@ -64,11 +69,12 @@ bool JournalReplayer::init(const Configure& conf,
     update_ = false;
     vol_fd_ = ::open(vol_attr_.blk_device().c_str(), O_WRONLY | O_DIRECT | O_SYNC);
     if (vol_fd_ < 0){
-        LOG_ERROR << "open block device:" << vol_attr_.blk_device() << "failed";
+        LOG_ERROR << "open block device:" << vol_attr_.blk_device() << " failed";
         return false;
     }
 
     //start replay volume
+    running_ = true;
     replay_thread_ptr_.reset(
             new boost::thread(
                     boost::bind(&JournalReplayer::replay_volume_loop, this)));
@@ -82,11 +88,19 @@ bool JournalReplayer::init(const Configure& conf,
 
 bool JournalReplayer::deinit()
 {
-    /*todo: here force exit, not rational*/
-    replay_thread_ptr_->interrupt();
-    update_thread_ptr_->interrupt();
-    replay_thread_ptr_->join();
-    update_thread_ptr_->join();
+    running_ = false;
+    if(replay_thread_ptr_){
+        LOG_INFO << "replay thread exit";
+        replay_thread_ptr_->interrupt();
+        replay_thread_ptr_->join();
+        LOG_INFO << "replay thread ok";
+    }
+    if(update_thread_ptr_){
+        LOG_INFO << "marker update thread exit";
+        update_thread_ptr_->interrupt();
+        update_thread_ptr_->join();
+        LOG_INFO << "marker update  thread ok";
+    }
     if(-1 != vol_fd_){
         ::close(vol_fd_);
     }
@@ -97,7 +111,7 @@ void JournalReplayer::update_marker_loop()
 {
     //todo: read config ini
     int_least64_t update_interval = 60;
-    while (true){
+    while (running_){
         boost::this_thread::sleep_for(boost::chrono::seconds(update_interval));
         if (update_){
             rpc_client_ptr_->UpdateConsumerMarker(journal_marker_, vol_attr_.vol_name());
@@ -226,7 +240,7 @@ bool JournalReplayer::normal_replay()
 
 void JournalReplayer::replay_volume_loop()
 {
-    while (true)
+    while (running_)
     {
         int cur_mode = vol_attr_.current_replay_mode();
         if(cur_mode == VolumeAttr::NORMAL_REPLAY_MODE){
@@ -324,24 +338,22 @@ bool JournalReplayer::handle_ctrl_cmd(shared_ptr<JournalEntry> entry)
                 default:
                     break;
             }
-        } else if(scene == SnapScene::FOR_REPLICATION_FAILOVER){
+        } else if (scene == SnapScene::FOR_REPLICATION_FAILOVER) {
             switch(type){
                 case SNAPSHOT_CREATE:
                     {
-                        LOG_INFO << "journal_replayer create failover snapshot:"
-                            << snap_name;
+                        LOG_INFO << " journal_replayer create failovaer snapshot:" << snap_name;
                         rep_proxy_ptr_->create_transaction(shead, snap_name,
                                 vol_attr_.replicate_role());
                         if(vol_attr_.replicate_role() == RepRole::REP_SECONDARY){
                             vol_attr_.set_replicate_status(RepStatus::REP_FAILED_OVER);
-                            LOG_INFO << "update rep status to failedover,volume:"
-                                << vol_attr_.vol_name();
+                            LOG_INFO << " update rep status to failed over volume:" << vol_attr_.vol_name();
                         }
                         break;
-                    }
+                    } 
                 default:
                     break;
-            }
+            } 
         }
         else{
         }

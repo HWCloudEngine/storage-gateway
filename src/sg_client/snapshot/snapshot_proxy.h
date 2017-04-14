@@ -50,16 +50,8 @@ class SnapshotProxy : public ISnapshot, public ITransaction, public ISyncBarrier
 {
 public:
     SnapshotProxy(const Configure& conf, VolumeAttr& vol_attr, 
-                  BlockingQueue<shared_ptr<JournalEntry>>& entry_queue)
-        :m_conf(conf), m_vol_attr(vol_attr), m_entry_queue(entry_queue){
-        LOG_INFO << "create vname:" << m_vol_attr.vol_name() << " blk:" << m_vol_attr.blk_device();
-        init();
-    }
-
-    ~SnapshotProxy(){
-        LOG_INFO << "delete vname:" << m_vol_attr.vol_name() << " blk:" << m_vol_attr.blk_device();
-        fini();
-    }
+                  BlockingQueue<shared_ptr<JournalEntry>>& entry_queue);
+    ~SnapshotProxy();
 
     bool init();
     bool fini();

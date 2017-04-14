@@ -36,6 +36,7 @@ public:
     void stop(std::string vol_id);
     void stop_all();
     bool init();
+    bool del_volume(const string& vol);
 
 private:
     /*todo periodic task manage journal should put into each volume */

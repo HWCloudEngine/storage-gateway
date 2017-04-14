@@ -27,10 +27,14 @@ using namespace std;
 
 namespace Journal{
 
+class VolumeManager;
+
 class Volume 
 {
 public:
-    explicit Volume(const Configure& conf, const VolumeInfo& vol_info, 
+    explicit Volume(VolumeManager& vol_manager, 
+                    const Configure& conf, 
+                    const VolumeInfo& vol_info, 
                     shared_ptr<CephS3LeaseClient> lease_client,
                     std::shared_ptr<WriterClient> writer_rpc_client,
                     int epoll_fd,
@@ -58,10 +62,12 @@ public:
     void update_volume_attr(const VolumeInfo& info);
 
 private:
-    Configure  conf_;
+    VolumeManager& vol_manager_;
+    Configure conf_;
     VolumeAttr vol_attr_;
     shared_ptr<CephS3LeaseClient> lease_client_;
-    shared_ptr<WriterClient> writer_rpc_client_;
+    shared_ptr<WriterClient>  writer_rpc_client_;
+
     /*socket*/
     mutable raw_socket_t raw_socket_;
     // epoll fd to sync producer marker
@@ -96,7 +102,6 @@ private:
     mutable shared_ptr<JournalWriter> writer_;        /*append to journal */
     shared_ptr<JournalReader>         reader_;        /*read io*/
     shared_ptr<JournalReplayer>       replayer_;      /*replay journal*/
-
 };
 
 }

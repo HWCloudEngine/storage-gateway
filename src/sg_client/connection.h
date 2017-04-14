@@ -1,6 +1,5 @@
 #ifndef JOURNAL_CONNECTION_H
 #define JOURNAL_CONNECTION_H
-
 #include <mutex>
 #include <thread>
 #include <memory>
@@ -28,10 +27,12 @@ typedef shared_ptr<socket_t> raw_socket_t;
 
 namespace Journal{
 
+class VolumeManager;
+
 class Connection 
 {
 public:
-    explicit Connection(raw_socket_t& socket_,
+    explicit Connection(VolumeManager& vol_manager, raw_socket_t& socket_,
                         BlockingQueue<shared_ptr<JournalEntry>>& entry_queue,
                         BlockingQueue<struct IOHookRequest>& read_queue,
                         BlockingQueue<struct IOHookReply*>&  reply_queue);
@@ -58,9 +59,12 @@ private:
     void handle_send_reply(IOHookReply* reply,const boost::system::error_code& err);
     void handle_send_data(IOHookReply* reply,const boost::system::error_code& err);
     
+    void read_delete_volume_req(const IOHookRequest* req);
+    void handle_delete_volume_req(del_vol_req_t* req, const boost::system::error_code& e);
+        
+    VolumeManager& vol_manager_;
     /*socket*/
     raw_socket_t& raw_socket_;
-    
     /*write io input queue*/
     BlockingQueue<shared_ptr<JournalEntry>>& entry_queue_;
     /*read io input queue*/

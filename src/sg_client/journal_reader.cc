@@ -29,6 +29,7 @@ bool JournalReader::init(shared_ptr<CacheProxy> cacheproxy)
 bool JournalReader::deinit()
 {
     m_run = false;
+    m_read_queue.stop();
     m_thread->join();
     return true;
 }
