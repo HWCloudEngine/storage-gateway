@@ -158,7 +158,7 @@ StatusCode BackupMds::get_backup(const GetBackupInReq* req, GetBackupInAck* ack)
     LOG_INFO << "Get backup vname:" << m_ctx->vol_name() << " bname:" << backup_name;
     if(!m_ctx->is_backup_exist(backup_name)){
         ack->set_status(StatusCode::sOk);
-        ack->set_backup_status(backup_status);
+        ack->set_backup_status(BackupStatus::BACKUP_DELETED);
         LOG_INFO << "Get backup vname:" << m_ctx->vol_name() << " bname:" << backup_name
                  << "failed not exist";
         return StatusCode::sOk;
