@@ -164,14 +164,15 @@ StatusCode SnapshotMds::query_snapshot(const QueryReq* req, QueryAck* ack)
     do {
         auto it = m_snapshots.find(snap_name);
         if(it == m_snapshots.end()){
-            ret = StatusCode::sSnapNotExist;
+            ack->set_snap_status(SnapStatus::SNAP_DELETED);
             break;
         }
         ack->set_snap_status(it->second.snap_status);
     }while(0);
 
     ack->mutable_header()->set_status(ret);
-    LOG_INFO << "query snapshot vname:" << vol_name << " snap:" << snap_name << " ok";
+    LOG_INFO << "query snapshot vname:" << vol_name << " snap:" << snap_name 
+             << " snap_status:" << ack->snap_status() << " ok";
     return ret; 
 }
 
