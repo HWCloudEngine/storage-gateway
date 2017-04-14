@@ -20,11 +20,11 @@ sg_server_SOURCES=dr_server.cc \
                   replicate/rep_message_handlers.cc \
                   transfer/net_sender.cc \
                   transfer/net_receiver.cc \
-                  $(top_srcdir)/src/common/crc32.c \
-                  $(top_srcdir)/src/common/config.cc \
-                  $(top_srcdir)/src/common/journal_entry.cc \
-                  $(top_srcdir)/src/common/ceph_s3_lease.cc \
-                  $(top_srcdir)/src/common/ceph_s3_api.cc \
+                  ../common/crc32.c \
+                  ../common/config.cc \
+                  ../common/journal_entry.cc \
+                  ../common/ceph_s3_lease.cc \
+                  ../common/ceph_s3_api.cc \
                   ../common/utils.cc       \
                   ../common/block_store.cc \
                   ../common/index_store.cc \
