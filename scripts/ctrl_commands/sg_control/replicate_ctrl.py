@@ -1,86 +1,101 @@
 import grpc
-from control_api import replicate_control_pb2
+import uuid
 
+from control_api import replicate_control_pb2
 from control_api import replicate_pb2
 
 
-class RepliacteCtrl():
-    def __init__(self, args):
-        conn_str = '{}:{}'.format(args['host'], args['port'])
+class RepliacteCtrl(object):
+    def __init__(self, host, port):
+        conn_str = '{}:{}'.format(host, port)
         self.channel = grpc.insecure_channel(conn_str)
         self.stub = replicate_control_pb2.ReplicateControlStub(self.channel)
 
     def do(self, args):
         if args.role.upper() == 'PRIMARY':
-            self.role_ = replicate_pb2.REP_PRIMARY
+            role = replicate_pb2.REP_PRIMARY
         else:
-            self.role_ = replicate_pb2.REP_SECONDARY
+            role = replicate_pb2.REP_SECONDARY
+        kwargs = {
+            'operate_id': args.op_id,
+            'vol_id': args.vol_id,
+            'role': role
+        }
+
         if args.action == 'create':
-            res = self.CreateReplication(args)
+            kwargs = {
+                'rep_uuid': args.uuid,
+                'operate_id': args.op_id,
+                'local_volume': args.vol_id,
+                'peer_volumes': [args.vol_id2],
+                'role': role
+            }
+            res = self.CreateReplication(**kwargs)
         elif args.action == 'delete':
-            res = self.DeleteReplication(args)
+            res = self.DeleteReplication(**kwargs)
         elif args.action == 'enable':
-            res = self.EnableReplication(args)
+            res = self.EnableReplication(**kwargs)
         elif args.action == 'disable':
-            res = self.DisableReplication(args)
+            res = self.DisableReplication(**kwargs)
         elif args.action == 'failover':
-            res = self.FailoverReplication(args)
+            res = self.FailoverReplication(**kwargs)
         elif args.action == 'reverse':
-            res = self.ReverseReplication(args)
+            res = self.ReverseReplication(**kwargs)
         return res
 
-    def CreateReplication(self, args):
+    def CreateReplication(self, rep_uuid, local_volume, role, peer_volumes,
+                          operate_id=str(uuid.uuid4())):
         res = self.stub.CreateReplication(
             replicate_control_pb2.CreateReplicationReq(
-                rep_uuid=args.uuid,
-                operate_id=args.op_id,
-                local_volume=args.vol_id,
-                peer_volumes=[args.vol_id2],
-                role=self.role_))
+                rep_uuid=rep_uuid,
+                operate_id=operate_id,
+                local_volume=local_volume,
+                peer_volumes=peer_volumes,
+                role=role))
         print ('create replication result:%s' % res.status)
         return res
 
-    def EnableReplication(self, args):
+    def EnableReplication(self, vol_id, role, operate_id=str(uuid.uuid4())):
         res = self.stub.EnableReplication(
             replicate_control_pb2.EnableReplicationReq(
-                vol_id=args.vol_id,
-                operate_id=args.op_id,
-                role=self.role_))
+                vol_id=vol_id,
+                operate_id=operate_id,
+                role=role))
         print ('enable replication result:%s' % res.status)
         return res
 
-    def DisableReplication(self, args):
+    def DisableReplication(self, vol_id, role, operate_id=str(uuid.uuid4())):
         res = self.stub.DisableReplication(
             replicate_control_pb2.DisableReplicationReq(
-                vol_id=args.vol_id,
-                operate_id=args.op_id,
-                role=self.role_))
+                vol_id=vol_id,
+                operate_id=operate_id,
+                role=role))
         print ('disable replication result:%s' % res.status)
         return res
 
-    def FailoverReplication(self, args):
+    def FailoverReplication(self, vol_id, role, operate_id=str(uuid.uuid4())):
         res = self.stub.FailoverReplication(
             replicate_control_pb2.FailoverReplicationReq(
-                vol_id=args.vol_id,
-                operate_id=args.op_id,
-                role=self.role_))
+                vol_id=vol_id,
+                operate_id=operate_id,
+                role=role))
         print ('failover replication result:%s' % res.status)
         return res
 
-    def ReverseReplication(self, args):
+    def ReverseReplication(self, vol_id, role, operate_id=str(uuid.uuid4())):
         res = self.stub.ReverseReplication(
             replicate_control_pb2.ReverseReplicationReq(
-                vol_id=args.vol_id,
-                operate_id=args.op_id,
-                role=self.role_))
+                vol_id=vol_id,
+                operate_id=operate_id,
+                role=role))
         print ('reverse replication result:%s' % res.status)
         return res
 
-    def DeleteReplication(self, args):
+    def DeleteReplication(self, vol_id, role, operate_id=str(uuid.uuid4())):
         res = self.stub.DeleteReplication(
             replicate_control_pb2.DeleteReplicationReq(
-                uuid=args.uuid,
-                operate_id=args.op_id,
-                role=self.role_))
+                vol_id=vol_id,
+                operate_id=operate_id,
+                role=role))
         print ('delete replication result:%s' % res.status)
         return res

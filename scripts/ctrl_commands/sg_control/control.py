@@ -7,16 +7,14 @@ import snap_ctrl, replicate_ctrl, volume_ctrl, backup_ctrl
 def snap(args, host, port):
     print('snapshot (%s)' % args)
 
-    params = {'host': host, 'port': port}
-    ctrl = snap_ctrl.SnapCtrl(params)
+    ctrl = snap_ctrl.SnapCtrl(host, port)
     res = ctrl.do(args)
 
 
 def replicate(args, host, port):
     print('replicate (%s)' % args)
 
-    params = {'host': host, 'port': port}
-    ctrl = replicate_ctrl.RepliacteCtrl(params)
+    ctrl = replicate_ctrl.RepliacteCtrl(host, port)
     res = ctrl.do(args)
 
 
@@ -28,16 +26,14 @@ def volume(args, host, port):
             print 'volume name is required!'
             return
 
-    params = {'host': host, 'port': port}
-    ctrl = volume_ctrl.VolumeCtrl(params)
+    ctrl = volume_ctrl.VolumeCtrl(host, port)
     res = ctrl.do(args)
 
 
 def backup(args, host, port):
     print('volume %s ' % args)
 
-    params = {'host': host, 'port': port}
-    ctrl = backup_ctrl.BackupCtrl(params)
+    ctrl = backup_ctrl.BackupCtrl(host, port)
     res = ctrl.do(args)
 
 
@@ -68,8 +64,8 @@ def run():
     parser_snap.add_argument('-a', '--action', \
                              required=True,
                              choices=(
-                             'create', 'delete', 'diff', 'rollback', 'read',
-                             'list'))
+                                 'create', 'delete', 'diff', 'rollback',
+                                 'read', 'list', 'get'))
     parser_snap.add_argument('-s', '--snap', help='snapshot id',
                              dest='snap_id')
     parser_snap.add_argument('--second_snap', help='snapshot id',
@@ -88,8 +84,9 @@ def run():
     parser_replicate = sub_parsers.add_parser('replicate')
     parser_replicate.add_argument('-a', '--action', \
                                   choices=(
-                                  'create', 'enable', 'disable', 'failover', \
-                                  'reverse'),
+                                      'create', 'enable', 'disable',
+                                      'failover', \
+                                      'reverse'),
                                   required=True)
     parser_replicate.add_argument('-i', '--replication_uuid', \
                                   dest='uuid')
@@ -123,9 +120,9 @@ def run():
 
     # backup control args
     parser_backup = sub_parsers.add_parser('backup')
-    parser_backup.add_argument('-a', '--action', \
-                               choices=(
-                               'list', 'create', 'delete', 'get', 'restore'),
+    parser_backup.add_argument('-a', '--action',
+                               choices=('list', 'create',
+                                        'delete', 'get', 'restore'),
                                required=True)
     parser_backup.add_argument('-v', '--volume', help='volume id',
                                dest='vol_id',
@@ -135,16 +132,18 @@ def run():
     parser_backup.add_argument('-s', '--size', help='volume size',
                                dest='vol_size', type=long)
     parser_backup.add_argument('--volume2', help='new volume name',
-                               dest='vol_id2')
+                               dest='new_vol_id')
     parser_backup.add_argument('--device2', help='new block device name',
-                               dest='device2')
+                               dest='new_device')
     parser_backup.add_argument('--size2', help='size of new volume',
-                               dest='vol_size2', type=long)
+                               dest='new_vol_size', type=long)
     # backup optional params
     parser_backup.add_argument('--mode', help='backup mode:full|incr|diff',
-                               dest='mode', choices=('full', 'incr', 'diff'))
+                               dest='backup_mode',
+                               choices=('full', 'incr', 'diff'))
     parser_backup.add_argument('--type', help='backup type:local|remote',
-                               dest='type', choices=('local', 'remote'))
+                               dest='backup_type',
+                               choices=('local', 'remote'))
     parser_backup.add_argument('--store_mode',
                                help='backup storage mode:file|object',
                                dest='store_mode', choices=('file', 'object'))
@@ -161,6 +160,7 @@ def run():
 
 def main():
     run()
+
 
 if __name__ == '__main__':
     main()

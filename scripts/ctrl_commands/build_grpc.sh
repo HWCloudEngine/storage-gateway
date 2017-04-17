@@ -6,6 +6,7 @@ proto_path=../../src/rpc/protos
 
 if [ 0 -eq $# ] || [ "$1"a = "make"a ]
 then
+    apt-get install python-pip
     has_tool=`pip list | grep grpcio-tools`
     if [[ $has_tool != grpcio-tools* ]] ;then
         pip install grpcio-tools
@@ -34,6 +35,8 @@ then
     mv -f ${build_home}/control_api ${build_home}/sg_control
 
     # install
+    pip install setuptools
+    pip install pbr
     cd ${build_home}
     python setup.py install
 
