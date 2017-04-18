@@ -8,19 +8,26 @@
  * Description:
  *
  ************************************************/
-
 #include <stdio.h>
-#include <fstream>
+#include <sys/types.h>
+#include <dirent.h>
 #include <assert.h>
+#include <errno.h>
+#include <regex.h>
+#include <fstream>
 #include <boost/format.hpp>
 #include <boost/tokenizer.hpp>
 #include "control_volume.h"
+#include "common/block_dev.h"
 
+using namespace std;
 using google::protobuf::Map;
 using huawei::proto::StatusCode;
 using huawei::proto::VolumeInfo;
 using huawei::proto::VOL_AVAILABLE;
 using huawei::proto::VOL_ENABLING;
+
+static const char* TGT_CONF_PATH = "/etc/tgt/conf.d";
 
 LunTuple::LunTuple(uint32_t tid, string iqn, uint32_t lun, 
                    string volume_name, string block_device)
@@ -74,49 +81,139 @@ VolumeControlImpl::VolumeControlImpl(const Configure& conf, const std::string& h
     target_path_  = conf_.iscsi_target_config_dir;
 }
 
-bool VolumeControlImpl::create_volume(const std::string& volume_id, size_t size,
-                                      const std::string& device)
+bool VolumeControlImpl::recover_targets()
 {
-    LOG_INFO << "create volume vname:" << volume_id << "size:" << size;
-    StatusCode ret = vol_inner_client_->create_volume(volume_id, device, size,
-            VOL_ENABLING);
-    if (ret == StatusCode::sOk)
-    {
-        return true;
+    DIR* pdir = opendir(TGT_CONF_PATH);
+    if(pdir == nullptr){
+        LOG_ERROR << "opendir path:" << TGT_CONF_PATH << "failed:" << errno;
+        return false; 
     }
-    else
-    {
-        return false;
+    struct dirent* pde;
+    while((pde=readdir(pdir))){
+        if(strcmp(pde->d_name, ".") == 0 || strcmp(pde->d_name, "..") == 0) 
+            continue;
+        LOG_INFO << "recover tgt volume:" << pde->d_name; 
+        bool ret = recover_target(pde->d_name);
+        LOG_INFO << "recover tgt volume:" << pde->d_name << " ret:" << ret; 
     }
+
+    closedir(pdir);
+    return true;
 }
 
-bool VolumeControlImpl::delete_volume(const std::string& volume_id)
+bool VolumeControlImpl::recover_target(const char* vol_name)
 {
-    LOG_INFO << "delete volume vname:" << volume_id;
-    StatusCode ret = vol_inner_client_->delete_volume(volume_id);
-    if (ret == StatusCode::sOk)
-    {
-        return true;
-    }
-    else
-    {
+    string vol_conf_path;
+    vol_conf_path.append(TGT_CONF_PATH);
+    vol_conf_path.append("/");
+    vol_conf_path.append(vol_name);
+
+    LOG_INFO << "read tgt volume conf path:" << vol_conf_path; 
+
+    regex_t iqn_regex;
+    regex_t dev_regex;
+    int ret = regcomp(&iqn_regex, "(iqn).([0-9]+)-([0-9]+).([a-z]+).([a-z]+).([a-z_]+)", REG_EXTENDED);
+    ret |= regcomp(&dev_regex, "/dev/[a-z]+", REG_EXTENDED);
+    if(ret){
+        LOG_ERROR << "regcomp failed:" << errno;
         return false;
     }
+    
+    const int match_size = 10;
+    regmatch_t match_pos[match_size];
+    string line;
+    string iqn_name;
+    string dev_name;
+    ifstream inif;
+    inif.open(vol_conf_path.c_str());
+
+    while(inif.good()){
+        getline(inif, line);
+        LOG_INFO << "read line:" << line;
+        ret = regexec(&iqn_regex, line.c_str(), match_size, match_pos, 0);
+        if(!ret){
+            /*get iqn string*/
+            LOG_INFO << "1 read iqn so:" << match_pos[0].rm_so << " eo:" << match_pos[0].rm_eo;
+            off_t  match_start = match_pos[0].rm_so;
+            size_t match_len = match_pos[0].rm_eo - match_pos[0].rm_so;
+            iqn_name = line.substr(match_start, match_len);
+        }
+        ret = regexec(&dev_regex, line.c_str(), match_size, match_pos, 0);
+        if(!ret){
+            /*get dev string*/
+            LOG_INFO << "2 read iqn so:" << match_pos[0].rm_so << " eo:" << match_pos[0].rm_eo;
+            off_t  match_start = match_pos[0].rm_so;
+            size_t match_len = match_pos[0].rm_eo - match_pos[0].rm_so;
+            dev_name = line.substr(match_start, match_len);
+        }
+    }
+    
+    LOG_INFO << "iqn_name:" << iqn_name << " dev_name" << dev_name;
+    if(!iqn_name.empty() && !dev_name.empty()){
+        BlockDevice blk(dev_name);
+        size_t dev_size = blk.dev_size();
+        enable_sg(vol_name, dev_name, dev_size, iqn_name, true);
+    }
+
+    regfree(&dev_regex);
+    regfree(&iqn_regex);
+    inif.close();
+    return true;
 }
 
-bool VolumeControlImpl::update_volume_status(const std::string& volume_id,
-                                             const VolumeStatus& status)
+bool VolumeControlImpl::enable_sg(const string vol_name, 
+                                  const string dev_name, 
+                                  const size_t dev_size,
+                                  string& iqn_name, 
+                                  bool recover)
 {
-    LOG_INFO << "update volume vname:" << volume_id << " status:" << status;
-    StatusCode ret = vol_inner_client_->update_volume_status(volume_id, status);
-    if (ret == StatusCode::sOk)
-    {
+    bool result = false;
+    string error_msg;
+
+    do {
+        auto it = tgt_luns_.find(vol_name);
+        if(it != tgt_luns_.end()){
+            error_msg = " failed sg has enabled already";
+            break;
+        }
+        //add iscsi target
+        if(iqn_name.empty()){
+            iqn_name = get_target_iqn(vol_name);
+        }
+        LunTuple lun_tuple(tid_id++, iqn_name, lun_id++, vol_name, dev_name);
+        result = add_target(lun_tuple);
+        if(!result){
+            error_msg = " failed add target";
+            break;
+        }
+        //add iscsi lun
+        result = add_lun(lun_tuple);
+        if(!result){
+            error_msg = " failed add lun";
+            break;
+        }
+        result = acl_bind(lun_tuple);
+        if(!result){
+            error_msg = " failed acl_bind";
+            break;
+        }
+       //persist config and update target
+        if(!recover){
+            std::string config;
+            generate_config(vol_name, dev_name, iqn_name, config);
+            result = persist_config(vol_name, config);
+            if (!result){
+                error_msg = " failed persit config" ;
+                break;
+            }
+        }
+        tgt_luns_.insert({vol_name, lun_tuple});
+        LOG_INFO << "enable sg vol:" << vol_name << " ok";
         return true;
-    }
-    else
-    {
-        return false;
-    }
+    }while(0);
+
+    LOG_INFO << "enable sg vol:" << vol_name << error_msg;
+    return false;
 }
 
 std::string VolumeControlImpl::get_target_iqn(const std::string& volume_id)
@@ -173,22 +270,6 @@ bool VolumeControlImpl::execute_cmd(const std::string& command, std::string& res
     }
 }
 
-bool VolumeControlImpl::update_target(const std::string& target_iqn)
-{
-    LOG_INFO<<"update target " << target_iqn;
-    std::string cmd = "tgt-admin --update " + target_iqn + " -f";
-    int ret = system(cmd.c_str());
-    if (ret == 0)
-    {
-        return true;
-    }
-    else
-    {
-        LOG_INFO<<"update target " << target_iqn << " failed errno:" << errno;
-        return false;
-    }
-}
-
 bool VolumeControlImpl::remove_config(const std::string& volume_id)
 {
     std::string file_name = target_path_ + volume_id;
@@ -233,12 +314,12 @@ Status VolumeControlImpl::ListDevices(ServerContext* context,
     //cmd: rescan devices
     LOG_INFO<<"rescan devices";
     std::string cmd = "for f in /sys/class/scsi_host/host*/scan; \
-            do echo '- - -' > $f; done";
+                      do echo '- - -' > $f; done";
     int iret = system(cmd.c_str());
     if(iret == -1){
         LOG_ERROR << "scsi scan failed.";
         res->set_status(StatusCode::sInternalError);
-        return Status::CANCELLED;
+        return Status::OK;
     }
 
     //cmd: list devices
@@ -249,7 +330,6 @@ Status VolumeControlImpl::ListDevices(ServerContext* context,
     if (ret == false)
     {
         res->set_status(StatusCode::sInternalError);
-        return Status::CANCELLED;
     }
     else
     {
@@ -259,9 +339,9 @@ Status VolumeControlImpl::ListDevices(ServerContext* context,
         {
             res->add_devices()->append("/dev/" + t);
         }
-        res->set_status(StatusCode::sInternalError);
-        return Status::OK;
+        res->set_status(StatusCode::sOk);
     }
+    return Status::OK;
 }
 
 bool VolumeControlImpl::add_target(const LunTuple& lun)
@@ -341,71 +421,33 @@ Status VolumeControlImpl::EnableSG(ServerContext* context,
                                    const control::EnableSGReq* req, 
                                    control::EnableSGRes* res)
 {
-    std::string volume_id = req->volume_id();
-    std::string device = req->device();
-    size_t size = req->size();
-    std::string error_msg;
+    string vol_name = req->volume_id();
+    string dev_name = req->device();
+    size_t dev_size = req->size();
+    string iqn_name;
     bool result;
 
-    LOG_INFO << "enable sg vol:" << volume_id << " device:" << device;
-   
-    do {
-        auto it = tgt_luns_.find(volume_id);
-        if(it != tgt_luns_.end()){
-            error_msg = " failed sg has enabled already";
-            break;
-        }
-        //create volume on sg server
-        result = create_volume(volume_id, size, device);
-        if(!result){
-            error_msg = " failed create volume on sg server";
-            break;
-        }
-        //add iscsi target
-        std::string target_iqn;
-        target_iqn = get_target_iqn(volume_id);
-        LunTuple lun_tuple(tid_id++, target_iqn, lun_id++, volume_id, device);
-        result = add_target(lun_tuple);
-        if(!result){
-            error_msg = " failed add target";
-            break;
-        }
-        //add iscsi lun
-        result = add_lun(lun_tuple);
-        if(!result){
-            error_msg = " failed add lun";
-            break;
-        }
-        result = acl_bind(lun_tuple);
-        if(!result){
-            error_msg = " failed acl_bind";
-            break;
-        }
-        //update status on sg server
-        result = update_volume_status(volume_id, VOL_AVAILABLE);
-        if (!result){
-            error_msg = " failed update volume status ";
-            break;
-        }
-        //persist config and update target
-        std::string config;
-        generate_config(volume_id, device, target_iqn, config);
-        result = persist_config(volume_id, config);
-        if (!result){
-            error_msg = " failed persit config" ;
-            break;
-        }
-        tgt_luns_.insert({volume_id, lun_tuple});
-        (*res->mutable_driver_data())["driver_type"] = "iscsi";
-        (*res->mutable_driver_data())["target_iqn"] = target_iqn;
-        res->set_status(StatusCode::sOk);
-        LOG_ERROR << "enable sg vol:" << volume_id << " device:" << device << " ok"; 
+    LOG_INFO << "enable sg vol:" << vol_name << " device:" << dev_name;
+    StatusCode ret = vol_inner_client_->create_volume(vol_name, dev_name, dev_size, VOL_AVAILABLE);
+    if(ret != StatusCode::sOk){
+        res->set_status(StatusCode::sInternalError);
+        LOG_ERROR << "enable sg vol:" << vol_name << " device:" << dev_name << " failed"; 
         return Status::OK;
-    }while(0);
+    }
 
-    res->set_status(StatusCode::sInternalError);
-    LOG_ERROR << "enable sg vol:" << volume_id << " device:" << device << error_msg; 
-    return Status::CANCELLED;
+    result = enable_sg(vol_name, dev_name, dev_size, iqn_name, false);
+    if(!result){
+        ret = vol_inner_client_->delete_volume(vol_name);
+        res->set_status(StatusCode::sInternalError);
+        LOG_ERROR << "enable sg vol:" << vol_name << " device:" << dev_name << " failed"; 
+        return Status::OK;
+    }
+
+    (*res->mutable_driver_data())["driver_type"] = "iscsi";
+    (*res->mutable_driver_data())["target_iqn"] = iqn_name;
+    res->set_status(StatusCode::sOk);
+    LOG_ERROR << "enable sg vol:" << vol_name << " device:" << dev_name << " ok"; 
+    return Status::OK;
 }
 
 Status VolumeControlImpl::DisableSG(ServerContext* context,
@@ -458,7 +500,7 @@ Status VolumeControlImpl::DisableSG(ServerContext* context,
 
     LOG_INFO << "disable sg volume:" << volume_id << error_msg;
     res->set_status(StatusCode::sInternalError);
-    return Status::CANCELLED;
+    return Status::OK;
 }
 
 Status VolumeControlImpl::GetVolume(ServerContext* context,
@@ -469,15 +511,10 @@ Status VolumeControlImpl::GetVolume(ServerContext* context,
     StatusCode ret = vol_inner_client_->get_volume(volume_id, volume);
     if (ret == StatusCode::sOk)
     {
-        res->set_status(ret);
         res->mutable_volume()->CopyFrom(volume);
-        return Status::OK;
     }
-    else
-    {
-        res->set_status(ret);
-        return Status::CANCELLED;
-    }
+    res->set_status(ret);
+    return Status::OK;
 }
 
 Status VolumeControlImpl::ListVolumes(ServerContext* context,
@@ -487,16 +524,11 @@ Status VolumeControlImpl::ListVolumes(ServerContext* context,
     StatusCode ret = vol_inner_client_->list_volume(volumes);
     if (ret == StatusCode::sOk)
     {
-        res->set_status(ret);
         for (auto volume : volumes)
         {
             res->add_volumes()->CopyFrom(volume);
         }
-        return Status::OK;
     }
-    else
-    {
-        res->set_status(ret);
-        return Status::CANCELLED;
-    }
+    res->set_status(ret);
+    return Status::OK;
 }

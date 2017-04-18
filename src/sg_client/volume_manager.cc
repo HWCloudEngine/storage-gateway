@@ -1,12 +1,12 @@
 #include "volume_manager.h"
 #include <boost/bind.hpp>
 #include <algorithm>
-#include "../log/log.h"
+#include "log/log.h"
+#include "common/volume_attr.h"
 #include "control/control_snapshot.h"
 #include "control/control_backup.h"
 #include "control/control_replicate.h"
 #include "control/control_volume.h"
-#include "../common/volume_attr.h"
 
 using huawei::proto::VolumeInfo;
 using huawei::proto::StatusCode;
@@ -16,7 +16,10 @@ namespace Journal{
 VolumeManager::~VolumeManager()
 {
     running_ = false;
-
+    
+    if(recover_targets_thr_){
+        recover_targets_thr_->join();
+    }
     thread_ptr->interrupt();
     thread_ptr->join();
     if(ctrl_rpc_server){
@@ -185,40 +188,32 @@ void VolumeManager::read_req_body_cbt(raw_socket_t client_sock,
                               (const_cast<char*>(req_body_buffer));
     std::string vol_name = std::string(body_ptr->volume_name);
     std::string dev_path = std::string(body_ptr->device_path);
-    
     LOG_INFO << "add volume:" << vol_name << " dev_path:" << dev_path;
-
+    
     VolumeInfo volume_info;
     StatusCode ret = vol_inner_client_->get_volume(vol_name, volume_info);
-    if (ret == StatusCode::sOk)
-    {
-        LOG_INFO << "get volume:" << volume_info.vol_id() 
-                 << " dev_path:" << volume_info.path()
-                 << " vol_status:" << volume_info.vol_status()
-                 << " vol_size:" << volume_info.size();
-
-        /*create volume*/
-        shared_ptr<Volume> vol = make_shared<Volume>(*this, conf, volume_info, \
-                                            lease_client, writer_rpc_client,   \
-                                            epoll_fd, client_sock);
-        /*add to map*/
-        std::unique_lock<std::mutex> lk(mtx);
-        volumes.insert({vol_name, vol});
-
-        /*reply to tgt client*/
-        send_reply(client_sock, req_head_buffer, req_body_buffer, true);
-
-        /*volume init*/
-        vol->init();        
-        /*volume start, start receive io from network*/
-        vol->start();
-    }
-    else
-    {
-        LOG_INFO << "get volume failed";
-        /*reply to tgt client*/
+    if(ret != StatusCode::sOk){
         send_reply(client_sock, req_head_buffer, req_body_buffer, false);
+        return;
     }
+ 
+    LOG_INFO << "get volume:" << volume_info.vol_id() << " dev_path:" << volume_info.path()
+             << " vol_status:" << volume_info.vol_status() << " vol_size:" << volume_info.size();
+    /*create volume*/
+    shared_ptr<Volume> vol = make_shared<Volume>(*this, conf, volume_info, \
+                                        lease_client, writer_rpc_client,   \
+                                        epoll_fd, client_sock);
+    /*add to map*/
+    std::unique_lock<std::mutex> lk(mtx);
+    volumes.insert({vol_name, vol});
+
+    /*reply to tgt client*/
+    send_reply(client_sock, req_head_buffer, req_body_buffer, true);
+
+    /*volume init*/
+    vol->init();        
+    /*volume start, start receive io from network*/
+    vol->start();
 }
 
 void VolumeManager::send_reply(raw_socket_t client_sock, 
@@ -397,6 +392,16 @@ bool VolumeManager::del_volume(const string& vol)
     LOG_INFO << "stop volume:" << vol << " ok";
 
     volumes.erase(vol);
+    return true;
+}
+
+bool VolumeManager::recover_targets()
+{
+    if(vol_ctrl == nullptr){
+        LOG_ERROR << "volume ctrl serivice not ok"; 
+        return false;
+    }
+    recover_targets_thr_ = make_shared<thread>(std::bind(&VolumeControlImpl::recover_targets, vol_ctrl));
     return true;
 }
 
