@@ -38,6 +38,8 @@ Server::Server(const std::string& address,
     #endif
 
     start_accept();
+
+    volume_manager_.recover_targets();
 }
 
 void Server::run()
