@@ -37,6 +37,7 @@ public:
     void stop_all();
     bool init();
     bool del_volume(const string& vol);
+    bool recover_targets();
 
 private:
     /*todo periodic task manage journal should put into each volume */
@@ -92,6 +93,9 @@ private:
     BackupControlImpl*   backup_ctrl{nullptr};
     ReplicateCtrl*       rep_ctrl{nullptr};
     VolumeControlImpl*   vol_ctrl{nullptr};
+    
+    /*thread use to recover tgt target*/
+    shared_ptr<thread> recover_targets_thr_;
 
     std::string host_;
     std::string port_;

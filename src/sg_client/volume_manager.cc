@@ -16,7 +16,10 @@ namespace Journal{
 VolumeManager::~VolumeManager()
 {
     running_ = false;
-
+    
+    if(recover_targets_thr_){
+        recover_targets_thr_->join();
+    }
     thread_ptr->interrupt();
     thread_ptr->join();
     if(ctrl_rpc_server){
@@ -397,6 +400,16 @@ bool VolumeManager::del_volume(const string& vol)
     LOG_INFO << "stop volume:" << vol << " ok";
 
     volumes.erase(vol);
+    return true;
+}
+
+bool VolumeManager::recover_targets()
+{
+    if(vol_ctrl == nullptr){
+        LOG_ERROR << "volume ctrl serivice not ok"; 
+        return false;
+    }
+    recover_targets_thr_ = make_shared<thread>(std::bind(&VolumeControlImpl::recover_targets, vol_ctrl));
     return true;
 }
 

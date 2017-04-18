@@ -66,7 +66,12 @@ public:
     Status ListVolumes(ServerContext* context,
             const control::ListVolumesReq* req, control::ListVolumesRes* res);
     
+    bool recover_targets();
+
 private:
+    bool enable_sg(const string vol_name, const string dev_name, const size_t dev_size,
+                   string& iqn_name, bool recover = true);
+
     bool execute_cmd(const std::string& command, std::string& result);
 
     bool create_volume(const std::string& volume_id, size_t size,
@@ -92,7 +97,10 @@ private:
     bool remove_lun(const LunTuple& lun);
     bool acl_bind(const LunTuple& lun);
     bool acl_unbind(const LunTuple& lun);
- 
+    
+    /*recover targets*/
+    bool recover_target(const char* vol_name);
+
     Configure conf_;
     std::shared_ptr<VolInnerCtrlClient> vol_inner_client_;
     std::string host_;
