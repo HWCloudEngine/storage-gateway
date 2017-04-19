@@ -112,7 +112,7 @@ bool VolumeControlImpl::recover_target(const char* vol_name)
 
     regex_t iqn_regex;
     regex_t dev_regex;
-    int ret = regcomp(&iqn_regex, "(iqn).([0-9]+)-([0-9]+).([a-z]+).([a-z]+).([a-z_]+)", REG_EXTENDED);
+    int ret = regcomp(&iqn_regex, "(iqn).([0-9]+)-([0-9]+).([a-z]+).([a-z]+).([a-z0-9-]+)", REG_EXTENDED);
     ret |= regcomp(&dev_regex, "/dev/[a-z]+", REG_EXTENDED);
     if(ret){
         LOG_ERROR << "regcomp failed:" << errno;
