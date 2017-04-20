@@ -6,20 +6,34 @@
 
 struct agent_init
 {
+<<<<<<< 340d3df79e730fee0d60652dc716f16ab528f579
 	pid_t pid;
 	char* host;
 	int   port;
+=======
+    pid_t pid;
+    char* host;
+    int   port;
+>>>>>>> Agent mode control module
 };
 
 struct agent_ioctl_add_dev
 {
     char* vol_name;
+<<<<<<< 340d3df79e730fee0d60652dc716f16ab528f579
 	char* dev_path;
+=======
+    char* dev_path;
+>>>>>>> Agent mode control module
 };
 
 struct agent_ioctl_del_dev
 {
+<<<<<<< 340d3df79e730fee0d60652dc716f16ab528f579
 	char* dev_path;
+=======
+    char* dev_path;
+>>>>>>> Agent mode control module
 };
 
 

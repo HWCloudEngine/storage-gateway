@@ -4,7 +4,7 @@ using google::protobuf::Message;
 using huawei::proto::WriteMessage;
 using huawei::proto::DiskPos;
 
-CacheProxy::CacheProxy(string blk_dev, shared_ptr<IDGenerator> id_maker)
+CacheProxy::CacheProxy(string blk_dev, shared_ptr<IDGenerator> id_maker,const Configure& conf)
 {
     blkdev = blk_dev;
     idproc = id_maker;
@@ -13,7 +13,7 @@ CacheProxy::CacheProxy(string blk_dev, shared_ptr<IDGenerator> id_maker)
     start_cache_evict_thr();
 
     jcache = new Jcache(blk_dev);
-    bcache = new Bcache(blk_dev);
+    bcache = new Bcache(blk_dev,conf);
 
     LOG_INFO << "CacheProxy create";
 } 

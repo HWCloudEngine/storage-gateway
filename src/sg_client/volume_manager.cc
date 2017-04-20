@@ -7,6 +7,8 @@
 #include "control/control_backup.h"
 #include "control/control_replicate.h"
 #include "control/control_volume.h"
+#include "control/control_agent.h"
+#include "../common/volume_attr.h"
 
 using huawei::proto::VolumeInfo;
 using huawei::proto::StatusCode;
@@ -108,7 +110,14 @@ bool VolumeManager::init()
     writer_rpc_client.reset(new WriterClient(
             grpc::CreateChannel(conf.sg_server_addr(),grpc::InsecureChannelCredentials())));
 
-    vol_ctrl = new VolumeControlImpl(conf, host_, port_,vol_inner_client_);
+    if(conf.global_client_mode)
+    {
+        vol_ctrl = new AgentControlImpl(conf, host_,port_, vol_inner_client_);
+    }
+    else
+    {
+        vol_ctrl = new VolumeControlImpl(conf, host_, port_,vol_inner_client_);
+    }
     ctrl_rpc_server->register_service(vol_ctrl);
 
     if(!ctrl_rpc_server->run()){
@@ -402,7 +411,7 @@ bool VolumeManager::recover_targets()
         LOG_ERROR << "volume ctrl serivice not ok"; 
         return false;
     }
-    recover_targets_thr_ = make_shared<thread>(std::bind(&VolumeControlImpl::recover_targets, vol_ctrl));
+    recover_targets_thr_ = make_shared<thread>(std::bind(&VolumeControlBase::recover_targets, vol_ctrl));
     return true;
 }
 
