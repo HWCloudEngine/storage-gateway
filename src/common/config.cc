@@ -10,6 +10,7 @@ void Configure::init(const string& conf_file)
     const string default_iscsi_target_config_dir = "/etc/tgt/conf.d/";
     iscsi_target_prefix = config_parser.get_default("iscsi.target_prefix", default_iscsi_target_prefix);
     iscsi_target_config_dir = config_parser.get_default("iscsi.target_config_dir", default_iscsi_target_config_dir);
+    agent_dev_conf = config_parser.get_default("agent.dev_conf", string("/etc/storage-gateway/agent_dev.conf"));
     
     ctrl_server_ip   = config_parser.get_default("ctrl_server.ip", string("127.0.0.1"));
     ctrl_server_port = config_parser.get_default("ctrl_server.port", 1111);
@@ -17,6 +18,7 @@ void Configure::init(const string& conf_file)
     global_max_volume_count = config_parser.get_default("global.max_volume_count",128);
     global_journal_meta_storage = config_parser.get_default("global.journal_meta_storage", string("ceph_s3"));
     global_journal_data_storage = config_parser.get_default("global.journal_data_storage", string("ceph_fs"));
+    global_client_mode = config_parser.get_default("global.client_mode",0);
 
     ceph_s3_access_key = config_parser.get_default("ceph_s3.access_key", string(""));
     ceph_s3_secret_key = config_parser.get_default("ceph_s3.secret_key", string(""));
