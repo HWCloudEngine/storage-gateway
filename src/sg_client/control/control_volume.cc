@@ -72,13 +72,26 @@ ostream& operator<<(ostream& cout, const LunTuple& lun)
 int VolumeControlImpl::tid_id = 100;
 int VolumeControlImpl::lun_id = 200;
 
-VolumeControlImpl::VolumeControlImpl(const Configure& conf, const std::string& host,
-                                     const std::string& port,
-                                     std::shared_ptr<VolInnerCtrlClient> vol_inner_client) 
-    : conf_(conf), host_(host), port_(port), vol_inner_client_(vol_inner_client)
+
+VolumeControlBase::VolumeControlBase(std::shared_ptr<VolInnerCtrlClient> vol_inner_client):
+    vol_inner_client_(vol_inner_client)
 {
-    target_prefix_ = conf_.iscsi_target_prefix;
-    target_path_  = conf_.iscsi_target_config_dir;
+}
+
+VolumeControlBase::~VolumeControlBase()
+{
+}
+
+Status VolumeControlBase::EnableSG(ServerContext* context, const control::EnableSGReq* req,
+        control::EnableSGRes* res)
+{
+    return Status::CANCELLED;
+}
+
+Status VolumeControlBase::DisableSG(ServerContext* context, const control::DisableSGReq* req,
+        control::DisableSGRes* res)
+{
+    return Status::CANCELLED;
 }
 
 bool VolumeControlImpl::recover_targets()
@@ -216,6 +229,145 @@ bool VolumeControlImpl::enable_sg(const string vol_name,
     return false;
 }
 
+bool VolumeControlBase::remove_device(const std::string& device)
+{
+    LOG_INFO<<"remove device "<<device;
+    std::string cmd = "blockdev --flushbufs " + device;
+    int ret = system(cmd.c_str());
+    if(ret == -1){
+        LOG_ERROR << "blockdev flushbufs failed.";
+        return false;
+    }
+
+    std::string path = "/sys/block/" + device.substr(5) + "/device/delete";
+    cmd = "echo 1 | tee -a " + path;
+    ret = system(cmd.c_str());
+    if(ret == -1){
+        LOG_ERROR << "blockdev delete failed.";
+        return false;
+    }
+
+    return true;
+}
+
+bool VolumeControlBase::execute_cmd(const std::string& command,
+        std::string& result)
+{
+    FILE* f;
+    char buf[1024];
+    result = "";
+    if ((f = popen(command.c_str(), "r")) != NULL)
+    {
+        while (fgets(buf, 1024, f) != NULL)
+        {
+            result += std::string(buf);
+        }
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
+bool VolumeControlBase::recover_targets()
+{
+    return true;
+}
+
+
+Status VolumeControlBase::ListDevices(ServerContext* context,
+        const control::ListDevicesReq* req, control::ListDevicesRes* res)
+{
+    //cmd: rescan devices
+    LOG_INFO<<"rescan devices";
+    std::string cmd = "for f in /sys/class/scsi_host/host*/scan; \
+            do echo '- - -' > $f; done";
+    int iret = system(cmd.c_str());
+    if(iret == -1){
+        LOG_ERROR << "scsi scan failed.";
+        res->set_status(StatusCode::sInternalError);
+        return Status::CANCELLED;
+    }
+
+    //cmd: list devices
+    LOG_INFO<<"list devices";
+    std::string devices_info;
+    cmd = "lsblk -dn -o name";
+    bool ret = execute_cmd(cmd, devices_info);
+    if (ret == false)
+    {
+        res->set_status(StatusCode::sInternalError);
+        return Status::CANCELLED;
+    }
+    else
+    {
+        boost::char_separator<char> sep("\n");
+        boost::tokenizer<boost::char_separator<char>> tokens(devices_info, sep);
+        for (auto t : tokens)
+        {
+            res->add_devices()->append("/dev/" + t);
+        }
+        res->set_status(StatusCode::sOk);
+        return Status::OK;
+    }
+}
+
+Status VolumeControlBase::GetVolume(ServerContext* context,
+        const control::GetVolumeReq* req, control::GetVolumeRes* res)
+{
+    std::string volume_id = req->volume_id();
+    VolumeInfo volume;
+    StatusCode ret = vol_inner_client_->get_volume(volume_id, volume);
+    if (ret == StatusCode::sOk)
+    {
+        res->set_status(ret);
+        res->mutable_volume()->CopyFrom(volume);
+        return Status::OK;
+    }
+    else
+    {
+        res->set_status(ret);
+        return Status::CANCELLED;
+    }
+}
+
+Status VolumeControlBase::ListVolumes(ServerContext* context,
+        const control::ListVolumesReq* req, control::ListVolumesRes* res)
+{
+    std::list<VolumeInfo> volumes;
+    StatusCode ret = vol_inner_client_->list_volume(volumes);
+    if (ret == StatusCode::sOk)
+    {
+        res->set_status(ret);
+        for (auto volume : volumes)
+        {
+            res->add_volumes()->CopyFrom(volume);
+        }
+        return Status::OK;
+    }
+    else
+    {
+        res->set_status(ret);
+        return Status::CANCELLED;
+    }
+}
+
+
+VolumeControlImpl::VolumeControlImpl(const Configure& conf, const std::string& host,
+        const std::string& port,
+        std::shared_ptr<VolInnerCtrlClient> vol_inner_client) :
+        conf_(conf), host_(host), port_(port),
+        vol_inner_client_(vol_inner_client),VolumeControlBase(vol_inner_client)
+{
+    target_prefix_ = conf_.iscsi_target_prefix;
+    target_path_  = conf_.iscsi_target_config_dir;
+}
+
+VolumeControlImpl::~VolumeControlImpl()
+{
+}
+
 std::string VolumeControlImpl::get_target_iqn(const std::string& volume_id)
 {
     return target_prefix_ + volume_id;
@@ -251,25 +403,6 @@ bool VolumeControlImpl::persist_config(const std::string& volume_id,
     return true;
 }
 
-bool VolumeControlImpl::execute_cmd(const std::string& command, std::string& result)
-{
-    FILE* f;
-    char buf[1024];
-    result = "";
-    if ((f = popen(command.c_str(), "r")) != NULL)
-    {
-        while (fgets(buf, 1024, f) != NULL)
-        {
-            result += std::string(buf);
-        }
-        return true;
-    }
-    else
-    {
-        return false;
-    }
-}
-
 bool VolumeControlImpl::remove_config(const std::string& volume_id)
 {
     std::string file_name = target_path_ + volume_id;
@@ -284,64 +417,6 @@ bool VolumeControlImpl::remove_config(const std::string& volume_id)
         LOG_INFO<<"remove config file "<<file_name<<"failed";
         return false;
     }
-}
-
-bool VolumeControlImpl::remove_device(const std::string& device)
-{
-    LOG_INFO<<"remove device "<<device;
-    std::string cmd = "blockdev --flushbufs " + device;
-    int ret = system(cmd.c_str());
-    if(ret == -1){
-        LOG_ERROR << "blockdev flushbufs failed.";
-        return false;
-    }
-
-    std::string path = "/sys/block/" + device.substr(5) + "/device/delete";
-    cmd = "echo 1 | tee -a " + path;
-    ret = system(cmd.c_str());
-    if(ret == -1){
-        LOG_ERROR << "blockdev delete failed.";
-        return false;
-    }
-
-    return true;
-}
-
-Status VolumeControlImpl::ListDevices(ServerContext* context,
-                                      const control::ListDevicesReq* req, 
-                                      control::ListDevicesRes* res)
-{
-    //cmd: rescan devices
-    LOG_INFO<<"rescan devices";
-    std::string cmd = "for f in /sys/class/scsi_host/host*/scan; \
-                      do echo '- - -' > $f; done";
-    int iret = system(cmd.c_str());
-    if(iret == -1){
-        LOG_ERROR << "scsi scan failed.";
-        res->set_status(StatusCode::sInternalError);
-        return Status::OK;
-    }
-
-    //cmd: list devices
-    LOG_INFO<<"list devices";
-    std::string devices_info;
-    cmd = "lsblk -dn -o name";
-    bool ret = execute_cmd(cmd, devices_info);
-    if (ret == false)
-    {
-        res->set_status(StatusCode::sInternalError);
-    }
-    else
-    {
-        boost::char_separator<char> sep("\n");
-        boost::tokenizer<boost::char_separator<char>> tokens(devices_info, sep);
-        for (auto t : tokens)
-        {
-            res->add_devices()->append("/dev/" + t);
-        }
-        res->set_status(StatusCode::sOk);
-    }
-    return Status::OK;
 }
 
 bool VolumeControlImpl::add_target(const LunTuple& lun)
@@ -503,32 +578,3 @@ Status VolumeControlImpl::DisableSG(ServerContext* context,
     return Status::OK;
 }
 
-Status VolumeControlImpl::GetVolume(ServerContext* context,
-        const control::GetVolumeReq* req, control::GetVolumeRes* res)
-{
-    std::string volume_id = req->volume_id();
-    VolumeInfo volume;
-    StatusCode ret = vol_inner_client_->get_volume(volume_id, volume);
-    if (ret == StatusCode::sOk)
-    {
-        res->mutable_volume()->CopyFrom(volume);
-    }
-    res->set_status(ret);
-    return Status::OK;
-}
-
-Status VolumeControlImpl::ListVolumes(ServerContext* context,
-        const control::ListVolumesReq* req, control::ListVolumesRes* res)
-{
-    std::list<VolumeInfo> volumes;
-    StatusCode ret = vol_inner_client_->list_volume(volumes);
-    if (ret == StatusCode::sOk)
-    {
-        for (auto volume : volumes)
-        {
-            res->add_volumes()->CopyFrom(volume);
-        }
-    }
-    res->set_status(ret);
-    return Status::OK;
-}
