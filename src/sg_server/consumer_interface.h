@@ -23,7 +23,7 @@ public:
     IConsumer(const std::string& vol_id):
             vol_(vol_id){
     }
-    ~IConsumer(){}
+    virtual ~IConsumer(){}
     virtual std::string get_vol_id(){
         return vol_;
     }

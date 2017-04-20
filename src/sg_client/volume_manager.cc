@@ -368,6 +368,7 @@ int  VolumeManager::update_all_producer_markers(){
         }
     }
     update_producer_markers(markers_to_update);
+    return 0;
 }
 
 bool VolumeManager::del_volume(const string& vol)

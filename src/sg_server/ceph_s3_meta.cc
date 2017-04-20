@@ -782,7 +782,7 @@ RESULT CephS3Meta::get_sealed_and_consumed_journals(
 
 RESULT CephS3Meta::recycle_journals(const string& vol_id,
         const std::list<string>& journals){
-    RESULT res;
+    RESULT res = DRS_OK;
     for(auto it=journals.begin();it!=journals.end();it++){
         string value;
         res = s3Api_ptr_->get_object(it->c_str(),&value);

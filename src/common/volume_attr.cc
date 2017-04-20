@@ -173,6 +173,10 @@ bool VolumeAttr::is_writable(){
        m_vol_info.rep_status() == RepStatus::REP_FAILED_OVER){
         return true;
     }
+    // default: consider volume as writable
+    if(m_vol_info.role() == RepRole::REP_UNKNOWN)
+        return true;
+
     return false;
 }
 

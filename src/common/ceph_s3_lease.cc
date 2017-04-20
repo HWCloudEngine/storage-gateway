@@ -110,6 +110,7 @@ RESULT CephS3LeaseServer::init(const char* access_key, const char* secret_key,
     prefix_ = "/leases/";
     gc_thread_ptr_.reset(
             new boost::thread(boost::bind(&CephS3LeaseServer::gc_task, this)));
+    return DRS_OK;
 }
 
 void CephS3LeaseServer::gc_task() {
