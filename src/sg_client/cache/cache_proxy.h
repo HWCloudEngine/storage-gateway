@@ -22,7 +22,7 @@ class CacheProxy
     const static size_t CACHE_EVICT_SIZE = (2 * 1024 * 1024);
 public:
     CacheProxy() = default;
-    explicit CacheProxy(string blk_dev, shared_ptr<IDGenerator> id_maker);
+    explicit CacheProxy(string blk_dev, shared_ptr<IDGenerator> id_maker,const Configure& conf);
 
     /*each volume own a cproxy, disable copy constructor and operator=*/
     CacheProxy(const CacheProxy& other) = delete;

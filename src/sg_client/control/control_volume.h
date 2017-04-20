@@ -48,32 +48,47 @@ public:
 };
 
 
-class VolumeControlImpl final: public control::VolumeControl::Service
+class VolumeControlBase:public control::VolumeControl::Service
+{
+public:
+	VolumeControlBase(std::shared_ptr<VolInnerCtrlClient> vol_inner_client);
+	virtual ~VolumeControlBase();
+	bool remove_device(const std::string& device);
+	bool execute_cmd(const std::string& command, std::string& result);
+	virtual bool recover_targets();
+    Status ListDevices(ServerContext* context,
+            const control::ListDevicesReq* req, control::ListDevicesRes* res);
+    Status GetVolume(ServerContext* context, const control::GetVolumeReq* req,
+            control::GetVolumeRes* res);
+    Status ListVolumes(ServerContext* context,
+            const control::ListVolumesReq* req, control::ListVolumesRes* res);
+    virtual Status EnableSG(ServerContext* context, const control::EnableSGReq* req,
+		    control::EnableSGRes* res);
+    virtual Status DisableSG(ServerContext* context, const control::DisableSGReq* req,
+		    control::DisableSGRes* res);
+
+private:
+	std::shared_ptr<VolInnerCtrlClient> vol_inner_client_;
+
+};
+
+class VolumeControlImpl final: public VolumeControlBase
 {
 
 public:
     VolumeControlImpl(const Configure& conf, const std::string& host, const std::string& port,
             std::shared_ptr<VolInnerCtrlClient> vol_inner_client);
-
-    Status ListDevices(ServerContext* context,
-            const control::ListDevicesReq* req, control::ListDevicesRes* res);
+	virtual ~VolumeControlImpl();
     Status EnableSG(ServerContext* context, const control::EnableSGReq* req,
             control::EnableSGRes* res);
     Status DisableSG(ServerContext* context, const control::DisableSGReq* req,
             control::DisableSGRes* res);
-    Status GetVolume(ServerContext* context, const control::GetVolumeReq* req,
-            control::GetVolumeRes* res);
-    Status ListVolumes(ServerContext* context,
-            const control::ListVolumesReq* req, control::ListVolumesRes* res);
     
     bool recover_targets();
 
 private:
     bool enable_sg(const string vol_name, const string dev_name, const size_t dev_size,
                    string& iqn_name, bool recover = true);
-
-    bool execute_cmd(const std::string& command, std::string& result);
-
     std::string get_target_iqn(const std::string& volume_id);
     bool generate_config(const std::string& volume_id,
                          const std::string& device, const std::string& target_iqn,
@@ -81,7 +96,6 @@ private:
     bool persist_config(const std::string& volume_id,
                         const std::string& config);
     bool remove_config(const std::string& volume_id);
-    bool remove_device(const std::string& device);
 
     bool add_target(const LunTuple& lun);
     bool remove_target(uint32_t tid);
@@ -89,6 +103,7 @@ private:
     bool remove_lun(const LunTuple& lun);
     bool acl_bind(const LunTuple& lun);
     bool acl_unbind(const LunTuple& lun);
+
     
     /*recover targets*/
     bool recover_target(const char* vol_name);

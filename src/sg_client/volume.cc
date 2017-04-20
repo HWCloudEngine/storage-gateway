@@ -33,7 +33,7 @@ bool Volume::init()
     }
 
     idproxy_.reset(new IDGenerator());
-    cacheproxy_.reset(new CacheProxy(vol_attr_.blk_device(), idproxy_));
+    cacheproxy_.reset(new CacheProxy(vol_attr_.blk_device(), idproxy_,conf_));
     snapshotproxy_.reset(new SnapshotProxy(conf_, vol_attr_, entry_queue_)); 
 
     backupdecorator_.reset(new BackupDecorator(vol_attr_.vol_name(), snapshotproxy_));

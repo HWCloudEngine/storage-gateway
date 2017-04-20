@@ -89,7 +89,7 @@ bool BkeyOffsetCompare(const Bkey& a, const Bkey& b)
     return a.m_off < b.m_off;
 }
 
-Bcache::Bcache(string bdev)
+Bcache::Bcache(string bdev,const Configure& conf):conf_(conf)
 {
     m_blkdev = bdev;
     LOG_INFO << "Bcache create";
@@ -327,7 +327,8 @@ int Bcache::_cache_hit_read(off_t off, size_t len, char* buf,
 int Bcache::_cache_miss_read(off_t off, size_t len, char* buf, 
                              const vector<Bkey>& miss_keys)
 {
-    int blk_fd = open(m_blkdev.c_str(), O_RDONLY|O_CREAT|O_TRUNC, 0777);
+	int flags = conf_.global_client_mode ? (O_RDONLY | O_DIRECT):(O_RDONLY);
+    int blk_fd = open(m_blkdev.c_str(), flags, 0777);
     if(blk_fd == -1){
         LOG_ERROR << "miss_read open:" <<m_blkdev << "failed";
         return -1;
@@ -360,7 +361,20 @@ int Bcache::_cache_miss_read(off_t off, size_t len, char* buf,
         size_t read = 0;
 
         while(left > 0){
-            int ret = pread(blk_fd, pbuf+read, left, poffset+read);
+			int ret = 0;
+			if(conf_.global_client_mode)
+			{
+				char *align_buf = NULL;
+                ret = posix_memalign((void**)&align_buf, getpagesize(), left);
+				assert(ret == 0 && align_buf != NULL);
+                ret = pread(blk_fd, align_buf, left, poffset+read);
+                memcpy(pbuf+read, align_buf, left);
+				free(align_buf);
+			}
+			else
+			{
+				ret = pread(blk_fd, pbuf+read, left, poffset+read);
+			}
             if(ret == -1 || ret == 0){
                 LOG_ERROR << "miss_read pread failed errno:" << errno 
                           << "ret:"<< ret;

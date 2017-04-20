@@ -17,6 +17,7 @@ sg_client_SOURCES=$(top_srcdir)/src/common/crc32.c  \
                   control/control_backup.cc    \
                   control/control_replicate.cc \
                   control/control_volume.cc  \
+                  control/control_agent.cc   \
                   snapshot/snapshot_proxy.cc \
                   backup/backup_decorator.cc \
                   backup/backup_proxy.cc \
