@@ -133,9 +133,11 @@ bool JournalTask::has_next_package(){
 TransferRequest* JournalTask::get_next_package(){
     if(cur_off >= ctx->get_end_off()){
         TransferRequest* req = new TransferRequest;
-        construct_transfer_end_request(req,ctx->get_vol_id(),
+        construct_transfer_end_request(req,ctx->get_peer_vol(),
                 ctx->get_j_counter(),0,++package_id,ctx->get_is_open());
         end = true;
+        LOG_DEBUG << "construct end req, " << ctx->get_peer_vol()
+            << ":" << ctx->get_j_counter();
         return req;
     }
 
@@ -157,7 +159,7 @@ TransferRequest* JournalTask::get_next_package(){
     }
 
     TransferRequest* req = new TransferRequest;
-    construct_transfer_data_request(req,ctx->get_vol_id(),ctx->get_j_counter(),
+    construct_transfer_data_request(req,ctx->get_peer_vol(),ctx->get_j_counter(),
             0,buffer,cur_off,size,++package_id);
 
     uint32_t crc = crc32c(buffer,size,0);
@@ -227,9 +229,11 @@ TransferRequest* DiffSnapTask::get_next_package(){
     }
     if(all_data_sent){ // all data sent
         TransferRequest* req = new TransferRequest;
-        construct_transfer_end_request(req,ctx->get_vol_id(),
+        construct_transfer_end_request(req,ctx->get_peer_vol(),
                 ctx->get_j_counter(),sub_counter,++package_id,ctx->get_is_open());
         end = true;
+        LOG_DEBUG << "construct end req,peer volume: " << ctx->get_peer_vol()
+            << ", cur_snap" << cur_snap;
         return req;
     }
     // fill journal file header
@@ -241,7 +245,7 @@ TransferRequest* DiffSnapTask::get_next_package(){
         header.version = 0;
         header.reserve = 0;
         size_t size = sizeof(journal_file_header_t);
-        construct_transfer_data_request(req,ctx->get_vol_id(),
+        construct_transfer_data_request(req,ctx->get_peer_vol(),
             ctx->get_j_counter(),sub_counter,
             (char*)(&header),cur_off,size,++package_id);
         cur_off += size;
@@ -283,7 +287,7 @@ TransferRequest* DiffSnapTask::get_next_package(){
         entry_string.insert(0,(char*)(&header),sizeof(journal_file_header_t));
         size += sizeof(journal_file_header_t);
 
-        construct_transfer_data_request(req,ctx->get_vol_id(),
+        construct_transfer_data_request(req,ctx->get_peer_vol(),
             ctx->get_j_counter(),sub_counter,
             entry_string.c_str(),cur_off,size,++package_id);
 
@@ -294,7 +298,7 @@ TransferRequest* DiffSnapTask::get_next_package(){
         cur_off += size;
     }
     else{
-        construct_transfer_data_request(req,ctx->get_vol_id(),
+        construct_transfer_data_request(req,ctx->get_peer_vol(),
             ctx->get_j_counter(),sub_counter,
             entry_string.c_str(),cur_off,size,++package_id);
 
@@ -397,10 +401,10 @@ TransferRequest* BaseSnapTask::get_next_package(){
     if(read_off >= vol_size){
         // construct end cmd
         TransferRequest* req = new TransferRequest;
-        construct_transfer_end_request(req,ctx->get_vol_id(),
+        construct_transfer_end_request(req,ctx->get_peer_vol(),
                 ctx->get_j_counter(),sub_counter,++package_id,ctx->get_is_open());
         end = true;
-        LOG_INFO << "transfer base snap end.";
+        LOG_INFO << "transfer base snap end:" << base_snap;
         return req;
     }
 
@@ -436,7 +440,7 @@ TransferRequest* BaseSnapTask::get_next_package(){
         entry_string.insert(0,(char*)(&header),sizeof(journal_file_header_t));
         size += sizeof(journal_file_header_t);
 
-        construct_transfer_data_request(req,ctx->get_vol_id(),
+        construct_transfer_data_request(req,ctx->get_peer_vol(),
             ctx->get_j_counter(),sub_counter,
             entry_string.c_str(),cur_off,size,++package_id);
 
@@ -447,7 +451,7 @@ TransferRequest* BaseSnapTask::get_next_package(){
         cur_off += size;
     }
     else{
-        construct_transfer_data_request(req,ctx->get_vol_id(),
+        construct_transfer_data_request(req,ctx->get_peer_vol(),
             ctx->get_j_counter(),sub_counter,
             entry_string.c_str(),cur_off,size,++package_id);
 

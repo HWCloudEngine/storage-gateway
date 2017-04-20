@@ -70,6 +70,8 @@ private:
     // recycle resources
     void clean_up();
     int get_last_shared_snap(string& snap_id);
+    // replicate to checkpoint of last operation
     int replicator_consumed_to_checkpoint();
+    string get_peer_volume();
 };
 #endif

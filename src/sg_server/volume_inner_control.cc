@@ -37,13 +37,19 @@ Status VolInnerCtrl::CreateVolume(ServerContext* context,
     const uint64_t size = request->size();
     const VolumeStatus& status = request->status();
     VolumeMeta meta;
+    RESULT res = vmeta_->read_volume_meta(vol,meta);
+    if(DRS_OK == res){
+        LOG_ERROR << "volume[" << vol << "] already exsit!";
+        response->set_status(sVolumeAlreadyExist);
+        return Status::OK;
+    }
     VolumeInfo* info = meta.mutable_info();
     info->set_vol_id(vol);
     info->set_path(path);
     info->set_size(size);
     info->set_vol_status(status);
     info->set_rep_enable(false);
-    RESULT res = vmeta_->create_volume(meta);
+    res = vmeta_->create_volume(meta);
     if(DRS_OK == res){
         LOG_INFO << "create volume[" << vol << "] meta:\n"
             << "path=" << path << "\n"

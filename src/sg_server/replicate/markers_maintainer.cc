@@ -51,10 +51,20 @@ void MarkersMaintainer::work(){
             return;
         }
 
+
+        // construct marker(only major include) for peer_voume:replace with peer volume
+        JournalMarker temp_marker;
+        uint64_t counter;
+        SG_ASSERT(true == sg_util::extract_major_counter_from_journal_key(
+            ctx->marker.cur_journal(),counter));
+        string key = sg_util::construct_journal_key(
+            ctx->rep_ctx->get_peer_volume(),counter);
+        temp_marker.set_cur_journal(key);
+        temp_marker.set_pos(ctx->marker.pos());
         // sync destination producer marker
         ReplicateMarkerReq marker_req;
-        marker_req.set_vol_id(ctx->rep_ctx->get_vol_id());
-        marker_req.mutable_marker()->CopyFrom(ctx->marker);
+        marker_req.set_vol_id(ctx->rep_ctx->get_peer_volume());
+        marker_req.mutable_marker()->CopyFrom(temp_marker);
         string marker_req_str;
         SG_ASSERT(true == marker_req.SerializeToString(&marker_req_str));
         TransferRequest req;
@@ -63,7 +73,7 @@ void MarkersMaintainer::work(){
         req.set_data(marker_req_str.c_str(),marker_req_str.length());
         if(!stream->Write(req)){
             LOG_ERROR << "sync remote producer marker failed:"
-                << ctx->marker.cur_journal();
+                << temp_marker.cur_journal() << ":" << temp_marker.pos();
             continue;
         }
         else{

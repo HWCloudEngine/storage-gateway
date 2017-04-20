@@ -141,6 +141,7 @@ void RepVolume::register_replicator(
         && vol_meta_.info().rep_status() != REP_FAILED_OVER){
         GCTask::instance().register_consumer(vol_id_,reptr.get());
     }
+    replicator_->set_peer_volume(get_peer_volume());
 }
 
 bool RepVolume::need_replicate(){
@@ -254,7 +255,8 @@ std::shared_ptr<TransferTask> RepVolume::generate_base_sync_task(
             record_it->marker().cur_journal(),counter));
 
     auto f = std::bind(&RepVolume::recycle_base_sync_task,this,std::placeholders::_1);
-    std::shared_ptr<RepContext> ctx(new RepContext(vol_id_, counter,
+    // NOTE: use peer volume id
+    std::shared_ptr<RepContext> ctx(new RepContext(vol_id_,get_peer_volume(), counter,
                             conf_.journal_max_size,false,std::ref(f)));
     std::shared_ptr<TransferTask> task;
     if(has_pre_snap){
@@ -392,4 +394,9 @@ int RepVolume::replicator_consumed_to_checkpoint(){
     SG_ASSERT(0 == result);
     result = journal_mgr_->compare_marker(consumer_m,cp_m);
     return result;
+}
+
+string RepVolume::get_peer_volume(){
+    SG_ASSERT(vol_meta_.info().peer_volumes_size() == 1);
+    return vol_meta_.info().peer_volumes(0);
 }

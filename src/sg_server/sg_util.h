@@ -46,14 +46,6 @@ inline bool extract_major_counter_from_journal_key(
     return true;
 }
 
-inline bool get_path_by_journal_key(const string &key,string& path){
-    JournalMeta meta;
-    RESULT res = JournalMetaHandle::instance().get_journal_meta(key,meta);
-    SG_ASSERT(res == DRS_OK);
-    path = meta.path();
-    return true;
-}
-
 inline string construct_journal_key(const string& vol_id,
         const uint64_t& counter, const uint64_t& sub_counter = 0){
     string key = g_key_prefix;

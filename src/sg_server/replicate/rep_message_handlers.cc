@@ -222,6 +222,9 @@ bool RepMsgHandlers::handle_replicate_end_req(const TransferRequest& req){
     bool ret = msg.ParseFromString(req.data());
     SG_ASSERT(ret == true);
 
+    LOG_DEBUG << "get end req:"  << msg.vol_id() << ":"
+            << std::hex << msg.journal_counter()
+            << ":" << msg.sub_counter();
     // close & fflush journal files and seal the journal
     std::shared_ptr<std::ofstream> of = get_fstream(msg.vol_id(),
         msg.journal_counter(),msg.sub_counter());
@@ -229,7 +232,7 @@ bool RepMsgHandlers::handle_replicate_end_req(const TransferRequest& req){
         LOG_ERROR << "file[" << msg.vol_id() << ":"
             << std::hex << msg.journal_counter()
             << ":" << msg.sub_counter() << std::dec
-            <<" not found!";
+            <<"] not found!";
         return false;
     }
 

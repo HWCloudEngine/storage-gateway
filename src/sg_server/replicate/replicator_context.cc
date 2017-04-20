@@ -66,6 +66,7 @@ std::shared_ptr<TransferTask> ReplicatorContext::get_next_replicate_task(){
         std::shared_ptr<RepContext> ctx = 
             std::dynamic_pointer_cast<RepContext>(last_task->get_context());
         SG_ASSERT(ctx != nullptr);
+        // note: donot use peer volume for the comparation
         string last_journal = sg_util::construct_journal_key(vol_,ctx->get_j_counter());
         const string& journal = pending_journals_.front().journal();
         if(j_meta_mgr_->compare_journal_key(last_journal,journal) == 0){
@@ -120,12 +121,12 @@ void ReplicatorContext::recycle_task(std::shared_ptr<TransferTask>& t){
         return;
     }
     else if(result == 0){
-        LOG_DEBUG << "new consuming marker the same as the last one:"
+        LOG_DEBUG << "new consumer marker the same as the last one:"
             << temp_marker.cur_journal() << ":" << temp_marker.pos() << "=="
             << c_marker_.cur_journal() << ":" << c_marker_.pos();
     }
     else{
-        LOG_ERROR << "new consuming marker ahead of the last one:"
+        LOG_ERROR << "new consumer marker ahead of the last one:"
             << temp_marker.cur_journal() << ":" << temp_marker.pos() << "<"
             << c_marker_.cur_journal() << ":" << c_marker_.pos();
         DR_ERROR_OCCURED();
@@ -190,7 +191,8 @@ int ReplicatorContext::cancel_all_tasks(){
 }
 
 // construct JournalTask
-std::shared_ptr<TransferTask> ReplicatorContext::construct_task(const JournalElement& e){
+std::shared_ptr<TransferTask> ReplicatorContext::construct_task(
+        const JournalElement& e){
     JournalMeta meta;
     RESULT res = j_meta_mgr_->get_journal_meta(e.journal(),meta);
     SG_ASSERT(res == DRS_OK);
@@ -198,7 +200,7 @@ std::shared_ptr<TransferTask> ReplicatorContext::construct_task(const JournalEle
     SG_ASSERT(true == sg_util::extract_major_counter_from_journal_key(e.journal(),c));
     auto f = std::bind(&ReplicatorContext::recycle_task,this,std::placeholders::_1);
     bool is_open = meta.status() == OPENED ? true:false;
-    std::shared_ptr<RepContext> ctx(new RepContext(vol_,c,e.end_offset(),is_open,f));
+    std::shared_ptr<RepContext> ctx(new RepContext(vol_,peer_volume_,c,e.end_offset(),is_open,f));
     std::shared_ptr<TransferTask> task(
         new JournalTask(e.start_offset(),conf_.journal_mount_point + meta.path(), ctx));
     task->set_status(T_WAITING);
@@ -238,5 +240,13 @@ int ReplicatorContext::get_producer_marker(JournalMarker& marker){
         return 0;
     else
         return -1;
+}
+
+const string& ReplicatorContext::get_peer_volume(){
+    return peer_volume_;
+}
+
+void ReplicatorContext::set_peer_volume(const string& peer_vol){
+    peer_volume_ = peer_vol;
 }
 

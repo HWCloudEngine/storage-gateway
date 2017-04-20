@@ -137,6 +137,9 @@ public:
     // whether has journals which need to replicate
     bool has_journals_to_transfer();
 
+    const string& get_peer_volume();
+    void set_peer_volume(const string& peer_vol);
+
     // get producer marker,replicator should not tranfer journals more than this marker
     int get_producer_marker(JournalMarker& marker);
     virtual CONSUMER_TYPE get_type();
@@ -162,6 +165,8 @@ private:
     TaskWindow task_window_;
     // prefetched consumable journals
     std::list<JournalElement> pending_journals_;
+    // peer volume
+    string peer_volume_;
 };
 
 typedef struct MarkerContext{

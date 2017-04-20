@@ -19,6 +19,7 @@
 class RepContext:public TaskContext{
 protected:
     std::string vol_id;
+    std::string peer_vol;
     int64_t j_counter; // (start at)journal counter
     uint64_t end_off; // end offset of journal file
     bool is_open; // journal file is opened?
@@ -26,11 +27,13 @@ protected:
 public:
     RepContext(
             const std::string& _vol_id,
+            const std::string& _peer_vol,
             const int64_t& _j_counter,
             const uint64_t& _end_off,
             const bool& _is_open,
             std::function<void(std::shared_ptr<TransferTask>&)> _callback):
             vol_id(_vol_id),
+            peer_vol(_peer_vol),
             j_counter(_j_counter),
             end_off(_end_off),
             is_open(_is_open),
@@ -44,6 +47,13 @@ public:
     }
     void set_vol_id(const std::string& _vol_id){
         vol_id = _vol_id;
+    }
+
+    std::string& get_peer_vol(){
+        return peer_vol;
+    }
+    void set_peer_vol(const std::string& _peer_vol){
+        peer_vol = _peer_vol;
     }
 
     int64_t& get_j_counter(){

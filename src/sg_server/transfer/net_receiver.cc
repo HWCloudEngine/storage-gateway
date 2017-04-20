@@ -51,7 +51,7 @@ grpc::Status NetReceiver::transfer(ServerContext* context,
             case MessageType::REPLICATE_END:
             {
                 StatusCode ret_code = rep_handlers_.rep_handle(req);
-                    res.set_status(ret_code);
+                res.set_status(ret_code);
                 if(!stream->Write(res)){
                     LOG_ERROR << "response of ending task failed:"
                         << req.id();
