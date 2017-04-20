@@ -28,6 +28,8 @@ public:
     int    global_max_volume_count;
     string global_journal_meta_storage;
     string global_journal_data_storage;
+    /* 0:tgt,1:agent */
+	int    global_client_mode;
 
     /*ceph s3*/
     string ceph_s3_access_key;
@@ -61,6 +63,9 @@ public:
     string replicate_local_ip;
     string replicate_remote_ip;
     int    replicate_port;
+
+	/*agent*/
+	string agent_dev_conf;
 };
 
 #endif

@@ -10,6 +10,8 @@
 #include "../message.h"
 #include "../seq_generator.h"
 #include "log/log.h"
+#include "common/config.h"
+
 
 using namespace std;
 
@@ -51,7 +53,7 @@ class Bcache
 {
 public:
     Bcache() = default;
-    explicit Bcache(string bdev);
+    explicit Bcache(string bdev,const Configure& conf);
 
     Bcache(const Bcache& other) = delete;
     Bcache(Bcache&& other) = delete;
@@ -102,6 +104,7 @@ private:
     string        m_blkdev;
     SharedMutex         m_mutex;
     bcache_map_t  m_bcache;
+	Configure conf_;
 }; 
 
 #endif
