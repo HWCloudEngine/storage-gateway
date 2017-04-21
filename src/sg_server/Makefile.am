@@ -25,6 +25,7 @@ sg_server_SOURCES=dr_server.cc \
                   $(top_srcdir)/src/common/journal_entry.cc \
                   $(top_srcdir)/src/common/ceph_s3_lease.cc \
                   $(top_srcdir)/src/common/ceph_s3_api.cc \
+                  $(top_srcdir)/src/common/rpc_server.cc \
                   ../common/utils.cc       \
                   ../common/block_store.cc \
                   ../common/index_store.cc \
