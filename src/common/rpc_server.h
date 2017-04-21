@@ -8,55 +8,31 @@
 * Description:
 * 
 ***********************************************/
-#ifndef RPC_SERVER_H_
-#define RPC_SERVER_H_
+#ifndef SRC_COMMON_RPC_SERVER_H_
+#define SRC_COMMON_RPC_SERVER_H_
+#include <grpc++/grpc++.h>
 #include <memory>
 #include <string>
 #include <thread>
-#include <grpc++/grpc++.h>
+
 class RpcServer {
-private:
+ private:
     std::unique_ptr<std::thread> thread_;
     std::unique_ptr<grpc::Server> server_;
     grpc::ServerBuilder builder_;
     std::string addr;
-public:
-    RpcServer(const std::string& host,const int& port,
-            const std::shared_ptr<grpc::ServerCredentials>& creds){
-        addr.append(host).append(":").append(std::to_string(port));
-        AddListening_port(addr,creds);
-    }
-    RpcServer(){}
-    ~RpcServer(){
-        if(server_)
-            server_->Shutdown();
-        if(thread_ && thread_->joinable())
-            thread_->join();
-    }
-    bool register_service(grpc::Service* service){
-        builder_.RegisterService(service);
-        return true;
-    }
+
+ public:
+    RpcServer(const std::string& host, const int& port,
+              const std::shared_ptr<grpc::ServerCredentials>& creds);
+    RpcServer() {}
+    ~RpcServer();
+    bool register_service(grpc::Service* service);
     void AddListening_port(const grpc::string& addr,
-            const std::shared_ptr<grpc::ServerCredentials>& creds){
-        builder_.AddListeningPort(addr,creds);
-    }
-    bool run(){
-        server_ = builder_.BuildAndStart();
-        if(!server_)
-            return false;
-        thread_.reset(new std::thread([&](){
-            server_->Wait();
-        }));
-        return true;
-    }
-    void join(){
-        if(thread_ && thread_->joinable())
-            thread_->join();
-    }
-    void shut_down(){
-        if(server_)
-            server_->Shutdown();
-    }
+            const std::shared_ptr<grpc::ServerCredentials>& creds);
+
+    bool run();
+    void join();
+    void shut_down();
 };
-#endif
+#endif  // SRC_COMMON_RPC_SERVER_H_
