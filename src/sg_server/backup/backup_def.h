@@ -1,5 +1,15 @@
-#ifndef _BACKUP_TYPE_H
-#define _BACKUP_TYPE_H
+/**********************************************
+* Copyright (c) 2016 Huawei Technologies Co., Ltd. All rights reserved.
+* 
+* File name:    backup_def.h
+* Author: 
+* Date:         2016/11/03
+* Version:      1.0
+* Description:  general backup macro definition
+* 
+***********************************************/
+#ifndef SRC_SG_SERVER_BACKUP_BACKUP_TYPE_H_
+#define SRC_SG_SERVER_BACKUP_BACKUP_TYPE_H_
 #include <string>
 #include <set>
 #include "rpc/common.pb.h"
@@ -7,25 +17,22 @@
 using huawei::proto::BackupStatus;
 using huawei::proto::BackupMode;
 using huawei::proto::BackupType;
-using namespace std;
 
 /*block*/
 typedef uint64_t block_t;
 /*backup id*/
 typedef uint64_t backupid_t;
 /*backup data object name*/
-typedef string backup_object_t;
+typedef std::string backup_object_t;
 
 /*backup attribution*/
-struct backup_attr 
-{
-    string volume_uuid;
-   
-    BackupMode    backup_mode;
-    string        backup_name;
-    backupid_t    backup_id;
-    BackupStatus  backup_status;
-    BackupType    backup_type;
+struct backup_attr {
+    std::string volume_uuid;
+    BackupMode backup_mode;
+    std::string backup_name;
+    backupid_t backup_id;
+    BackupStatus backup_status;
+    BackupType backup_type;
 };
 typedef struct backup_attr backup_attr_t;
 
@@ -41,4 +48,4 @@ typedef struct backup_attr backup_attr_t;
 #define BACKUP_MAP_PREFIX     "backup_map_prefix"
 #define BACKUP_BLOCK_PREFIX   "backup_block_prefix"
 
-#endif
+#endif  // SRC_SG_SERVER_BACKUP_BACKUP_DEF_H_

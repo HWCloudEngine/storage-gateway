@@ -1,5 +1,15 @@
-#ifndef BACKUP_MGR_H_
-#define BACKUP_MGR_H_
+/**********************************************
+* Copyright (c) 2016 Huawei Technologies Co., Ltd. All rights reserved.
+*
+* File name:    backup_mgr.h
+* Author:
+* Date:         2016/11/03
+* Version:      1.0
+* Description:  general backup rpc dispatch
+*
+***********************************************/
+#ifndef SRC_SG_SERVER_BACKUP_BACKUP_MGR_H_
+#define SRC_SG_SERVER_BACKUP_BACKUP_MGR_H_
 #include <string>
 #include <map>
 #include <memory>
@@ -44,54 +54,45 @@ using huawei::proto::transfer::UploadDataAck;
 using huawei::proto::transfer::DownloadDataReq;
 using huawei::proto::transfer::DownloadDataAck;
 
-
-using namespace std;
-
 /*work on storage gateway server, all snapshot api gateway */
-class BackupMgr final: public BackupInnerControl::Service 
-{
+class BackupMgr final: public BackupInnerControl::Service {
+ public:
+    BackupMgr() {
+    }
+    virtual ~BackupMgr() {
+    }
 
-public:
-    BackupMgr(){}
-    virtual ~BackupMgr(){}
-
-public:
+ public:
     /*call by sgserver when add and delete volume*/
-    StatusCode add_volume(const string& vol_name, const size_t& vol_size);
-    StatusCode del_volume(const string& vol_name);
-    
+    StatusCode add_volume(const std::string& vol_name, const size_t& vol_size);
+    StatusCode del_volume(const std::string& vol_name);
     /*rpc interface*/
-    grpc::Status Create(ServerContext* context, const CreateBackupInReq* req, 
+    grpc::Status Create(ServerContext* context, const CreateBackupInReq* req,
                         CreateBackupInAck* ack);
-    grpc::Status List(ServerContext* context, const ListBackupInReq* req, 
+    grpc::Status List(ServerContext* context, const ListBackupInReq* req,
                       ListBackupInAck* ack);
-    grpc::Status Get(ServerContext* context, const GetBackupInReq* req, 
+    grpc::Status Get(ServerContext* context, const GetBackupInReq* req,
                      GetBackupInAck* ack);
-    grpc::Status Delete(ServerContext* context, const DeleteBackupInReq* req, 
+    grpc::Status Delete(ServerContext* context, const DeleteBackupInReq* req,
                         DeleteBackupInAck* ack);
-    grpc::Status Restore(ServerContext* context, const RestoreBackupInReq* req, 
+    grpc::Status Restore(ServerContext* context, const RestoreBackupInReq* req,
                          ServerWriter<RestoreBackupInAck>* writer);
-
-
     /*register as message handler to net receiver*/
-    StatusCode handle_remote_create_start(const RemoteBackupStartReq* req, 
+    StatusCode handle_remote_create_start(const RemoteBackupStartReq* req,
                                           RemoteBackupStartAck* ack);
-
-    StatusCode handle_remote_create_end(const RemoteBackupEndReq* req, 
+    StatusCode handle_remote_create_end(const RemoteBackupEndReq* req,
                                          RemoteBackupEndAck* ack);
-
-    StatusCode handle_remote_create_upload(UploadDataReq* req, UploadDataAck* ack);
-
-    StatusCode handle_remote_delete(const RemoteBackupDeleteReq* req, 
+    StatusCode handle_remote_create_upload(UploadDataReq* req,
+                                           UploadDataAck* ack);
+    StatusCode handle_remote_delete(const RemoteBackupDeleteReq* req,
                                     RemoteBackupDeleteAck* ack);
-	
-    StatusCode handle_download(const DownloadDataReq* req, 
-                               ServerReaderWriter<TransferResponse,TransferRequest>* stream);
-  
-private:
+    StatusCode handle_download(const DownloadDataReq* req,
+               ServerReaderWriter<TransferResponse, TransferRequest>* stream);
+
+ private:
     /*each volume has a snapshot mds*/
     mutex m_mutex;
-    map<string, shared_ptr<BackupMds>> m_all_backupmds;
+    map<std::string, shared_ptr<BackupMds>> m_all_backupmds;
 };
 
-#endif
+#endif  // SRC_SG_SERVER_BACKUP_BACKUP_MGR_H_

@@ -1,3 +1,13 @@
+/**********************************************
+* Copyright (c) 2016 Huawei Technologies Co., Ltd. All rights reserved.
+*
+* File name:    backup_mgr.h
+* Author:
+* Date:         2016/11/03
+* Version:      1.0
+* Description:  general backup rpc dispatch
+*
+***********************************************/
 #include <stdio.h>
 #include <sys/types.h>
 #include <dirent.h>
@@ -25,7 +35,7 @@ do {                                 \
     log_msg += " ";                  \
     log_msg += "vname:";             \
     log_msg += vol;                  \
-    if(!ret) {                       \
+    if (!ret) {                      \
         log_msg += " ok";               \
         LOG_INFO << log_msg;            \
         return grpc::Status::OK;        \
@@ -44,7 +54,7 @@ do {                                 \
     log_msg += " ";                  \
     log_msg += "vname:";             \
     log_msg += vol;                  \
-    if(!ret) {                       \
+    if (!ret) {                      \
         log_msg += " ok";               \
         LOG_INFO << log_msg;            \
         return ret;                     \
@@ -58,20 +68,20 @@ do {                                 \
 #define CMD_DO(vname, op, req, ack)        \
 do {                                       \
     auto it = m_all_backupmds.find(vname); \
-    if(it == m_all_backupmds.end()){       \
+    if (it == m_all_backupmds.end()) {     \
         ret = StatusCode::sVolumeNotExist; \
         break;                             \
     }                                      \
     ret = it->second->op(req, ack);        \
 }while(0);
 
-StatusCode BackupMgr::add_volume(const string& vol_name, const size_t& vol_size)
-{
+StatusCode BackupMgr::add_volume(const string& vol_name,
+                                 const size_t& vol_size) {
     std::lock_guard<std::mutex> lock(m_mutex);
     auto it = m_all_backupmds.find(vol_name);
-    if(it != m_all_backupmds.end()){
+    if (it != m_all_backupmds.end()) {
         LOG_INFO << "add volume:" << vol_name << "failed, already exist";
-        return StatusCode::sVolumeAlreadyExist; 
+        return StatusCode::sVolumeAlreadyExist;
     }
 
     shared_ptr<BackupMds> backup_mds;
@@ -82,23 +92,21 @@ StatusCode BackupMgr::add_volume(const string& vol_name, const size_t& vol_size)
     return StatusCode::sOk;
 }
 
-StatusCode BackupMgr::del_volume(const string& vol_name)
-{
+StatusCode BackupMgr::del_volume(const string& vol_name) {
     std::lock_guard<std::mutex> lock(m_mutex);
     m_all_backupmds.erase(vol_name);
     return StatusCode::sOk;
 }
 
-grpc::Status BackupMgr::Create(ServerContext* context, 
-                               const CreateBackupInReq* req, 
-                               CreateBackupInAck* ack) 
-{
+grpc::Status BackupMgr::Create(ServerContext* context,
+                               const CreateBackupInReq* req,
+                               CreateBackupInAck* ack) {
     StatusCode ret;
     string vname = req->vol_name();
     size_t vsize = req->vol_size();
     auto it = m_all_backupmds.find(vname);
     shared_ptr<BackupMds> backup_mds;
-    if(it != m_all_backupmds.end()){
+    if (it != m_all_backupmds.end()) {
         backup_mds = it->second;
         goto create;
     }
@@ -113,10 +121,9 @@ create:
     CMD_POST(vname, "create", ret);
 }
 
-grpc::Status BackupMgr::List(ServerContext* context, 
-                             const ListBackupInReq* req, 
-                             ListBackupInAck* ack)
-{
+grpc::Status BackupMgr::List(ServerContext* context,
+                             const ListBackupInReq* req,
+                             ListBackupInAck* ack) {
     StatusCode ret;
     string vname = req->vol_name();
 
@@ -125,10 +132,9 @@ grpc::Status BackupMgr::List(ServerContext* context,
     CMD_POST(vname, "List", ret);
 }
 
-grpc::Status BackupMgr::Get(ServerContext* context, 
-                            const GetBackupInReq* req, 
-                            GetBackupInAck* ack)
-{
+grpc::Status BackupMgr::Get(ServerContext* context,
+                            const GetBackupInReq* req,
+                            GetBackupInAck* ack) {
     StatusCode ret;
     string vname = req->vol_name();
 
@@ -137,10 +143,9 @@ grpc::Status BackupMgr::Get(ServerContext* context,
     CMD_POST(vname, "Get", ret);
 }
 
-grpc::Status BackupMgr::Delete(ServerContext* context, 
-                               const DeleteBackupInReq* req, 
-                               DeleteBackupInAck* ack)
-{
+grpc::Status BackupMgr::Delete(ServerContext* context,
+                               const DeleteBackupInReq* req,
+                               DeleteBackupInAck* ack) {
     StatusCode ret;
     string vname = req->vol_name();
 
@@ -149,10 +154,9 @@ grpc::Status BackupMgr::Delete(ServerContext* context,
     CMD_POST(vname, "Delete", ret);
 }
 
-grpc::Status BackupMgr::Restore(ServerContext* context, 
-                                const RestoreBackupInReq* req, 
-                                ServerWriter<RestoreBackupInAck>* writer)
-{
+grpc::Status BackupMgr::Restore(ServerContext* context,
+                                const RestoreBackupInReq* req,
+                                ServerWriter<RestoreBackupInAck>* writer) {
     StatusCode ret;
     string vname = req->vol_name();
 
@@ -162,15 +166,14 @@ grpc::Status BackupMgr::Restore(ServerContext* context,
 }
 
 
-StatusCode BackupMgr::handle_remote_create_start(const RemoteBackupStartReq* req, 
-                                                 RemoteBackupStartAck* ack)
-{
+StatusCode BackupMgr::handle_remote_create_start(const RemoteBackupStartReq* req,
+                                                 RemoteBackupStartAck* ack) {
     StatusCode ret;
     string vname = req->vol_name();
     size_t vsize = req->vol_size();
     auto it = m_all_backupmds.find(vname);
     shared_ptr<BackupMds> backup_mds;
-    if(it != m_all_backupmds.end()){
+    if (it != m_all_backupmds.end()) {
         backup_mds = it->second;
         goto start;
     }
@@ -183,9 +186,8 @@ start:
     CMD_POST_1(vname, "create remote start", ret);
 }
 
-StatusCode BackupMgr::handle_remote_create_end(const RemoteBackupEndReq* req, 
-                                               RemoteBackupEndAck* ack)
-{
+StatusCode BackupMgr::handle_remote_create_end(const RemoteBackupEndReq* req,
+                                               RemoteBackupEndAck* ack) {
     StatusCode ret;
     string vname = req->vol_name();
 
@@ -194,8 +196,8 @@ StatusCode BackupMgr::handle_remote_create_end(const RemoteBackupEndReq* req,
     CMD_POST_1(vname, "create remote end", ret);
 }
 
-StatusCode BackupMgr::handle_remote_create_upload(UploadDataReq* req, UploadDataAck* ack)
-{
+StatusCode BackupMgr::handle_remote_create_upload(UploadDataReq* req,
+                                                  UploadDataAck* ack) {
     StatusCode ret;
     string vname = req->vol_name();
 
@@ -204,9 +206,8 @@ StatusCode BackupMgr::handle_remote_create_upload(UploadDataReq* req, UploadData
     CMD_POST_1(vname, "create remote upload", ret);
 }
 
-StatusCode BackupMgr::handle_remote_delete(const RemoteBackupDeleteReq* req, 
-                                           RemoteBackupDeleteAck* ack)
-{
+StatusCode BackupMgr::handle_remote_delete(const RemoteBackupDeleteReq* req,
+                                           RemoteBackupDeleteAck* ack) {
     StatusCode ret;
     string vname = req->vol_name();
 
@@ -215,9 +216,8 @@ StatusCode BackupMgr::handle_remote_delete(const RemoteBackupDeleteReq* req,
     CMD_POST_1(vname, "delete remote", ret);
 }
 
-StatusCode BackupMgr::handle_download(const DownloadDataReq* req, 
-                                      ServerReaderWriter<TransferResponse,TransferRequest>* stream)
-{
+StatusCode BackupMgr::handle_download(const DownloadDataReq* req,
+            ServerReaderWriter<TransferResponse, TransferRequest>* stream) {
     StatusCode ret;
     string vname = req->vol_name();
     CMD_PREV(vname, "download");

@@ -1,18 +1,26 @@
-#ifndef BACKUP_TASK_H
-#define BACKUP_TASK_H
+/**********************************************
+* Copyright (c) 2016 Huawei Technologies Co., Ltd. All rights reserved.
+* 
+* File name:    backup_task.h
+* Author: 
+* Date:         2016/11/03
+* Version:      1.0
+* Description:  general backup async task
+* 
+***********************************************/
+#ifndef SRC_SG_SERVER_BACKUP_BACKUP_TASK_H_
+#define SRC_SG_SERVER_BACKUP_BACKUP_TASK_H_
+#include <string>
 #include <memory>
 #include "rpc/common.pb.h"
 #include "transfer/net_sender.h"
 #include "backup_ctx.h"
 
-using namespace std;
 using huawei::proto::StatusCode;
 
-class AsyncTask
-{
-public:
-    enum TaskStatus 
-    {
+class AsyncTask {
+ public:
+    enum TaskStatus {
         TASK_CREATE  = 0,
         TASK_READY   = 1,
         TASK_RUN     = 2,
@@ -22,16 +30,15 @@ public:
         TASK_ERROR   = 6,
     };
 
-    enum TaskType
-    {
+    enum TaskType {
         BACKUP_CREATE = 1,
         BACKUP_DELETE = 2,
     };
 
-    AsyncTask(const string& backup_name, shared_ptr<BackupCtx> ctx);
+    AsyncTask(const std::string& backup_name, shared_ptr<BackupCtx> ctx);
     virtual ~AsyncTask();
 
-    string task_name()const {
+    std::string task_name()const {
         return m_task_name;
     }
 
@@ -39,96 +46,97 @@ public:
     virtual void work()  = 0;
 
     bool finish() const {
-        return m_task_status == TASK_DONE ? true : false; 
+        return m_task_status == TASK_DONE ? true : false;
     }
 
-protected:
+ protected:
     /*current task operate on which backup*/
-    string m_backup_name;
+    std::string m_backup_name;
     /*backup up global contex*/
     shared_ptr<BackupCtx> m_ctx;
 
-    string     m_task_name;
+    std::string     m_task_name;
     TaskType   m_task_type;
     TaskStatus m_task_status;
 };
 
-class IBackupCreate
-{
-protected:
+class IBackupCreate {
+ protected:
     /*overide by local and remote backup create*/
     virtual StatusCode do_full_backup() = 0;
     virtual StatusCode do_incr_backup() = 0;
 };
 
-class LocalCreateTask : public AsyncTask, public IBackupCreate
-{
-public:
-    explicit LocalCreateTask(const string& backup_name, shared_ptr<BackupCtx> ctx);
+class LocalCreateTask : public AsyncTask, public IBackupCreate {
+ public:
+    explicit LocalCreateTask(const std::string& backup_name,
+                             shared_ptr<BackupCtx> ctx);
     ~LocalCreateTask();
 
     bool ready() override;
     void work()  override;
 
-protected:
+ protected:
     StatusCode do_full_backup() override;
     StatusCode do_incr_backup() override;
 };
 
-class RemoteCreateTask : public LocalCreateTask
-{
-public:
-    explicit RemoteCreateTask(const string& backup_name, shared_ptr<BackupCtx> ctx);
+class RemoteCreateTask : public LocalCreateTask {
+ public:
+    explicit RemoteCreateTask(const std::string& backup_name,
+                              shared_ptr<BackupCtx> ctx);
     ~RemoteCreateTask();
 
     bool ready() override;
 
-protected:
+ protected:
     StatusCode do_full_backup() override;
     StatusCode do_incr_backup() override;
-private:
+ private:
     StatusCode remote_create_start();
-    StatusCode remote_create_upload(block_t blk_no, off_t blk_off, char* blk_data, size_t blk_data_len);
+    StatusCode remote_create_upload(block_t blk_no, off_t blk_off,
+                                    char* blk_data, size_t blk_data_len);
     StatusCode remote_create_end();
-private:
+ private:
     grpc_stream_ptr m_remote_stream;
 };
 
-class IBackupDelete
-{
-protected:
+class IBackupDelete {
+ protected:
     /*overide by local and remote backup delete*/
-    virtual StatusCode do_delete_backup(const string& cur_backup) = 0;
-    virtual StatusCode do_merge_backup(const string& cur_backup, const string& next_backup) = 0;
+    virtual StatusCode do_delete_backup(const std::string& cur_backup) = 0;
+    virtual StatusCode do_merge_backup(const std::string& cur_backup,
+                                       const std::string& next_backup) = 0;
 };
 
-class LocalDeleteTask : public AsyncTask, public IBackupDelete
-{
-public:
-    explicit LocalDeleteTask(const string& backup_name, shared_ptr<BackupCtx> ctx);
+class LocalDeleteTask : public AsyncTask, public IBackupDelete {
+ public:
+    explicit LocalDeleteTask(const std::string& backup_name,
+                             shared_ptr<BackupCtx> ctx);
     ~LocalDeleteTask();
 
     bool ready() override;
     void work()  override;
-    
-private:
+
+ private:
     /*backup has no depended*/
-    StatusCode do_delete_backup(const string& cur_backup) override;
+    StatusCode do_delete_backup(const std::string& cur_backup) override;
     /*backup has depended*/
-    StatusCode do_merge_backup(const string& cur_backup, const string& next_backup) override;
+    StatusCode do_merge_backup(const std::string& cur_backup,
+                               const std::string& next_backup) override;
 };
 
-class RemoteDeleteTask : public LocalDeleteTask
-{
-public:
-    explicit RemoteDeleteTask(const string& backup_name, shared_ptr<BackupCtx> ctx);
+class RemoteDeleteTask : public LocalDeleteTask {
+ public:
+    explicit RemoteDeleteTask(const std::string& backup_name,
+                              shared_ptr<BackupCtx> ctx);
     ~RemoteDeleteTask();
 
-private:
+ private:
     StatusCode remote_delete();
     void work()  override;
-private:
+ private:
     grpc_stream_ptr m_remote_stream;
 };
 
-#endif
+#endif  // SRC_SG_SERVER_BACKUP_BACKUP_TASK_H_
