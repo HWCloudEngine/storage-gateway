@@ -14,7 +14,7 @@ def snap(args, host, port):
 def replicate(args, host, port):
     print('replicate (%s)' % args)
 
-    ctrl = replicate_ctrl.RepliacteCtrl(host, port)
+    ctrl = replicate_ctrl.ReplicateCtrl(host, port)
     res = ctrl.do(args)
 
 

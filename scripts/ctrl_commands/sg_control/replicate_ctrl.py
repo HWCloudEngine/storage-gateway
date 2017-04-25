@@ -5,7 +5,7 @@ from control_api import replicate_control_pb2
 from control_api import replicate_pb2
 
 
-class RepliacteCtrl(object):
+class ReplicateCtrl(object):
     def __init__(self, host, port):
         conn_str = '{}:{}'.format(host, port)
         self.channel = grpc.insecure_channel(conn_str)
