@@ -1,5 +1,15 @@
-#ifndef SNAP_DEF_H
-#define SNAP_DEF_H
+/**********************************************
+*  Copyright (c) 2016 Huawei Technologies Co., Ltd. All rights reserved.
+* 
+*  File name:    snapshot_def.h
+*  Author:
+*  Date:         2016/11/03
+*  Version:      1.0
+*  Description:  snapshot macro definition
+* 
+*************************************************/
+#ifndef SRC_SG_SERVER_SNAPSHOT_SNAPSHOT_DEF_H_
+#define SRC_SG_SERVER_SNAPSHOT_SNAPSHOT_DEF_H_
 #include <string>
 #include <set>
 #include "rpc/snapshot.pb.h"
@@ -16,8 +26,7 @@ typedef string cow_object_t;
 typedef set<snapid_t> cow_object_ref_t;
 
 /*snapshot attribution*/
-struct snap_attr 
-{
+struct snap_attr {
     string replication_uuid;
     string checkpoint_uuid;
     string volume_uuid;
@@ -44,4 +53,4 @@ typedef struct snap_attr snap_attr_t;
 #define SNAPSHOT_COWBLOCK_PREFIX      "snapshot_cowblock_prefix"
 #define SNAPSHOT_COWOBJECT_PREFIX     "snapshot_cowobject_prefix"
 
-#endif
+#endif  // SRC_SG_SERVER_SNAPSHOT_SNAPSHOT_DEF_H_
