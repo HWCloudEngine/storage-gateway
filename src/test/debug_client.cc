@@ -25,8 +25,8 @@ int main(int argc, char** argv)
                 grpc::InsecureChannelCredentials()));
 
     string vol_name = "test_volume";
-    size_t vol_size = 200 * 1024 * 1024UL;
-    string blk_device = "/dev/sdd";
+    size_t vol_size = 17179869184UL;
+    string blk_device = "/dev/sdc";
     
     /*"volume", "snapshot", "backup"*/
     char* object = argv[1];
