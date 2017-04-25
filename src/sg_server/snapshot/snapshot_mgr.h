@@ -1,11 +1,19 @@
-#ifndef SNAPSHOT_MGR_H_
-#define SNAPSHOT_MGR_H_
-
+/**********************************************
+*  Copyright (c) 2016 Huawei Technologies Co., Ltd. All rights reserved.
+* 
+*  File name:    snapshot.h
+*  Author:
+*  Date:         2016/11/03
+*  Version:      1.0
+*  Description:  snapshot interface
+* 
+*************************************************/
+#ifndef SRC_SG_SERVER_SNAPSHOT_SNAPSHOT_MGR_H_
+#define SRC_SG_SERVER_SNAPSHOT_SNAPSHOT_MGR_H_
 #include <string>
 #include <map>
 #include <memory>
 #include <mutex>
-
 #include <grpc++/grpc++.h>
 #include "rpc/common.pb.h"
 #include "rpc/snapshot_inner_control.grpc.pb.h"
@@ -40,43 +48,45 @@ using huawei::proto::inner::ReadAck;
 using huawei::proto::inner::SyncReq;
 using huawei::proto::inner::SyncAck;
 
-using namespace std;
-
 /*work on storage gateway server, all snapshot api gateway */
-class SnapshotMgr final: public SnapshotInnerControl::Service 
-{
+class SnapshotMgr final: public SnapshotInnerControl::Service {
+ public:
+    SnapshotMgr();
+    ~SnapshotMgr();
 
-public:
-    SnapshotMgr(){
-        m_all_snapmds.clear();
-    }
-
-    virtual ~SnapshotMgr(){
-        m_all_snapmds.clear();
-    }
-
-public:
+ public:
     /*call by sgserver when add and delete volume*/
-    StatusCode add_volume(const string& vol_name, const size_t& vol_size);
-    StatusCode del_volume(const string& vol_name);
-    
-    /*rpc interface*/
-    grpc::Status Sync(ServerContext* context, const SyncReq* req, SyncAck* ack) override;
-    grpc::Status Create(ServerContext* context, const CreateReq* req, CreateAck* ack) override;
-    grpc::Status List(ServerContext* context, const ListReq* req, ListAck* ack) override;
-    grpc::Status Query(ServerContext* context, const QueryReq* req, QueryAck* ack) override;
-    grpc::Status Delete(ServerContext* context, const DeleteReq* req, DeleteAck* ack) override;
-    grpc::Status Rollback(ServerContext* context, const RollbackReq* req, RollbackAck* ack) override;
-    grpc::Status Update(ServerContext* context, const UpdateReq* req, UpdateAck* ack) override;
-    grpc::Status CowOp(ServerContext* context, const CowReq* req, CowAck* ack) override;
-    grpc::Status CowUpdate(ServerContext* context, const CowUpdateReq* req, CowUpdateAck* ack) override;
-    grpc::Status Diff(ServerContext* context, const DiffReq* req, DiffAck* ack) override;
-    grpc::Status Read(ServerContext* context, const ReadReq* req, ReadAck* ack) override;
+    StatusCode add_volume(const std::string& vol_name, const size_t& vol_size);
+    StatusCode del_volume(const std::string& vol_name);
 
-private:
+    /*rpc interface*/
+    grpc::Status Sync(ServerContext* context, const SyncReq* req,
+                      SyncAck* ack) override;
+    grpc::Status Create(ServerContext* context, const CreateReq* req,
+                        CreateAck* ack) override;
+    grpc::Status List(ServerContext* context, const ListReq* req,
+                      ListAck* ack) override;
+    grpc::Status Query(ServerContext* context, const QueryReq* req,
+                       QueryAck* ack) override;
+    grpc::Status Delete(ServerContext* context, const DeleteReq* req,
+                        DeleteAck* ack) override;
+    grpc::Status Rollback(ServerContext* context, const RollbackReq* req,
+                          RollbackAck* ack) override;
+    grpc::Status Update(ServerContext* context, const UpdateReq* req,
+                        UpdateAck* ack) override;
+    grpc::Status CowOp(ServerContext* context, const CowReq* req,
+                       CowAck* ack) override;
+    grpc::Status CowUpdate(ServerContext* context, const CowUpdateReq* req,
+                           CowUpdateAck* ack) override;
+    grpc::Status Diff(ServerContext* context, const DiffReq* req,
+                      DiffAck* ack) override;
+    grpc::Status Read(ServerContext* context, const ReadReq* req,
+                      ReadAck* ack) override;
+
+ private:
     /*each volume has a snapshot mds*/
     mutex m_mutex;
-    map<string, shared_ptr<SnapshotMds>> m_all_snapmds;
+    map<std::string, shared_ptr<SnapshotMds>> m_all_snapmds;
 };
 
-#endif
+#endif  // SRC_SG_SERVER_SNAPSHOT_SNAPSHOT_MGR_H_
