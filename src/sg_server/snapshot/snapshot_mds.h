@@ -1,7 +1,18 @@
-#ifndef _SNAP_MDS_H
-#define _SNAP_MDS_H
+/**********************************************
+*  Copyright (c) 2016 Huawei Technologies Co., Ltd. All rights reserved.
+* 
+*  File name:    snapshot.h
+*  Author:
+*  Date:         2016/11/03
+*  Version:      1.0
+*  Description:  snapshot interface
+* 
+*************************************************/
+#ifndef SRC_SG_SERVER_SNAPSHOT_SNAPSHOT_MDS_H_
+#define SRC_SG_SERVER_SNAPSHOT_SNAPSHOT_MDS_H_
 #include <string>
 #include <mutex>
+#include <map>
 #include <grpc++/grpc++.h>
 #include "rpc/common.pb.h"
 #include "rpc/snapshot.pb.h"
@@ -40,14 +51,12 @@ using huawei::proto::inner::ReadAck;
 using huawei::proto::inner::SyncReq;
 using huawei::proto::inner::SyncAck;
 
-
-class SnapshotMds
-{
-public:
+class SnapshotMds {
+ public:
     SnapshotMds(const string& vol_name, const size_t& vol_size);
-    virtual ~SnapshotMds();   
+    virtual ~SnapshotMds();
 
-    /*storage client sync snapshot status*/ 
+    /*storage client sync snapshot status*/
     StatusCode sync(const SyncReq* req, SyncAck* ack);
 
     /*snapshot common operation*/
@@ -56,20 +65,17 @@ public:
     StatusCode rollback_snapshot(const RollbackReq* req, RollbackAck* ack);
     StatusCode list_snapshot(const ListReq* req, ListAck* ack);
     StatusCode query_snapshot(const QueryReq* req, QueryAck* ack);
-    StatusCode diff_snapshot(const DiffReq* req, DiffAck* ack);    
+    StatusCode diff_snapshot(const DiffReq* req, DiffAck* ack);
     StatusCode read_snapshot(const ReadReq* req, ReadAck* ack);
-    
     /*snapshot status*/
     StatusCode update(const UpdateReq* req, UpdateAck* ack);
-    
     /*cow*/
     StatusCode cow_op(const CowReq* req, CowAck* ack);
     StatusCode cow_update(const CowUpdateReq* req, CowUpdateAck* ack);
-    
     /*crash recover*/
     int recover();
 
-private:
+ private:
     /*common helper*/
     snapid_t spawn_snapshot_id();
     snapid_t get_snapshot_id(string snap_name);
@@ -78,19 +84,18 @@ private:
 
     /*accord local and remote to mapping snapshot pair*/
     string mapping_snap_name(const SnapReqHead& shead, const string& sname);
-   
     /*maintain snapshot status*/
     StatusCode create_event_update_status(string snap_name);
     StatusCode delete_event_update_status(string snap_name);
 
     /*helper to generate cow object name*/
     string spawn_cow_object_name(const snapid_t snap_id, const block_t blk_id);
-    void   split_cow_object_name(const string& raw, string& vol_name,
-                                 snapid_t& snap_id, block_t&  blk_id);
+    void split_cow_object_name(const string& raw, string& vol_name,
+                               snapid_t& snap_id, block_t&  blk_id);
     /*debug*/
     void trace();
 
-private:
+ private:
     /*volume name*/
     string m_volume_name;
     size_t m_volume_size;
@@ -98,18 +103,16 @@ private:
     mutex m_mutex;
     /*the latest snapshot id*/
     snapid_t m_latest_snapid;
-
     /*snapshot and attr map*/
     map<string, snap_attr_t> m_snapshots;
-   /*snapshot id and snapshot cow block map*/
+    /*snapshot id and snapshot cow block map*/
     map<snapid_t, map<block_t, cow_object_t>> m_cow_block_map;
     /*cow object and snapshot referece map*/
     map<cow_object_t, cow_object_ref_t> m_cow_object_map;
-
     /*index store for snapshot meta persist*/
     IndexStore* m_index_store;
     /*block store for cow object*/
     BlockStore* m_block_store;
 };
 
-#endif
+#endif  // SRC_SG_SERVER_SNAPSHOT_SNAPSHOT_MDS_H_

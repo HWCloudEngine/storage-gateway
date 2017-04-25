@@ -1,5 +1,16 @@
-#ifndef CONTROL_SNAPSHOT_H_
-#define CONTROL_SNAPSHOT_H_
+/**********************************************
+*  Copyright (c) 2016 Huawei Technologies Co., Ltd. All rights reserved.
+*
+*  File name:    control_snapshot.h
+*  Author: 
+*  Date:         2016/11/03
+*  Version:      1.0
+*  Description:  snapshot control interface export to highlevel control layer 
+*
+*************************************************/
+#ifndef SRC_SG_CLIENT_CONTROL_CONTROL_SNAPHSOT_H_
+#define SRC_SG_CLIENT_CONTROL_CONTROL_SNAPSHOT_H_
+
 #include <sys/time.h>
 #include <map>
 #include <deque>
@@ -41,70 +52,50 @@ using namespace std;
 using namespace Journal;
 
 /*snapshot and other service service as northern interface for all volume*/
-class SnapshotControlImpl final: public SnapshotControl::Service 
-{ 
-public:
+class SnapshotControlImpl final: public SnapshotControl::Service { 
+ public:
     SnapshotControlImpl(map<string, shared_ptr<Volume>>& volumes);
     virtual ~SnapshotControlImpl();
 
-    Status CreateSnapshot(ServerContext* context, 
-                          const CreateSnapshotReq* req, 
+    Status CreateSnapshot(ServerContext* context, const CreateSnapshotReq* req,
                           CreateSnapshotAck* ack) override;
-    
-    Status ListSnapshot(ServerContext* context, 
-                        const ListSnapshotReq* req, 
+    Status ListSnapshot(ServerContext* context, const ListSnapshotReq* req,
                         ListSnapshotAck* ack) override;
-    
-    Status QuerySnapshot(ServerContext* contex,
-                         const QuerySnapshotReq* req,
+    Status QuerySnapshot(ServerContext* contex, const QuerySnapshotReq* req,
                          QuerySnapshotAck* ack) override;
-
-    Status DeleteSnapshot(ServerContext* context, 
-                          const DeleteSnapshotReq* req, 
+    Status DeleteSnapshot(ServerContext* context, const DeleteSnapshotReq* req,
                           DeleteSnapshotAck* ack) override;
-
-    Status RollbackSnapshot(ServerContext* context, 
-                            const RollbackSnapshotReq* req, 
-                            RollbackSnapshotAck* ack) override;
-
-    Status DiffSnapshot(ServerContext* context, 
-                        const DiffSnapshotReq* req, 
+    Status RollbackSnapshot(ServerContext* context,
+            const RollbackSnapshotReq* req, RollbackSnapshotAck* ack) override;
+    Status DiffSnapshot(ServerContext* context, const DiffSnapshotReq* req,
                         DiffSnapshotAck* ack) override;
-
-    Status ReadSnapshot(ServerContext* context, 
-                        const ReadSnapshotReq* req, 
+    Status ReadSnapshot(ServerContext* context, const ReadSnapshotReq* req,
                         ReadSnapshotAck* ack) override;
-
-    Status CreateVolumeFromSnap(ServerContext* context, 
-                                const CreateVolumeFromSnapReq* req, 
+    Status CreateVolumeFromSnap(ServerContext* context,
+                                const CreateVolumeFromSnapReq* req,
                                 CreateVolumeFromSnapAck* ack) override;
-
-    Status QueryVolumeFromSnap(ServerContext* context, 
-                               const QueryVolumeFromSnapReq* req, 
+    Status QueryVolumeFromSnap(ServerContext* context,
+                               const QueryVolumeFromSnapReq* req,
                                QueryVolumeFromSnapAck* ack) override;
 
-private:
+ private:
     /*each volume own corresponding snapshot proxy*/
     shared_ptr<SnapshotProxy> get_vol_snap_proxy(const string& vol_name);
-    
     /*create volume from snapshot*/
     bool is_bdev_available(const string& blk_device);
     bool is_snapshot_available(const string& vol, const string& snap);
     void bg_work();
     void bg_reclaim();
 
-private:
+ private:
     map<string, shared_ptr<Volume>>& m_volumes;
-
     /*create volume from snapshot*/
     const static int BG_INIT  = 0;
     const static int BG_DOING = 1;
     const static int BG_DONE  = 2;
     const static int BG_ERR   = 3;
-    struct BgJob
-    {
-        BgJob(string new_vol, string new_blk, string vol, string snap)
-        {
+    struct BgJob {
+        BgJob(string new_vol, string new_blk, string vol, string snap) {
             new_volume = new_vol;
             new_blk_device = new_blk;
             vol_name = vol;
@@ -128,4 +119,4 @@ private:
     thread* m_reclaim_thread;
 };
 
-#endif
+#endif  // SRC_SG_CLIENT_CONTROL_CONTROL_SNAPHSOT_H_
