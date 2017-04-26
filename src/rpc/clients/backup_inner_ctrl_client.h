@@ -115,7 +115,7 @@ public:
         ClientContext context;
         unique_ptr<ClientReader<RestoreBackupInAck>> reader(m_stub->Restore(&context, req));
 
-        int block_dev_fd= open(new_block_device.c_str(), O_RDWR | O_DIRECT | O_SYNC);
+        int block_dev_fd= open(new_block_device.c_str(), O_RDWR|O_SYNC);
         assert(block_dev_fd != -1);
         char* buf = (char*)malloc(BACKUP_BLOCK_SIZE);
         assert(buf != nullptr);
