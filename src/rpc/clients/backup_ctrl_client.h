@@ -18,6 +18,7 @@ using grpc::Status;
 using huawei::proto::StatusCode;
 using huawei::proto::BackupOption;
 using huawei::proto::BackupMode;
+using huawei::proto::BackupType;
 using huawei::proto::BackupStatus;
 using huawei::proto::control::BackupControl;
 using huawei::proto::control::CreateBackupReq;
@@ -32,20 +33,19 @@ using huawei::proto::control::RestoreBackupReq;
 using huawei::proto::control::RestoreBackupAck;
 
 /*backup control rpc client*/
-class BackupCtrlClient 
-{
-public:
-    BackupCtrlClient(shared_ptr<Channel> channel) 
-        :m_stub(BackupControl::NewStub(channel)){
-    } 
-
-    ~BackupCtrlClient(){
+class BackupCtrlClient {
+ public:
+    explicit BackupCtrlClient(shared_ptr<Channel> channel)
+        :m_stub(BackupControl::NewStub(channel)) {
     }
 
-    StatusCode CreateBackup(const string& vol_name, 
+    ~BackupCtrlClient() {
+    }
+
+    StatusCode CreateBackup(const string& vol_name,
                             const size_t& vol_size,
                             const string& backup_name,
-                            const BackupOption& backup_option){
+                            const BackupOption& backup_option) {
         CreateBackupReq req;
         req.set_vol_name(vol_name);
         req.set_vol_size(vol_size);
@@ -58,22 +58,22 @@ public:
         return ack.status();
     }
 
-    StatusCode ListBackup(const string& vol_name, set<string>& backup_set){
+    StatusCode ListBackup(const string& vol_name, set<string>& backup_set) {
         ListBackupReq req;
         req.set_vol_name(vol_name);
         ListBackupAck ack;
         ClientContext context;
         grpc::Status status = m_stub->ListBackup(&context, req, &ack);
         cout << "ListBackup size:" << ack.backup_name_size() << endl;
-        for(int i = 0; i < ack.backup_name_size(); i++){
+        for (int i = 0; i < ack.backup_name_size(); i++) {
             cout << "ListBackup backup:" << ack.backup_name(i) << endl;
             backup_set.insert(ack.backup_name(i));
         }
         return ack.status();
     }
-    
-    StatusCode GetBackup(const string& vol_name, const string& backup_name, 
-                           BackupStatus& backup_status) {
+
+    StatusCode GetBackup(const string& vol_name, const string& backup_name,
+                         BackupStatus& backup_status) {
         GetBackupReq req;
         req.set_vol_name(vol_name);
         req.set_backup_name(backup_name);
@@ -84,7 +84,7 @@ public:
         return ack.status();
     }
 
-    StatusCode DeleteBackup(const string& vol_name, const string& backup_name){
+    StatusCode DeleteBackup(const string& vol_name, const string& backup_name) {
         DeleteBackupReq req;
         req.set_vol_name(vol_name);
         req.set_backup_name(backup_name);
@@ -94,11 +94,11 @@ public:
         return ack.status();
     }
 
-    StatusCode RestoreBackup(const string& vol_name, 
+    StatusCode RestoreBackup(const string& vol_name,
                              const string& backup_name,
-                             const string& new_vol_name, 
+                             const string& new_vol_name,
                              const size_t& new_vol_size,
-                             const string& new_block_device){
+                             const string& new_block_device) {
         RestoreBackupReq req;
         req.set_vol_name(vol_name);
         req.set_backup_name(backup_name);
@@ -111,8 +111,8 @@ public:
         return ack.status();
     }
 
-private:
+ private:
     unique_ptr<BackupControl::Stub> m_stub;
 };
 
-#endif 
+#endif

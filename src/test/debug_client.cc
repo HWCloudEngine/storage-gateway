@@ -25,8 +25,8 @@ int main(int argc, char** argv)
                 grpc::InsecureChannelCredentials()));
 
     string vol_name = "test_volume";
-    size_t vol_size = 100* 1024 * 1024UL;
-    string blk_device = "/dev/sdb";
+    size_t vol_size = 200 * 1024 * 1024UL;
+    string blk_device = "/dev/sdd";
     
     /*"volume", "snapshot", "backup"*/
     char* object = argv[1];
@@ -80,6 +80,18 @@ int main(int argc, char** argv)
             SnapStatus snap_status;
             ret = snap_client->QuerySnapshot(vol_name, snap_name, snap_status);
             cout << "query snapshot: "  << snap_name << " status:" << snap_status << endl;
+        } else if(strcmp(op, "restore_volume") == 0) {
+            string snap_name = argv[3];
+            string new_vol = argv[4];
+            string new_blk = argv[5];
+            ret = snap_client->CreateVolumeFromSnap(vol_name, snap_name, new_vol,new_blk);
+            cout << "restore volume ok";
+        
+        } else if(strcmp(op, "query_volume") == 0) {
+            string new_vol = argv[3];
+            VolumeStatus status;
+            ret = snap_client->QueryVolumeFromSnap(new_vol, status);
+            cout << "restore volume status:" << status;
         }
     }
     
@@ -90,6 +102,7 @@ int main(int argc, char** argv)
             int backup_mode = atoi(argv[4]);
             BackupOption backup_option;
             backup_option.set_backup_mode(backup_mode ? BackupMode::BACKUP_FULL : BackupMode::BACKUP_INCR);
+            backup_option.set_backup_type(BackupType::BACKUP_LOCAL);
             ret = backup_client->CreateBackup(vol_name, vol_size, backup_name, backup_option);
             cout << "create backup " << "backup_name:" << backup_name << " ret:" << ret << endl;
         } else if(strcmp(op, "delete") == 0){

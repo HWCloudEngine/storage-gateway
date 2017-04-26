@@ -1,5 +1,5 @@
-#ifndef _UTILS_H
-#define _UTILS_H
+#ifndef SRC_COMMON_UTILS_H_
+#define SRC_COMMON_UTILS_H_
 #include <stdbool.h>
 #include <cpuid.h>
 #include <string>
@@ -13,4 +13,6 @@ std::string snap_to_backup_name(std::string snap_name);
 std::string snap_name_to_operate_uuid(const std::string& snap_name);
 std::string operate_uuid_to_snap_name(const std::string& operate_id);
 
-#endif
+void save_file(const std::string& fname, const char* buf, const size_t& len);
+
+#endif  // SRC_COMMON_UTILS_H_
