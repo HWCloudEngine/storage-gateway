@@ -89,10 +89,11 @@ make clean
 rm -rf aclocal.m4 config.guess config.log configure depcomp \
        install-sh ltmain.sh NEWS AUTHORS ChangeLog config.h \
        config.status m4 Makefile.in README stamp-h1 autom4te.cache  \
-       compile config.h.in  config.sub COPYING INSTALL libtool Makefile missing
+       compile config.h.in  config.sub COPYING INSTALL libtool Makefile \
+       missing test-driver
 
 rm -rf build/
-rm -rf ${RPC_SOURCE_PATH}/*.h ${RPC_SOURCE_PATH}/*.cc
+rm -rf ${RPC_SOURCE_PATH}/*.pb.h ${RPC_SOURCE_PATH}/*.pb.cc
 rm -rf $RPC_SOURCE_PATH/inner_command
 rm -rf $RPC_SOURCE_PATH/journal
 rm -rf $RPC_SOURCE_PATH/control_api
