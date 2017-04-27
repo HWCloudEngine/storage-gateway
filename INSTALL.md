@@ -2,7 +2,7 @@
 # installation  
 1. deploy ceph environment  
 `to be supplemented`  
-2. compile and install grpc and protobuf  
+2. compile and install grpc, protobuf, gtest, gmock
 `apt-get update`  
 `apt-get install build-essential autoconf libtool git unzip pkg-config`  
 `git clone -b $(curl -L http://grpc.io/release) https://github.com/grpc/grpc`  
@@ -14,6 +14,14 @@
 `make -j8`  
 `make install`  
 `cd ../../`  
+
+`apt-get install cmake -y`  
+`git clone https://github.com/google/googletest.git`  
+`cd googletest`  
+`git checkout release-1.8.0`  
+`cmake googlemock/`  
+`make & make install`  
+`cd ..`  
 `ldconfig`  
 3. compile storage-gateway source code  
 `apt-get install libboost-all-dev libcurl3-nss`  

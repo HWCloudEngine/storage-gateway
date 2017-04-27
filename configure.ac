@@ -6,7 +6,7 @@ AC_INIT(sg_server, 1.0, huawei@huawei.com)
 AC_CONFIG_MACRO_DIR([m4])
 
 # Checks for header files.
-AM_CONFIG_HEADER(config.h)
+AC_CONFIG_HEADERS([config.h])
 #AM_INIT_AUTOMAKE
 AM_INIT_AUTOMAKE([subdir-objects])
 AC_PROG_LIBTOOL
@@ -29,5 +29,6 @@ AC_OUTPUT([Makefile
         src/rpc/Makefile
         src/sg_server/Makefile
         src/sg_client/Makefile
-        src/test/Makefile
+        test/Makefile
+        test/unit_test/Makefile
     ])
