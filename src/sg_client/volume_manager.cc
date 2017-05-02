@@ -112,10 +112,12 @@ bool VolumeManager::init()
 
     if(conf.global_client_mode)
     {
+        LOG_INFO << "start agent ctrl";
         vol_ctrl = new AgentControlImpl(conf, host_,port_, vol_inner_client_);
     }
     else
     {
+        LOG_INFO << "start tgt ctrl";
         vol_ctrl = new VolumeControlImpl(conf, host_, port_,vol_inner_client_);
     }
     ctrl_rpc_server->register_service(vol_ctrl);

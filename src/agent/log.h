@@ -20,11 +20,11 @@ static inline char* file_name(char* path)
 #define FILE_NAME (file_name(__FILE__))
 
 #define LOG_INFO(fmt, ...)  do { \
-    printk(KERN_INFO "[%s %s %d] " fmt, FILE_NAME, __func__, __LINE__, ##__VA_ARGS__); \
+    printk(KERN_INFO "[%s %s %d] " fmt "\n", FILE_NAME, __func__, __LINE__, ##__VA_ARGS__); \
 }while(0)
 
 #define LOG_ERR(fmt, ...)  do { \
-    printk(KERN_ERR "[%s %s %d] " fmt, FILE_NAME, __func__, __LINE__, ##__VA_ARGS__); \
+    printk(KERN_ERR "[%s %s %d] " fmt "\n", FILE_NAME, __func__, __LINE__, ##__VA_ARGS__); \
 }while(0)
 
 #endif

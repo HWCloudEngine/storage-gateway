@@ -45,12 +45,22 @@ bool AgentControlImpl::init()
         LOG_INFO << " agent ctl init failed,errno:" <<errno;
         return false;
     }
-    if(false == agent_device_init())
+    //create agent conf file if not exist
+    std::ofstream fc(conf_.agent_dev_conf,std::ios::app);
+    fc.close();
+    LOG_INFO << " agent init OK";
+    return true;
+}
+
+bool AgentControlImpl::recover_targets()
+{
+    if(false == agent_device_recover())
     {
         return false;
     }
     return true;
 }
+
 
 bool AgentControlImpl::agent_add_device(std::string vol_name, std::string device)
 {
@@ -134,8 +144,9 @@ Status AgentControlImpl::DisableSG(ServerContext* context, const control::Disabl
 
     if(agent_del_device(device))
     {
-        delete_device(device);
-        LOG_INFO << "Delete agent device :" << device;
+        std::string tmp = volume_id + ":" + device;
+        delete_device(tmp);
+        LOG_INFO << "Delete agent device :" << tmp;
         if(StatusCode::sOk == (vol_inner_client_->delete_volume(volume_id)))
         {
             res->set_status(StatusCode::sOk);
@@ -188,7 +199,7 @@ bool AgentControlImpl::delete_device(std::string device)
     fout.close();
 }
 
-bool AgentControlImpl::agent_device_init()
+bool AgentControlImpl::agent_device_recover()
 {
     std::ifstream f(conf_.agent_dev_conf);
     if(!f.is_open())
@@ -219,12 +230,13 @@ bool AgentControlImpl::agent_device_init()
             LOG_INFO <<" persistent device info is invalid,info:"<<s;
             continue;
         }
-        if(false == agent_del_device(dev_path));
+        if(false == agent_del_device(dev_path))
         {
             continue;
         }
         agent_add_device(vol_name, dev_path);
     }
+    f.close();
     return true;
 }
 

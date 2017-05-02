@@ -8,6 +8,20 @@
 #include "log.h"
 #include "transport.h"
 
+int tp_set_timeout(struct transport* net, int timeout)
+{
+    int ret;
+    long jiffies_left = timeout * msecs_to_jiffies(MSEC_PER_SEC);
+    struct timeval tv;
+    jiffies_to_timeval(jiffies_left, &tv);
+    ret = kernel_setsockopt(net->sock,SOL_SOCKET,SO_RCVTIMEO,(char *)&tv,sizeof(tv));
+    if(ret){
+        LOG_ERR("Can't set socket recv timeout %ld.%06d: %d\n",(long)tv.tv_sec,(int)tv.tv_usec,ret);
+    }
+
+    return ret;
+}
+
 int tp_create(struct transport* net, const char* host, int port)
 {
     int ret;
@@ -137,17 +151,14 @@ int tp_recv(struct transport* net, char* buf, const int len)
             };
             struct msghdr msg;
             memset(&msg, 0, sizeof(msg));
-            LOG_INFO("recv_msg start");
             ret = kernel_recvmsg(net->sock, &msg, &iov, 1, (len-recv_len), 0);
-            LOG_INFO("recv_msg over ret:%d read:%d", ret, (len-recv_len));
         }
 
         if(ret == -EAGAIN || ret == -EINTR){
-            LOG_INFO("recv busy eagain");
             msleep(10);
             continue;
         }
-
+ 
         if(ret <= 0){
             LOG_INFO("recv failed ret:%d, len:%d", ret, (len-recv_len));
             break;

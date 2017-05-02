@@ -140,7 +140,7 @@ static struct file_operations ctrl_dev_fops = {
 
 static struct miscdevice ctrl_dev = {
     .minor = MISC_DYNAMIC_MINOR,
-    .name  = AGENT_CTL_DEVICE_PATH,
+    .name  = AGENT_DEVICE_PATH,
     .fops  = &ctrl_dev_fops,
 };
 
