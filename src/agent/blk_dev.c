@@ -169,13 +169,13 @@ static int net_send_vol_ctl_cmd(struct pbdev* dev,bool add_vol)
     }
 
     ret = tp_send(dev->network, (char*)req, req_len);
-    if(ret != req_len){
+    if(ret != 0){
         LOG_ERR("vol cmd send err ret:%d size:%d ", ret, req_len);
         goto out;;
     }
 
     ret = tp_recv(dev->network, (char*)&reply, sizeof(reply));
-    if(ret != sizeof(reply)){
+    if(ret != 0){
         LOG_ERR("vol cmd recv err ret:%d size:%ld", ret, sizeof(reply));
         goto out;
     }
@@ -540,7 +540,7 @@ int blk_dev_protect(const char* dev_path, const char* vol_name)
         goto err;
     }
     ret = net_send_vol_ctl_cmd(dev,true);
-    if(ret) goto err;
+    if(ret == -1) goto err;
         
     /*work thread*/
     INIT_LIST_HEAD(&dev->send_queue);
@@ -596,6 +596,7 @@ err:
 int blk_dev_unprotect(const char* dev_path)
 {
     struct pbdev* dev;
+    LOG_INFO("unprotect dev_path:%s", dev_path);
     dev = pbdev_mgr_get_by_path(&g_dev_mgr, dev_path);
     if(dev == NULL){
         LOG_ERR("dev:%s no exist", dev_path);
@@ -605,6 +606,7 @@ int blk_dev_unprotect(const char* dev_path)
     LOG_INFO("uninstall hook,dev:%s", dev_path);
     
     net_send_vol_ctl_cmd(dev,false);
+    
     if(dev->send_thread){
         kthread_stop(dev->send_thread);
     }
@@ -684,7 +686,7 @@ struct pbdev* pbdev_mgr_get_by_path(struct pbdev_mgr* dev_mgr, const char* blk_p
     struct pbdev* tmp;
     spin_lock(&dev_mgr->dev_lock);
     list_for_each_entry_safe(bdev, tmp, &(dev_mgr->dev_list), link){
-        if(strcmp(bdev->blk_path, blk_path) == 0){
+        if(bdev && bdev->blk_path && strcmp(bdev->blk_path, blk_path) == 0){
             spin_unlock(&dev_mgr->dev_lock);
             return bdev;
         } 

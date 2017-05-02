@@ -25,6 +25,8 @@ struct agent_ioctl_del_dev
 
 #define AGENT_CTL_DEVICE_PATH  ("/dev/sg_agent")
 
+#define AGENT_DEVICE_PATH  ("sg_agent")
+
 #define AGENT_IOCTL_BASE (0x4B)
 
 #define AGENT_INIT _IOW(AGENT_IOCTL_BASE, 0, struct agent_init)
