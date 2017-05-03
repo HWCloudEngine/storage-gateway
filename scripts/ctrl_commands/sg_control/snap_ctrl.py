@@ -22,6 +22,8 @@ class SnapCtrl(object):
             res = self.CreateSnapshot(**kwargs)
         elif args.action == 'delete':
             kwargs = {
+                'snap_type': args.type,
+                'checkpoint_uuid': args.cp_uuid,
                 'vol_id': args.vol_id,
                 'snap_id': args.snap_id
             }
@@ -31,6 +33,8 @@ class SnapCtrl(object):
             res = self.ListSnapshot(**kwargs)
         elif args.action == 'rollback':
             kwargs = {
+                'snap_type': args.type,
+                'checkpoint_uuid': args.cp_uuid,
                 'vol_id': args.vol_id,
                 'snap_id': args.snap_id
             }
@@ -85,11 +89,20 @@ class SnapCtrl(object):
         print ('create snapshot result:%s' % res.header.status)
         return res
 
-    def DeleteSnapshot(self, vol_id, snap_id):
-        res = self.stub.DeleteSnapshot(snapshot_control_pb2.DeleteSnapshotReq(
-            header=snapshot_pb2.SnapReqHead(),
-            vol_name=vol_id,
-            snap_name=snap_id))
+    def DeleteSnapshot(self, snap_type, vol_id, snap_id, checkpoint_uuid=None):
+        if snap_type == 'local':
+            header = snapshot_pb2.SnapReqHead(
+                snap_type=snapshot_pb2.SNAP_LOCAL)
+        else:
+            header = snapshot_pb2.SnapReqHead(
+                snap_type=snapshot_pb2.SNAP_REMOTE,
+                checkpoint_uuid=checkpoint_uuid)
+
+        res = self.stub.DeleteSnapshot(
+            snapshot_control_pb2.DeleteSnapshotReq(
+                header=header,
+                vol_name=vol_id,
+                snap_name=snap_id))
         print ('delete snapshot result:%s' % res.header.status)
         return res
 
@@ -103,10 +116,19 @@ class SnapCtrl(object):
                 print name
         return res
 
-    def RollbackSnapshot(self, vol_id, snap_id):
+    def RollbackSnapshot(self, snap_type, vol_id, snap_id,
+                         checkpoint_uuid=None):
+        if snap_type == 'local':
+            header = snapshot_pb2.SnapReqHead(
+                snap_type=snapshot_pb2.SNAP_LOCAL)
+        else:
+            header = snapshot_pb2.SnapReqHead(
+                snap_type=snapshot_pb2.SNAP_REMOTE,
+                checkpoint_uuid=checkpoint_uuid)
+
         res = self.stub.RollbackSnapshot(
             snapshot_control_pb2.RollbackSnapshotReq(
-                header=snapshot_pb2.SnapReqHead(),
+                header=header,
                 vol_name=vol_id,
                 snap_name=snap_id))
         print "rollback snapshot result: %s" % res.header.status
@@ -155,7 +177,6 @@ class SnapCtrl(object):
     def QueryVolumeFromSnap(self, new_vol_id):
         res = self.stub.QueryVolumeFromSnap(
             snapshot_control_pb2.QueryVolumeFromSnapReq(
-                header=snapshot_pb2.SnapReqHead(),
                 new_vol_name=new_vol_id))
         print "create volume from snapshot result: %s" % res.header.status
         if res.header.status == common_pb2.sOk:
