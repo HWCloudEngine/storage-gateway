@@ -133,12 +133,19 @@ StatusCode SnapshotProxy::sync_state() {
 
 void SnapshotProxy::cmd_persist_wait() {
     unique_lock<std::mutex> ulock(m_cmd_persist_lock);
-    m_cmd_persist_cond.wait(ulock);
+    m_cmd_persist_cond.wait(ulock, [&]() { 
+        return true == m_cmd_persist_ok.load(std::memory_order_relaxed);
+    });
+    m_cmd_persist_ok.store(false, std::memory_order_relaxed);
 }
 
 void SnapshotProxy::cmd_persist_notify(const JournalMarker& mark) {
     unique_lock<std::mutex> ulock(m_cmd_persist_lock);
     m_cmd_persist_mark = mark;
+    if (true == m_cmd_persist_ok.load(std::memory_order_relaxed)) {
+        LOG_ERROR << "synchronize mechanism failed"; 
+    }
+    m_cmd_persist_ok.store(true, std::memory_order_relaxed);
     m_cmd_persist_cond.notify_all();
 }
 
@@ -193,14 +200,14 @@ StatusCode SnapshotProxy::create_snapshot(const CreateSnapshotReq* req,
 
         marker.CopyFrom(m_cmd_persist_mark);
         LOG_INFO << "create_snapshot vname:" << vname << " sname:" << sname
-            << " journal:" << m_cmd_persist_mark.cur_journal()
-            << " pos:" << m_cmd_persist_mark.pos();
+                 << " journal:" << m_cmd_persist_mark.cur_journal()
+                 << " pos:" << m_cmd_persist_mark.pos();
     }
 
     /*rpc with dr_server */
     ret_code = do_create(req->header(), sname);
     LOG_INFO << "create_snapshot vname:" << vname << " sname:" << sname
-             << (!ret_code ? "ok" : "failed, rpc error");
+             << (!ret_code ? " ok" : " failed, rpc error");
     /*sync end*/
     del_sync(sname);
     ack->mutable_header()->set_status(ret_code);
@@ -275,8 +282,8 @@ StatusCode SnapshotProxy::delete_snapshot(const DeleteSnapshotReq* req,
     /*rpc with dr_server*/
     ret_code = do_delete(req->header(), sname);
 
-    LOG_INFO << "delete vname:" << vname << " sname:" << sname
-             << (!ret_code ? "ok" : "failed, rpc error");
+    LOG_INFO << "delete_snapshot vname:" << vname << " sname:" << sname
+             << (!ret_code ? " ok" : " failed, rpc error");
 
     /*sync end*/
     del_sync(sname);
@@ -307,43 +314,43 @@ StatusCode SnapshotProxy::rollback_snapshot(const RollbackSnapshotReq* req,
 
     ret_code = do_rollback(req->header(), sname);
     LOG_INFO << "rollback_snapshot vname:" << vname << " sname:" << sname
-             << (!ret_code ? "ok" : "failed, rpc error");
+             << (!ret_code ? " ok" : " failed, rpc error");
     del_sync(sname);
     return ret_code;
 }
 
 StatusCode SnapshotProxy::create_transaction(const SnapReqHead& shead,
                                              const string& snap_name) {
-    LOG_INFO << "create transaction begin";
+    LOG_INFO << "create transaction sname:" << snap_name << " begin";
     StatusCode ret = transaction(shead, snap_name, UpdateEvent::CREATE_EVENT);
     if (ret) {
         /*create snapshot failed, delete the snapshot*/
         ret = do_update(shead, snap_name, UpdateEvent::DELETE_EVENT);
-        LOG_ERROR << "create transaction failed ret:" << ret;
+        LOG_ERROR << "create transaction sname:" << snap_name << " failed";
         return ret;
     }
-    LOG_INFO << "create transaction end";
+    LOG_INFO << "create transaction sname:" << snap_name << " end";
     return ret;
 }
 
 StatusCode SnapshotProxy::delete_transaction(const SnapReqHead& shead,
                                              const string& snap_name) {
-    LOG_INFO << "delete transaction begin";
+    LOG_INFO << "delete transaction sname:" << snap_name << " begin";
     StatusCode ret = transaction(shead, snap_name, UpdateEvent::DELETE_EVENT);
     if (ret) {
-        LOG_ERROR << "delete transaction failed";
+        LOG_ERROR << "delete transaction sname:" << snap_name << " failed";
         return ret;
     }
-    LOG_INFO << "delete transaction end";
+    LOG_INFO << "delete transaction sname:" << snap_name << " end";
     return ret;
 }
 
 StatusCode SnapshotProxy::rollback_transaction(const SnapReqHead& shead,
                                                const string& snap_name) {
-    LOG_INFO << "rollback transaction begin";
+    LOG_INFO << "rollback transaction sname:" << snap_name << " begin";
     StatusCode ret = transaction(shead, snap_name, UpdateEvent::ROLLBACK_EVENT);
     if (ret) {
-        LOG_ERROR << "rollback transaction failed";
+        LOG_ERROR << "rollback transaction sname:" << snap_name << " failed";
         return ret;
     }
 
@@ -355,7 +362,7 @@ StatusCode SnapshotProxy::rollback_transaction(const SnapReqHead& shead,
     ireq.set_snap_name(snap_name);
     Status st = m_rpc_stub->Rollback(&context, ireq, &iack);
     if (!st.ok()) {
-        LOG_ERROR << "rollback transaction failed";
+        LOG_ERROR << "rollback transaction sname:" << snap_name << " failed";
         return iack.header().status();
     }
 
@@ -400,7 +407,7 @@ StatusCode SnapshotProxy::rollback_transaction(const SnapReqHead& shead,
 
     /*dr server to delete rollback snapshot*/
     ret = do_update(shead, snap_name, UpdateEvent::DELETE_EVENT);
-    LOG_INFO << "rollback transaction end";
+    LOG_INFO << "rollback transaction sname:" << snap_name << " end";
     return ret;
 }
 

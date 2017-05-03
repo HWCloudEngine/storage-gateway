@@ -143,9 +143,10 @@ class SnapshotProxy : public ISnapshot, public ITransaction,
     /*entry queue to journal preprocessor*/
     BlockingQueue<shared_ptr<JournalEntry>>& m_entry_queue;
     /*sync between writer and proxy*/
-    mutex              m_cmd_persist_lock;
+    mutex m_cmd_persist_lock;
     condition_variable m_cmd_persist_cond;
-    JournalMarker      m_cmd_persist_mark;
+    std::atomic_bool m_cmd_persist_ok;
+    JournalMarker m_cmd_persist_mark;
     /*backup inner rpc client*/
     BackupInnerCtrlClient* m_backup_inner_rpc_client;
     /*sync table*/
