@@ -155,7 +155,6 @@ class SnapCtrl(object):
     def QueryVolumeFromSnap(self, new_vol_id):
         res = self.stub.QueryVolumeFromSnap(
             snapshot_control_pb2.QueryVolumeFromSnapReq(
-                header=snapshot_pb2.SnapReqHead(),
                 new_vol_name=new_vol_id))
         print "create volume from snapshot result: %s" % res.header.status
         if res.header.status == common_pb2.sOk:
