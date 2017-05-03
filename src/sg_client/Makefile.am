@@ -3,16 +3,16 @@ AM_CPPFLAGS=-I$(top_srcdir)/src -I$(top_srcdir)/src/include \
             -I$(top_srcdir)/src/rpc -std=c++11
 ACLOCAL_AMFLAGS=-I m4
 AM_LDFLAGS = -rdynamic
-sg_client_SOURCES=$(top_srcdir)/src/common/crc32.c  \
-                  $(top_srcdir)/src/common/xxhash.c \
-                  $(top_srcdir)/src/common/utils.cc \
-                  $(top_srcdir)/src/common/config.cc \
-                  $(top_srcdir)/src/common/volume_attr.cc   \
-                  $(top_srcdir)/src/common/block_store.cc   \
-                  $(top_srcdir)/src/common/ceph_s3_lease.cc \
-                  $(top_srcdir)/src/common/ceph_s3_api.cc   \
-                  $(top_srcdir)/src/common/journal_entry.cc \
-                  $(top_srcdir)/src/common/block_dev.cc     \
+sg_client_SOURCES=../common/crc32.c  \
+                  ../common/xxhash.c \
+                  ../common/utils.cc \
+                  ../common/config.cc \
+                  ../common/volume_attr.cc   \
+                  ../common/block_store.cc   \
+                  ../common/ceph_s3_lease.cc \
+                  ../common/ceph_s3_api.cc   \
+                  ../common/journal_entry.cc \
+                  ../common/block_dev.cc     \
                   control/control_snapshot.cc  \
                   control/control_backup.cc    \
                   control/control_replicate.cc \

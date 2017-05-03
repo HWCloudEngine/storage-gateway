@@ -20,11 +20,11 @@ sg_server_SOURCES=dr_server.cc \
                   replicate/rep_message_handlers.cc \
                   transfer/net_sender.cc \
                   transfer/net_receiver.cc \
-                  $(top_srcdir)/src/common/crc32.c \
-                  $(top_srcdir)/src/common/config.cc \
-                  $(top_srcdir)/src/common/journal_entry.cc \
-                  $(top_srcdir)/src/common/ceph_s3_lease.cc \
-                  $(top_srcdir)/src/common/ceph_s3_api.cc \
+                  ../common/crc32.c \
+                  ../common/config.cc \
+                  ../common/journal_entry.cc \
+                  ../common/ceph_s3_lease.cc \
+                  ../common/ceph_s3_api.cc \
                   ../common/utils.cc       \
                   ../common/block_store.cc \
                   ../common/index_store.cc \
@@ -46,7 +46,7 @@ sg_server_LDFLAGS=-D_GNU_SOURCE -L$(top_srcdir)/lib -L/usr/local/lib
 DEFS+=-D_GNU_SOURCE -DBOOST_ALL_DYN_LINK
 LIBS=-lpthread -ldl \
      -lboost_system -lboost_log_setup -lboost_log -lboost_date_time -lboost_thread \
-     -lprotobuf -ldl -lgrpc -lgrpc++ \
+     -lprotobuf -lgrpc -lgrpc++ \
      -ls3 -lrados \
      -lrocksdb -lz -lsnappy -lbz2
 SUBDIRS=../rpc 
