@@ -145,7 +145,7 @@ class SnapshotProxy : public ISnapshot, public ITransaction,
     /*sync between writer and proxy*/
     mutex m_cmd_persist_lock;
     condition_variable m_cmd_persist_cond;
-    std::atomic_bool m_cmd_persist_ok;
+    std::atomic_bool m_cmd_persist_ok{false};
     JournalMarker m_cmd_persist_mark;
     /*backup inner rpc client*/
     BackupInnerCtrlClient* m_backup_inner_rpc_client;
@@ -154,7 +154,7 @@ class SnapshotProxy : public ISnapshot, public ITransaction,
     /*current active snapshot*/
     std::string  m_active_snapshot;
     /*check now exist snapshot or not*/
-    atomic_bool m_exist_snapshot;
+    atomic_bool m_exist_snapshot{false};
     /*snapshot block store*/
     BlockStore* m_block_store;
     /*rpc interact with dr server, snapshot meta data access*/
