@@ -81,9 +81,11 @@ bool VolumeAttr::is_snapshot_allowable(const SnapType& snap_type)
         }
     }
 
-    if(m_vol_info.rep_status() != RepStatus::REP_ENABLED){
+    if(m_vol_info.rep_status() != RepStatus::REP_ENABLED
+        && m_vol_info.rep_status() != RepStatus::REP_FAILING_OVER){
         if(snap_type == SnapType::SNAP_REMOTE){
             /*replication disable, remote snapshot no support*/
+            /*create a remote snapshot on failover to speed up reprotection */
             return false; 
         } 
     }
