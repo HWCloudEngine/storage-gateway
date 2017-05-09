@@ -39,6 +39,7 @@ class ReplicateCtrl(object):
             res = self.DisableReplication(**kwargs)
         elif args.action == 'failover':
             kwargs['checkpoint_id'] = args.cp_uuid
+            kwargs['snapshot_id'] = args.snap_id
             res = self.FailoverReplication(**kwargs)
         elif args.action == 'reverse':
             res = self.ReverseReplication(**kwargs)
@@ -75,12 +76,13 @@ class ReplicateCtrl(object):
         return res
 
     def FailoverReplication(self, vol_id, role, checkpoint_id=None,
-                            operate_id=str(uuid.uuid4())):
+                            snapshot_id=None, operate_id=str(uuid.uuid4())):
         res = self.stub.FailoverReplication(
             replicate_control_pb2.FailoverReplicationReq(
                 vol_id=vol_id,
                 operate_id=operate_id,
                 checkpoint_id=checkpoint_id,
+                snap_id=snapshot_id,
                 role=role))
         print ('failover replication result:%s' % res.status)
         return res
