@@ -169,13 +169,13 @@ static int net_send_vol_ctl_cmd(struct pbdev* dev,bool add_vol)
     }
 
     ret = tp_send(dev->network, (char*)req, req_len);
-    if(ret != req_len){
+    if(ret != 0){
         LOG_ERR("vol cmd send err ret:%d size:%d ", ret, req_len);
         goto out;;
     }
 
     ret = tp_recv(dev->network, (char*)&reply, sizeof(reply));
-    if(ret != sizeof(reply)){
+    if(ret != 0){
         LOG_ERR("vol cmd recv err ret:%d size:%ld", ret, sizeof(reply));
         goto out;
     }
@@ -362,8 +362,8 @@ static struct request* net_recv_req(struct pbdev* dev)
 static struct bio* net_recv_bio(struct pbdev* dev)
 {
     int ret;
-    struct HookReply reply;
-    struct bio* bio;
+    struct HookReply reply = {0};
+    struct bio* bio = NULL;
     ret = tp_recv(dev->network, (char*)(&reply), sizeof(reply));
     if(ret){
         LOG_ERR("recv req head failed");
@@ -376,6 +376,10 @@ static struct bio* net_recv_bio(struct pbdev* dev)
     }
     
     bio = (struct bio*)reply.handle;
+    if(bio == NULL)
+    {
+        return NULL;
+    }
     if(bio_data_dir(bio) == READ){
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3,14,0))
         int i;
@@ -433,7 +437,9 @@ static int send_work(void* data)
                                  !bio_list_empty(&dev->send_bio_list));
         while(!bio_list_empty(&dev->send_bio_list))
         {
+            spin_lock_irq(&dev->lock);
             struct bio* bio = bio_list_pop(&dev->send_bio_list);
+            spin_unlock_irq(&dev->lock);
             if(bio){
                 net_send_bio(dev, bio); 
             }
@@ -446,7 +452,7 @@ static int send_work(void* data)
 static int recv_work(void* data)
 {
     struct pbdev* dev = (struct pbdev*)data;
-    struct bio* bio;
+    struct bio* bio = NULL;
     while(!kthread_should_stop()){
         bio = net_recv_bio(dev);
         if(bio != NULL){
@@ -540,7 +546,7 @@ int blk_dev_protect(const char* dev_path, const char* vol_name)
         goto err;
     }
     ret = net_send_vol_ctl_cmd(dev,true);
-    if(ret) goto err;
+    if(ret == -1) goto err;
         
     /*work thread*/
     INIT_LIST_HEAD(&dev->send_queue);
@@ -596,6 +602,7 @@ err:
 int blk_dev_unprotect(const char* dev_path)
 {
     struct pbdev* dev;
+    LOG_INFO("unprotect dev_path:%s", dev_path);
     dev = pbdev_mgr_get_by_path(&g_dev_mgr, dev_path);
     if(dev == NULL){
         LOG_ERR("dev:%s no exist", dev_path);
@@ -605,6 +612,7 @@ int blk_dev_unprotect(const char* dev_path)
     LOG_INFO("uninstall hook,dev:%s", dev_path);
     
     net_send_vol_ctl_cmd(dev,false);
+    
     if(dev->send_thread){
         kthread_stop(dev->send_thread);
     }
@@ -618,13 +626,13 @@ int blk_dev_unprotect(const char* dev_path)
         kfree(dev->network);
     }
     LOG_INFO("close network");
-    if(dev->blk_path){
-        kfree(dev->blk_path);    
-    }
     if(dev->vol_name){
         kfree(dev->vol_name);
     }
     pbdev_mgr_del(&g_dev_mgr, dev_path);
+    if(dev->blk_path){
+        kfree(dev->blk_path);    
+    }
     LOG_INFO("delete from mgr");
     kfree(dev);
     LOG_INFO("unprotect ok,dev:%s",dev_path);
@@ -656,9 +664,9 @@ void pbdev_mgr_fini(struct pbdev_mgr* dev_mgr)
 
 int pbdev_mgr_add(struct pbdev_mgr* dev_mgr, struct pbdev* dev)
 {
-    spin_lock(&dev_mgr->dev_lock);
+    spin_lock_irq(&dev_mgr->dev_lock);
     list_add_tail(&dev->link, &dev_mgr->dev_list);
-    spin_unlock(&dev_mgr->dev_lock);
+    spin_unlock_irq(&dev_mgr->dev_lock);
     return 0;
 }
 
@@ -666,15 +674,20 @@ int pbdev_mgr_del(struct pbdev_mgr* dev_mgr, const char* blk_path)
 {
     struct pbdev* bdev;
     struct pbdev* tmp;
-    spin_lock(&dev_mgr->dev_lock);
+    spin_lock_irq(&dev_mgr->dev_lock);
+    if(list_empty(&(dev_mgr->dev_list)))
+    {
+        spin_unlock_irq(&dev_mgr->dev_lock);
+        return 0;
+    }
     list_for_each_entry_safe(bdev, tmp, &dev_mgr->dev_list, link){
         if(strcmp(bdev->blk_path, blk_path) == 0){
             list_del_init(&bdev->link); 
-            spin_unlock(&dev_mgr->dev_lock);
+            spin_unlock_irq(&dev_mgr->dev_lock);
             return 0;
         } 
     }
-    spin_unlock(&dev_mgr->dev_lock);
+    spin_unlock_irq(&dev_mgr->dev_lock);
     return -ENOENT;
 }
 
@@ -682,14 +695,19 @@ struct pbdev* pbdev_mgr_get_by_path(struct pbdev_mgr* dev_mgr, const char* blk_p
 {
     struct pbdev* bdev;
     struct pbdev* tmp;
-    spin_lock(&dev_mgr->dev_lock);
+    spin_lock_irq(&dev_mgr->dev_lock);
+    if(list_empty(&(dev_mgr->dev_list)))
+    {
+        spin_unlock_irq(&dev_mgr->dev_lock);
+        return NULL;
+    }
     list_for_each_entry_safe(bdev, tmp, &(dev_mgr->dev_list), link){
-        if(strcmp(bdev->blk_path, blk_path) == 0){
-            spin_unlock(&dev_mgr->dev_lock);
+        if(bdev && bdev->blk_path && strcmp(bdev->blk_path, blk_path) == 0){
+            spin_unlock_irq(&dev_mgr->dev_lock);
             return bdev;
         } 
     }
-    spin_unlock(&dev_mgr->dev_lock);
+    spin_unlock_irq(&dev_mgr->dev_lock);
     return NULL;
 }
 
@@ -697,13 +715,18 @@ struct pbdev* pbdev_mgr_get_by_queue(struct pbdev_mgr* dev_mgr, struct request_q
 {
     struct pbdev* bdev;
     struct pbdev* tmp;
-    spin_lock(&dev_mgr->dev_lock);
+    spin_lock_irq(&dev_mgr->dev_lock);
+    if(list_empty(&(dev_mgr->dev_list)))
+    {
+        spin_unlock_irq(&dev_mgr->dev_lock);
+        return NULL;
+    }
     list_for_each_entry_safe(bdev, tmp, &dev_mgr->dev_list, link){
         if(bdev->blk_queue == q){
-            spin_unlock(&dev_mgr->dev_lock);
+            spin_unlock_irq(&dev_mgr->dev_lock);
             return bdev;
         } 
     }
-    spin_unlock(&dev_mgr->dev_lock);
+    spin_unlock_irq(&dev_mgr->dev_lock);
     return ERR_PTR(-ENOENT);
 }

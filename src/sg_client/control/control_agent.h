@@ -32,6 +32,7 @@ public:
             control::EnableSGRes* res);
     Status DisableSG(ServerContext* context, const control::DisableSGReq* req,
             control::DisableSGRes* res);
+    bool recover_targets();
 
 private:
     bool init();
@@ -39,7 +40,7 @@ private:
     bool agent_del_device(std::string device);
     bool persist_device(std::string vol_name,std::string device);
     bool delete_device(std::string device);
-    bool agent_device_init();
+    bool agent_device_recover();
     
 private:
     int fd_;

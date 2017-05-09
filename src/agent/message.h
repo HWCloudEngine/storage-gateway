@@ -3,7 +3,7 @@
 
 #define MSG_MAGIC (0xAA)
 #define MAX_VOL_NAME (128)
-#define MAX_DEV_PATH (128)
+#define MAX_DEV_PATH (256)
 
 struct HookRequest
 {
