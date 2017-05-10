@@ -1,21 +1,27 @@
+/**********************************************
+*  Copyright (c) 2016 Huawei Technologies Co., Ltd. All rights reserved.
+* 
+*  File name:   journal_entry.h
+*  Author: 
+*  Date:         2016/11/03
+*  Version:      1.0
+*  Description: io and cmd format in journal file
+*
+*************************************************/
 #include <sys/uio.h>
 #include <assert.h>
-#include "../common/crc32.h"
+#include "crc32.h"
 #include "../log/log.h"
-#include "journal_entry.h"
 #include "../rpc/message.pb.h"
+#include "journal_entry.h"
 using huawei::proto::WriteMessage;
 using huawei::proto::SnapshotMessage;
 
-JournalEntry::JournalEntry()
-{
+JournalEntry::JournalEntry() {
 }
 
-JournalEntry::JournalEntry(uint64_t& io_handle, 
-                           uint64_t& seq, 
-                           journal_event_type_t& type, 
-                           shared_ptr<Message>&  message)
-{
+JournalEntry::JournalEntry(uint64_t& io_handle, uint64_t& seq, 
+                    journal_event_type_t& type, std::shared_ptr<Message>&  message) {
     this->handle.push_back(io_handle);
     this->sequence = seq;
     this->type = type;
@@ -25,8 +31,7 @@ JournalEntry::JournalEntry(uint64_t& io_handle,
     this->message_serialized_data.clear();
 }
 
-JournalEntry::JournalEntry(const JournalEntry& other)
-{
+JournalEntry::JournalEntry(const JournalEntry& other) {
     this->handle = other.handle;
     this->sequence = other.sequence;
     this->type  = other.type;
@@ -36,8 +41,7 @@ JournalEntry::JournalEntry(const JournalEntry& other)
     this->message_serialized_data.clear();
 }
 
-JournalEntry& JournalEntry::operator=(const JournalEntry& other)
-{
+JournalEntry& JournalEntry::operator=(const JournalEntry& other) {
     this->handle = other.handle;
     this->sequence = other.sequence;
     this->type  = other.type;
@@ -48,119 +52,76 @@ JournalEntry& JournalEntry::operator=(const JournalEntry& other)
     return *this;
 }
 
-JournalEntry::~JournalEntry()
-{
+JournalEntry::~JournalEntry() {
     /*todo free resource */
 }
 
-void JournalEntry::set_handle(uint64_t io_handle)
-{
+void JournalEntry::set_handle(uint64_t io_handle) {
     handle.push_back(io_handle);
 }
 
-vector<uint64_t> JournalEntry::get_handle()const
-{
+vector<uint64_t> JournalEntry::get_handle()const {
     return handle;
 }
 
-void JournalEntry::set_sequence(uint64_t seq)
-{
+void JournalEntry::set_sequence(uint64_t seq) {
     sequence = seq;
 }
 
-uint64_t JournalEntry::get_sequence()const
-{
+uint64_t JournalEntry::get_sequence()const {
     return sequence;
 }
 
-void JournalEntry::set_type(journal_event_type_t type)
-{
+void JournalEntry::set_type(journal_event_type_t type) {
     this->type = type;
 }
 
-journal_event_type_t JournalEntry::get_type()const
-{
+journal_event_type_t JournalEntry::get_type()const {
     return (journal_event_type_t)type;
 }
 
-void JournalEntry::set_length(uint32_t len)
-{
+void JournalEntry::set_length(uint32_t len) {
     this->length = len;
 }
 
-uint32_t JournalEntry::get_length()const
-{
+uint32_t JournalEntry::get_length()const {
     return length;
 }
 
-void JournalEntry::set_message(shared_ptr<Message> message)
-{
+void JournalEntry::set_message(std::shared_ptr<Message> message) {
     this->message = message;
 }
 
-shared_ptr<Message> JournalEntry::get_message()const
-{
+std::shared_ptr<Message> JournalEntry::get_message()const {
     return message;
 }
 
-void JournalEntry::set_crc(uint32_t crc)
-{
+void JournalEntry::set_crc(uint32_t crc) {
     this->crc = crc;
 }
 
-uint32_t JournalEntry::get_crc()const
-{
+uint32_t JournalEntry::get_crc()const {
     return crc;
 }
 
-uint32_t JournalEntry::calculate_crc()
-{
+uint32_t JournalEntry::calculate_crc() {
     uint32_t initial = 0;
     assert(!message_serialized_data.empty());
-    this->crc = crc32c(message_serialized_data.c_str(), 
-                       message_serialized_data.size(), 
+    this->crc = crc32c(message_serialized_data.c_str(),
+                       message_serialized_data.size(),
                        initial);
     return this->crc;
 }
 
-size_t JournalEntry::persist(int fd, off_t off)
-{
-    if(message_serialized_data.empty()){
-        serialize();
-        calculate_crc();
-    }
-
-    struct iovec iov[4];
-    iov[0].iov_base = &type;
-    iov[0].iov_len  = sizeof(type);
-    iov[1].iov_base = &length;
-    iov[1].iov_len  = sizeof(length);
-    iov[2].iov_base = (void*)message_serialized_data.c_str();
-    iov[2].iov_len  = length;
-    iov[3].iov_base = &crc;
-    iov[3].iov_len  = sizeof(crc);
-    
-    size_t write_size = sizeof(type)+sizeof(length) + length +sizeof(crc);
-    size_t write_ret  = pwritev(fd, iov, 4, off);
-    assert(write_size == write_size);
-    
-    //LOG_INFO << "persist type:" << type << " length:" << length 
-    //         << " crc:" << crc << " ok";
-    return write_ret;
-}
-
-size_t JournalEntry::get_persit_size()const
-{
+size_t JournalEntry::get_persit_size()const {
     return sizeof(type) + sizeof(length) + length + sizeof(crc);
 }
 
-size_t JournalEntry::persist(FILE* file, off_t off)
-{
-    if(message_serialized_data.empty()){
+ssize_t JournalEntry::persist(unique_ptr<AccessFile>* file, off_t off) {
+    if (message_serialized_data.empty()) {
         serialize();
         calculate_crc();
     }
-
     size_t buf_len = sizeof(type) + sizeof(length) + length + sizeof(crc) ;
     char*  buf = (char*)malloc(buf_len);
     char*  write_buf = buf;    
@@ -171,20 +132,15 @@ size_t JournalEntry::persist(FILE* file, off_t off)
     memcpy(write_buf, (char*)message_serialized_data.c_str(), length);
     write_buf += length;
     memcpy(write_buf, (char*)&crc, sizeof(crc));
-    
-    int ret = fseek(file, off, SEEK_SET);
-    ret = fwrite(buf, 1, buf_len, file);
+    ssize_t ret = (*file)->write(buf, buf_len, off);
     assert(ret == buf_len);
     free(buf);
-    
-    fflush(file);
-
     //LOG_INFO << "persist type:" << type << " length:" << length 
     //         << " crc:" << crc  << " ok";
     return buf_len;
 }
 
-size_t JournalEntry::copy_entry(string& buffer){
+size_t JournalEntry::copy_entry(std::string& buffer) {
     buffer.append((char*)&type, sizeof(type));
     buffer.append((char*)&length, sizeof(length));
     buffer.append((char*)message_serialized_data.c_str(), length);
@@ -193,27 +149,25 @@ size_t JournalEntry::copy_entry(string& buffer){
     return size;
 }
 
-ssize_t JournalEntry::parse(int fd, size_t fsize, off_t off)
-{
+ssize_t JournalEntry::parse(unique_ptr<AccessFile>* file, size_t fsize, off_t off) {
     off_t start = off;
-    
     /*read type and length*/
     struct iovec iov[2];
     iov[0].iov_base = &type;
     iov[0].iov_len  = sizeof(type);
     iov[1].iov_base = &length;
     iov[1].iov_len  = sizeof(length);
-    size_t read_ret = preadv(fd, iov, 2, start);
-    if(read_ret != (sizeof(type) + sizeof(length))){
+    size_t read_ret = (*file)->readv(iov, 2, start);
+    if (read_ret != (sizeof(type) + sizeof(length))) {
         LOG_ERROR << "parse type and length failed";
         return -1;
     }
-    if(type != IO_WRITE && type != SNAPSHOT_CREATE && type != SNAPSHOT_DELETE &&
-       type != SNAPSHOT_ROLLBACK){
+    if (type != IO_WRITE && type != SNAPSHOT_CREATE && type != SNAPSHOT_DELETE &&
+       type != SNAPSHOT_ROLLBACK) {
         LOG_ERROR << "parse type failed";
         return -1; 
     }
-    if((off + length) > fsize){
+    if ((off + length) > fsize) {
         LOG_ERROR << "parse length over region failed";
         return -1;
     }
@@ -229,23 +183,22 @@ ssize_t JournalEntry::parse(int fd, size_t fsize, off_t off)
     iov1[0].iov_len  = length;
     iov1[1].iov_base = &crc;
     iov1[1].iov_len  = sizeof(crc);
-    read_ret = preadv(fd, iov1, 2, start);
-    if(read_ret != (length + sizeof(crc))){
+    read_ret = (*file)->readv(iov1, 2, start);
+    if (read_ret != (length + sizeof(crc))) {
         LOG_ERROR << "parse data and crc failed";
         return -1;
     }
     start += read_ret;
 
     /*message parse*/
-    switch(type)
-    {
+    switch (type) {
     case IO_WRITE:
-        message = make_shared<WriteMessage>(); 
+        message = std::make_shared<WriteMessage>(); 
         break;
     case SNAPSHOT_CREATE:
     case SNAPSHOT_DELETE:
     case SNAPSHOT_ROLLBACK:
-        message = make_shared<SnapshotMessage>(); 
+        message = std::make_shared<SnapshotMessage>(); 
         break;
     default:
         assert(0);
@@ -267,86 +220,22 @@ ssize_t JournalEntry::parse(int fd, size_t fsize, off_t off)
     return start;
 }
 
-/*todo: optimize*/
-ssize_t JournalEntry::parse(FILE* file, off_t off)
-{
-    off_t start = off;
-    /*read type*/
-    fseek(file, start, SEEK_SET); 
-    size_t ret = fread((char*)&type, 1, sizeof(type), file);
-    assert(ret == sizeof(type));
-    start += sizeof(type);
-    
-    /*read length*/
-    fseek(file, start, SEEK_SET); 
-    ret = fread((char*)&length, 1, sizeof(length), file);
-    assert(ret == sizeof(length));
-    start += sizeof(length);
-    
-    /*read data*/
-    char* data = (char*)malloc(length);
-    assert(data != nullptr);
-    fseek(file, start, SEEK_SET); 
-    ret = fread(data, 1, length, file);
-    assert(ret == length);
-    start += length;
-    
-    /*read crc*/
-    fseek(file, start, SEEK_SET); 
-    ret = fread((char*)&crc, 1, sizeof(crc), file);
-    assert(ret == sizeof(crc));
-    start += sizeof(crc);
-
-    /*message parse*/
-    switch(type)
-    {
-    case IO_WRITE:
-        message = make_shared<WriteMessage>(); 
-        break;
-    case SNAPSHOT_CREATE:
-    case SNAPSHOT_DELETE:
-    case SNAPSHOT_ROLLBACK:
-        message = make_shared<SnapshotMessage>(); 
-        break;
-    default:
-        assert(0);
-        break;
-    }
-
-    message->ParseFromArray(data, length);
-
-    /*check crc */
-    uint32_t initial = 0;
-    uint32_t crc_value = crc32c(data, length, initial);
-    assert(crc_value == crc);
-    
-    free(data);
-
-    //LOG_INFO << "parse type:" << type << " length:" << length 
-    //         << " crc:" << crc << " crc_value:" << crc_value << " ok";
-    return start;
-}
-
-bool JournalEntry::serialize()
-{
+bool JournalEntry::serialize() {
     message->SerializeToString(&message_serialized_data);
     this->length = message_serialized_data.size();
     return true;
 }
 
-bool JournalEntry::deserialize(const string& in)
-{
+bool JournalEntry::deserialize(const std::string& in) {
     message->ParseFromString(in);
     return true;
 }
 
-void JournalEntry::clear_serialized_data()
-{
+void JournalEntry::clear_serialized_data() {
     message_serialized_data.clear();
 }
 
-ostream& operator<<(ostream& cout, const JournalEntry& entry)
-{
+std::ostream& operator<<(std::ostream& cout, const JournalEntry& entry) {
     LOG_INFO << " seq:"  << entry.get_sequence()
              << " type:" << entry.get_type()
              << " len:"  << entry.get_length()

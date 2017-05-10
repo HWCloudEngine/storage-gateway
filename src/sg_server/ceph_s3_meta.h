@@ -17,7 +17,7 @@
 #include <condition_variable>
 #include "common/locks.h"
 #include "common/libs3.h" // require ceph-libs3
-#include "common/config.h"
+#include "common/config_option.h"
 #include "journal_meta_manager.h"
 #include "journal_gc_manager.h"
 #include "volume_meta_manager.h"
@@ -55,7 +55,6 @@ class CephS3Meta:public JournalMetaManager,
         public JournalGCManager,
         public VolumeMetaManager {
 private:
-    Configure conf_;
     std::unique_ptr<CephS3Api> s3Api_ptr_;
     string mount_path_;
     SharedMutex counter_mtx;
@@ -99,7 +98,7 @@ private:
             JournalMarker& marker);
     bool _get_volume_meta(const string& key,VolumeMeta& info);
 public:
-    CephS3Meta(const Configure& conf);
+    CephS3Meta();
     ~CephS3Meta();
 
     // wait for any volume's replicator producer marker changed, or timeout(milliseconds)

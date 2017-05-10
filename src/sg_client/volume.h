@@ -15,7 +15,7 @@
 #include <boost/asio.hpp>
 #include "nedmalloc.h"
 #include "common/journal_entry.h"
-#include "common/config.h"
+#include "common/config_option.h"
 #include "common/blocking_queue.h"
 #include "common/volume_attr.h"
 #include "common/ceph_s3_lease.h"
@@ -40,7 +40,7 @@ class VolumeManager;
 
 class Volume {
  public:
-    explicit Volume(VolumeManager& vol_manager, const Configure& conf,
+    explicit Volume(VolumeManager& vol_manager,
                     const VolumeInfo& vol_info,
                     shared_ptr<CephS3LeaseClient> lease_client,
                     std::shared_ptr<WriterClient> writer_rpc_client,
@@ -66,7 +66,6 @@ class Volume {
 
  private:
     VolumeManager& vol_manager_;
-    Configure conf_;
     VolumeAttr vol_attr_;
     shared_ptr<CephS3LeaseClient> lease_client_;
     shared_ptr<WriterClient>  writer_rpc_client_;

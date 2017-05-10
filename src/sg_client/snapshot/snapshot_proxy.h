@@ -33,8 +33,8 @@
 #include "common/blocking_queue.h"
 #include "common/block_store.h"
 #include "common/volume_attr.h"
+#include "common/env_posix.h"
 #include "common/define.h"
-#include "common/config.h"
 #include "snapshot.h"
 #include "syncbarrier.h"
 #include "transaction.h"
@@ -57,7 +57,7 @@ using huawei::proto::inner::UpdateEvent;
 class SnapshotProxy : public ISnapshot, public ITransaction,
                       public ISyncBarrier {
  public:
-    SnapshotProxy(const Configure& conf, VolumeAttr& vol_attr,
+    SnapshotProxy(VolumeAttr& vol_attr,
                   BlockingQueue<shared_ptr<JournalEntry>>& entry_queue);
     ~SnapshotProxy();
 
@@ -135,11 +135,11 @@ class SnapshotProxy : public ISnapshot, public ITransaction,
                            const UpdateEvent& sevent);
 
  private:
-    Configure m_conf;
     /*volume attr*/
     VolumeAttr& m_vol_attr;
     /*block device read write fd*/
-    int m_block_fd;
+    unique_ptr<AccessFile> m_block_file;
+    //AccessFile* m_block_file;
     /*entry queue to journal preprocessor*/
     BlockingQueue<shared_ptr<JournalEntry>>& m_entry_queue;
     /*sync between writer and proxy*/

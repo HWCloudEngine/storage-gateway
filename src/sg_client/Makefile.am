@@ -6,13 +6,13 @@ AM_LDFLAGS = -rdynamic
 sg_client_SOURCES=../common/crc32.c  \
                   ../common/xxhash.c \
                   ../common/utils.cc \
-                  ../common/config.cc \
+                  ../common/config_option.cc \
                   ../common/volume_attr.cc   \
                   ../common/block_store.cc   \
                   ../common/ceph_s3_lease.cc \
                   ../common/ceph_s3_api.cc   \
                   ../common/journal_entry.cc \
-                  ../common/block_dev.cc     \
+                  ../common/env_posix.cc     \
                   control/control_snapshot.cc  \
                   control/control_backup.cc    \
                   control/control_replicate.cc \

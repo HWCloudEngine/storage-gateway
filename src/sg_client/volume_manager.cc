@@ -3,12 +3,12 @@
 #include <algorithm>
 #include "log/log.h"
 #include "common/volume_attr.h"
+#include "common/utils.h"
 #include "control/control_snapshot.h"
 #include "control/control_backup.h"
 #include "control/control_replicate.h"
 #include "control/control_volume.h"
 #include "control/control_agent.h"
-#include "../common/volume_attr.h"
 
 using huawei::proto::VolumeInfo;
 using huawei::proto::StatusCode;
@@ -61,10 +61,9 @@ VolumeManager::~VolumeManager()
 
 bool VolumeManager::init()
 {
-    conf.init(DEFAULT_CONFIG_FILE);
     lease_client.reset(new CephS3LeaseClient());
-    producer_marker_update_interval = conf.journal_producer_marker_update_interval;
-    max_ep_events_num = conf.global_max_volume_count;
+    producer_marker_update_interval = g_option.journal_producer_marker_update_interval;
+    max_ep_events_num = g_option.global_max_volume_count;
     ep_events = new epoll_event_t[max_ep_events_num];
     if(ep_events == nullptr){
         LOG_ERROR << "allocate epoll events failed!";
@@ -76,20 +75,20 @@ bool VolumeManager::init()
         DR_ERROR_OCCURED();
     }
 
-    lease_client->init(conf.ceph_s3_access_key.c_str(),
-                       conf.ceph_s3_secret_key.c_str(),
-                       conf.ceph_s3_host.c_str(),
-                       conf.ceph_s3_bucket.c_str(),
-                       conf.lease_renew_window,
-                       conf.lease_expire_window,
-                       conf.lease_validity_window) ;
+    lease_client->init(g_option.ceph_s3_access_key.c_str(),
+                       g_option.ceph_s3_secret_key.c_str(),
+                       g_option.ceph_s3_host.c_str(),
+                       g_option.ceph_s3_bucket.c_str(),
+                       g_option.lease_renew_window,
+                       g_option.lease_expire_window,
+                       g_option.lease_validity_window) ;
 
     thread_ptr.reset(new boost::thread(boost::bind(&VolumeManager::periodic_task, this)));
 
     std::string default_ip("127.0.0.1");
     /*start rpc server for receive control command from sg control*/
-    ctrl_rpc_server = new RpcServer(conf.ctrl_server_ip, 
-                                    conf.ctrl_server_port, 
+    ctrl_rpc_server = new RpcServer(g_option.ctrl_server_ip, 
+                                    g_option.ctrl_server_port, 
                                     grpc::InsecureServerCredentials());
     assert(ctrl_rpc_server!= nullptr);
 
@@ -101,24 +100,23 @@ bool VolumeManager::init()
     assert(backup_ctrl != nullptr);
     ctrl_rpc_server->register_service(backup_ctrl);
 
-    rep_ctrl = new ReplicateCtrl(conf, volumes);
+    rep_ctrl = new ReplicateCtrl(volumes);
     ctrl_rpc_server->register_service(rep_ctrl);
 
-    vol_inner_client_.reset(new VolInnerCtrlClient(grpc::CreateChannel(conf.sg_server_addr(),
+    std::string meta_rpc_addr = rpc_address(g_option.meta_server_ip, g_option.meta_server_port);
+    vol_inner_client_.reset(new VolInnerCtrlClient(grpc::CreateChannel(meta_rpc_addr,
                     grpc::InsecureChannelCredentials())));
     // init writer_rpc_client, which used to update producer markers
-    writer_rpc_client.reset(new WriterClient(
-            grpc::CreateChannel(conf.sg_server_addr(),grpc::InsecureChannelCredentials())));
+    writer_rpc_client.reset(new WriterClient(grpc::CreateChannel(meta_rpc_addr,
+                    grpc::InsecureChannelCredentials())));
 
-    if(conf.global_client_mode)
+    if(g_option.global_client_mode)
     {
-        LOG_INFO << "start agent ctrl";
-        vol_ctrl = new AgentControlImpl(conf, host_,port_, vol_inner_client_);
+        vol_ctrl = new AgentControlImpl(host_,port_, vol_inner_client_);
     }
     else
     {
-        LOG_INFO << "start tgt ctrl";
-        vol_ctrl = new VolumeControlImpl(conf, host_, port_,vol_inner_client_);
+        vol_ctrl = new VolumeControlImpl(host_, port_,vol_inner_client_);
     }
     ctrl_rpc_server->register_service(vol_ctrl);
 
@@ -135,7 +133,7 @@ bool VolumeManager::init()
 void VolumeManager::periodic_task()
 {
     while(running_){
-        boost::this_thread::sleep_for(boost::chrono::milliseconds(conf.journal_interval));
+        boost::this_thread::sleep_for(boost::chrono::milliseconds(g_option.journal_interval));
         std::string lease_uuid = lease_client->get_lease();
         if(!lease_client->check_lease_validity(lease_uuid)){
             continue;
@@ -149,7 +147,7 @@ void VolumeManager::periodic_task()
             std::shared_ptr<JournalWriter> writer = vol->get_writer();
             VolumeAttr& vol_attr = writer->get_vol_attr();
             if(vol_attr.is_writable()){
-                if(!writer->get_writeable_journals(lease_uuid,conf.journal_limit)){
+                if(!writer->get_writeable_journals(lease_uuid,g_option.journal_limit)){
                     LOG_ERROR << "get_writeable_journals failed,vol_id:" << vol_id;
                 }
 
@@ -211,8 +209,8 @@ void VolumeManager::read_req_body_cbt(raw_socket_t client_sock,
     LOG_INFO << "get volume:" << volume_info.vol_id() << " dev_path:" << volume_info.path()
              << " vol_status:" << volume_info.vol_status() << " vol_size:" << volume_info.size();
     /*create volume*/
-    shared_ptr<Volume> vol = make_shared<Volume>(*this, conf, volume_info, \
-                                        lease_client, writer_rpc_client,   \
+    shared_ptr<Volume> vol = make_shared<Volume>(*this, volume_info,    \
+                                        lease_client, writer_rpc_client, \
                                         epoll_fd, client_sock);
     /*add to map*/
     std::unique_lock<std::mutex> lk(mtx);

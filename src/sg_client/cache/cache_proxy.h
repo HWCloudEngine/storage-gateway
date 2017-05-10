@@ -1,6 +1,15 @@
-#ifndef _PROXY_H
-#define _PROXY_H
-
+/**********************************************
+*  Copyright (c) 2016 Huawei Technologies Co., Ltd. All rights reserved.
+*  
+*  File name:    backup_proxy.h
+*  Author: 
+*  Date:         2016/11/03
+*  Version:      1.0
+*  Description:  backup entry
+*  
+*************************************************/
+#ifndef SRC_SG_CLIENT_CACHE_CACHE_PROXY_H_
+#define SRC_SG_CLIENT_CACHE_CACHE_PROXY_H_
 #include <unistd.h>
 #include <string>
 #include <atomic>
@@ -14,15 +23,13 @@
 #include "../nedmalloc.h"
 #include "../seq_generator.h"
 #include "log/log.h"
-using namespace std;
 
-class CacheProxy
-{
+class CacheProxy {
     const static size_t MAX_CACHE_LIMIT  = (10 * 1024 * 1024);
     const static size_t CACHE_EVICT_SIZE = (2 * 1024 * 1024);
-public:
+ public:
     CacheProxy() = default;
-    explicit CacheProxy(string blk_dev, shared_ptr<IDGenerator> id_maker,const Configure& conf);
+    explicit CacheProxy(std::string blk_dev, shared_ptr<IDGenerator> id_maker);
 
     /*each volume own a cproxy, disable copy constructor and operator=*/
     CacheProxy(const CacheProxy& other) = delete;
@@ -31,19 +38,14 @@ public:
     CacheProxy& operator=(CacheProxy&& other) = delete;
 
     ~CacheProxy();
-  
     /*journal writer or cache recover add cache*/
-    void write(string journal_file, off_t  journal_off, shared_ptr<JournalEntry> journal_entry);
-
+    void write(std::string journal_file, off_t  journal_off, shared_ptr<JournalEntry> journal_entry);
     /*io hook read*/
     int read(off_t  off, size_t len, char*  buf); 
-    
     /*journal replayer call*/
-    shared_ptr<CEntry> pop();                                     
-
+    shared_ptr<CEntry> pop();
     /*journal replayer reclaim CEntry from jcache and bcache */
-    bool reclaim(shared_ptr<CEntry> entry);         
-    
+    bool reclaim(shared_ptr<CEntry> entry);
     /*check whether cache is full*/
     bool isfull(size_t cur_io_size);
 
@@ -56,26 +58,23 @@ public:
     /*debug*/
     void trace();
 
-private:
+ private:
     /*block device*/
-    string   blkdev;
+    std::string blkdev;
     /*io seq generator*/
     shared_ptr<IDGenerator> idproc;
-
     /*current cache memory size*/
     atomic<size_t>  total_mem_size; 
-    
     /*backgroud cache evict*/
-    bool               evict_run;
-    thread*            evict_thread;
-    mutex              evict_lock;
+    bool evict_run;
+    thread* evict_thread;
+    mutex evict_lock;
     condition_variable evict_cond;
-    
-    mutex    cache_lock;
+    mutex cache_lock;
     /*accelerate journal replay*/
-    Jcache*  jcache;
+    Jcache* jcache;
     /*accelerate read cache*/
-    Bcache*  bcache;
+    Bcache* bcache;
 };
 
-#endif
+#endif  // SRC_SG_CLIENT_CACHE_CAHCE_PROXY_H_

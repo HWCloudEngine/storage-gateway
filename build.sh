@@ -98,7 +98,7 @@ rm -rf $RPC_SOURCE_PATH/inner_command
 rm -rf $RPC_SOURCE_PATH/journal
 rm -rf $RPC_SOURCE_PATH/control_api
 rm -rf $RPC_SOURCE_PATH/replication
-find . -name Makefile | xargs rm -f
+find . -name Makefile | grep -v -E "agent|auto" | xargs rm -f
 find . -name Makefile.in | xargs rm -f
 find . -name .dirstamp | xargs rm -f
 find . -name .deps | xargs rm -rf

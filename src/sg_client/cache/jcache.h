@@ -1,17 +1,25 @@
-#ifndef _JCACHE_H
-#define _JCACHE_H 
+/**********************************************
+*  Copyright (c) 2016 Huawei Technologies Co., Ltd. All rights reserved.
+*  
+*  File name:    backup_proxy.h
+*  Author: 
+*  Date:         2016/11/03
+*  Version:      1.0
+*  Description:  backup entry
+*  
+*************************************************/
+#ifndef SRC_SG_CLIENT_CACHE_JCACHE_H_
+#define SRC_SG_CLIENT_CACHE_JCACHE_H_
 #include <iostream>
-#include <string.h>
+#include <string>
 #include <map>
 #include <memory>
 #include "common.h"
-using namespace std;
 
-class Jkey 
-{
-public:
+class Jkey {
+ public:
     Jkey() = default;
-    Jkey(IoVersion seq);
+    explicit Jkey(IoVersion seq);
     Jkey(const Jkey& other);
     Jkey(Jkey&& other);
     Jkey& operator=(const Jkey& other);
@@ -20,31 +28,28 @@ public:
     friend bool operator<(const Jkey& a, const Jkey& b);
     friend ostream& operator<<(ostream& cout, const Jkey& key);
     /*io sequence */
-    IoVersion m_seq; 
+    IoVersion m_seq;
 };
 
-class Jcache 
-{
-public:
+class Jcache {
+ public:
     Jcache() = default;
-    Jcache(string blk_dev);
+    explicit Jcache(std::string blk_dev);
 
     Jcache(const Jcache& other) = delete;
     Jcache(Jcache&& other) = delete;
     Jcache& operator=(const Jcache& other) = delete;
     Jcache& operator=(Jcache&& other) = delete;
-    
     ~Jcache();
-    
+
     /*act as queue*/
     void push(shared_ptr<CEntry> value);
     shared_ptr<CEntry> pop();
-    
+
     /*travel use*/
-    class Iterator
-    {
-    public:
-        explicit Iterator(map<Jkey, shared_ptr<CEntry>>::iterator it);
+    class Iterator {
+     public:
+        explicit Iterator(SharedMutex& lock, map<Jkey, shared_ptr<CEntry>>::iterator it);
 
         bool operator==(const Iterator& other);
         bool operator!=(const Iterator& other);
@@ -54,10 +59,11 @@ public:
 
         Jkey first();
         shared_ptr<CEntry> second();
-    private:
+     private:
+        SharedMutex& m_lock;
         map<Jkey, shared_ptr<CEntry>>::iterator m_it;
     };
-    
+
     Jcache::Iterator begin();
     Jcache::Iterator end();
 
@@ -69,17 +75,16 @@ public:
 
     int size()const;
     bool empty()const;
-    
     /*debug*/
     void trace();
-    
-private:  
+
+ private:
     /*original block device*/
-    string m_blkdev;
+    std::string m_blkdev;
     /*read and write lock*/
     mutable SharedMutex m_mutex;
     /*act the same function as queue*/
     map<Jkey, shared_ptr<CEntry>> m_cache;
 };
 
-#endif
+#endif  // SRC_SG_CLIENT_CACHE_JCACHE_H_
