@@ -1,12 +1,22 @@
-#ifndef BACKUP_DECORATOR_H
-#define BACKUP_DECORATOR_H
+/**********************************************
+*  Copyright (c) 2016 Huawei Technologies Co., Ltd. All rights reserved.
+*  
+*  File name:    backup_proxy.h
+*  Author: 
+*  Date:         2016/11/03
+*  Version:      1.0
+*  Description:  backup entry
+*  
+*************************************************/
+#ifndef SRC_SG_CLIENT_BACKUP_BACKUP_DECORATOR_H_
+#define SRC_SG_CLIENT_BACKUP_BACKUP_DECORATOR_H_
 #include "../snapshot/snapshot_proxy.h"
 
 /*backup decorator decorate snapshot proxy about backup type snapshot*/
-class BackupDecorator : public ISnapshot, public ITransaction, public ISyncBarrier
-{
-public:
-    BackupDecorator(string vol_name, shared_ptr<SnapshotProxy> snapshot_proxy);
+class BackupDecorator : public ISnapshot,
+                        public ITransaction, public ISyncBarrier {
+ public:
+    BackupDecorator(std::string vol_name, shared_ptr<SnapshotProxy> snapshot_proxy);
     ~BackupDecorator();
 
     /*snapshot*/
@@ -19,20 +29,20 @@ public:
     StatusCode read_snapshot(const ReadSnapshotReq* req, ReadSnapshotAck* ack) override;
 
     /*transaction*/
-    StatusCode create_transaction(const SnapReqHead& shead, const string& snap_name) override;
-    StatusCode delete_transaction(const SnapReqHead& shead, const string& snap_name) override;
-    StatusCode rollback_transaction(const SnapReqHead& shead, const string& snap_name) override;
+    StatusCode create_transaction(const SnapReqHead& shead, const std::string& snap_name) override;
+    StatusCode delete_transaction(const SnapReqHead& shead, const std::string& snap_name) override;
+    StatusCode rollback_transaction(const SnapReqHead& shead, const std::string& snap_name) override;
 
     /*syncbarrier*/
-    void add_sync(const string& actor, const string& action) override;
-    void del_sync(const string& actor) override;
-    bool check_sync_on(const string& actor) override;
+    void add_sync(const std::string& actor, const std::string& action) override;
+    void del_sync(const std::string& actor) override;
+    bool check_sync_on(const std::string& actor) override;
 
-private:
-    string m_vol_name;
-    shared_ptr<SnapshotProxy>         m_snapshot_proxy;
+ private:
+    std::string m_vol_name;
+    shared_ptr<SnapshotProxy> m_snapshot_proxy;
     shared_ptr<BackupInnerCtrlClient> m_backup_inner_rpc_client;
-    map<string, string>               m_sync_table;
+    map<std::string, std::string> m_sync_table;
 };
 
-#endif
+#endif  // SRC_SG_CLIENT_BACKUP_BACKUP_DECORATOR_H_

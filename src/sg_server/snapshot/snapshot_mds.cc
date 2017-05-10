@@ -14,6 +14,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <assert.h>
+#include "common/config_option.h"
 #include "snapshot_util.h"
 #include "snapshot_mds.h"
 
@@ -25,14 +26,14 @@ using huawei::proto::inner::RollBlock;
 SnapshotMds::SnapshotMds(const string& vol_name, const size_t& vol_size) {
     m_volume_name = vol_name;
     m_volume_size = vol_size;
-
     m_latest_snapid = 0;
-
     m_snapshots.clear();
     m_cow_block_map.clear();
     m_cow_object_map.clear();
 
-    m_block_store = new CephBlockStore();
+    m_block_store = new CephBlockStore(g_option.ceph_cluster_name,
+                                       g_option.ceph_user_name,
+                                       g_option.ceph_pool_name);
 
     /*todo: read from configure file*/
     string db_path = DB_DIR + vol_name + "/snapshot";

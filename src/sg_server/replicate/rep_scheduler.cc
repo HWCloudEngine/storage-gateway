@@ -20,10 +20,8 @@
 using std::string;
 
 RepScheduler::RepScheduler(std::shared_ptr<CephS3Meta> meta,
-        Configure& conf,
         BlockingQueue<std::shared_ptr<RepVolume>>& vol_queue):
         meta_(meta),
-        conf_(conf),
         running_(true),
         enable_(true),
         vol_queue_(vol_queue){
@@ -47,11 +45,11 @@ int RepScheduler::add_volume(const string& vol_id){
         return -1;
     }
     lck.unlock();
-    std::shared_ptr<RepVolume> vol(new RepVolume(vol_id,conf_,
+    std::shared_ptr<RepVolume> vol(new RepVolume(vol_id,
                 meta_/*VolumeMetaManager*/,meta_/*JournalMetaManager*/));
     LOG_INFO << "add volume " << vol_id;
     std::shared_ptr<ReplicatorContext> reptr(
-        new ReplicatorContext(vol_id,meta_,conf_));
+        new ReplicatorContext(vol_id,meta_));
     vol->register_replicator(reptr);
     vol->recover_replication();
     lck.lock();

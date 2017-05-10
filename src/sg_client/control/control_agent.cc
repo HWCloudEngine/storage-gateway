@@ -7,12 +7,13 @@
 #include <stdio.h>
 #include <fstream>
 #include "control_agent.h"
+#include "common/config_option.h"
 #include <boost/tokenizer.hpp>
 
 
-AgentControlImpl::AgentControlImpl(const Configure& conf, const std::string& host,
+AgentControlImpl::AgentControlImpl(const std::string& host,
         const std::string& port, std::shared_ptr<VolInnerCtrlClient> vol_inner_client) :
-        conf_(conf), host_(host), port_(port), 
+        host_(host), port_(port), 
         vol_inner_client_(vol_inner_client),VolumeControlBase(vol_inner_client)
 {
     fd_ = open(AGENT_CTL_DEVICE_PATH, O_RDWR);
@@ -46,7 +47,7 @@ bool AgentControlImpl::init()
         return false;
     }
     //create agent conf file if not exist
-    std::ofstream fc(conf_.agent_dev_conf,std::ios::app);
+    std::ofstream fc(g_option.agent_dev_conf,std::ios::app);
     fc.close();
     LOG_INFO << " agent init OK";
     return true;
@@ -161,7 +162,7 @@ Status AgentControlImpl::DisableSG(ServerContext* context, const control::Disabl
 
 bool AgentControlImpl::persist_device(std::string vol_name,std::string device)
 {
-    std::ofstream f(conf_.agent_dev_conf,std::ios::app);
+    std::ofstream f(g_option.agent_dev_conf,std::ios::app);
     if(!f.is_open())
     {
         LOG_INFO <<" open agent dev conf file failed";
@@ -174,7 +175,7 @@ bool AgentControlImpl::persist_device(std::string vol_name,std::string device)
 }
 bool AgentControlImpl::delete_device(std::string device)
 {
-    std::ifstream fin(conf_.agent_dev_conf);
+    std::ifstream fin(g_option.agent_dev_conf);
     if(!fin.is_open())
     {
         LOG_INFO <<" open agent dev conf file failed";
@@ -189,7 +190,7 @@ bool AgentControlImpl::delete_device(std::string device)
         return false;
     }
     s.erase(pos,device.size()+1);
-    std::ofstream fout(conf_.agent_dev_conf);
+    std::ofstream fout(g_option.agent_dev_conf);
     if(!fout.is_open())
     {
         LOG_INFO <<" open agent dev conf file failed";
@@ -201,7 +202,7 @@ bool AgentControlImpl::delete_device(std::string device)
 
 bool AgentControlImpl::agent_device_recover()
 {
-    std::ifstream f(conf_.agent_dev_conf);
+    std::ifstream f(g_option.agent_dev_conf);
     if(!f.is_open())
     {
         LOG_INFO <<" open agent dev conf file failed";
