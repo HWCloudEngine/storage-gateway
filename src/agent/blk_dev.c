@@ -17,25 +17,6 @@
 
 struct pbdev_mgr g_dev_mgr;
 
-void hook_request_fn(struct request_queue* q)
-{
-    struct request* req;
-    struct pbdev* dev;
-
-    while((req = blk_fetch_request(q)) != NULL){
-        spin_unlock_irq(q->queue_lock);
-        dev = pbdev_mgr_get_by_queue(&g_dev_mgr, q);
-
-        /*todo check network status*/
-        spin_lock_irq(&dev->blk_queue_lock);
-        list_add_tail(&req->queuelist, &dev->send_queue);
-        /*wakup network send thread*/
-        spin_unlock_irq(&dev->blk_queue_lock);
-        wake_up(&dev->send_wq);
-        spin_lock_irq(q->queue_lock);
-    }
-}
-
 void hook_make_request_fn(struct request_queue* q, struct bio* bio)
 {
     struct pbdev* dev = NULL;
@@ -64,15 +45,7 @@ void hook_make_request_fn(struct request_queue* q, struct bio* bio)
     wake_up(&dev->send_wq);
 }
 
-int hook_queuecommand_fn(struct Scsi_Host* host, struct scsi_cmnd* cmd)
-{
-    if(cmd) cmd->scsi_done(cmd);
-    return 0;
-}
-
-static int install_hook(struct pbdev* dev, 
-                        request_fn_proc* new_request_fn,
-                        make_request_fn* new_make_request_fn)
+static int install_hook(struct pbdev* dev, make_request_fn* new_make_request_fn)
 {
     int ret = 0;
     struct super_block* sb = dev->blk_device->bd_super;
@@ -91,9 +64,7 @@ static int install_hook(struct pbdev* dev,
         LOG_INFO("freezing block device ok");
     }
     smp_wmb(); 
-    //dev->blk_device->bd_disk->queue->request_fn = new_request_fn;
     dev->blk_device->bd_disk->queue->make_request_fn = new_make_request_fn;
-    //dev->blk_device->bd_disk->queue->prep_rq_fn = hook_prep_rq_fn;
     smp_wmb(); 
     if(sb){
         ret = thaw_bdev(dev->blk_device, sb);
@@ -124,7 +95,6 @@ static int uninstall_hook(struct pbdev* dev)
         }
     }
     smp_wmb(); 
-    //dev->blk_device->bd_disk->queue->request_fn = dev->blk_request_fn;
     dev->blk_device->bd_disk->queue->make_request_fn = dev->blk_bio_fn;
     smp_wmb(); 
     if(sb){
@@ -207,50 +177,6 @@ static int net_send_bvec(struct pbdev* dev, struct bio_vec* bvec)
     return ret;
 }
 
-static int net_send_req(struct pbdev* dev, struct request* req)
-{
-    int ret;
-    uint64_t size = blk_rq_bytes(req);
-    uint64_t off  = (blk_rq_pos(req) << 9); 
-    //uint8_t  dir  = req->cmd[0]; /*READ=0 WRITE=1*/
-    uint8_t dir = rq_data_dir(req);
-
-    struct HookRequest hreq;
-    hreq.magic = MSG_MAGIC;
-    hreq.type  = dir ? IO_WRITE : IO_READ;
-    hreq.handle = (uint64_t)req;
-    hreq.offset = off;
-    hreq.len = size;
-    ret = tp_send(dev->network, (const char*)&hreq, sizeof(hreq));
-    if(ret){
-        LOG_ERR("send req failed ret:%d len:%lu", ret, sizeof(hreq));
-        return ret;
-    }
-    /*send write io data*/
-    if(rq_data_dir(req) == WRITE){
-        struct req_iterator iter;
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,14,0))
-        struct bio_vec*     bvec;
-        rq_for_each_segment(bvec, req, iter){
-            ret = net_send_bvec(dev, bvec);
-            if(ret){
-                LOG_ERR("recv bvec failed ret:%d", ret);
-            }
-        }
-#else
-        struct bio_vec     bvec;
-        rq_for_each_segment(bvec, req, iter){
-            ret = net_send_bvec(dev, &bvec);
-            if(ret){
-                LOG_ERR("recv bvec failed ret:%d", ret);
-            }
-        }
-#endif
-
-    }
-    return 0;
-}
-
 static int net_send_bio(struct pbdev* dev, struct bio* bio)
 {
     int ret;
@@ -258,9 +184,8 @@ static int net_send_bio(struct pbdev* dev, struct bio* bio)
     uint64_t size = bio->bi_size;
     uint64_t off  = ((bio->bi_sector) << 9); 
     #else
-    struct bvec_iter bio_iter = bio->bi_iter;
-    uint64_t size = bio_iter.bi_size;
-    uint64_t off  = ((bio_iter.bi_sector) << 9); 
+    uint64_t size = bio->bi_iter.bi_size;
+    uint64_t off  = ((bio->bi_iter.bi_sector) << 9); 
     #endif
     uint8_t  dir  = bio_data_dir(bio);
 
@@ -277,14 +202,13 @@ static int net_send_bio(struct pbdev* dev, struct bio* bio)
         LOG_ERR("send HookRequest failed ret:%d len:%lu", ret, sizeof(hreq));
         return ret;
     }
-    
+    LOG_INFO("send bio dir:%d off:%llu len:%llu hdl:%llu", dir, off, size, hreq.handle); 
     /*send write io data*/
     if(dir == WRITE){
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3,14,0))
         int i;
         struct bio_vec* bvec;
-        bio_for_each_segment(bvec, bio, i)
-        {
+        bio_for_each_segment(bvec, bio, i) {
             ret = net_send_bvec(dev, bvec);
             if(ret){
                 LOG_ERR("send bvec failed ret:%d", ret);
@@ -292,13 +216,16 @@ static int net_send_bio(struct pbdev* dev, struct bio* bio)
             }
         }
 #else
-        struct bio_vec bvec;
-        bio_for_each_segment(bvec, bio, bio_iter);
         {
-            ret = net_send_bvec(dev, &bvec);
-            if(ret){
-                LOG_ERR("send bvec failed ret:%d", ret);
-                return ret;
+            struct bio_vec bv;
+            struct bvec_iter iter;
+            bio_for_each_segment(bv, bio, iter){
+                ret = net_send_bvec(dev, &bv);
+                if(ret){
+                    LOG_ERR("send bvec failed ret:%d", ret);
+                    return ret;
+                }
+                LOG_INFO("send bvec off:%d len:%d", bv.bv_offset, bv.bv_len);
             }
         }
 #endif
@@ -317,48 +244,6 @@ static int net_recv_bvec(struct pbdev* dev, struct bio_vec* bvec)
     return ret;
 }
 
-static struct request* net_recv_req(struct pbdev* dev)
-{
-    int ret;
-    struct HookReply reply;
-    struct request* req;
-    ret = tp_recv(dev->network, (char*)(&reply), sizeof(reply));
-    if(ret){
-        LOG_ERR("recv req head failed");
-        return NULL;
-    }
-    LOG_ERR("recv req head ok");
-    /*todo check*/
-    if(reply.magic != MSG_MAGIC){
-        LOG_ERR("recv req head error"); 
-        return NULL;
-    }
-
-    req = (struct request*)reply.handle;
-    
-    if(rq_data_dir(req) == READ){
-        struct req_iterator iter;
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,14,0))
-        struct bio_vec*     bvec;
-        rq_for_each_segment(bvec, req, iter){
-            ret = net_recv_bvec(dev, bvec);
-            if(ret){
-                LOG_ERR("recv bvec failed ret:%d", ret);
-            }
-        }
-#else
-        struct bio_vec     bvec;
-        rq_for_each_segment(bvec, req, iter){
-            ret = net_recv_bvec(dev, &bvec);
-            if(ret){
-                LOG_ERR("recv bvec failed ret:%d", ret);
-            }
-        }
-#endif
-    }
-    return req;
-}
-
 static struct bio* net_recv_bio(struct pbdev* dev)
 {
     int ret;
@@ -375,6 +260,8 @@ static struct bio* net_recv_bio(struct pbdev* dev)
         return NULL;
     }
     
+    LOG_INFO("recv bio hdl:%llu", reply.handle); 
+
     bio = (struct bio*)reply.handle;
     if(bio == NULL)
     {
@@ -392,14 +279,16 @@ static struct bio* net_recv_bio(struct pbdev* dev)
             }
         }
 #else
-        struct bio_vec bvec;
-        struct bvec_iter bio_iter;
-        bio_for_each_segment(bvec, bio, bio_iter);
         {
-            ret = net_recv_bvec(dev, &bvec);
-            if(ret){
-                LOG_ERR("recv bvec failed ret:%d", ret);
+            struct bio_vec bvec = {0};
+            struct bvec_iter bio_iter = {0};
+            bio_for_each_segment(bvec, bio, bio_iter) {
+                ret = net_recv_bvec(dev, &bvec);
+                if(ret){
+                    LOG_ERR("recv bvec failed ret:%d", ret);
+                }
             }
+            LOG_INFO("recv bvec off:%llu len:%llu", bvec.bv_offset, bvec.bv_len);
         }
 #endif
     }
@@ -410,27 +299,6 @@ static struct bio* net_recv_bio(struct pbdev* dev)
 static int send_work(void* data)
 {
     struct pbdev* dev = (struct pbdev*)data;
-#if 0
-    struct request* req;
-    while(!kthread_should_stop() || 
-          !list_empty(&dev->send_queue) ||
-          !bio_list_empty(&dev->send_bio_list)){
-        
-        wait_event_interruptible(dev->send_wq, 
-                                 kthread_should_stop() || 
-                                 !list_empty(&dev->send_queue) ||
-                                 !bio_list_empty(&dev->send_bio_list));
-        if(list_empty(&dev->send_queue)){
-            continue; 
-        }
-        spin_lock_irq(&dev->blk_queue_lock);
-        req = list_entry(dev->send_queue.next, struct request, queuelist);
-        list_del_init(&req->queuelist);
-        spin_unlock_irq(&dev->blk_queue_lock);
-        LOG_ERR("send req:%d", req->cmd[0]);
-        net_send_req(dev, req);
-    }
-#else
     while(!kthread_should_stop() || !bio_list_empty(&dev->send_bio_list))
     {
         wait_event_interruptible(dev->send_wq, kthread_should_stop() || 
@@ -445,7 +313,6 @@ static int send_work(void* data)
             }
         }
     }
-#endif
     return 0;
 }
 
@@ -455,27 +322,15 @@ static int recv_work(void* data)
     struct bio* bio = NULL;
     while(!kthread_should_stop()){
         bio = net_recv_bio(dev);
-        if(bio != NULL){
-            #if (LINUX_VERSION_CODE < KERNEL_VERSION(3,14,0))
-            bio_endio(bio, 0); 
-            #else
-            bio->bi_error = 0;
-            bio_endio(bio); 
-            #endif
+        if(bio == NULL){
+            msleep(20);
+            continue;
         }
-#if 0
-        struct request* req;
-        req = net_recv_req(dev);
-        if(req != NULL){
-            int error = 0;
-            struct request_queue* q = req->q;
-            unsigned long flags;
-            LOG_INFO("recv req:%d", req->cmd[0]);
-            /*ack request to block layer*/
-            spin_lock_irqsave(q->queue_lock, flags);
-            __blk_end_request_all(req, error);
-            spin_unlock_irqrestore(q->queue_lock, flags);
-        }
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,14,0))
+        bio_endio(bio, 0); 
+#else
+        bio->bi_error = 0;
+        bio_endio(bio); 
 #endif
     }
     return 0;
@@ -564,7 +419,7 @@ int blk_dev_protect(const char* dev_path, const char* vol_name)
     }
     LOG_INFO("install hook,dev:%s",dev_path);
     /*install hook*/
-    ret = install_hook(dev, hook_request_fn, hook_make_request_fn);
+    ret = install_hook(dev, &hook_make_request_fn);
     if(ret){
         LOG_ERR("blkdev get queue failed:%d", ret);
         goto err;

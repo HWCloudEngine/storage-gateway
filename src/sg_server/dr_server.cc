@@ -16,7 +16,7 @@
 #include <sys/types.h>
 #include "log/log.h"
 #include "ceph_s3_meta.h"
-#include "common/config_parser.h"
+#include "common/config_option.h"
 #include "common/rpc_server.h"
 #include "gc_task.h"
 #include "writer_service.h"
@@ -43,12 +43,10 @@ int main(int argc, char** argv) {
     std::string file="sg_server.log";
     DRLog::log_init(file);
     DRLog::set_log_level(SG_DEBUG);
-    Configure conf;
-    conf.init(DEFAULT_CONFIG_FILE);
-    std::shared_ptr<CephS3Meta> meta(new CephS3Meta(conf));
+    std::shared_ptr<CephS3Meta> meta(new CephS3Meta());
 
-    string type = conf.global_journal_data_storage;
-    string mount_path = conf.journal_mount_point;
+    string type = g_option.global_journal_data_storage;
+    string mount_path = g_option.journal_mount_point;
     if(type.compare("ceph_fs") != 0 || mount_path.empty()){        
         LOG_FATAL << "config parse ceph_fs.mount_point error!";
         std::cerr << "config parse ceph_fs.mount_point error!" << std::endl;
@@ -56,8 +54,8 @@ int main(int argc, char** argv) {
     }
 
     // init meta server
-    string ip1 = conf.meta_server_ip;
-    int port1 = conf.meta_server_port;
+    string ip1 = g_option.meta_server_ip;
+    int port1 = g_option.meta_server_port;
     RpcServer metaServer(ip1,port1,grpc::InsecureServerCredentials());
     WriterServiceImpl writerSer(meta);
     ConsumerServiceImpl consumerSer(meta);
@@ -71,8 +69,8 @@ int main(int argc, char** argv) {
     metaServer.register_service(&backupMgr);
 
     // init net receiver
-    string ip2 = conf.replicate_local_ip;
-    int port2 = conf.replicate_port;
+    string ip2 = g_option.replicate_local_ip;
+    int port2 = g_option.replicate_port;
     RpcServer repServer(ip2,port2,grpc::InsecureServerCredentials());
 
     RepMsgHandlers rep_msg_handler(meta/*JournalMetaManager*/,
@@ -102,7 +100,7 @@ int main(int argc, char** argv) {
     TaskGenerator task_generator(rep_vol_que,task_que);
 
     // replicate third stage: transfer data to destination
-    string addr = conf.replicate_remote_ip;
+    string addr = g_option.replicate_remote_ip;
     addr.append(":").append(std::to_string(port2));
     LOG_INFO << "transmitter connect to " << addr;
     NetSender::instance().init(grpc::CreateChannel(
@@ -113,7 +111,7 @@ int main(int argc, char** argv) {
     MarkersMaintainer::instance().init(marker_ctx_que);
 
     // init replicate scheduler: replicate first stage: sort repVolume
-    RepScheduler rep_scheduler(meta,conf,rep_vol_que);
+    RepScheduler rep_scheduler(meta,rep_vol_que);
     //init replicate control rpc server
     RepInnerCtrl rep_control(rep_scheduler,meta);
     metaServer.register_service(&rep_control);
@@ -126,7 +124,7 @@ int main(int argc, char** argv) {
     }
 
     // init gc thread
-    GCTask::instance().init(conf, meta/*JournalGCManager*/,meta/*JournalMetaManager*/);
+    GCTask::instance().init(meta/*JournalGCManager*/,meta/*JournalMetaManager*/);
     // init volumes
     std::list<VolumeMeta> list;
     RESULT res = meta->list_volume_meta(list);

@@ -99,11 +99,15 @@ void Connection::dispatch(IOHookRequest* header_ptr) {
     switch (header_ptr->type) {
         case SCSI_READ:
             /*request to journal reader*/
+            LOG_INFO << "xxx read parse len:" << header_ptr->len
+                     << " handle:" << header_ptr->handle;
             read_queue_.push(*header_ptr);
             read_request_header();
             break;
         case SCSI_WRITE:
             /*requst to journal writer*/
+            LOG_INFO << "xxx write parse len:" << header_ptr->len
+                     << " handle:" << header_ptr->handle;
             parse_write_request(header_ptr);
             break;
         case SYNC_CACHE:
@@ -252,7 +256,7 @@ void Connection::send_thread() {
     while (running_flag) {
        if (!reply_queue_.pop(reply)) {
             LOG_ERROR << "reply_queue pop failed";
-            continue;
+            break;
         }
         send_reply(reply);
     }
@@ -263,6 +267,7 @@ void Connection::send_reply(IOHookReply* reply) {
         LOG_ERROR << "Invalid reply ptr";
         return;
     }
+    LOG_INFO << "xxx reply handle:" << reply->handle;
     boost::asio::async_write(*raw_socket_,
     boost::asio::buffer(reply, sizeof(struct IOHookReply)),
     boost::bind(&Connection::handle_send_reply, this, reply,
@@ -284,6 +289,7 @@ void Connection::handle_send_reply(IOHookReply* reply,
         LOG_ERROR << "send reply failed,reply id:" << reply->handle;
         delete []reply;
     }
+    LOG_INFO << "xxx reply handle:" << reply->handle << " ok";
 }
 
 void Connection::handle_send_data(IOHookReply* reply,

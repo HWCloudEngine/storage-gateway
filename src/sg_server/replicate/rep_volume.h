@@ -26,7 +26,6 @@ typedef enum SyncStatus{
 class RepVolume{
     std::string vol_id_;
     int priority_;
-    Configure& conf_;
     // last served time
     uint64_t last_served_time_;
     std::shared_ptr<ReplicatorContext> replicator_;
@@ -41,7 +40,7 @@ class RepVolume{
     std::shared_ptr<VolumeMetaManager> vol_mgr_;
     std::shared_ptr<JournalMetaManager> journal_mgr_;
 public:
-    RepVolume(const string& vol_id,Configure& conf,
+    RepVolume(const string& vol_id,
             std::shared_ptr<VolumeMetaManager> vol_mgr,
             std::shared_ptr<JournalMetaManager> j_mgr);
     ~RepVolume();

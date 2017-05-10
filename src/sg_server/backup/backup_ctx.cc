@@ -14,6 +14,7 @@
 #include <sys/stat.h>
 #include "common/define.h"
 #include "common/utils.h"
+#include "common/config_option.h"
 #include "log/log.h"
 #include "rpc/snapshot.pb.h"
 #include "backup_ctx.h"
@@ -25,7 +26,9 @@ BackupCtx::BackupCtx(const string& vol_name, const size_t& vol_size) {
     m_backups.clear();
     m_backup_block_map.clear();
 
-    m_block_store = new CephBlockStore();
+    m_block_store = new CephBlockStore(g_option.ceph_cluster_name,
+                                       g_option.ceph_user_name,
+                                       g_option.ceph_pool_name);
     /*todo: read from configure file*/
     string db_path = DB_DIR + vol_name + "/backup";
     if (access(db_path.c_str(), F_OK)) {

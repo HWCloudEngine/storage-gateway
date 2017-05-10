@@ -202,7 +202,7 @@ std::shared_ptr<TransferTask> ReplicatorContext::construct_task(
     bool is_open = meta.status() == OPENED ? true:false;
     std::shared_ptr<RepContext> ctx(new RepContext(vol_,peer_volume_,c,e.end_offset(),is_open,f));
     std::shared_ptr<TransferTask> task(
-        new JournalTask(e.start_offset(),conf_.journal_mount_point + meta.path(), ctx));
+        new JournalTask(e.start_offset(),g_option.journal_mount_point + meta.path(), ctx));
     task->set_status(T_WAITING);
     task->set_ts(time(nullptr));
     return task;

@@ -15,10 +15,11 @@
 #include <errno.h>
 #include <regex.h>
 #include <fstream>
+#include "common/env_posix.h"
+#include "common/config_option.h"
 #include <boost/format.hpp>
 #include <boost/tokenizer.hpp>
 #include "control_volume.h"
-#include "common/block_dev.h"
 
 using namespace std;
 using google::protobuf::Map;
@@ -29,18 +30,16 @@ using huawei::proto::VOL_ENABLING;
 
 static const char* TGT_CONF_PATH = "/etc/tgt/conf.d";
 
-LunTuple::LunTuple(uint32_t tid, string iqn, uint32_t lun, 
-                   string volume_name, string block_device)
-{
-    tid_ = tid; 
+LunTuple::LunTuple(uint32_t tid, std::string iqn, uint32_t lun,
+                   std::string volume_name, std::string block_device) {
+    tid_ = tid;
     iqn_ = iqn;
     lun_ = lun;
-    volume_name_  = volume_name;
+    volume_name_ = volume_name;
     block_device_ = block_device;
 }
 
-LunTuple::LunTuple(const LunTuple& other)
-{
+LunTuple::LunTuple(const LunTuple& other) {
     tid_ = other.tid_; 
     iqn_ = other.iqn_;
     lun_ = other.lun_;
@@ -48,38 +47,32 @@ LunTuple::LunTuple(const LunTuple& other)
     block_device_ = other.block_device_;
 }
 
-LunTuple& LunTuple::operator=(const LunTuple& other)
-{
-    if(this != &other){
+LunTuple& LunTuple::operator=(const LunTuple& other) {
+    if (this != &other) {
         tid_ = other.tid_; 
         iqn_ = other.iqn_;
         lun_ = other.lun_;
-        volume_name_  = other.volume_name_;
+        volume_name_ = other.volume_name_;
         block_device_ = other.block_device_;
     }
-    return *this;    
+    return *this;
 }
 
-ostream& operator<<(ostream& cout, const LunTuple& lun)
-{
+std::ostream& operator<<(std::ostream& cout, const LunTuple& lun) {
     LOG_INFO << "[tid:" << lun.tid_ << " iqn:" << lun.iqn_ \
              << " lun:" << lun.lun_ << " vol:" << lun.volume_name_  \
              << " bdev:" << lun.block_device_ + "]";
     return cout;
 }
 
-
 int VolumeControlImpl::tid_id = 100;
 int VolumeControlImpl::lun_id = 200;
 
-
 VolumeControlBase::VolumeControlBase(std::shared_ptr<VolInnerCtrlClient> vol_inner_client):
-    vol_inner_client_(vol_inner_client)
-{
+    vol_inner_client_(vol_inner_client) {
 }
 
-VolumeControlBase::~VolumeControlBase()
-{
+VolumeControlBase::~VolumeControlBase() {
 }
 
 Status VolumeControlBase::EnableSG(ServerContext* context, const control::EnableSGReq* req,
@@ -116,7 +109,7 @@ bool VolumeControlImpl::recover_targets()
 
 bool VolumeControlImpl::recover_target(const char* vol_name)
 {
-    string vol_conf_path;
+    std::string vol_conf_path;
     vol_conf_path.append(TGT_CONF_PATH);
     vol_conf_path.append("/");
     vol_conf_path.append(vol_name);
@@ -134,9 +127,9 @@ bool VolumeControlImpl::recover_target(const char* vol_name)
     
     const int match_size = 10;
     regmatch_t match_pos[match_size];
-    string line;
-    string iqn_name;
-    string dev_name;
+    std::string line;
+    std::string iqn_name;
+    std::string dev_name;
     ifstream inif;
     inif.open(vol_conf_path.c_str());
 
@@ -145,7 +138,7 @@ bool VolumeControlImpl::recover_target(const char* vol_name)
         LOG_INFO << "read line:" << line;
         ret = regexec(&iqn_regex, line.c_str(), match_size, match_pos, 0);
         if(!ret){
-            /*get iqn string*/
+            /*get iqn std::string*/
             LOG_INFO << "1 read iqn so:" << match_pos[0].rm_so << " eo:" << match_pos[0].rm_eo;
             off_t  match_start = match_pos[0].rm_so;
             size_t match_len = match_pos[0].rm_eo - match_pos[0].rm_so;
@@ -153,7 +146,7 @@ bool VolumeControlImpl::recover_target(const char* vol_name)
         }
         ret = regexec(&dev_regex, line.c_str(), match_size, match_pos, 0);
         if(!ret){
-            /*get dev string*/
+            /*get dev std::string*/
             LOG_INFO << "2 read iqn so:" << match_pos[0].rm_so << " eo:" << match_pos[0].rm_eo;
             off_t  match_start = match_pos[0].rm_so;
             size_t match_len = match_pos[0].rm_eo - match_pos[0].rm_so;
@@ -163,8 +156,7 @@ bool VolumeControlImpl::recover_target(const char* vol_name)
     
     LOG_INFO << "iqn_name:" << iqn_name << " dev_name" << dev_name;
     if(!iqn_name.empty() && !dev_name.empty()){
-        BlockDevice blk(dev_name);
-        size_t dev_size = blk.dev_size();
+        size_t dev_size = Env::instance()->file_size(dev_name);
         enable_sg(vol_name, dev_name, dev_size, iqn_name, true);
     }
 
@@ -174,14 +166,14 @@ bool VolumeControlImpl::recover_target(const char* vol_name)
     return true;
 }
 
-bool VolumeControlImpl::enable_sg(const string vol_name, 
-                                  const string dev_name, 
+bool VolumeControlImpl::enable_sg(const std::string vol_name, 
+                                  const std::string dev_name, 
                                   const size_t dev_size,
-                                  string& iqn_name, 
+                                  std::string& iqn_name, 
                                   bool recover)
 {
     bool result = false;
-    string error_msg;
+    std::string error_msg;
 
     do {
         auto it = tgt_luns_.find(vol_name);
@@ -354,30 +346,26 @@ Status VolumeControlBase::ListVolumes(ServerContext* context,
 }
 
 
-VolumeControlImpl::VolumeControlImpl(const Configure& conf, const std::string& host,
+VolumeControlImpl::VolumeControlImpl(const std::string& host,
         const std::string& port,
         std::shared_ptr<VolInnerCtrlClient> vol_inner_client) :
-        conf_(conf), host_(host), port_(port),
-        vol_inner_client_(vol_inner_client),VolumeControlBase(vol_inner_client)
-{
-    target_prefix_ = conf_.iscsi_target_prefix;
-    target_path_  = conf_.iscsi_target_config_dir;
+        host_(host), port_(port),
+        vol_inner_client_(vol_inner_client),VolumeControlBase(vol_inner_client) {
+    target_prefix_ = g_option.iscsi_target_prefix;
+    target_path_  = g_option.iscsi_target_config_dir;
 }
 
-VolumeControlImpl::~VolumeControlImpl()
-{
+VolumeControlImpl::~VolumeControlImpl() {
 }
 
-std::string VolumeControlImpl::get_target_iqn(const std::string& volume_id)
-{
+std::string VolumeControlImpl::get_target_iqn(const std::string& volume_id) {
     return target_prefix_ + volume_id;
 }
 
 bool VolumeControlImpl::generate_config(const std::string& volume_id,
-                                        const std::string& device, 
+                                        const std::string& device,
                                         const std::string& target_iqn,
-                                        std::string& config)
-{
+                                        std::string& config) {
     boost::format target_format =
             boost::format(
                     std::string("<target %1%> \n") +
@@ -393,8 +381,7 @@ bool VolumeControlImpl::generate_config(const std::string& volume_id,
 }
 
 bool VolumeControlImpl::persist_config(const std::string& volume_id,
-                                       const std::string& config)
-{
+                                       const std::string& config) {
     std::string file_name = target_path_ + volume_id;
     LOG_INFO<<"persist config file " << file_name;
     std::ofstream f(file_name);
@@ -403,89 +390,79 @@ bool VolumeControlImpl::persist_config(const std::string& volume_id,
     return true;
 }
 
-bool VolumeControlImpl::remove_config(const std::string& volume_id)
-{
+bool VolumeControlImpl::remove_config(const std::string& volume_id) {
     std::string file_name = target_path_ + volume_id;
     LOG_INFO<<"remove config file "<<file_name;
     int ret = remove(file_name.c_str());
-    if (ret == 0)
-    {
+    if (ret == 0) {
         return true;
-    }
-    else
-    {
+    } else {
         LOG_INFO<<"remove config file "<<file_name<<"failed";
         return false;
     }
 }
 
-bool VolumeControlImpl::add_target(const LunTuple& lun)
-{
+bool VolumeControlImpl::add_target(const LunTuple& lun) {
     LOG_INFO <<"add target " << lun;
-    string cmd = "tgtadm --lld iscsi --mode target --op new --tid " \
-                  + to_string(lun.tid_) + " --targetname " + lun.iqn_;
+    std::string cmd = "tgtadm --lld iscsi --mode target --op new --tid " \
+                  + std::to_string(lun.tid_) + " --targetname " + lun.iqn_;
     LOG_INFO << cmd ;
     int ret = system(cmd.c_str());
     LOG_INFO<<"add target "<< lun << " ret:" << ret;
     return ret == 0 ? true : false;
 }
 
-bool VolumeControlImpl::remove_target(uint32_t tid)
-{
+bool VolumeControlImpl::remove_target(uint32_t tid) {
     LOG_INFO<<"remove target tid:" << tid;
-    string cmd = "tgtadm --lld iscsi --mode target --op delete --force --tid " \
-                  + to_string(tid);
+    std::string cmd = "tgtadm --lld iscsi --mode target --op delete --force --tid " \
+                  + std::to_string(tid);
     LOG_INFO << cmd ;
     int ret = system(cmd.c_str());
     LOG_INFO<<"remove target tid:" << tid << " ret:" << ret;
     return ret == 0 ? true : false;
 }
 
-bool VolumeControlImpl::add_lun(const LunTuple& lun)
-{
+bool VolumeControlImpl::add_lun(const LunTuple& lun) {
     LOG_INFO <<"add lun: " << lun;
 
     char bsopt[1024] = "\0";
     snprintf(bsopt, sizeof(bsopt), "--bsopts \"host=%s;port=%d;volume=%s;device=%s\"",
             "127.0.0.1", 9999, lun.volume_name_.c_str(), lun.block_device_.c_str());
     std::string cmd = "tgtadm --lld iscsi --mode logicalunit --op new  --tid " \
-                      + to_string(lun.tid_) + " --lun " + to_string(lun.lun_) \
+                      + std::to_string(lun.tid_) + " --lun " + std::to_string(lun.lun_) \
                       + " --backing-store " + lun.block_device_   \
                       + " --bstype hijacker " \
-                      + string(bsopt);
+                      + std::string(bsopt);
     LOG_INFO << cmd ;
     int ret = system(cmd.c_str());
     LOG_INFO<<"add lun:" << lun << " ret:" << ret;
     return ret == 0 ? true : false;
 }
 
-bool VolumeControlImpl::remove_lun(const LunTuple& lun)
-{    
+bool VolumeControlImpl::remove_lun(const LunTuple& lun) {
     LOG_INFO<<"remove lun: " << lun;
     std::string cmd = "tgtadm --lld iscsi --mode logicalunit --op delete --tid " \
-                       + to_string(lun.tid_) + " --lun " + to_string(lun.lun_);
+                       + std::to_string(lun.tid_) + " --lun " + std::to_string(lun.lun_);
     LOG_INFO << cmd ;
     int ret = system(cmd.c_str());
     LOG_INFO<<"remove lun:" << lun << " ret:" << ret;
     return ret == 0 ? true : false;
 }
 
-bool VolumeControlImpl::acl_bind(const LunTuple& lun)
-{
+bool VolumeControlImpl::acl_bind(const LunTuple& lun) {
     LOG_INFO<<"acl bind:" << lun;
     std::string cmd = "tgtadm --lld iscsi --mode target --op bind --tid " \
-                       + to_string(lun.tid_) + " --initiator-addres ALL";
+                       + std::to_string(lun.tid_) + " --initiator-addres ALL";
     LOG_INFO << cmd ;
     int ret = system(cmd.c_str());
     LOG_INFO<<"acl bind:" << lun << " ret:" << ret;
     return ret == 0 ? true : false;
 }
 
-bool VolumeControlImpl::acl_unbind(const LunTuple& lun)
-{
+bool VolumeControlImpl::acl_unbind(const LunTuple& lun) {
     LOG_INFO<<"acl unbind:" << lun;
     std::string cmd = "tgtadm --lld iscsi --mode target --op unbind --tid " \
-                       + to_string(lun.tid_) + " --initiator-addres ALL";
+                       + std::to_string(lun.tid_) + " --initiator-addres ALL";
     LOG_INFO << cmd ;
     int ret = system(cmd.c_str());
     LOG_INFO<<"acl unbind:" << lun << " ret:" << ret;
@@ -494,24 +471,23 @@ bool VolumeControlImpl::acl_unbind(const LunTuple& lun)
 
 Status VolumeControlImpl::EnableSG(ServerContext* context,
                                    const control::EnableSGReq* req, 
-                                   control::EnableSGRes* res)
-{
-    string vol_name = req->volume_id();
-    string dev_name = req->device();
+                                   control::EnableSGRes* res) {
+    std::string vol_name = req->volume_id();
+    std::string dev_name = req->device();
     size_t dev_size = req->size();
-    string iqn_name;
+    std::string iqn_name;
     bool result;
 
     LOG_INFO << "enable sg vol:" << vol_name << " device:" << dev_name;
     StatusCode ret = vol_inner_client_->create_volume(vol_name, dev_name, dev_size, VOL_AVAILABLE);
-    if(ret != StatusCode::sOk){
+    if (ret != StatusCode::sOk) {
         res->set_status(StatusCode::sInternalError);
         LOG_ERROR << "enable sg vol:" << vol_name << " device:" << dev_name << " failed"; 
         return Status::OK;
     }
 
     result = enable_sg(vol_name, dev_name, dev_size, iqn_name, false);
-    if(!result){
+    if (!result) {
         ret = vol_inner_client_->delete_volume(vol_name);
         res->set_status(StatusCode::sInternalError);
         LOG_ERROR << "enable sg vol:" << vol_name << " device:" << dev_name << " failed"; 
@@ -526,33 +502,32 @@ Status VolumeControlImpl::EnableSG(ServerContext* context,
 }
 
 Status VolumeControlImpl::DisableSG(ServerContext* context,
-                                    const control::DisableSGReq* req, 
-                                    control::DisableSGRes* res)
-{
+                                    const control::DisableSGReq* req,
+                                    control::DisableSGRes* res) {
     std::string volume_id = req->volume_id();
     std::string target_iqn = get_target_iqn(volume_id);
-    string error_msg;
+    std::string error_msg;
     bool ret;
     LOG_INFO << "disable sg volume:" << volume_id;
    
     do {
         auto it = tgt_luns_.find(volume_id);
-        if(it == tgt_luns_.end()){
+        if (it == tgt_luns_.end()) {
             error_msg = " volume not exist";
             break;
         }
         ret = acl_unbind(it->second);
-        if(!ret){
+        if (!ret) {
             error_msg = " failed acl unbind";
             break;
         }
         ret = remove_lun(it->second);
-        if(!ret){
+        if (!ret) {
             error_msg = " failed remove lun";
             break;
         }
         ret = remove_target(it->second.tid_);
-        if(!ret){
+        if (!ret) {
             error_msg = " failed remove target";
             break;
         }
@@ -563,7 +538,7 @@ Status VolumeControlImpl::DisableSG(ServerContext* context,
         //}
 
         ret = remove_config(volume_id);
-        if(!ret){
+        if (!ret) {
             error_msg = " failed remove config";
             break;
         }

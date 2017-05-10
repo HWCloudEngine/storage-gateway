@@ -17,7 +17,7 @@
 #include "rep_task.h"
 #include "sg_server/consumer_interface.h"
 #include "sg_server/journal_meta_manager.h"
-#include "common/config.h"
+#include "common/config_option.h"
 using huawei::proto::JournalElement;
 class ReplicatorContext:public IConsumer {
     // TODO: replace task windows with general sequential queue
@@ -117,11 +117,9 @@ private:
 
 public:
     ReplicatorContext(const std::string& vol,
-            std::shared_ptr<JournalMetaManager> j_meta_mgr,
-            Configure& conf):
+            std::shared_ptr<JournalMetaManager> j_meta_mgr):
             IConsumer(vol),
             j_meta_mgr_(j_meta_mgr),
-            conf_(conf),
             task_window_(MAX_TASK_PER_VOL),
             seq_id_(0L),
             initialized_(false){
@@ -148,7 +146,6 @@ public:
     virtual int get_consumable_journals(const JournalMarker& marker,
             const int limit, std::list<JournalElement>& list);
 private:
-    Configure& conf_;
     // journal meta manager
     std::shared_ptr<JournalMetaManager> j_meta_mgr_;
     // set max task number in consuming slide window

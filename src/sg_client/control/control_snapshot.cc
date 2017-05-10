@@ -9,7 +9,7 @@
 *
 *************************************************/
 #include <fstream>
-#include "common/block_dev.h"
+#include "common/env_posix.h"
 #include "log/log.h"
 #include "control_snapshot.h"
 using huawei::proto::StatusCode;
@@ -273,8 +273,9 @@ void SnapshotControlImpl::bg_work() {
         }
         job->status = BG_DOING;
         gettimeofday(&(job->start_ts), NULL);
-        BlockDevice bdev(job->new_blk_device);
-        size_t bdev_size = bdev.dev_size();
+        unique_ptr<AccessFile> block_file;
+        Env::instance()->create_access_file(job->new_blk_device, true, &block_file);
+        size_t bdev_size = Env::instance()->file_size(job->new_blk_device);
         off_t  bdev_off = 0;
         size_t bdev_slice = COW_BLOCK_SIZE;
 
@@ -284,6 +285,7 @@ void SnapshotControlImpl::bg_work() {
         ReadSnapshotAck ack;
         req.set_vol_name(job->vol_name);
         req.set_snap_name(job->snap_name);
+        LOG_INFO << "bg restore vol:" << job->new_volume << " size:" << bdev_size;
         while (bdev_off < bdev_size) {
             bdev_slice = ((bdev_size-bdev_off) > COW_BLOCK_SIZE) ? \
                           COW_BLOCK_SIZE : (bdev_size-bdev_off);
@@ -291,14 +293,12 @@ void SnapshotControlImpl::bg_work() {
             req.set_len(bdev_slice);
             StatusCode ret = vol_snap_proxy->read_snapshot(&req, &ack);
             assert(ret == StatusCode::sOk);
-            ssize_t write_ret = bdev.sync_write(ack.data().c_str(),
-                                          ack.data().length(), bdev_off);
+            ssize_t write_ret = block_file->write(const_cast<char*>(ack.data().c_str()),
+                                                  ack.data().length(), bdev_off);
             assert(write_ret == ack.data().length());
-            LOG_INFO << "bg_write off:" << bdev_off
-                     << " len:" << ack.data().length()
-                     << " slice:" << bdev_slice << " ret:" << write_ret;
             bdev_off += bdev_slice;
         }
+        LOG_INFO << "bg restore vol:" << job->new_volume << " size:" << bdev_size << " ok";
 
         job->status = BG_DONE;
         gettimeofday(&(job->complete_ts), NULL);

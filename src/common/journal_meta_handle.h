@@ -13,7 +13,7 @@
 #include "rpc/common.pb.h"
 #include "rpc/journal.pb.h"
 #include "common/ceph_s3_api.h"
-#include "common/config.h"
+#include "common/config_option.h"
 #include "log/log.h"
 #include <string>
 using huawei::proto::JournalMeta;
@@ -47,12 +47,10 @@ private:
         string host;
         string bucket_name;
         
-        Configure conf;
-        conf.init(DEFAULT_CONFIG_FILE);
-        access_key = conf.ceph_s3_access_key;
-        secret_key = conf.ceph_s3_secret_key;
-        host = conf.ceph_s3_host;
-        bucket_name = conf.ceph_s3_bucket;
+        access_key = g_option.ceph_s3_access_key;
+        secret_key = g_option.ceph_s3_secret_key;
+        host = g_option.ceph_s3_host;
+        bucket_name = g_option.ceph_s3_bucket;
 
         s3Api_ptr_.reset(new CephS3Api(access_key.c_str(),
                     secret_key.c_str(),host.c_str(),bucket_name.c_str()));        

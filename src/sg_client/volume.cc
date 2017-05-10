@@ -16,12 +16,12 @@
 
 namespace Journal {
 
-Volume::Volume(VolumeManager& vol_manager, const Configure& conf,
+Volume::Volume(VolumeManager& vol_manager,
                const VolumeInfo& vol_info,
                shared_ptr<CephS3LeaseClient> lease_client,
                shared_ptr<WriterClient> writer_rpc_client, int epoll_fd,
                raw_socket_t client_sock)
-              : vol_manager_(vol_manager), conf_(conf), vol_attr_(vol_info),
+              : vol_manager_(vol_manager), vol_attr_(vol_info),
                 lease_client_(lease_client),
                 writer_rpc_client_(writer_rpc_client), epoll_fd_(epoll_fd),
                 raw_socket_(client_sock) {
@@ -40,13 +40,13 @@ bool Volume::init() {
         return false;
     }
     idproxy_.reset(new IDGenerator());
-    cacheproxy_.reset(new CacheProxy(vol_attr_.blk_device(), idproxy_, conf_));
-    snapshotproxy_.reset(new SnapshotProxy(conf_, vol_attr_, entry_queue_));
+    cacheproxy_.reset(new CacheProxy(vol_attr_.blk_device(), idproxy_));
+    snapshotproxy_.reset(new SnapshotProxy(vol_attr_, entry_queue_));
     backupdecorator_.reset(new BackupDecorator(vol_attr_.vol_name(), snapshotproxy_));
-    backupproxy_.reset(new BackupProxy(conf_, vol_attr_, backupdecorator_));
+    backupproxy_.reset(new BackupProxy(vol_attr_, backupdecorator_));
     connection_.reset(new Connection(vol_manager_, raw_socket_, entry_queue_,
                             write_queue_, read_queue_, reply_queue_));
-    rep_proxy_.reset(new ReplicateProxy(conf_, vol_attr_.vol_name(),
+    rep_proxy_.reset(new ReplicateProxy(vol_attr_.vol_name(),
                                         vol_attr_.vol_size(), snapshotproxy_));
     pre_processor_.reset(new JournalPreProcessor(entry_queue_, write_queue_));
     reader_.reset(new JournalReader(read_queue_, reply_queue_));
@@ -56,12 +56,12 @@ bool Volume::init() {
         LOG_ERROR << "init connection failed,vol_name:" << vol_attr_.vol_name();
         return false;
     }
-    if (!pre_processor_->init(conf_)) {
+    if (!pre_processor_->init()) {
         LOG_ERROR << "init pre_processor failed,vol_name:"<< vol_attr_.vol_name();
         return false;
     }
     /*todo read from config*/
-    if (!writer_->init(conf_, idproxy_, cacheproxy_, snapshotproxy_,
+    if (!writer_->init(idproxy_, cacheproxy_, snapshotproxy_,
                       lease_client_, writer_rpc_client_, epoll_fd_)) {
         LOG_ERROR << "init journal writer failed,vol_name:" << vol_attr_.vol_name();
         return false;
@@ -70,7 +70,7 @@ bool Volume::init() {
         LOG_ERROR << "init journal writer failed,vol_name:" << vol_attr_.vol_name();
         return false;
     }
-    if (!replayer_->init(conf_, idproxy_, cacheproxy_, snapshotproxy_,
+    if (!replayer_->init(idproxy_, cacheproxy_, snapshotproxy_,
                          rep_proxy_)) {
         LOG_ERROR << "init journal replayer failed,vol_name:" << vol_attr_.vol_name();
         return false;
