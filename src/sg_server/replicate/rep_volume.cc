@@ -21,11 +21,9 @@ using huawei::proto::REP_PRIMARY;
 const uint64_t DEADLINE = 300; // TODO:
 
 RepVolume::RepVolume(const string& vol_id,
-        Configure& conf,
         std::shared_ptr<VolumeMetaManager> vol_mgr,
         std::shared_ptr<JournalMetaManager> j_mgr):
         vol_id_(vol_id),
-        conf_(conf),
         vol_mgr_(vol_mgr),
         journal_mgr_(j_mgr),
         task_generating_flag_(false),
@@ -257,7 +255,7 @@ std::shared_ptr<TransferTask> RepVolume::generate_base_sync_task(
     auto f = std::bind(&RepVolume::recycle_base_sync_task,this,std::placeholders::_1);
     // NOTE: use peer volume id
     std::shared_ptr<RepContext> ctx(new RepContext(vol_id_,get_peer_volume(), counter,
-                            conf_.journal_max_size,false,std::ref(f)));
+                            g_option.journal_max_size,false,std::ref(f)));
     std::shared_ptr<TransferTask> task;
     if(has_pre_snap){
         task.reset(new DiffSnapTask(pre_snap,cur_snap,ctx));

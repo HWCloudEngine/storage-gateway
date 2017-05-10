@@ -10,6 +10,10 @@ bool is_support_sse4_2() {
     return false;
 }
 
+void memory_barrier() {
+    __asm__ __volatile__("" : : : "memory");
+}
+
 const std::string SUFFIX = ".snapshot";
 
 std::string backup_to_snap_name(std::string backup_name) {
@@ -40,3 +44,6 @@ void save_file(const std::string& fname, const char* buf, const size_t& len) {
     outfile.close();
 }
 
+std::string rpc_address(const std::string host, const uint16_t& port) {
+    return host + ":" + std::to_string(port);
+}

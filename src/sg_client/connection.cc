@@ -44,11 +44,11 @@ Connection::Connection(VolumeManager& vol_manager,
                       entry_queue_(entry_queue), write_queue_(write_queue),
                       read_queue_(read_queue), reply_queue_(reply_queue),
                       buffer_pool(NULL) {
-    LOG_INFO << "Connection create";
+    LOG_INFO << "Network work thread create";
 }
 
 Connection::~Connection() {
-    LOG_INFO << "Connection destroy ";
+    LOG_INFO << "NetWork work thread destroy";
 }
 
 bool Connection::init(nedalloc::nedpool* buffer) {
@@ -252,7 +252,7 @@ void Connection::send_thread() {
     while (running_flag) {
        if (!reply_queue_.pop(reply)) {
             LOG_ERROR << "reply_queue pop failed";
-            continue;
+            break;
         }
         send_reply(reply);
     }

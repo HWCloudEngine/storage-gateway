@@ -21,6 +21,7 @@
 #include <fstream>
 #include "common/interval_set.h"
 #include "common/utils.h"
+#include "common/config_option.h"
 #include "rpc/message.pb.h"
 #include "snapshot_proxy.h"
 
@@ -58,38 +59,33 @@ using huawei::proto::inner::UpdateEvent;
 
 #define ALIGN_UP(v, align) (((v)+(align)-1) & ~((align)-1))
 
-SnapshotProxy::SnapshotProxy(const Configure& conf, VolumeAttr& vol_attr,
+SnapshotProxy::SnapshotProxy(VolumeAttr& vol_attr,
                     BlockingQueue<shared_ptr<JournalEntry>>& entry_queue)
-    :m_conf(conf), m_vol_attr(vol_attr), m_entry_queue(entry_queue) {
-    LOG_INFO << "create proxy vname:" << m_vol_attr.vol_name();
+    :m_vol_attr(vol_attr), m_entry_queue(entry_queue) {
     init();
     LOG_INFO << "create proxy vname:" << m_vol_attr.vol_name() << " ok";
 }
 
 SnapshotProxy::~SnapshotProxy() {
-    LOG_INFO << "delete proxy vname:" << m_vol_attr.vol_name();
     fini();
     LOG_INFO << "delete proxy vname:" << m_vol_attr.vol_name() << " ok";
 }
 
 bool SnapshotProxy::init() {
     /*snapshot inner rpc client stub*/
+    std::string meta_rpc_addr = rpc_address(g_option.meta_server_ip,
+                                            g_option.meta_server_port);
     m_rpc_stub = SnapshotInnerControl::NewStub(
-            grpc::CreateChannel(m_conf.sg_server_addr(),
-                grpc::InsecureChannelCredentials()));
-    /*open block device*/
-    m_block_fd = open(m_vol_attr.blk_device().c_str(),
-                      O_RDWR | O_DIRECT | O_SYNC);
-    if (m_block_fd == -1) {
-        LOG_ERROR << "open block device:" << m_vol_attr.blk_device().c_str()
-                  << " errno:" << errno;
-        return false;
-    }
-    LOG_INFO << "open block device:" << m_vol_attr.blk_device().c_str()
-             << " m_block_fd:" << m_block_fd;
+                     grpc::CreateChannel(meta_rpc_addr,
+                        grpc::InsecureChannelCredentials()));
+    /*open block device */
+    Env::instance()->create_access_file(m_vol_attr.blk_device(), true,
+                                        &m_block_file);
 
     /*snapshot block store*/
-    m_block_store = new CephBlockStore();
+    m_block_store = new CephBlockStore(g_option.ceph_cluster_name,
+                                       g_option.ceph_user_name,
+                                       g_option.ceph_pool_name);
     m_sync_table.clear();
     m_active_snapshot.clear();
     m_exist_snapshot = false;
@@ -105,10 +101,7 @@ bool SnapshotProxy::fini() {
     if (m_block_store) {
         delete m_block_store;
     }
-
-    if (m_block_fd != -1) {
-        close(m_block_fd);
-    }
+    //m_block_file.reset();
     return true;
 }
 
@@ -166,7 +159,7 @@ bool SnapshotProxy::check_sync_on(const string& actor) {
 }
 
 StatusCode SnapshotProxy::create_snapshot(const CreateSnapshotReq* req,
-                                CreateSnapshotAck* ack) {
+                                          CreateSnapshotAck* ack) {
     JournalMarker m;
     return create_snapshot(req, ack, m);
 }
@@ -373,35 +366,23 @@ StatusCode SnapshotProxy::rollback_transaction(const SnapReqHead& shead,
                  << " blk_object:" << roll_block.blk_object();
 
         /*read latest data from block device*/
-        void* block_buf = nullptr;
-        int ret = posix_memalign(reinterpret_cast<void**>(&block_buf),
-                                 512, COW_BLOCK_SIZE);
-        assert(ret == 0 && block_buf != nullptr);
-        off_t block_off  = roll_block.blk_no() * COW_BLOCK_SIZE;
-        off_t block_size = COW_BLOCK_SIZE;
-        size_t read_ret = raw_device_read(reinterpret_cast<char*>(block_buf),
-                                          COW_BLOCK_SIZE, block_off);
+        off_t  block_off  = roll_block.blk_no() * COW_BLOCK_SIZE;
+        size_t block_size = COW_BLOCK_SIZE;
+        char* block_buf  = (char*)malloc(block_size);
+        ssize_t read_ret = m_block_file->read(block_buf, block_size, block_off);
         assert(read_ret == COW_BLOCK_SIZE);
-
         /*do cow*/
-        ret = do_cow(block_off, block_size,
-                     reinterpret_cast<char*>(block_buf), true);
+        ret = do_cow(block_off, block_size, block_buf, true);
         assert(ret == StatusCode::sOk);
         free(block_buf);
 
         /*rollback*/
         string roll_block_object = roll_block.blk_object();
-        void* roll_buf = nullptr;
-        ret = posix_memalign(reinterpret_cast<void**>(&roll_buf),
-                             512, COW_BLOCK_SIZE);
-        assert(ret == 0 && roll_buf != nullptr);
-        ret = m_block_store->read(roll_block_object,
-                                  reinterpret_cast<char*>(roll_buf),
-                                  block_size, 0);
-        assert(ret == block_size);
-        size_t write_ret = raw_device_write(reinterpret_cast<char*>(roll_buf),
-                                            block_size, block_off);
-        assert(read_ret == COW_BLOCK_SIZE);
+        char* roll_buf = (char*)malloc(block_size);
+        read_ret = m_block_store->read(roll_block_object, roll_buf, block_size, 0);
+        assert(read_ret == block_size);
+        ssize_t write_ret = m_block_file->write(roll_buf, block_size, block_off);
+        assert(write_ret == COW_BLOCK_SIZE);
         free(roll_buf);
     }
 
@@ -547,38 +528,6 @@ void SnapshotProxy::split_cow_block(const off_t& off, const size_t& size,
     }
 }
 
-size_t SnapshotProxy::raw_device_write(char* buf, size_t len, off_t off) {
-    size_t left = len;
-    size_t write = 0;
-    while (left > 0) {
-        int ret = pwrite(m_block_fd, buf+write, left, off+write);
-        if (ret == -1 || ret == 0) {
-             LOG_ERROR << "pwrite fd:" << m_block_fd << " left:"  << left
-                       << " ret:" << ret << " errno:" << errno;
-            return ret;
-        }
-        left  -= ret;
-        write += ret;
-    }
-    return len;
-}
-
-size_t SnapshotProxy::raw_device_read(char* buf, size_t len, off_t off) {
-    size_t left = len;
-    size_t read = 0;
-    while (left > 0) {
-        int ret = pread(m_block_fd, buf+read, left, off+read);
-        if (ret == -1 || ret == 0) {
-            LOG_ERROR << "pread fd:" << m_block_fd << " left:" << left
-                      << " ret:"  << ret << " errno:" << errno;
-            return ret;
-        }
-        left -= ret;
-        read += ret;
-    }
-    return read;
-}
-
 StatusCode SnapshotProxy::do_cow(const off_t& off, const size_t& size,
                                  char* buf, bool rollback) {
     vector<cow_block_t> cow_blocks;
@@ -614,8 +563,7 @@ StatusCode SnapshotProxy::do_cow(const off_t& off, const size_t& size,
                 char*   block_buf = buf + cow_block.off - off;
                 off_t   block_off = cow_block.off;
                 size_t  block_len = cow_block.len;
-                size_t  write_ret = raw_device_write(block_buf, block_len,
-                                                     block_off);
+                ssize_t write_ret = m_block_file->write(block_buf, block_len, block_off);
                 assert(write_ret == block_len);
             } else {
                 /*being rollback, do nothing*/
@@ -626,20 +574,14 @@ StatusCode SnapshotProxy::do_cow(const off_t& off, const size_t& size,
         /*io cow */
         assert(cow_ack.op() == COW_YES);
         /*read from block device*/
-        void* block_buf = nullptr;
-        int ret = posix_memalign(reinterpret_cast<void**>(&block_buf),
-                                 512, COW_BLOCK_SIZE);
-        assert(ret == 0 && block_buf != nullptr);
         off_t block_off = cow_block.blk_no * COW_BLOCK_SIZE;
-        size_t read_ret = raw_device_read(reinterpret_cast<char*>(block_buf),
-                                          COW_BLOCK_SIZE, block_off);
-        assert(read_ret == COW_BLOCK_SIZE);
-
+        size_t block_size = COW_BLOCK_SIZE;
+        char* block_buf = (char*)malloc(block_size);
+        ssize_t read_ret = m_block_file->read(block_buf, block_size, block_off);
+        assert(read_ret == block_size);
         /*write to cow object*/
         string cow_object = cow_ack.cow_blk_object();
-        ret = m_block_store->write(cow_object,
-                                   reinterpret_cast<char*>(block_buf),
-                                   COW_BLOCK_SIZE, 0);
+        int ret = m_block_store->write(cow_object, block_buf, block_size, 0);
         assert(ret == 0);
         free(block_buf);
 
@@ -647,7 +589,7 @@ StatusCode SnapshotProxy::do_cow(const off_t& off, const size_t& size,
         char* cow_buf = buf + cow_block.off - off;
         off_t cow_off = cow_block.off;
         size_t cow_len = cow_block.len;
-        size_t write_ret = raw_device_write(cow_buf, cow_len, cow_off);
+        ssize_t write_ret = m_block_file->write(cow_buf, cow_len, cow_off);
         assert(write_ret == cow_len);
 
         /*update cow meta to dr server*/
@@ -728,9 +670,8 @@ StatusCode SnapshotProxy::read_snapshot(const ReadSnapshotReq* req,
         return iack.header().status();
     }
 
-    char* read_buf = nullptr;
-    int ret = posix_memalign(reinterpret_cast<void**>(&read_buf), 512, len);
-    assert(ret == 0 && read_buf != nullptr);
+    char* read_buf = (char*)malloc(len);
+    assert(read_buf != nullptr);
 
     /*--------first read----------------------*/
     interval_set<uint64_t> read_region;
@@ -790,14 +731,13 @@ StatusCode SnapshotProxy::read_snapshot(const ReadSnapshotReq* req,
             size_t r_len = it.get_len();
             char*  r_buf = read_buf + r_off - off;
             LOG_INFO << "read_snapshot first read block device"
-                << " cur_off:" << r_off
-                << " cur_len:" << r_len
-                << " align_off:" << ALIGN_UP(r_off, 512)
-                << " align_len:" << ALIGN_UP(r_len, 512);
-            size_t r_ret = raw_device_read(r_buf,
-                    ALIGN_UP(r_len, 512),
-                    ALIGN_UP(r_off, 512));
-            assert(r_ret == r_len);
+                     << " cur_off:" << r_off
+                     << " cur_len:" << r_len
+                     << " align_off:" << ALIGN_UP(r_off, 512)
+                     << " align_len:" << ALIGN_UP(r_len, 512);
+            ssize_t read_ret = m_block_file->read(r_buf, 
+                               ALIGN_UP(r_len, 512), ALIGN_UP(r_off, 512));
+            assert(read_ret == r_len);
         }
     }
 

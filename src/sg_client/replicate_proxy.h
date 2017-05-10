@@ -10,7 +10,7 @@
 ************************************************/
 #ifndef REPLICATE_PROXY_H_
 #define REPLICATE_PROXY_H_
-#include "common/config.h"
+#include "common/config_option.h"
 #include "snapshot/snapshot_proxy.h"
 #include "../rpc/clients/volume_inner_ctrl_client.h"
 #include "../rpc/clients/replicate_inner_ctrl_client.h"
@@ -20,10 +20,10 @@ using huawei::proto::RepRole;
 using huawei::proto::SnapScene;
 using huawei::proto::SnapType;
 
-class ReplicateProxy{
-public:
-    ReplicateProxy(const Configure& conf, const string& vol_name, const size_t& vol_size,
-            std::shared_ptr<SnapshotProxy> snapshot_proxy);
+class ReplicateProxy {
+ public:
+    ReplicateProxy(const string& vol_name, const size_t& vol_size,
+                   std::shared_ptr<SnapshotProxy> snapshot_proxy);
     ~ReplicateProxy();
     // snapshot
     StatusCode create_snapshot(const string& operate_id,
@@ -39,8 +39,7 @@ public:
     void delete_sync_item(const std::string& actor);
     bool is_sync_item_exist(const std::string& actor);
 
-private:
-    Configure conf_;
+ private:
     string vol_name_;
     size_t vol_size_;
     std::shared_ptr<SnapshotProxy> snapshot_proxy_;

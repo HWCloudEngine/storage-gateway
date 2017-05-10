@@ -1,30 +1,31 @@
 #include <thread>
 #include <chrono>
-#include "replicate_proxy.h"
 #include "log/log.h"
 #include "common/utils.h"
+#include "common/config_option.h"
+#include "replicate_proxy.h"
 
-ReplicateProxy::ReplicateProxy(const Configure& conf, const string& vol_name,
+ReplicateProxy::ReplicateProxy(const string& vol_name,
             const size_t& vol_size,
             std::shared_ptr<SnapshotProxy> snapshot_proxy):
             vol_name_(vol_name),
             vol_size_(vol_size),
-            snapshot_proxy_(snapshot_proxy){
+            snapshot_proxy_(snapshot_proxy) {
 
-    conf_ = conf;
-    rep_inner_client_.reset(new RepInnerCtrlClient(grpc::CreateChannel(conf_.sg_server_addr(),
-                grpc::InsecureChannelCredentials())));
+    std::string rpc_addr = rpc_address(g_option.meta_server_ip,
+                                       g_option.meta_server_port);
+    rep_inner_client_.reset(new RepInnerCtrlClient(grpc::CreateChannel(
+                rpc_addr, grpc::InsecureChannelCredentials())));
 }
 
-ReplicateProxy::~ReplicateProxy(){
+ReplicateProxy::~ReplicateProxy() {
 }
 
 StatusCode ReplicateProxy::create_snapshot(const string& snap_name,
         JournalMarker& marker,const string& checkpoint_id,
-        const SnapScene& snap_scene,const SnapType& snap_type){
+        const SnapScene& snap_scene,const SnapType& snap_type) {
     CreateSnapshotReq req;
     CreateSnapshotAck ack;
-
     req.mutable_header()->set_seq_id(0);
     req.mutable_header()->set_scene(snap_scene);
     req.mutable_header()->set_snap_type(snap_type);
@@ -38,11 +39,11 @@ StatusCode ReplicateProxy::create_snapshot(const string& snap_name,
 }
 
 StatusCode ReplicateProxy::create_transaction(const SnapReqHead& shead,
-        const string& snap_name, const RepRole& role){
+        const string& snap_name, const RepRole& role) {
     StatusCode ret_code;
 
     LOG_DEBUG << "replay a replicate snapshot:" << snap_name;
-    while(is_sync_item_exist(snap_name)){
+    while (is_sync_item_exist(snap_name)) {
         std::this_thread::sleep_for(std::chrono::microseconds(100));
     };
     // report sg_server that replayer got a replicate snap;

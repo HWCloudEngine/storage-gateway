@@ -8,7 +8,7 @@
 #include <sys/epoll.h>
 #include "volume.h"
 #include "common/rpc_server.h"
-#include "common/config.h"
+#include "common/config_option.h"
 #include "../rpc/clients/volume_inner_ctrl_client.h"
 #include "../rpc/clients/writer_client.h"
 
@@ -74,12 +74,9 @@ private:
     void writer_thread_work();
 
     int update_all_producer_markers();
-    
-    Configure conf;
 
     /*all volumes to be protected*/
     std::map<std::string, shared_ptr<Volume>> volumes;
-    
     /*journal prefetch and seal*/
     std::shared_ptr<WriterClient> writer_rpc_client;
     int_least64_t interval;
@@ -87,7 +84,6 @@ private:
     shared_ptr<CephS3LeaseClient> lease_client;
     std::mutex mtx;
     boost::shared_ptr<boost::thread> thread_ptr;
-   
     /*rpc server receive ctrl command from sg controller */
     RpcServer* ctrl_rpc_server{nullptr};
 

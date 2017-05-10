@@ -26,7 +26,6 @@ using huawei::proto::inner::DeleteVolumeReq;
 using huawei::proto::inner::DeleteVolumeRes;
 
 class VolInnerCtrl:public huawei::proto::inner::VolumeInnerControl::Service{
-private:
     ::grpc::Status CreateVolume(ServerContext* context,
             const CreateVolumeReq* request, CreateVolumeRes* response);
     ::grpc::Status UpdateVolumeStatus(ServerContext* context,
