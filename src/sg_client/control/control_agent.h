@@ -25,7 +25,7 @@ class AgentControlImpl final: public VolumeControlBase
 {
 
 public:
-    AgentControlImpl(const Configure& conf, const std::string& host, const std::string& port,
+    AgentControlImpl(const std::string& host, const std::string& port,
             std::shared_ptr<VolInnerCtrlClient> vol_inner_client);
     virtual ~AgentControlImpl();
     Status EnableSG(ServerContext* context, const control::EnableSGReq* req,
@@ -46,7 +46,6 @@ private:
     int fd_;
     std::string host_;
     std::string port_;
-    Configure conf_;
     std::shared_ptr<VolInnerCtrlClient> vol_inner_client_;
 
 };

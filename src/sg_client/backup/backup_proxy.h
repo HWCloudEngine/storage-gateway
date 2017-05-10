@@ -1,16 +1,23 @@
-#ifndef _BACKUP_PROXY_H
-#define _BACKUP_PROXY_H
+/**********************************************
+*  Copyright (c) 2016 Huawei Technologies Co., Ltd. All rights reserved.
+*  
+*  File name:    backup_proxy.h
+*  Author: 
+*  Date:         2016/11/03
+*  Version:      1.0
+*  Description:  backup entry
+*  
+*************************************************/
+#ifndef SRC_SG_CLIENT_BACKUP_BACKUP_PROXY_H_
+#define SRC_SG_CLIENT_BACKUP_BACKUP_PROXY_H_
 #include <string>
 #include <memory>
+#include "common/block_store.h"
+#include "common/volume_attr.h"
 #include "rpc/common.pb.h"
 #include "rpc/backup_control.pb.h"
 #include "rpc/backup_control.grpc.pb.h"
-#include "common/block_store.h"
-#include "common/volume_attr.h"
-#include "common/config.h"
 #include "backup_decorator.h"
-
-using namespace std;
 
 using huawei::proto::StatusCode;
 using huawei::proto::control::CreateBackupReq;
@@ -24,11 +31,10 @@ using huawei::proto::control::DeleteBackupAck;
 using huawei::proto::control::RestoreBackupReq;
 using huawei::proto::control::RestoreBackupAck;
 
-class BackupProxy 
-{
-public:
-    BackupProxy(const Configure& conf, VolumeAttr& vol_attr, shared_ptr<BackupDecorator> backup_decorator);
-    virtual ~BackupProxy();   
+class BackupProxy {
+ public:
+    BackupProxy(VolumeAttr& vol_attr, shared_ptr<BackupDecorator> backup_decorator);
+    virtual ~BackupProxy();
 
     /*snapshot common operation*/
     StatusCode create_backup(const CreateBackupReq* req, CreateBackupAck* ack);
@@ -36,15 +42,14 @@ public:
     StatusCode restore_backup(const RestoreBackupReq* req, RestoreBackupAck* ack);
     StatusCode list_backup(const ListBackupReq* req, ListBackupAck* ack);
     StatusCode get_backup(const GetBackupReq* req, GetBackupAck* ack);
-    
-private:
-    Configure m_conf;
+
+ private:
     /*volume basic*/
-    VolumeAttr& m_vol_attr; 
+    VolumeAttr& m_vol_attr;
 
     shared_ptr<BackupDecorator> m_backup_decorator;
     shared_ptr<BackupInnerCtrlClient> m_backup_inner_rpc_client;
     shared_ptr<BlockStore> m_block_store;
 };
 
-#endif
+#endif  // SRC_SG_CLIENT_BACKUP_BACKUP_PROXY_H_

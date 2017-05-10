@@ -21,7 +21,7 @@ sg_server_SOURCES=dr_server.cc \
                   transfer/net_sender.cc \
                   transfer/net_receiver.cc \
                   ../common/crc32.c \
-                  ../common/config.cc \
+                  ../common/config_option.cc \
                   ../common/journal_entry.cc \
                   ../common/ceph_s3_lease.cc \
                   ../common/ceph_s3_api.cc \

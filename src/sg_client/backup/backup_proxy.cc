@@ -1,7 +1,19 @@
+/**********************************************
+*  Copyright (c) 2016 Huawei Technologies Co., Ltd. All rights reserved.
+*  
+*  File name:    backup_proxy.h
+*  Author: 
+*  Date:         2016/11/03
+*  Version:      1.0
+*  Description:  backup entry
+*  
+*************************************************/
+#include <set>
 #include "log/log.h"
 #include "rpc/backup.pb.h"
 #include "common/utils.h"
 #include "common/define.h"
+#include "common/config_option.h"
 #include "backup_proxy.h"
 
 using huawei::proto::SnapScene;
@@ -9,24 +21,27 @@ using huawei::proto::BackupStatus;
 using huawei::proto::BackupMode;
 using huawei::proto::BackupType;
 
-BackupProxy::BackupProxy(const Configure& conf, VolumeAttr& vol_attr, shared_ptr<BackupDecorator> backup_decorator)
-    :m_conf(conf), m_vol_attr(vol_attr), m_backup_decorator(backup_decorator)
-{
+BackupProxy::BackupProxy(VolumeAttr& vol_attr,
+                         shared_ptr<BackupDecorator> backup_decorator)
+    :m_vol_attr(vol_attr), m_backup_decorator(backup_decorator) {
     /*todo read from config*/
+    std::string meta_rpc_addr = rpc_address(g_option.meta_server_ip,
+                                            g_option.meta_server_port);
     m_backup_inner_rpc_client.reset(new BackupInnerCtrlClient(grpc::CreateChannel(
-                                    m_conf.sg_server_addr(), 
+                                    meta_rpc_addr,
                                     grpc::InsecureChannelCredentials())));
-    m_block_store.reset(new CephBlockStore());
+    m_block_store.reset(new CephBlockStore(g_option.ceph_cluster_name,
+                                           g_option.ceph_user_name,
+                                           g_option.ceph_pool_name));
 }
 
-BackupProxy::~BackupProxy()
-{
+BackupProxy::~BackupProxy() {
     m_backup_inner_rpc_client.reset();
     m_block_store.reset();
 }
 
-StatusCode BackupProxy::create_backup(const CreateBackupReq* req, CreateBackupAck* ack)
-{
+StatusCode BackupProxy::create_backup(const CreateBackupReq* req,
+                                      CreateBackupAck* ack) {
     string vol_name = req->vol_name();
     size_t vol_size = req->vol_size();
     string backup_name = req->backup_name();
@@ -38,8 +53,8 @@ StatusCode BackupProxy::create_backup(const CreateBackupReq* req, CreateBackupAc
     LOG_INFO << "create backup vname:" << vol_name << " bname:" << backup_name;
 
     do {
-        if(!m_vol_attr.is_backup_allowable(backup_type)){
-            LOG_ERROR << "create backup vname:" << vol_name << " bname:" << backup_name 
+        if (!m_vol_attr.is_backup_allowable(backup_type)) {
+            LOG_ERROR << "create backup vname:" << vol_name << " bname:" << backup_name
                       << " disallow";
             ret = StatusCode::sBackupCreateDenied;
             break;
@@ -57,42 +72,42 @@ StatusCode BackupProxy::create_backup(const CreateBackupReq* req, CreateBackupAc
         snap_req.set_vol_size(vol_size);
         snap_req.set_snap_name(snap_name);
         ret = m_backup_decorator->create_snapshot(&snap_req, &snap_ack);
-        if(ret != StatusCode::sOk){
-            LOG_ERROR << "create backup vname:" << vol_name << " bname:" << backup_name 
+        if (ret != StatusCode::sOk) {
+            LOG_ERROR << "create backup vname:" << vol_name << " bname:" << backup_name
                       << "create snapshot failed:" << ret;
             break;
         }
 
         //2.create backup
-        ret = m_backup_inner_rpc_client->CreateBackup(vol_name, vol_size, 
+        ret = m_backup_inner_rpc_client->CreateBackup(vol_name, vol_size,
                                                       backup_name, backup_option);
-        if(ret != StatusCode::sOk){
-            LOG_ERROR << "create backup vname:" << vol_name << " bname:" << backup_name 
+        if (ret != StatusCode::sOk) {
+            LOG_ERROR << "create backup vname:" << vol_name << " bname:" << backup_name
                       << "create backup failed:" << ret;
             break;
         }
     }while(0);
 
-    //transaction end
+    // transaction end
     m_backup_decorator->del_sync(backup_name);
     ack->set_status(ret);
-    LOG_INFO << "create backup vname:" << vol_name <<" bname:" << backup_name 
+    LOG_INFO << "create backup vname:" << vol_name <<" bname:" << backup_name
              << (!ret ? " ok" : " failed");
-    return ret; 
+    return ret;
 }
 
-StatusCode BackupProxy::list_backup(const ListBackupReq* req, ListBackupAck* ack)
-{
+StatusCode BackupProxy::list_backup(const ListBackupReq* req,
+                                    ListBackupAck* ack) {
     StatusCode ret = StatusCode::sOk;
     string vol_name = req->vol_name();
     set<string> backup_set;
     LOG_INFO << "list backup vname:" << vol_name;
     do {
         ret = m_backup_inner_rpc_client->ListBackup(vol_name, backup_set);
-        if(ret != StatusCode::sOk){
+        if (ret != StatusCode::sOk) {
             break;
         }
-        for(auto backup : backup_set){
+        for (auto backup : backup_set) {
             string* add_backup_name = ack->add_backup_name();
             add_backup_name->copy(const_cast<char*>(backup.c_str()), backup.length());
         }
@@ -103,8 +118,8 @@ StatusCode BackupProxy::list_backup(const ListBackupReq* req, ListBackupAck* ack
     return ret;
 }
 
-StatusCode BackupProxy::get_backup(const GetBackupReq* req, GetBackupAck* ack)
-{
+StatusCode BackupProxy::get_backup(const GetBackupReq* req,
+                                   GetBackupAck* ack) {
     StatusCode ret = StatusCode::sOk;
     string vol_name = req->vol_name();
     string backup_name = req->backup_name();
@@ -113,7 +128,7 @@ StatusCode BackupProxy::get_backup(const GetBackupReq* req, GetBackupAck* ack)
 
     do {
         ret = m_backup_inner_rpc_client->GetBackup(vol_name, backup_name, backup_status);
-        if(ret != StatusCode::sOk){
+        if (ret != StatusCode::sOk) {
             break;
         }
         ack->set_backup_status(backup_status);
@@ -124,36 +139,35 @@ StatusCode BackupProxy::get_backup(const GetBackupReq* req, GetBackupAck* ack)
     return ret;
 }
 
-StatusCode BackupProxy::delete_backup(const DeleteBackupReq* req, DeleteBackupAck* ack)
-{
+StatusCode BackupProxy::delete_backup(const DeleteBackupReq* req,
+                                      DeleteBackupAck* ack) {
     StatusCode ret = StatusCode::sOk;
     string vol_name = req->vol_name();
     string backup_name = req->backup_name();
     LOG_INFO << "delete backup vname:" << vol_name << " bname:" << backup_name;
     ret = m_backup_inner_rpc_client->DeleteBackup(vol_name, backup_name);
     ack->set_status(ret);
-    LOG_INFO << "delete backup vname:" << vol_name << " bname:" << backup_name 
+    LOG_INFO << "delete backup vname:" << vol_name << " bname:" << backup_name
              << (!ret ? " ok" : " failed");
-    return ret; 
+    return ret;
 }
 
-StatusCode BackupProxy::restore_backup(const RestoreBackupReq* req, RestoreBackupAck* ack)
-{
+StatusCode BackupProxy::restore_backup(const RestoreBackupReq* req,
+                                       RestoreBackupAck* ack) {
     StatusCode ret = StatusCode::sOk;
     string vol_name = req->vol_name();
     string backup_name = req->backup_name();
     string new_vol_name = req->new_vol_name();
     size_t new_vol_size = req->new_vol_size();
     string new_block_device = req->new_block_device();
-    
     LOG_INFO << "restore backup vname:" << vol_name << " bname:" << backup_name;
-    ret = m_backup_inner_rpc_client->RestoreBackup(vol_name, backup_name, 
-                                                   new_vol_name, 
-                                                   new_vol_size, 
+    ret = m_backup_inner_rpc_client->RestoreBackup(vol_name, backup_name,
+                                                   new_vol_name,
+                                                   new_vol_size,
                                                    new_block_device,
                                                    m_block_store.get());
     ack->set_status(ret);
-    LOG_INFO << "restore backup vname:" << vol_name << " bname:" << backup_name 
+    LOG_INFO << "restore backup vname:" << vol_name << " bname:" << backup_name
              << (!ret ? " ok" : " failed");
     return ret;
 }

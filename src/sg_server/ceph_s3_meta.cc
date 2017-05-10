@@ -284,8 +284,7 @@ std::shared_ptr<JournalCounter> CephS3Meta::get_journal_key_counter(
 }
 
 // cephS3Meta member functions
-CephS3Meta::CephS3Meta(const Configure& conf):
-    conf_(conf),
+CephS3Meta::CephS3Meta():
     journal_meta_cache_(1000,std::bind(&CephS3Meta::_get_journal_meta,
         this,std::placeholders::_1,std::placeholders::_2)),
 
@@ -314,14 +313,14 @@ CephS3Meta::~CephS3Meta() {
 }
 
 RESULT CephS3Meta::init() {
-    string access_key = conf_.ceph_s3_access_key;
-    string secret_key = conf_.ceph_s3_secret_key;
-    string host = conf_.ceph_s3_host;
-    string bucket_name = conf_.ceph_s3_bucket;
+    string access_key = g_option.ceph_s3_access_key;
+    string secret_key = g_option.ceph_s3_secret_key;
+    string host = g_option.ceph_s3_host;
+    string bucket_name = g_option.ceph_s3_bucket;
     s3Api_ptr_.reset(new CephS3Api(access_key.c_str(),
             secret_key.c_str(),host.c_str(),bucket_name.c_str()));
-    mount_path_ = conf_.journal_mount_point;
-    max_journal_size_ = conf_.journal_max_size;
+    mount_path_ = g_option.journal_mount_point;
+    max_journal_size_ = g_option.journal_max_size;
     
     return mkdir_if_not_exist((mount_path_+g_key_prefix).c_str(),S_IRWXG|S_IRWXU|S_IRWXO);
 }

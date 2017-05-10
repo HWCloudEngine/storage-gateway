@@ -12,9 +12,9 @@
 #include <boost/uuid/uuid.hpp> // uuid class
 #include <boost/uuid/uuid_io.hpp> // streaming operators
 #include "control_replicate.h"
-#include "common/config_parser.h"
-#include "log/log.h"
+#include "common/config_option.h"
 #include "common/utils.h"
+#include "log/log.h"
 using std::string;
 using huawei::proto::sOk;
 using huawei::proto::sInternalError;
@@ -22,25 +22,27 @@ using huawei::proto::sVolumeNotExist;
 using huawei::proto::sVolumeMetaPersistError;
 using huawei::proto::sVolumeAlreadyExist;
 
-ReplicateCtrl::ReplicateCtrl(const Configure& conf, std::map<string,
-        std::shared_ptr<Volume>>& volumes):
-        conf_(conf), volumes_(volumes){
+ReplicateCtrl::ReplicateCtrl(std::map<string, std::shared_ptr<Volume>>& volumes)
+             : volumes_(volumes) {
+    
+   std::string meta_rpc_addr = rpc_address(g_option.meta_server_ip, 
+                                           g_option.meta_server_port);
 
    rep_ctrl_client_.reset(new RepInnerCtrlClient(grpc::CreateChannel(
-                conf_.sg_server_addr(),
+                meta_rpc_addr,
                 grpc::InsecureChannelCredentials())));
    vol_ctrl_client_.reset(new VolInnerCtrlClient(grpc::CreateChannel(
-                conf_.sg_server_addr(),
+                meta_rpc_addr,
                 grpc::InsecureChannelCredentials())));
 }
 
-ReplicateCtrl::~ReplicateCtrl(){
+ReplicateCtrl::~ReplicateCtrl() {
 }
 
 std::shared_ptr<ReplicateProxy> ReplicateCtrl::get_replicate_proxy(
-                const string& vol_name){
+                const string& vol_name) {
     auto it = volumes_.find(vol_name);
-    if(it != volumes_.end()){
+    if (it != volumes_.end()) {
         return it->second->get_replicate_proxy();
     }
     LOG_ERROR << "get_replicate_proxy vol-id:" << vol_name << " failed";
@@ -48,16 +50,16 @@ std::shared_ptr<ReplicateProxy> ReplicateCtrl::get_replicate_proxy(
 }
 
 std::shared_ptr<JournalWriter> ReplicateCtrl::get_journal_writer(
-        const string& vol_name){
+        const string& vol_name) {
     auto it = volumes_.find(vol_name);
-    if(it != volumes_.end()){
+    if (it != volumes_.end()) {
         return it->second->get_writer();
     }
     LOG_ERROR << "get_journal_writer vol-id:" << vol_name << " failed";
     return nullptr;
 }
 
-void ReplicateCtrl::update_volume_attr(const string& volume){
+void ReplicateCtrl::update_volume_attr(const string& volume) {
     VolumeInfo volume_info;
     StatusCode ret = vol_ctrl_client_->get_volume(volume, volume_info);
     if (ret == StatusCode::sOk)
