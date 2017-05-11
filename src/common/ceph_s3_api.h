@@ -29,6 +29,7 @@ typedef struct s3_call_response{
     int keyCount;
     char nextMarker[1024];
     void *pdata;
+    void *meta_data;
 }s3_call_response_t;
 
 class CephS3Api {
@@ -41,7 +42,7 @@ private:
 public:
     CephS3Api(const char* access_key, const char* secret_key, const char* host,
             const char* bucket_name);
-    ~CephS3Api();
+    virtual ~CephS3Api();
     RESULT create_bucket_if_not_exists(const char* bucket_name);
     RESULT put_object(const char* obj_name, const string* value,
             const std::map<string,string>* meta);

@@ -41,8 +41,8 @@ S3Status responsePropertiesCallback(
     if(properties->metaDataCount <= 0 || nullptr == callbackData)
         return S3StatusOK;
     s3_call_response_t* response = (s3_call_response_t*) callbackData;
-    if(nullptr != response->pdata){
-        std::map<string,string>* map = (std::map<string,string>*)response->pdata;
+    if(nullptr != response->meta_data){
+        std::map<string,string>* map = (std::map<string,string>*)response->meta_data;
         for (int i = 0; i < properties->metaDataCount; i++) {
             map->insert(std::pair<string,string>(properties->metaData[i].name,
                    properties->metaData[i].value));
@@ -243,6 +243,7 @@ RESULT CephS3Api::get_object(const char* key, string* value){
     };
     s3_call_response_t response;
     response.pdata = value;
+    response.meta_data = nullptr;
     response.retries = MAX_RETRIES;
     response.retrySleepInterval = SLEEP_UNITS_PER_SECOND;
     do {
@@ -264,7 +265,7 @@ RESULT CephS3Api::head_object(const char* key, std::map<string,string>* meta){
     s3_call_response_t response;
     response.retries = MAX_RETRIES;
     response.retrySleepInterval = SLEEP_UNITS_PER_SECOND;
-    response.pdata = (void*)meta;
+    response.meta_data = (void*)meta;
     do {
         S3_head_object(&bucketContext, key, 0, &responseHandler, &response);
     } while (S3_status_is_retryable(response.status) && should_retry(response));
