@@ -13,7 +13,6 @@
 #include "rep_scheduler.h"
 #include "log/log.h"
 #include "common/config_parser.h"
-#include "common/journal_meta_handle.h"
 #include "../sg_util.h"
 #include "replicator_context.h"
 #include "sg_server/transfer/net_sender.h"

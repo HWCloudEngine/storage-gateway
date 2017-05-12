@@ -16,6 +16,7 @@
 #include <sys/types.h>
 #include "log/log.h"
 #include "ceph_s3_meta.h"
+#include "common/ceph_s3_api.h"
 #include "common/config_parser.h"
 #include "common/rpc_server.h"
 #include "gc_task.h"
@@ -45,7 +46,17 @@ int main(int argc, char** argv) {
     DRLog::set_log_level(SG_DEBUG);
     Configure conf;
     conf.init(DEFAULT_CONFIG_FILE);
-    std::shared_ptr<CephS3Meta> meta(new CephS3Meta(conf));
+
+    std::shared_ptr<KVApi> kvApi_ptr(new CephS3Api(
+                        conf.ceph_s3_access_key.c_str(),
+                        conf.ceph_s3_secret_key.c_str(),
+                        conf.ceph_s3_host.c_str(),
+                        conf.ceph_s3_bucket.c_str()));
+
+    std::shared_ptr<CephS3Meta> meta(new CephS3Meta(conf,kvApi_ptr));
+    std::shared_ptr<CephS3LeaseServer> lease_server(new CephS3LeaseServer);
+    int gc_interval = conf.lease_validity_window;
+    lease_server->init(kvApi_ptr,gc_interval);
 
     string type = conf.global_journal_data_storage;
     string mount_path = conf.journal_mount_point;
@@ -126,7 +137,8 @@ int main(int argc, char** argv) {
     }
 
     // init gc thread
-    GCTask::instance().init(conf, meta/*JournalGCManager*/,meta/*JournalMetaManager*/);
+    GCTask::instance().init(conf, lease_server,
+        meta/*JournalGCManager*/,meta/*JournalMetaManager*/);
     // init volumes
     std::list<VolumeMeta> list;
     RESULT res = meta->list_volume_meta(list);

@@ -29,7 +29,7 @@ typedef std::pair<std::string,std::set<IConsumer*>> vc_pair_t;
 private:
     std::shared_ptr<JournalGCManager> gc_meta_ptr_;
     std::shared_ptr<JournalMetaManager> j_meta_ptr_;
-    std::unique_ptr<CephS3LeaseServer> lease_;
+    std::shared_ptr<CephS3LeaseServer> lease_;
     std::string mount_path_;
     std::unique_ptr<std::thread> thread_GC_;
     int tick_;
@@ -44,7 +44,8 @@ private:
     vc_map_t vols_;
     std::mutex mtx_;
 public:
-    int init(const Configure& conf, std::shared_ptr<JournalGCManager> gc_meta,
+    int init(const Configure& conf, std::shared_ptr<CephS3LeaseServer>& lease,
+            std::shared_ptr<JournalGCManager> gc_meta,
             std::shared_ptr<JournalMetaManager> j_meta);
     static GCTask& instance(){
         static GCTask task;

@@ -13,8 +13,8 @@
 #include <string>
 #include <cstdint>
 #include "rpc/journal.pb.h"
-#include "common/journal_meta_handle.h"
 #include "ceph_s3_meta.h"
+#include "log/log.h"
 using std::string;
 using google::protobuf::int64;
 using huawei::proto::DRS_OK;

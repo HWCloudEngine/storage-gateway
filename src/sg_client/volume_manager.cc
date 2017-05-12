@@ -3,13 +3,12 @@
 #include <algorithm>
 #include "log/log.h"
 #include "common/volume_attr.h"
+#include "common/ceph_s3_api.h"
 #include "control/control_snapshot.h"
 #include "control/control_backup.h"
 #include "control/control_replicate.h"
 #include "control/control_volume.h"
 #include "control/control_agent.h"
-#include "../common/volume_attr.h"
-
 using huawei::proto::VolumeInfo;
 using huawei::proto::StatusCode;
 
@@ -76,10 +75,13 @@ bool VolumeManager::init()
         DR_ERROR_OCCURED();
     }
 
-    lease_client->init(conf.ceph_s3_access_key.c_str(),
-                       conf.ceph_s3_secret_key.c_str(),
-                       conf.ceph_s3_host.c_str(),
-                       conf.ceph_s3_bucket.c_str(),
+    std::shared_ptr<KVApi> kvApi_ptr(new CephS3Api(
+                        conf.ceph_s3_access_key.c_str(),
+                        conf.ceph_s3_secret_key.c_str(),
+                        conf.ceph_s3_host.c_str(),
+                        conf.ceph_s3_bucket.c_str()));
+
+    lease_client->init(kvApi_ptr,
                        conf.lease_renew_window,
                        conf.lease_expire_window,
                        conf.lease_validity_window) ;

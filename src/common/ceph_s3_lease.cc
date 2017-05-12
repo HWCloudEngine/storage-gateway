@@ -10,13 +10,12 @@
 #include "ceph_s3_lease.h"
 #include "../log/log.h"
 
-using huawei::proto::DRS_OK;
-using huawei::proto::INTERNAL_ERROR;
+using huawei::proto::sOk;
+using huawei::proto::sInternalError;
 
-RESULT CephS3LeaseClient::init(const char* access_key, const char* secret_key,
-        const char* host, const char* bucket_name, int renew_window,
+StatusCode CephS3LeaseClient::init(std::shared_ptr<KVApi>& kv_ptr, int renew_window,
         int expire_window, int validity_window) {
-    s3Api_ptr_.reset(new CephS3Api(access_key, secret_key, host, bucket_name));
+    kv_ptr_ = kv_ptr;
     renew_window_ = renew_window;
     expire_window_ = expire_window;
     validity_window_ = validity_window;
@@ -26,9 +25,9 @@ RESULT CephS3LeaseClient::init(const char* access_key, const char* secret_key,
         renew_thread_ptr_.reset(
                 new boost::thread(
                         boost::bind(&CephS3LeaseClient::renew_lease, this)));
-        return DRS_OK;
+        return sOk;
     } else {
-        return INTERNAL_ERROR;
+        return sInternalError;
     }
 }
 
@@ -44,8 +43,8 @@ bool CephS3LeaseClient::acquire_lease() {
     std::map<std::string, std::string> metadata;
     metadata["expire-window"] = std::to_string(expire_window_);
 
-    RESULT result = s3Api_ptr_->put_object(lease_key.c_str(), &uuid, &metadata);
-    if (result == DRS_OK) {
+    StatusCode result = kv_ptr_->put_object(lease_key.c_str(), &uuid, &metadata);
+    if (result == sOk) {
         lease_expire_time_ = static_cast<long>(time(NULL)) + expire_window_;
         uuid_ = uuid;
         LOG_INFO<<"acquire lease succeed:"<<uuid;
@@ -68,9 +67,9 @@ void CephS3LeaseClient::renew_lease() {
             std::map<std::string, std::string> metadata;
             metadata["expire-window"] = std::to_string(expire_window_);
 
-            RESULT result = s3Api_ptr_->put_object(lease_key.c_str(), &uuid_,
+            StatusCode result = kv_ptr_->put_object(lease_key.c_str(), &uuid_,
                     &metadata);
-            if (result == DRS_OK) {
+            if (result == sOk) {
                 lease_expire_time_ = static_cast<long>(time(NULL))
                         + expire_window_;
                 LOG_INFO<<"renew lease succeed:"<<uuid_;
@@ -103,26 +102,25 @@ CephS3LeaseClient::~CephS3LeaseClient() {
     }
 }
 
-RESULT CephS3LeaseServer::init(const char* access_key, const char* secret_key,
-        const char* host, const char* bucket_name, int gc_interval) {
-    s3Api_ptr_.reset(new CephS3Api(access_key, secret_key, host, bucket_name));
+StatusCode CephS3LeaseServer::init(std::shared_ptr<KVApi>& kv_ptr, int gc_interval) {
+    kv_ptr_ = kv_ptr;
     gc_interval_ = gc_interval;
     prefix_ = "/leases/";
     gc_thread_ptr_.reset(
             new boost::thread(boost::bind(&CephS3LeaseServer::gc_task, this)));
-    return DRS_OK;
+    return sOk;
 }
 
 void CephS3LeaseServer::gc_task() {
     while (true) {
         std::list<std::string> leases;
-        RESULT result = s3Api_ptr_->list_objects(NULL, NULL, -1, &leases);
-        if (result == DRS_OK) {
+        StatusCode result = kv_ptr_->list_objects(NULL, NULL, -1, &leases);
+        if (result == sOk) {
             for (auto lease : leases) {
                 std::map<std::string, std::string> metadata;
-                RESULT result = s3Api_ptr_->head_object(lease.c_str(),
+                StatusCode result = kv_ptr_->head_object(lease.c_str(),
                         &metadata);
-                if (result == DRS_OK) {
+                if (result == sOk) {
                     if (metadata.find("expire-window") != metadata.end()) {
                         try {
                             long expire_window = std::stol(
@@ -133,7 +131,7 @@ void CephS3LeaseServer::gc_task() {
                             long now_time = static_cast<long>(time(NULL));
 
                             if (expire_time <= now_time) {
-                                s3Api_ptr_->delete_object(lease.c_str());
+                                kv_ptr_->delete_object(lease.c_str());
                             }
                         } catch (...) {
                         }
@@ -149,9 +147,9 @@ bool CephS3LeaseServer::check_lease_existance(const std::string& uuid) {
     std::string value;
     std::map<std::string, std::string> metadata;
     std::string object_key = prefix_ + uuid;
-    RESULT result = s3Api_ptr_->head_object(object_key.c_str(), &metadata);
+    StatusCode result = kv_ptr_->head_object(object_key.c_str(), &metadata);
 
-    if (result != DRS_OK) {
+    if (result != sOk) {
         return false;
     } else {
         if (metadata.find("expire-window") != metadata.end()) {
