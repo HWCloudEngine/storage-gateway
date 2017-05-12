@@ -52,6 +52,8 @@ Status RepInnerCtrl::CreateReplication(ServerContext* context,
     }
     meta.mutable_info()->set_rep_uuid(uuid);
     meta.mutable_info()->set_vol_id(local_vol);
+
+    meta.mutable_info()->mutable_peer_volumes()->Clear();
     for(string vol:request->peer_volumes()){
         meta.mutable_info()->add_peer_volumes(vol);
         LOG_INFO << "\t peer volume: " << vol;

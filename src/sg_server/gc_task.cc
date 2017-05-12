@@ -45,8 +45,9 @@ int GCTask::get_least_marker(const string& vol,std::set<IConsumer*>& set,
         return -1;
 }
 
-int GCTask::init(std::shared_ptr<JournalGCManager> gc_meta,
-            std::shared_ptr<JournalMetaManager> j_meta){
+int GCTask::init(std::shared_ptr<CephS3LeaseServer>& lease,
+        std::shared_ptr<JournalGCManager> gc_meta,
+        std::shared_ptr<JournalMetaManager> j_meta){
     std::lock_guard<std::mutex> lck(mtx_);
     if(GC_running_){
         LOG_ERROR << "gc task is already running!";
@@ -54,22 +55,11 @@ int GCTask::init(std::shared_ptr<JournalGCManager> gc_meta,
     }
     gc_meta_ptr_ = gc_meta;
     j_meta_ptr_ = j_meta;
-    int gc_interval = 1*60*60;  // TODO:g_optionig in g_optionig file
-    lease_.reset(new CephS3LeaseServer());
-    string access_key;
-    string secret_key;
-    string host;
-    string bucket_name;
-    
-    access_key = g_option.ceph_s3_access_key;
-    secret_key = g_option.ceph_s3_secret_key;
-    host = g_option.ceph_s3_host;
-    bucket_name = g_option.ceph_s3_bucket;
+
+    lease_ = lease;
     lease_check_window_ = g_option.lease_expire_window;
     GC_window_  = g_option.gc_window;
 
-    lease_->init(access_key.c_str(),
-            secret_key.c_str(),host.c_str(),bucket_name.c_str(),gc_interval);
     tick_ = 1;
     GC_running_ = true;
     thread_GC_.reset(new ::std::thread([this]{

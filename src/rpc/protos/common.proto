@@ -13,6 +13,7 @@ enum RESULT {
 enum StatusCode {
     sOk = 0;
     sInternalError = 1;
+    sNotFound = 2;
 
     // status for snapshot
     sSnapAlreadyExist = 100;

@@ -14,6 +14,7 @@ LDADD = \
     ${top_srcdir}/src/log/liblog.la
 
 AM_CPPFLAGS = -std=c++11 \
+    -DENABLE_UT_TEST \
     -D_GNU_SOURCE \
     -DBOOST_ALL_DYN_LINK\
     -I$(top_srcdir)/src \
@@ -22,8 +23,12 @@ AM_CPPFLAGS = -std=c++11 \
 
 sg_server_ut_SOURCES = \
     sg_server/consumer_service_test.cc \
+    sg_server/writer_service_test.cc \
+    sg_server/volume_inner_control_test.cc \
+    ../../src/sg_server/volume_inner_control.cc \
     ../../src/sg_server/consumer_service.cc \
-    sg_server/writer_service_test.cc
+    ../../src/sg_server/gc_task.cc \
+    ../../src/common/config_option.cc
 
 sg_client_ut_SOURCES = \
     sg_client/journal_writer_test.cc
