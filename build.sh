@@ -67,7 +67,6 @@ automake -a
 automake
 #compile...
 cd ${CUR_PATH}
-mkdir -p build
 chmod +x ${CUR_PATH}/configure
 if [ 2 -eq $# ] && [ x"-debug" = x$2 ]
 then
@@ -79,8 +78,6 @@ fi
 
 make clean
 make -j 8
-#copy program to bin
-#cp ${CUR_PATH}/src/sg_server ${CUR_PATH}/bin
 
 elif [ "$1"a = "clean"a ]
 then
@@ -92,7 +89,7 @@ rm -rf aclocal.m4 config.guess config.log configure depcomp \
        compile config.h.in  config.sub COPYING INSTALL libtool Makefile \
        missing test-driver
 
-rm -rf build/
+rm -rf bin/
 rm -rf ${RPC_SOURCE_PATH}/*.pb.h ${RPC_SOURCE_PATH}/*.pb.cc
 rm -rf $RPC_SOURCE_PATH/inner_command
 rm -rf $RPC_SOURCE_PATH/journal
