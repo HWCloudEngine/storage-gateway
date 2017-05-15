@@ -100,6 +100,10 @@ def run():
                          role:primary|secondary',
                                   choices=('primary', 'secondary'),
                                   default='primary')
+    parser_replicate.add_argument('-s', '--snap_id', help='snap_id',
+                                  dest='snap_id')
+    parser_replicate.add_argument('-c','--checkpoint_id', help='checkpoint id',
+                                  dest='cp_uuid')
     parser_replicate.set_defaults(func=replicate)
 
     # volume control args
