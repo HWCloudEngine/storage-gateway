@@ -140,8 +140,8 @@ RESULT CephS3Meta::create_journal_file(const string& name) {
 
 bool CephS3Meta::_get_journal_meta(const string& key, JournalMeta& meta){
     string value;
-    RESULT res = s3Api_ptr_->get_object(key.c_str(),&value);
-    if(res != DRS_OK)
+    StatusCode res = kvApi_ptr_->get_object(key.c_str(),&value);
+    if(StatusCode::sOk != res)
         return false;
     if(true != meta.ParseFromString(value)){
         LOG_ERROR << "parser journal " << key <<" 's meta failed!";
@@ -169,8 +169,8 @@ bool CephS3Meta::_get_replicator_consumer_marker(const string& key,
 bool CephS3Meta::_get_volume_meta(const string& id,VolumeMeta& meta){
     string key = construct_volume_meta_key(id);
     string value;
-    RESULT res = s3Api_ptr_->get_object(key.c_str(),&value);
-    if(DRS_OK != res){
+    StatusCode res = kvApi_ptr_->get_object(key.c_str(),&value);
+    if(StatusCode::sOk != res){
         LOG_ERROR << "get volume meta failed:" << key;
         return false;
     }
@@ -187,17 +187,17 @@ bool CephS3Meta::get_marker(const string& vol_id,
         const CONSUMER_TYPE& type, JournalMarker& marker,bool is_consumer){
     string key = assemble_journal_marker_key(vol_id,type,is_consumer);
     string value;
-    RESULT res = s3Api_ptr_->get_object(key.c_str(),&value);
-    if(DRS_OK == res){
+    StatusCode res = kvApi_ptr_->get_object(key.c_str(),&value);
+    if(StatusCode::sOk == res){
         return marker.ParseFromString(value);
     }
-    else if(NO_SUCH_KEY == res && is_consumer == true){
+    else if(StatusCode::sNotFound == res && is_consumer == true){
     // if the consumer failed without init the marker yet? maybe the dr server
     // should init the marker if it's not init, or the restarted consumer may not know where to start 
         LOG_WARN << vol_id << " 's consumer marker is not initialized!";
         std::list<string> list;
-        res = s3Api_ptr_->list_objects((g_key_prefix+vol_id).c_str(),nullptr,1,&list);
-        if(DRS_OK != res){
+        res = kvApi_ptr_->list_objects((g_key_prefix+vol_id).c_str(),nullptr,1,&list);
+        if(StatusCode::sOk != res){
             LOG_ERROR << "list volume " << vol_id << " journals failed!";
             return false;
         }
@@ -243,8 +243,8 @@ std::shared_ptr<JournalCounter> CephS3Meta::init_journal_key_counter(
     std::list<string> list;
     uint64_t counter1=0;
     string prefix = g_key_prefix + vol_id;
-    RESULT res = s3Api_ptr_->list_objects(prefix.c_str(),nullptr,0,&list);
-    if(DRS_OK != res) {
+    StatusCode res = kvApi_ptr_->list_objects(prefix.c_str(),nullptr,0,&list);
+    if(StatusCode::sOk != res) {
         LOG_ERROR << "list volume " << vol_id << " opened journals failed!";
         return nullptr;
     }
@@ -284,7 +284,8 @@ std::shared_ptr<JournalCounter> CephS3Meta::get_journal_key_counter(
 }
 
 // cephS3Meta member functions
-CephS3Meta::CephS3Meta():
+CephS3Meta::CephS3Meta(std::shared_ptr<KVApi> kvApi_ptr):
+    kvApi_ptr_(kvApi_ptr),
     journal_meta_cache_(1000,std::bind(&CephS3Meta::_get_journal_meta,
         this,std::placeholders::_1,std::placeholders::_2)),
 
@@ -313,12 +314,6 @@ CephS3Meta::~CephS3Meta() {
 }
 
 RESULT CephS3Meta::init() {
-    string access_key = g_option.ceph_s3_access_key;
-    string secret_key = g_option.ceph_s3_secret_key;
-    string host = g_option.ceph_s3_host;
-    string bucket_name = g_option.ceph_s3_bucket;
-    s3Api_ptr_.reset(new CephS3Api(access_key.c_str(),
-            secret_key.c_str(),host.c_str(),bucket_name.c_str()));
     mount_path_ = g_option.journal_mount_point;
     max_journal_size_ = g_option.journal_max_size;
     
@@ -360,17 +355,20 @@ RESULT CephS3Meta::create_journals(const string& uuid,const string& vol_id,
             res = INTERNAL_ERROR;
             break;
         }
-        res = s3Api_ptr_->put_object(journals[i].c_str(),&meta_s,nullptr); // add journal major key
-        if(DRS_OK != res){
+        // add journal major key
+        StatusCode ret = kvApi_ptr_->put_object(journals[i].c_str(),&meta_s,nullptr);
+        if(StatusCode::sOk != ret){
             LOG_ERROR << "update journal " << journals[i] << " opened status failed!";
+            res = INTERNAL_ERROR;
             break;
         }
 
         // create journal index key, which will help in GC
         string o_key = construct_write_open_index(journals[i],vol_id,uuid);
-        res = s3Api_ptr_->put_object(o_key.c_str(),nullptr,nullptr);
-        if(DRS_OK != res){
+        ret = kvApi_ptr_->put_object(o_key.c_str(),nullptr,nullptr);
+        if(StatusCode::sOk != ret){
             LOG_ERROR << "add opened journal's index key " << o_key << " failed!";
+            res = INTERNAL_ERROR;
             break;
         }
         res = create_journal_file(mount_path_ + filename);
@@ -395,9 +393,9 @@ RESULT CephS3Meta::create_journals(const string& uuid,const string& vol_id,
             return INTERNAL_ERROR;
         // roll back: delete partial meta
         // TODO:recycle the pending journal file
-        s3Api_ptr_->delete_object(journals[list.size()].c_str());
+        kvApi_ptr_->delete_object(journals[list.size()].c_str());
         string o_key = construct_write_open_index(journals[list.size()],vol_id,uuid);
-        s3Api_ptr_->delete_object(o_key.c_str());
+        kvApi_ptr_->delete_object(o_key.c_str());
         return DRS_OK; // partial success
     }
     return res;
@@ -430,17 +428,19 @@ RESULT CephS3Meta::create_journals_by_given_keys(const string& uuid,
 
         count++;
         // persit journal major key
-        res = s3Api_ptr_->put_object(it->c_str(),&meta_s,nullptr);
-        if(DRS_OK != res){
+        StatusCode ret = kvApi_ptr_->put_object(it->c_str(),&meta_s,nullptr);
+        if(StatusCode::sOk != ret){
             LOG_ERROR << "create journal " << *it << " failed!";
+            res = INTERNAL_ERROR;
             break;
         }
 
         // persit journal index key
         string o_key = construct_write_open_index(*it,vol_id,uuid);
-        res = s3Api_ptr_->put_object(o_key.c_str(),nullptr,nullptr);
-        if(DRS_OK != res){
+        ret = kvApi_ptr_->put_object(o_key.c_str(),nullptr,nullptr);
+        if(StatusCode::sOk != ret){
             LOG_ERROR << "add opened journal's index key " << o_key << " failed!";
+            res = INTERNAL_ERROR;
             break;
         }
         res = create_journal_file(mount_path_ + filename);
@@ -465,8 +465,8 @@ RESULT CephS3Meta::create_journals_by_given_keys(const string& uuid,
         string key = *it;
         string o_key = construct_write_open_index(key,vol_id,uuid);
         // TODO:recycle the pending journal file
-        s3Api_ptr_->delete_object(o_key.c_str());
-        s3Api_ptr_->delete_object(key.c_str());
+        kvApi_ptr_->delete_object(o_key.c_str());
+        kvApi_ptr_->delete_object(key.c_str());
         journal_meta_cache_.delete_key(key);
         return INTERNAL_ERROR;
     }
@@ -490,22 +490,27 @@ RESULT CephS3Meta::seal_volume_journals(const string& uuid, const string& vol_id
             res = INTERNAL_ERROR;
             break;
         }
-        res = s3Api_ptr_->put_object(journals[i].c_str(),&meta_s,nullptr); // modify journal major key
-        if(DRS_OK != res){
+        // modify journal status to sealed
+        StatusCode ret = kvApi_ptr_->put_object(journals[i].c_str(),&meta_s,nullptr);
+        if(StatusCode::sOk != ret){
             LOG_ERROR << "update journal " << journals[i] << " sealed status failed!";
+            res = INTERNAL_ERROR;
             break;
         }
         journal_meta_cache_.put(journals[i],meta); // update cache
         string s_key = construct_sealed_index(journals[i]);
-        res = s3Api_ptr_->put_object(s_key.c_str(),nullptr,nullptr); // add journal sealed index key
-        if(DRS_OK != res){
+         // add journal sealed index key
+        ret = kvApi_ptr_->put_object(s_key.c_str(),nullptr,nullptr);
+        if(StatusCode::sOk != ret){
             LOG_ERROR << "add sealed journal's index key " << s_key << " failed!";
+            res = INTERNAL_ERROR;
             break;
         }
         string o_key = construct_write_open_index(journals[i],vol_id,uuid);
-        res = s3Api_ptr_->delete_object(o_key.c_str());
-        if(DRS_OK != res){
+        ret = kvApi_ptr_->delete_object(o_key.c_str());
+        if(StatusCode::sOk != ret){
             LOG_ERROR << "delete opened journal's index key " << o_key << " failed!";
+            res = INTERNAL_ERROR;
             // no break, continue trying to delete in GC thread
         }
     }
@@ -541,10 +546,10 @@ RESULT CephS3Meta::update_consumer_marker(const string& vol_id,
         LOG_ERROR << vol_id << " serialize marker failed!";
         return INTERNAL_ERROR;
     }
-    RESULT res = s3Api_ptr_->put_object(key.c_str(),&marker_s,nullptr);
-    if(DRS_OK != res){
+    StatusCode res = kvApi_ptr_->put_object(key.c_str(),&marker_s,nullptr);
+    if(StatusCode::sOk != res){
         LOG_ERROR << "update_journal_marker of volume " << vol_id << " failed!";
-        return res;
+        return INTERNAL_ERROR;
     }
     if(REPLAYER == type){
         replayer_Cmarker_cache_.put(vol_id,marker);
@@ -590,26 +595,26 @@ RESULT CephS3Meta::set_producer_marker(const string& vol_id,
     }
     // update replayer producer marker, secondary site use
     string key = assemble_journal_marker_key(vol_id,REPLAYER,false);
-    RESULT res = s3Api_ptr_->put_object(key.c_str(),&marker_s,nullptr);
-    if(DRS_OK != res){
+    StatusCode ret = kvApi_ptr_->put_object(key.c_str(),&marker_s,nullptr);
+    if(StatusCode::sOk != ret){
         LOG_ERROR << "set replayer producer marker of volume "
             << vol_id << " failed!";
-        return res;
+        return INTERNAL_ERROR;
     }
     replayer_Pmarker_cache_.put(vol_id,marker);
 
     // update replicator producer marker, but not in some cases
     VolumeMeta meta;
-    res = read_volume_meta(vol_id,meta);
+    RESULT res = read_volume_meta(vol_id,meta);
     SG_ASSERT(DRS_OK == res);
     if(REP_PRIMARY == meta.info().role()
         && REP_ENABLED == meta.info().rep_status()){
         key = assemble_journal_marker_key(vol_id,REPLICATOR,false);
-        RESULT res = s3Api_ptr_->put_object(key.c_str(),&marker_s,nullptr);
-        if(DRS_OK != res){
+        ret = kvApi_ptr_->put_object(key.c_str(),&marker_s,nullptr);
+        if(StatusCode::sOk != ret){
             LOG_ERROR << "set replicator producer marker of volume "
                 << vol_id << " failed!";
-            return res;
+            return INTERNAL_ERROR;
         }
         replicator_Pmarker_cache_.put(vol_id,marker);
         LOG_INFO << "set replicator producer marker " << marker.cur_journal()
@@ -706,9 +711,9 @@ RESULT CephS3Meta::get_consumable_journals(const string& vol_id,
     const char* marker_key = marker.cur_journal().c_str();
     string prefix = g_key_prefix+vol_id;
     std::list<string> journal_list;
-    res = s3Api_ptr_->list_objects(prefix.c_str(),marker_key,
+    StatusCode ret = kvApi_ptr_->list_objects(prefix.c_str(),marker_key,
             0,&journal_list);
-    if(DRS_OK != res){
+    if(StatusCode::sOk != ret){
         LOG_ERROR << "list volume " << vol_id << " journals failed!";
         return INTERNAL_ERROR;
     }
@@ -764,10 +769,10 @@ RESULT CephS3Meta::get_sealed_and_consumed_journals(
     // list sealed journals
     std::list<string> sealed_journals;
     string prefix = g_sealed+vol_id;  // recycle sealed journals
-    RESULT res = s3Api_ptr_->list_objects(prefix.c_str(),nullptr,
+    StatusCode res = kvApi_ptr_->list_objects(prefix.c_str(),nullptr,
         limit,&sealed_journals);
-    if(res != DRS_OK){
-        return res;
+    if(StatusCode::sOk != res){
+        return INTERNAL_ERROR;
     }
     for(auto it=sealed_journals.begin();it!=sealed_journals.end();++it){
         string key = get_journal_key_by_index_key(*it);
@@ -784,18 +789,19 @@ RESULT CephS3Meta::recycle_journals(const string& vol_id,
     RESULT res = DRS_OK;
     for(auto it=journals.begin();it!=journals.end();it++){
         string value;
-        res = s3Api_ptr_->get_object(it->c_str(),&value);
-        if(res != DRS_OK){
+        StatusCode ret = kvApi_ptr_->get_object(it->c_str(),&value);
+        if(StatusCode::sOk != ret){
             LOG_WARN << " recycle journal " << *it << " failed.";
+            res = INTERNAL_ERROR;
             continue;
         }
         string r_key = construct_recyled_index(*it);
-        res = s3Api_ptr_->put_object(r_key.c_str(),&value,nullptr);
-        SG_ASSERT(DRS_OK == res);
+        ret = kvApi_ptr_->put_object(r_key.c_str(),&value,nullptr);
+        SG_ASSERT(StatusCode::sOk == ret);
         string s_key = construct_sealed_index(*it);
-        s3Api_ptr_->delete_object(s_key.c_str());
-        res = s3Api_ptr_->delete_object(it->c_str());
-        SG_ASSERT(DRS_OK == res);
+        kvApi_ptr_->delete_object(s_key.c_str());
+        ret = kvApi_ptr_->delete_object(it->c_str());
+        SG_ASSERT(StatusCode::sOk == ret);
         // delete cached keys
         journal_meta_cache_.delete_key(*it);
     }
@@ -805,10 +811,10 @@ RESULT CephS3Meta::recycle_journals(const string& vol_id,
 RESULT CephS3Meta::get_producer_id(const string& vol_id,
         std::list<string>& list){
     string prefix = g_writer_prefix+vol_id+"/";
-    RESULT res = s3Api_ptr_->list_objects(prefix.c_str(),nullptr,0,&list,"/");
-    if(DRS_OK != res){
+    StatusCode res = kvApi_ptr_->list_objects(prefix.c_str(),nullptr,0,&list,"/");
+    if(StatusCode::sOk != res){
         LOG_ERROR << "list objects failed:" << prefix;
-        return res;
+        return INTERNAL_ERROR;
     }
     if(list.empty())
         return DRS_OK;
@@ -825,10 +831,10 @@ RESULT CephS3Meta::seal_opened_journals(const string& vol_id,
         const string& uuid){
     std::list<string> list;
     string prefix = g_writer_prefix+vol_id+"/"+uuid+"/";
-    RESULT res = s3Api_ptr_->list_objects(prefix.c_str(),nullptr,0,&list);
-    if(DRS_OK != res){
+    StatusCode res = kvApi_ptr_->list_objects(prefix.c_str(),nullptr,0,&list);
+    if(StatusCode::sOk != res){
         LOG_ERROR << "list objects failed:" << prefix;
-        return res;
+        return INTERNAL_ERROR;
     }
     if(list.empty())
         return DRS_OK;
@@ -845,10 +851,10 @@ RESULT CephS3Meta::seal_opened_journals(const string& vol_id,
 
 RESULT CephS3Meta::list_volumes(std::list<string>& list){
     string prefix = g_key_prefix;
-    RESULT res = s3Api_ptr_->list_objects(prefix.c_str(),nullptr,0,&list,"/");
-    if(DRS_OK != res){
+    StatusCode res = kvApi_ptr_->list_objects(prefix.c_str(),nullptr,0,&list,"/");
+    if(StatusCode::sOk != res){
         LOG_ERROR << "list objects failed:" << prefix;
-        return res;
+        return INTERNAL_ERROR;
     }
     if(list.empty())
         return DRS_OK;
@@ -863,9 +869,9 @@ RESULT CephS3Meta::list_volumes(std::list<string>& list){
 
 RESULT CephS3Meta::list_volume_meta(std::list<VolumeMeta> &list){
     std::list<string> reps;
-    RESULT res = s3Api_ptr_->list_objects(g_volume_prefix.c_str(),
+    StatusCode res = kvApi_ptr_->list_objects(g_volume_prefix.c_str(),
         nullptr,0,&reps,"/");
-    if(DRS_OK != res){
+    if(StatusCode::sOk != res){
         return INTERNAL_ERROR;
     }
     for(string rep:reps){
@@ -892,7 +898,7 @@ RESULT CephS3Meta::create_volume(const VolumeMeta& meta){
         LOG_ERROR << "serailize replication meta failed!";
         return INTERNAL_ERROR;
     }
-    if(DRS_OK == s3Api_ptr_->put_object(key.c_str(),&value,nullptr)){
+    if(StatusCode::sOk == kvApi_ptr_->put_object(key.c_str(),&value,nullptr)){
         vol_cache_.put(meta.info().vol_id(),meta);
         return DRS_OK;
     }
@@ -900,7 +906,7 @@ RESULT CephS3Meta::create_volume(const VolumeMeta& meta){
 }
 RESULT CephS3Meta::update_volume_meta(const VolumeMeta& meta){
     string key = construct_volume_meta_key(meta.info().vol_id());
-    if(DRS_OK != s3Api_ptr_->head_object(key.c_str(),nullptr)){
+    if(StatusCode::sOk != kvApi_ptr_->head_object(key.c_str(),nullptr)){
         LOG_ERROR << "retrieve volume meta failed:" << key;
         return INTERNAL_ERROR;
     }
@@ -910,6 +916,7 @@ RESULT CephS3Meta::update_volume_meta(const VolumeMeta& meta){
 RESULT CephS3Meta::delete_volume(const string& id){
     string key = construct_volume_meta_key(id);
     vol_cache_.delete_key(id);
-    return  s3Api_ptr_->delete_object(key.c_str());
+    return  (StatusCode::sOk == kvApi_ptr_->delete_object(key.c_str()))?
+        DRS_OK:INTERNAL_ERROR;
 }
 

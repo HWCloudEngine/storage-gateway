@@ -21,7 +21,7 @@
 #include "journal_meta_manager.h"
 #include "journal_gc_manager.h"
 #include "volume_meta_manager.h"
-#include "common/ceph_s3_api.h"
+#include "common/kv_api.h"
 #include "lru_cache.h"
 using huawei::proto::JournalMeta;
 using huawei::proto::JournalArray;
@@ -55,7 +55,7 @@ class CephS3Meta:public JournalMetaManager,
         public JournalGCManager,
         public VolumeMetaManager {
 private:
-    std::unique_ptr<CephS3Api> s3Api_ptr_;
+    std::shared_ptr<KVApi> kvApi_ptr_;
     string mount_path_;
     SharedMutex counter_mtx;
     // volume journal_name counters
@@ -98,7 +98,7 @@ private:
             JournalMarker& marker);
     bool _get_volume_meta(const string& key,VolumeMeta& info);
 public:
-    CephS3Meta();
+    CephS3Meta(std::shared_ptr<KVApi> kvApi_ptr);
     ~CephS3Meta();
 
     // wait for any volume's replicator producer marker changed, or timeout(milliseconds)

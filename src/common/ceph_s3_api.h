@@ -11,13 +11,9 @@
 #ifndef CEPH_S3_API_H_
 #define CEPH_S3_API_H_
 #include <cstdint>
-#include <string>
-#include <list>
-#include <map>
 #include "common/libs3.h" // require ceph-libs3
-#include "rpc/common.pb.h"
+#include "kv_api.h"
 #define BUFF_LEN 128
-using huawei::proto::RESULT;
 using std::string;
 
 typedef struct s3_call_response{
@@ -29,9 +25,10 @@ typedef struct s3_call_response{
     int keyCount;
     char nextMarker[1024];
     void *pdata;
+    void *meta_data;
 }s3_call_response_t;
 
-class CephS3Api {
+class CephS3Api:public KVApi {
 private:
     S3BucketContext bucketContext;
     char access_key_[BUFF_LEN];
@@ -42,13 +39,15 @@ public:
     CephS3Api(const char* access_key, const char* secret_key, const char* host,
             const char* bucket_name);
     ~CephS3Api();
-    RESULT create_bucket_if_not_exists(const char* bucket_name);
-    RESULT put_object(const char* obj_name, const string* value,
-            const std::map<string,string>* meta);
-    RESULT delete_object(const char* key);
-    RESULT list_objects(const char*prefix, const char*marker,
-            int maxkeys, std::list<string>* list, const char* delimiter=NULL);
-    RESULT get_object(const char* key, string* value);
-    RESULT head_object(const char* key, std::map<string,string>* meta);
+
+    StatusCode create_bucket_if_not_exists(const char* bucket_name);
+    StatusCode put_object(const char* obj_name, const string* value,
+            const std::map<string,string>* meta=nullptr);
+    StatusCode delete_object(const char* key);
+    StatusCode list_objects(const char*prefix, const char*marker,
+            int maxkeys, std::list<string>* list, const char* delimiter=nullptr);
+    StatusCode get_object(const char* key, string* value);
+    StatusCode head_object(const char* key,
+            std::map<string,string>* meta=nullptr);
 };
 #endif

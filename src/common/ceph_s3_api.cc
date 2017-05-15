@@ -18,9 +18,9 @@
 #ifndef MAX_RETRIES
 #define MAX_RETRIES 5
 #endif
-using huawei::proto::DRS_OK;
-using huawei::proto::INTERNAL_ERROR;
-using huawei::proto::NO_SUCH_KEY;
+using huawei::proto::sOk;
+using huawei::proto::sInternalError;
+using huawei::proto::sNotFound;
 
 static int should_retry(s3_call_response_t &response)
 {
@@ -41,8 +41,8 @@ S3Status responsePropertiesCallback(
     if(properties->metaDataCount <= 0 || nullptr == callbackData)
         return S3StatusOK;
     s3_call_response_t* response = (s3_call_response_t*) callbackData;
-    if(nullptr != response->pdata){
-        std::map<string,string>* map = (std::map<string,string>*)response->pdata;
+    if(nullptr != response->meta_data){
+        std::map<string,string>* map = (std::map<string,string>*)response->meta_data;
         for (int i = 0; i < properties->metaDataCount; i++) {
             map->insert(std::pair<string,string>(properties->metaData[i].name,
                    properties->metaData[i].value));
@@ -132,8 +132,8 @@ static S3Status listBucketCallback(int isTruncated, const char *nextMarker,
     return S3StatusOK;
 }
 
-CephS3Api::CephS3Api(const char* access_key, const char* secret_key, const char* host,
-            const char* bucket_name) {
+CephS3Api::CephS3Api(const char* access_key, const char* secret_key,
+        const char* host, const char* bucket_name):KVApi() {
     strncpy(access_key_,access_key,BUFF_LEN);
     strncpy(secret_key_,secret_key,BUFF_LEN);
     strncpy(host_,host,BUFF_LEN);
@@ -155,7 +155,7 @@ CephS3Api::~CephS3Api() {
     S3_deinitialize();
 }
 
-RESULT CephS3Api::create_bucket_if_not_exists(const char* bucket_name) {
+StatusCode CephS3Api::create_bucket_if_not_exists(const char* bucket_name) {
     s3_call_response_t response;
     response.status = S3StatusHttpErrorUnknown;
     response.retries = MAX_RETRIES;
@@ -168,12 +168,12 @@ RESULT CephS3Api::create_bucket_if_not_exists(const char* bucket_name) {
     }while(S3_status_is_retryable(response.status)
                 && should_retry(response));
     if(S3StatusOK == response.status) {
-        return DRS_OK; // bucket exists
+        return sOk; // bucket exists
     }
     else if(S3StatusErrorNoSuchBucket != response.status) {
         LOG_ERROR << "test bucket:" << bucket_name << " failed:"
             <<  S3_get_status_name(response.status);
-        return INTERNAL_ERROR;
+        return sInternalError;
     }
     response.retries = MAX_RETRIES;
     response.retrySleepInterval = SLEEP_UNITS_PER_SECOND;
@@ -186,12 +186,12 @@ RESULT CephS3Api::create_bucket_if_not_exists(const char* bucket_name) {
     if(S3StatusOK != response.status) {
         LOG_ERROR << "create bucket:" << bucket_name << " failed:"
             <<  S3_get_status_name(response.status);
-        return INTERNAL_ERROR;
+        return sInternalError;
     }
-    return DRS_OK;
+    return sOk;
 }
 
-RESULT CephS3Api::put_object(const char* obj_name, const string* value,
+StatusCode CephS3Api::put_object(const char* obj_name, const string* value,
             const std::map<string,string>* meta) {
     S3PutObjectHandler putObjectHandler =
     {
@@ -209,7 +209,7 @@ RESULT CephS3Api::put_object(const char* obj_name, const string* value,
     LOG_DEBUG << "put object " << obj_name << ",length: " << len;
     S3PutProperties properties;
     memset(&properties,0,sizeof(S3PutProperties));
-    if(meta != nullptr && meta->size()){
+    if(meta != nullptr && !meta->empty()){
         properties.metaDataCount = meta->size();
         S3NameValue* meta_value = new S3NameValue[properties.metaDataCount];
         int i=0;
@@ -230,12 +230,12 @@ RESULT CephS3Api::put_object(const char* obj_name, const string* value,
     if(S3StatusOK != response.status){
         LOG_ERROR << "create object " << obj_name << " failed:"
             << S3_get_status_name(response.status);
-        return INTERNAL_ERROR;
+        return sInternalError;
     }
-    return DRS_OK;
+    return sOk;
 }
 
-RESULT CephS3Api::get_object(const char* key, string* value){
+StatusCode CephS3Api::get_object(const char* key, string* value){
     S3GetObjectHandler getObjectHandler =
     {
         responseHandler,
@@ -243,6 +243,7 @@ RESULT CephS3Api::get_object(const char* key, string* value){
     };
     s3_call_response_t response;
     response.pdata = value;
+    response.meta_data = nullptr;
     response.retries = MAX_RETRIES;
     response.retrySleepInterval = SLEEP_UNITS_PER_SECOND;
     do {
@@ -252,30 +253,31 @@ RESULT CephS3Api::get_object(const char* key, string* value){
                 && should_retry(response));
     if(S3StatusOK != response.status) {
         if(S3StatusErrorNoSuchKey == response.status)
-            return NO_SUCH_KEY;
+            return sNotFound;
         LOG_ERROR << "get object " << key << " failed:"
             << S3_get_status_name(response.status);
-        return INTERNAL_ERROR;
+        return sInternalError;
     }
-    return DRS_OK;
+    return sOk;
 }
 
-RESULT CephS3Api::head_object(const char* key, std::map<string,string>* meta){
+StatusCode CephS3Api::head_object(const char* key,
+        std::map<string,string>* meta){
     s3_call_response_t response;
     response.retries = MAX_RETRIES;
     response.retrySleepInterval = SLEEP_UNITS_PER_SECOND;
-    response.pdata = (void*)meta;
+    response.meta_data = (void*)(meta);
     do {
         S3_head_object(&bucketContext, key, 0, &responseHandler, &response);
     } while (S3_status_is_retryable(response.status) && should_retry(response));
     if(S3StatusOK != response.status) {
         LOG_ERROR << "head object " << key << " failed:" << S3_get_status_name(response.status);
-        return INTERNAL_ERROR;
+        return sInternalError;
     }
-    return DRS_OK;
+    return sOk;
 }
 
-RESULT CephS3Api::delete_object(const char* key) {
+StatusCode CephS3Api::delete_object(const char* key) {
     S3ResponseHandler deleteResponseHandler = {
         0,
         &responseCompleteCallback
@@ -288,15 +290,15 @@ RESULT CephS3Api::delete_object(const char* key) {
     } while(S3_status_is_retryable(response.status)
                 && should_retry(response));
     if(S3StatusErrorNoSuchKey == response.status)
-        return DRS_OK; // object key not found
+        return sOk; // object key not found
     if(S3StatusOK != response.status) {
         LOG_ERROR << "delete object " << key << " failed:" << S3_get_status_name(response.status);
-        return INTERNAL_ERROR;
+        return sInternalError;
     }
-    return DRS_OK;
+    return sOk;
 }
 // if maxkeys <= 0, return all matched keys
-RESULT CephS3Api::list_objects(const char*prefix, const char*marker,
+StatusCode CephS3Api::list_objects(const char*prefix, const char*marker,
             int maxkeys, std::list<string>* list,const char* delimiter) {
     S3ListBucketHandler listBucketHandler =
     {
@@ -326,7 +328,7 @@ RESULT CephS3Api::list_objects(const char*prefix, const char*marker,
     } while(response.isTruncated && (maxkeys<=0 || (response.keyCount < maxkeys)));
     if(S3StatusOK != response.status){
         LOG_ERROR << "list object failed: " << S3_get_status_name(response.status);
-        return INTERNAL_ERROR;
+        return sInternalError;
     }
-    return DRS_OK;
+    return sOk;
 }
