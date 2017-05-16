@@ -24,6 +24,14 @@ struct pbdev
     request_fn_proc*      blk_request_fn;
     make_request_fn*      blk_bio_fn;
     
+    /*each bit in cbt bitmap represent block size(2^n)*/
+    size_t                granularity;
+    size_t                granularity_shit;
+    /*unit byte*/
+    size_t                cbt_bitmap_size;
+    /*trace which sectors still in sg_client side(one bit one sector)*/
+    unsigned long*        cbt_bitmap;
+
     struct transport*     network;
 
     wait_queue_head_t     send_wq;

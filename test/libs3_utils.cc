@@ -8,7 +8,7 @@
 * Description:
 * 
 ************************************************/
-#include "common/config.h"
+#include "common/config_option.h"
 #include "common/ceph_s3_api.h"
 #include "rpc/volume.pb.h"
 #include "rpc/journal/journal.pb.h"
@@ -141,12 +141,10 @@ int list_f(CephS3Api& s3_meta,const std::string& bucket){
 int main(int argc,char* argv[]){
     DRLog::log_init("sg_tool.log");
 
-    Configure conf;
-    conf.init(DEFAULT_CONFIG_FILE);
-    string access_key = conf.ceph_s3_access_key;
-    string secret_key = conf.ceph_s3_secret_key;
-    string host = conf.ceph_s3_host;
-    string bucket_name = conf.ceph_s3_bucket;
+    string access_key = g_option.ceph_s3_access_key;
+    string secret_key = g_option.ceph_s3_secret_key;
+    string host = g_option.ceph_s3_host;
+    string bucket_name = g_option.ceph_s3_bucket;
     CephS3Api s3_meta(access_key.c_str(),secret_key.c_str(),
         host.c_str(),bucket_name.c_str());
 
