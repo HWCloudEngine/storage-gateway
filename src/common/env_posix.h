@@ -90,8 +90,8 @@ class Env {
     virtual bool delete_file(const std::string& fname) = 0;
     virtual size_t file_size(const std::string& fname) = 0;
 
-    uint64_t now_micros();
-    void sleep(uint64_t micro);
+    virtual uint64_t now_micros() = 0;
+    virtual void sleep(uint64_t micro) = 0;
 };
 
 class PosixEnv : public Env {
@@ -109,6 +109,8 @@ class PosixEnv : public Env {
     bool file_exists(const std::string& fname) override;
     bool delete_file(const std::string& fname) override;
     size_t file_size(const std::string& fname) override;
+    uint64_t now_micros() override;
+    void sleep(uint64_t micro) override;
 };
 
 #endif  // SRC_COMMON_ENV_POSIX_H_

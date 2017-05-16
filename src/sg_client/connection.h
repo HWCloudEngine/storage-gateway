@@ -91,8 +91,6 @@ class Connection {
     /*reply thread*/
     bool running_flag;
     shared_ptr<thread> reply_thread_;
-    /*internal request sequence, use for multi thread keep order*/
-    uint64_t req_seq;
 };
 
 }  // namespace Journal

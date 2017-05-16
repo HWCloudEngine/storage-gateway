@@ -12,6 +12,7 @@
 #include <boost/bind.hpp>
 #include "common/define.h"
 #include "rpc/message.pb.h"
+#include "perf_counter.h"
 #include "volume_manager.h"
 #include "connection.h"
 #if !defined(USE_NEDMALLOC_DLL)
@@ -54,7 +55,6 @@ Connection::~Connection() {
 bool Connection::init(nedalloc::nedpool* buffer) {
     buffer_pool = buffer;
     running_flag = true;
-    req_seq = 0;
     reply_thread_.reset(new thread(bind(&Connection::send_thread, this)));
     return true;
 }
@@ -96,10 +96,19 @@ void Connection::read_request_header() {
 }
 
 void Connection::dispatch(IOHookRequest* header_ptr) {
+    IoProbe* probe = (IoProbe*)malloc(sizeof(IoProbe));
+    probe->seq = header_ptr->seq;
+    probe->dir = header_ptr->type; 
+    probe->off = header_ptr->offset;
+    probe->len = header_ptr->len;
+    probe->recv_begin_ts = Env::instance()->now_micros();
+    g_perf.insert(probe->seq, probe);
+
     switch (header_ptr->type) {
         case SCSI_READ:
             /*request to journal reader*/
             read_queue_.push(*header_ptr);
+            probe->recv_end_ts = Env::instance()->now_micros();
             read_request_header();
             break;
         case SCSI_WRITE:
@@ -224,6 +233,10 @@ bool Connection::handle_write_request(char* buffer, uint32_t size,
         return false;
     }
     IOHookRequest* header_ptr = reinterpret_cast<IOHookRequest*>(header);
+    IoProbe* probe = g_perf.retrieve(header_ptr->seq);
+    if (probe) {
+        probe->recv_end_ts = Env::instance()->now_micros();
+    }
     char*  write_data = buffer;
     size_t write_data_len = size;
     /*spawn write message*/
@@ -235,9 +248,8 @@ bool Connection::handle_write_request(char* buffer, uint32_t size,
     message->set_data(write_data, write_data_len);
     /*spawn journal entry*/
     shared_ptr<JournalEntry> entry = make_shared<JournalEntry>();
+    entry->set_sequence(header_ptr->seq);
     entry->set_handle(header_ptr->handle);
-    entry->set_sequence(req_seq);
-    req_seq++;
     entry->set_type(IO_WRITE);
     entry->set_message(message);
     /*enqueue*/
@@ -263,6 +275,10 @@ void Connection::send_reply(IOHookReply* reply) {
         LOG_ERROR << "Invalid reply ptr";
         return;
     }
+    IoProbe* probe = g_perf.retrieve(reply->seq);
+    if (probe) {
+        probe->reply_begin_ts = Env::instance()->now_micros();
+    }
     boost::asio::async_write(*raw_socket_,
     boost::asio::buffer(reply, sizeof(struct IOHookReply)),
     boost::bind(&Connection::handle_send_reply, this, reply,
@@ -279,6 +295,12 @@ void Connection::handle_send_reply(IOHookReply* reply,
                     boost::asio::placeholders::error));
         } else {
             delete []reply;
+            IoProbe* probe = g_perf.retrieve(reply->seq);
+            if (probe) {
+                probe->reply_end_ts = Env::instance()->now_micros();
+                g_perf.show(probe);
+                g_perf.remove(reply->seq);
+            }
         }
     } else {
         LOG_ERROR << "send reply failed,reply id:" << reply->handle;
@@ -290,6 +312,13 @@ void Connection::handle_send_data(IOHookReply* reply,
                                   const boost::system::error_code& err) {
     if (err) {
         LOG_ERROR << "send reply data failed, reply id:" << reply->handle;
+    }
+
+    IoProbe* probe = g_perf.retrieve(reply->seq);
+    if (probe) {
+        probe->reply_end_ts = Env::instance()->now_micros();
+        g_perf.show(probe);
+        g_perf.remove(reply->seq);
     }
     delete []reply;
 }

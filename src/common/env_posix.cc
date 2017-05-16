@@ -11,6 +11,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
+#include <sys/time.h>
 #include <linux/fs.h>
 #include <fcntl.h>
 #include <dirent.h>
@@ -330,4 +331,14 @@ size_t PosixEnv::file_size(const std::string& fname) {
         }
     }
     return 0;
+}
+
+uint64_t PosixEnv::now_micros() {
+    struct timeval tv;
+    gettimeofday(&tv, nullptr);
+    return (tv.tv_sec*1000000000) + tv.tv_usec;
+}
+
+void PosixEnv::sleep(uint64_t micros) {
+    usleep(micros);
 }

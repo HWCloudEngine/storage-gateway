@@ -27,6 +27,7 @@ sg_client_SOURCES=../common/crc32.c  \
                   cache/common.cc        \
                   cache/jcache.cc        \
                   replicate_proxy.cc  \
+                  perf_counter.cc     \
                   connection.cc       \
                   io_service_pool.cc  \
                   seq_generator.cc    \

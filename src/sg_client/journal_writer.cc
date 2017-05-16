@@ -14,6 +14,7 @@
 #include "common/utils.h"
 #include "rpc/message.pb.h"
 #include "log/log.h"
+#include "perf_counter.h"
 #include "journal_writer.h"
 using huawei::proto::SnapshotMessage;
 
@@ -147,6 +148,11 @@ IS_WRITABLE:
         if (!ret) {
             return;
         }
+        IoProbe* probe = g_perf.retrieve(entry->get_sequence());
+        if (probe) {
+            probe->write_begin_ts = Env::instance()->now_micros();
+        }
+
         success = false;
         time(&start);
         time(&end);
@@ -241,6 +247,10 @@ IS_WRITABLE:
             producer_event.trigger_event();
             written_size_since_last_update = 0;
             LOG_DEBUG << "trigger to update producer marker:" << vol_attr_.vol_name();
+        }
+
+        if (probe) {
+            probe->write_end_ts = Env::instance()->now_micros();
         }
 
         // response to io scheduler
@@ -388,6 +398,7 @@ void JournalWriter::send_reply(JournalEntry* entry, bool success) {
         IOHookReply* reply_ptr = reinterpret_cast<IOHookReply*>(new char[sizeof(IOHookReply)]);
         reply_ptr->magic = MESSAGE_MAGIC;
         reply_ptr->error = success?0:1;
+        reply_ptr->seq   = entry->get_sequence();
         reply_ptr->handle = handle;
         reply_ptr->len = 0;
         if (!reply_queue_.push(reply_ptr)) {

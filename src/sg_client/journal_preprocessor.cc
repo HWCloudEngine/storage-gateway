@@ -13,6 +13,7 @@
 #include "common/utils.h"
 #include "common/config_option.h"
 #include "log/log.h"
+#include "perf_counter.h"
 #include "journal_preprocessor.h"
 
 namespace Journal {
@@ -38,11 +39,20 @@ void JournalPreProcessor::work() {
         if (!ret) {
             return;
         }
+
+        IoProbe* probe = g_perf.retrieve(entry->get_sequence());
+        if (probe) {
+            probe->proc_begin_ts = Env::instance()->now_micros();
+        }
+
         /*message serialize*/
         entry->serialize();
         /*calculate crc*/
         entry->calculate_crc();
         write_queue_.push(entry, pos);
+         if (probe) {
+            probe->proc_end_ts = Env::instance()->now_micros();
+        }
     }
 }
 

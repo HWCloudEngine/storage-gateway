@@ -8,8 +8,8 @@
 *  Description:  handle read io
 *
 *************************************************/
-
 #include "log/log.h"
+#include "perf_counter.h"
 #include "journal_reader.h"
 
 namespace Journal {
@@ -47,10 +47,15 @@ void JournalReader::work() {
             break;
         }
 
+        IoProbe* probe = g_perf.retrieve(ioreq.seq);
+        if (probe) {
+            probe->read_begin_ts = Env::instance()->now_micros();
+        }
+
         int iorsp_len = sizeof(struct IOHookReply) + ioreq.len;
         struct IOHookReply* iorsp = (struct IOHookReply*)new char[iorsp_len];
         iorsp->magic = ioreq.magic;
-        iorsp->reserves = ioreq.reserves;
+        iorsp->seq = ioreq.seq;
         iorsp->handle = ioreq.handle;
         char* buf = reinterpret_cast<char*>(iorsp) + sizeof(struct IOHookReply);
         LOG_DEBUG << "read" << " hdl:" << ioreq.handle
@@ -63,6 +68,9 @@ void JournalReader::work() {
         if (!m_reply_queue.push(iorsp)) {
             delete [] iorsp;
             return;
+        }
+        if (probe) {
+            probe->read_end_ts = Env::instance()->now_micros();
         }
     }
 }
