@@ -17,6 +17,39 @@
 
 struct pbdev_mgr g_dev_mgr;
 
+void cbt_set(struct pbdev* dev, sector_t start, sector_t nr_sects)
+{
+    off_t start_pos = start << 9;
+    off_t end_pos = (start+nr_sects) << 9;
+    while (start_pos < end_pos) {
+        set_bit((start_pos>>dev->granularity_shit), dev->cbt_bitmap);
+        start_pos += dev->granularity;
+    }
+}
+
+void cbt_clear(struct pbdev* dev, sector_t start, sector_t nr_sects)
+{
+    off_t start_pos = start << 9;
+    off_t end_pos = (start+nr_sects) << 9; 
+    while (start_pos < end_pos) {
+        clear_bit((start_pos>>dev->granularity_shit), dev->cbt_bitmap);
+        start_pos += dev->granularity;
+    }
+}
+
+bool cbt_check(struct pbdev* dev, sector_t start, sector_t nr_sects)
+{
+
+    off_t start_pos = start << 9;
+    off_t end_pos = (start+nr_sects) << 9; 
+    while (start_pos < end_pos) {
+        if(!test_bit((start_pos >> dev->granularity_shit), (dev->cbt_bitmap)))
+            return false;
+        start_pos += dev->granularity;
+    }
+    return true;
+}
+
 void hook_make_request_fn(struct request_queue* q, struct bio* bio)
 {
     struct pbdev* dev = NULL;
@@ -32,10 +65,33 @@ void hook_make_request_fn(struct request_queue* q, struct bio* bio)
     spin_lock_irq(&g_dev_mgr.dev_lock);
     pass = ((cur_tgid == g_dev_mgr.sg_pid)?1:0);
     spin_unlock_irq(&g_dev_mgr.dev_lock);
-    if(pass)
-    {
+    if (pass) {
+        if (bio_data_dir(bio) == WRITE) {
+            //LOG_INFO("cbt clear start:%ld, nr_sects:%ld", bio->bi_iter.bi_sector,
+            //        (bio->bi_iter.bi_size >> 9));
+            cbt_clear(dev, bio->bi_iter.bi_sector, (bio->bi_iter.bi_size >> 9)); 
+        }
         dev->blk_bio_fn(q,bio);
         return;
+    }
+    
+    if (bio_data_dir(bio) == WRITE) {
+         //LOG_INFO("cbt set start:%ld, nr_sects:%ld", bio->bi_iter.bi_sector,
+         //       (bio->bi_iter.bi_size >> 9));
+         cbt_set(dev, bio->bi_iter.bi_sector, (bio->bi_iter.bi_size >> 9)); 
+    }
+
+    if (bio_data_dir(bio) == READ) {
+        //LOG_INFO("cbt check start:%ld, nr_sects:%ld", bio->bi_iter.bi_sector,
+        //         (bio->bi_iter.bi_size >> 9));
+ 
+        if (!cbt_check(dev, bio->bi_iter.bi_sector,
+                     (bio->bi_iter.bi_size >> 9))) {
+            //LOG_INFO("cbt check start:%ld, nr_sects:%ld", bio->bi_iter.bi_sector,
+            //        (bio->bi_iter.bi_size >> 9));
+            dev->blk_bio_fn(q,bio);
+            return;
+        } 
     }
 
     spin_lock_irq(&dev->lock);
@@ -110,9 +166,9 @@ static int uninstall_hook(struct pbdev* dev)
 static int net_send_vol_ctl_cmd(struct pbdev* dev,bool add_vol)
 {
     int ret = 0;
-    struct HookReply reply = {0};
-    struct HookRequest* req = NULL;
-    int req_len = sizeof(struct HookRequest);
+    io_reply_t reply = {0};
+    io_request_t* req = NULL;
+    int req_len = sizeof(io_request_t);
     req_len += add_vol ? sizeof(add_vol_req_t) : sizeof(del_vol_req_t);
 
     req = kzalloc(req_len, GFP_KERNEL);
@@ -124,7 +180,7 @@ static int net_send_vol_ctl_cmd(struct pbdev* dev,bool add_vol)
     }
     req->magic = MSG_MAGIC;
     req->type  = add_vol ? ADD_VOLUME : DEL_VOLUME;
-    req->reserves = 0;
+    req->seq   = dev->seq_id++;
     req->handle = 0;
     req->offset = 0;
     req->len = add_vol ? sizeof(add_vol_req_t) : sizeof(del_vol_req_t);
@@ -189,20 +245,21 @@ static int net_send_bio(struct pbdev* dev, struct bio* bio)
     #endif
     uint8_t  dir  = bio_data_dir(bio);
 
-    struct HookRequest hreq;
+    io_request_t hreq = {0};
     hreq.magic = MSG_MAGIC;
     /*READ:0 WRITE:1*/
     hreq.type   = dir ? IO_WRITE : IO_READ;
+    hreq.seq    = dev->seq_id++;
     hreq.handle = (uint64_t)bio;
     hreq.offset = off;
     hreq.len    = size;
     
     ret = tp_send(dev->network, (const char*)&hreq, sizeof(hreq));
     if(ret){
-        LOG_ERR("send HookRequest failed ret:%d len:%lu", ret, sizeof(hreq));
+        LOG_ERR("send io request failed ret:%d len:%lu", ret, sizeof(hreq));
         return ret;
     }
-    LOG_INFO("send bio dir:%d off:%llu len:%llu hdl:%llu", dir, off, size, hreq.handle); 
+    // LOG_INFO("send bio dir:%d off:%llu len:%llu hdl:%llu", dir, off, size, hreq.handle); 
     /*send write io data*/
     if(dir == WRITE){
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3,14,0))
@@ -225,7 +282,7 @@ static int net_send_bio(struct pbdev* dev, struct bio* bio)
                     LOG_ERR("send bvec failed ret:%d", ret);
                     return ret;
                 }
-                LOG_INFO("send bvec off:%d len:%d", bv.bv_offset, bv.bv_len);
+                // LOG_INFO("send bvec off:%d len:%d", bv.bv_offset, bv.bv_len);
             }
         }
 #endif
@@ -247,7 +304,7 @@ static int net_recv_bvec(struct pbdev* dev, struct bio_vec* bvec)
 static struct bio* net_recv_bio(struct pbdev* dev)
 {
     int ret;
-    struct HookReply reply = {0};
+    io_reply_t reply = {0};
     struct bio* bio = NULL;
     ret = tp_recv(dev->network, (char*)(&reply), sizeof(reply));
     if(ret){
@@ -260,7 +317,7 @@ static struct bio* net_recv_bio(struct pbdev* dev)
         return NULL;
     }
     
-    LOG_INFO("recv bio hdl:%llu", reply.handle); 
+    // LOG_INFO("recv bio hdl:%llu", reply.handle); 
 
     bio = (struct bio*)reply.handle;
     if(bio == NULL)
@@ -288,7 +345,7 @@ static struct bio* net_recv_bio(struct pbdev* dev)
                     LOG_ERR("recv bvec failed ret:%d", ret);
                 }
             }
-            LOG_INFO("recv bvec off:%llu len:%llu", bvec.bv_offset, bvec.bv_len);
+            // LOG_INFO("recv bvec off:%llu len:%llu", bvec.bv_offset, bvec.bv_len);
         }
 #endif
     }
@@ -340,7 +397,6 @@ int blk_dev_protect(const char* dev_path, const char* vol_name)
 {
     int ret = 0;
     struct pbdev* dev;
-    
     LOG_INFO("protect dev_path:%s", dev_path);
     dev = pbdev_mgr_get_by_path(&g_dev_mgr, dev_path);
     if(dev != NULL){
@@ -359,6 +415,7 @@ int blk_dev_protect(const char* dev_path, const char* vol_name)
     INIT_LIST_HEAD(&(dev->link));
     dev->blk_path = kstrdup(dev_path, GFP_KERNEL);
     dev->vol_name = kstrdup(vol_name, GFP_KERNEL);
+    dev->seq_id = 0;
     if(IS_ERR(dev->blk_path)){
         ret = -ENOMEM;
         LOG_ERR("allocte memory failed");
@@ -372,6 +429,25 @@ int blk_dev_protect(const char* dev_path, const char* vol_name)
         goto err;
     }
 
+    {
+        struct gendisk* bd_disk = dev->blk_device->bd_disk;
+        if (bd_disk) {
+            /*512*/
+            dev->granularity_shit  = 9;
+            dev->granularity = (2 << dev->granularity_shit);
+            size_t cbt_bitmap_bits = (bd_disk->part0.nr_sects << 9) >> dev->granularity_shit;
+            dev->cbt_bitmap_size = BITS_TO_LONGS(cbt_bitmap_bits) * sizeof(unsigned long);
+            dev->cbt_bitmap = kzalloc(dev->cbt_bitmap_size, GFP_KERNEL);
+            if (!dev->cbt_bitmap) {
+                LOG_ERR("allocate cbt bitmap faild"); 
+                goto err;
+            }
+            //bitmap_zero(dev->cbt_bitmap, cbt_bitmap_bits);
+            LOG_INFO("%s: start:%lu nr:%lu", bd_disk->disk_name,
+                     bd_disk->part0.start_sect, bd_disk->part0.nr_sects);
+        }
+    }
+   
     dev->blk_queue = bdev_get_queue(dev->blk_device);
     if(IS_ERR(dev->blk_queue)){
         ret = PTR_ERR(dev->blk_device);
@@ -443,6 +519,9 @@ err:
             tp_close(dev->network);
             kfree(dev->network);
         }
+        if(dev->cbt_bitmap) {
+            kfree(dev->cbt_bitmap);
+        }
         if(dev->blk_path){
             kfree(dev->blk_path);    
         }
@@ -487,6 +566,9 @@ int blk_dev_unprotect(const char* dev_path)
     pbdev_mgr_del(&g_dev_mgr, dev_path);
     if(dev->blk_path){
         kfree(dev->blk_path);    
+    }
+    if(dev->cbt_bitmap){
+        kfree(dev->cbt_bitmap); 
     }
     LOG_INFO("delete from mgr");
     kfree(dev);

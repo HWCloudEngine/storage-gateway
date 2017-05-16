@@ -12,6 +12,7 @@
 #include <boost/bind.hpp>
 #include "common/define.h"
 #include "rpc/message.pb.h"
+#include "perf_counter.h"
 #include "volume_manager.h"
 #include "connection.h"
 #if !defined(USE_NEDMALLOC_DLL)
@@ -54,7 +55,6 @@ Connection::~Connection() {
 bool Connection::init(nedalloc::nedpool* buffer) {
     buffer_pool = buffer;
     running_flag = true;
-    req_seq = 0;
     reply_thread_.reset(new thread(bind(&Connection::send_thread, this)));
     return true;
 }
@@ -96,10 +96,14 @@ void Connection::read_request_header() {
 }
 
 void Connection::dispatch(IOHookRequest* header_ptr) {
+
+    DO_PERF(READ_BEGIN, header_ptr->seq);
+
     switch (header_ptr->type) {
         case SCSI_READ:
             /*request to journal reader*/
             read_queue_.push(*header_ptr);
+            DO_PERF(RECV_END, header_ptr->seq);
             read_request_header();
             break;
         case SCSI_WRITE:
@@ -164,6 +168,11 @@ void Connection::handle_request_header(const boost::system::error_code& e) {
     IOHookRequest* header_ptr = reinterpret_cast<IOHookRequest*>
                                       (header_buffer_.data());
     if (!e && header_ptr->magic == MESSAGE_MAGIC) {
+        uint64_t seq = header_ptr->seq;
+        uint8_t  dir = header_ptr->type;
+        uint64_t off = header_ptr->offset;
+        uint64_t len = header_ptr->len;
+        PRE_PERF(seq, dir, off, len);
         /*dispath IoHookRequest to Journal Writer or Reader*/
         dispatch(header_ptr);
     } else {
@@ -223,7 +232,10 @@ bool Connection::handle_write_request(char* buffer, uint32_t size,
     if (buffer == NULL || header == NULL) {
         return false;
     }
+
     IOHookRequest* header_ptr = reinterpret_cast<IOHookRequest*>(header);
+    DO_PERF(RECV_END, header_ptr->seq);
+
     char*  write_data = buffer;
     size_t write_data_len = size;
     /*spawn write message*/
@@ -235,9 +247,8 @@ bool Connection::handle_write_request(char* buffer, uint32_t size,
     message->set_data(write_data, write_data_len);
     /*spawn journal entry*/
     shared_ptr<JournalEntry> entry = make_shared<JournalEntry>();
+    entry->set_sequence(header_ptr->seq);
     entry->set_handle(header_ptr->handle);
-    entry->set_sequence(req_seq);
-    req_seq++;
     entry->set_type(IO_WRITE);
     entry->set_message(message);
     /*enqueue*/
@@ -263,6 +274,7 @@ void Connection::send_reply(IOHookReply* reply) {
         LOG_ERROR << "Invalid reply ptr";
         return;
     }
+    DO_PERF(REPLY_BEGIN, reply->seq);
     boost::asio::async_write(*raw_socket_,
     boost::asio::buffer(reply, sizeof(struct IOHookReply)),
     boost::bind(&Connection::handle_send_reply, this, reply,
@@ -279,6 +291,8 @@ void Connection::handle_send_reply(IOHookReply* reply,
                     boost::asio::placeholders::error));
         } else {
             delete []reply;
+            DO_PERF(REPLY_END, reply->seq);
+            POST_PERF(reply->seq);
         }
     } else {
         LOG_ERROR << "send reply failed,reply id:" << reply->handle;
@@ -291,6 +305,8 @@ void Connection::handle_send_data(IOHookReply* reply,
     if (err) {
         LOG_ERROR << "send reply data failed, reply id:" << reply->handle;
     }
+    DO_PERF(REPLY_END, reply->seq);
+    POST_PERF(reply->seq);
     delete []reply;
 }
 

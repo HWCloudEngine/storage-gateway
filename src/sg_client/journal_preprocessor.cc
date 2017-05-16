@@ -13,6 +13,7 @@
 #include "common/utils.h"
 #include "common/config_option.h"
 #include "log/log.h"
+#include "perf_counter.h"
 #include "journal_preprocessor.h"
 
 namespace Journal {
@@ -38,11 +39,14 @@ void JournalPreProcessor::work() {
         if (!ret) {
             return;
         }
+        
+        DO_PERF(PROC_BEGIN, entry->get_sequence());
         /*message serialize*/
         entry->serialize();
         /*calculate crc*/
         entry->calculate_crc();
         write_queue_.push(entry, pos);
+        DO_PERF(PROC_END, entry->get_sequence());
     }
 }
 

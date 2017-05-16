@@ -11,7 +11,7 @@ namespace Journal{
 struct IOHookRequest {
     uint32_t magic;
     uint32_t type;          /*command type*/
-    uint32_t reserves;
+    uint64_t seq;
     uint64_t handle;        /*command unique identifier*/
     uint64_t offset;
     uint32_t len;
@@ -22,7 +22,7 @@ struct IOHookRequest {
 struct IOHookReply {
     uint32_t magic;
     uint32_t error;
-    uint32_t reserves;
+    uint64_t seq;
     uint64_t handle;
     uint32_t len;
     uint8_t  data[0];
