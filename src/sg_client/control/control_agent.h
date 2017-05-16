@@ -4,7 +4,6 @@
 #include <list>
 #include <string>
 #include <grpc++/grpc++.h>
-#include "common/config.h"
 #include "rpc/common.pb.h"
 #include "rpc/clients/volume_inner_ctrl_client.h"
 #include "rpc/volume_control.pb.h"

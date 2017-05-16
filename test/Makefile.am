@@ -13,6 +13,6 @@ LDADD=$(top_srcdir)/src/rpc/librpc.la \
 debug_client_SOURCES=debug_client.cc
 
 libs3_utils_SOURCES=libs3_utils.cc \
-                    ../src/common/config.cc \
+                    ../src/common/config_option.cc \
                     ../src/common/ceph_s3_api.cc
 libs3_utils_LDADD=$(LDADD) -ls3

@@ -108,8 +108,8 @@ bool AgentControlImpl::agent_del_device(std::string device)
 Status AgentControlImpl::EnableSG(ServerContext* context, const control::EnableSGReq* req,
         control::EnableSGRes* res)
 {
-    string vol_name = req->volume_id();
-    string dev_name = req->device();
+    std::string vol_name = req->volume_id();
+    std::string dev_name = req->device();
     size_t dev_size = req->size();
     
     LOG_INFO << "enable sg vol:" << vol_name << "device:" << dev_name << " size:" << dev_size;
