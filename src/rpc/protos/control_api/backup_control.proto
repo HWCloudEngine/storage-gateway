@@ -33,10 +33,11 @@ message DeleteBackupAck {
 
 message RestoreBackupReq {
     string vol_name = 1; 
-    string backup_name = 2;
-    string new_vol_name = 3;
-    uint64 new_vol_size = 4;
-    string new_block_device =5;
+    uint64 vol_size = 2;
+    string backup_name  = 3;
+    string new_vol_name = 4;
+    uint64 new_vol_size = 5;
+    string new_block_device = 6;
 }
 
 message RestoreBackupAck {

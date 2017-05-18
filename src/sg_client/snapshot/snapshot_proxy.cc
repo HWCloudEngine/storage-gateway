@@ -341,7 +341,7 @@ StatusCode SnapshotProxy::delete_transaction(const SnapReqHead& shead,
 StatusCode SnapshotProxy::rollback_transaction(const SnapReqHead& shead,
                                                const string& snap_name) {
     LOG_INFO << "rollback transaction sname:" << snap_name << " begin";
-    StatusCode ret = transaction(shead, snap_name, UpdateEvent::ROLLBACK_EVENT);
+    StatusCode ret = transaction(shead, snap_name, UpdateEvent::ROLLBACKED_EVENT);
     if (ret) {
         LOG_ERROR << "rollback transaction sname:" << snap_name << " failed";
         return ret;
@@ -470,7 +470,7 @@ StatusCode SnapshotProxy::do_delete(const SnapReqHead& shead,
 
 StatusCode SnapshotProxy::do_rollback(const SnapReqHead& shead,
                                       const string& sname) {
-    return StatusCode::sOk;
+    return do_update(shead, sname, UpdateEvent::ROLLBACKING_EVENT);
 }
 
 StatusCode SnapshotProxy::do_update(const SnapReqHead& shead,
@@ -485,8 +485,7 @@ StatusCode SnapshotProxy::do_update(const SnapReqHead& shead,
     ireq.set_snap_event(sevent);
     Status st = m_rpc_stub->Update(&context, ireq, &iack);
 
-    /*whether update rpc ok or not, 
-     * it will get current active snapshot from sg_server*/
+    /*whether update rpc ok or not, it will return current active snapshot*/
     m_active_snapshot = iack.latest_snap_name();
     if (m_active_snapshot.empty()) {
         m_exist_snapshot = false;

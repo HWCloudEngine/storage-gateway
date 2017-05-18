@@ -116,9 +116,12 @@ message ReadAck {
 }
 
 enum UpdateEvent {
-    CREATE_EVENT   = 0;
-    DELETE_EVENT   = 1;
-    ROLLBACK_EVENT = 2;
+    CREATE_EVENT = 0;
+    DELETE_EVENT = 1;
+    /*trigger rollback*/
+    ROLLBACKING_EVENT = 2;
+    /*actually rollback*/
+    ROLLBACKED_EVENT = 3;
 }
 
 message UpdateReq {

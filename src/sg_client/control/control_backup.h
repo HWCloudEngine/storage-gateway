@@ -1,16 +1,26 @@
-#ifndef CONTROL_BACKUP_H_
-#define CONTROL_BACKUP_H_
-
+/**********************************************
+*  Copyright (c) 2016 Huawei Technologies Co., Ltd. All rights reserved.
+*
+*  File name:    control_backup.h
+*  Author: 
+*  Date:         2016/11/03
+*  Version:      1.0
+*  Description:  backup control interface export to highlevel control layer 
+*
+*************************************************/
+#ifndef SRC_SG_CLIENT_CONTROL_CONTROL_BACKUP_H_
+#define SRC_SG_CLIENT_CONTROL_CONTROL_BACKUP_H_
+#include <string>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <thread>
 #include <functional>
 #include <grpc++/grpc++.h>
-#include "../../rpc/common.pb.h"
-#include "../../rpc/backup_control.pb.h"
-#include "../../rpc/backup_control.grpc.pb.h"
-#include "../../log/log.h"
+#include "rpc/common.pb.h"
+#include "rpc/backup_control.pb.h"
+#include "rpc/backup_control.grpc.pb.h"
+#include "log/log.h"
 #include "../backup/backup_proxy.h"
 #include "../volume.h"
 
@@ -35,26 +45,25 @@ using huawei::proto::control::ListBackupAck;
 using namespace std;
 using namespace Journal;
 
-class BackupControlImpl final: public BackupControl::Service 
-{ 
-public:
-    BackupControlImpl(map<string, shared_ptr<Volume>>& volumes)
-        :m_volumes(volumes){
+class BackupControlImpl final: public BackupControl::Service {
+ public:
+    explicit BackupControlImpl(map<string, shared_ptr<Volume>>& volumes)
+        :m_volumes(volumes) {
     }
 
-    virtual ~BackupControlImpl(){
+    virtual ~BackupControlImpl() {
     }
 
-    Status CreateBackup(ServerContext* context, 
-                        const CreateBackupReq* req, 
+    Status CreateBackup(ServerContext* context,
+                        const CreateBackupReq* req,
                         CreateBackupAck* ack) override;
-    
-    Status DeleteBackup(ServerContext* context, 
-                        const DeleteBackupReq* req, 
+
+    Status DeleteBackup(ServerContext* context,
+                        const DeleteBackupReq* req,
                         DeleteBackupAck* ack) override;
 
-    Status RestoreBackup(ServerContext* context, 
-                         const RestoreBackupReq* req, 
+    Status RestoreBackup(ServerContext* context,
+                         const RestoreBackupReq* req,
                          RestoreBackupAck* ack) override;
 
     Status GetBackup(ServerContext* contex,
@@ -64,12 +73,13 @@ public:
     Status ListBackup(ServerContext* contex,
                       const ListBackupReq* req,
                       ListBackupAck* ack) override;
-private:
+
+ private:
     /*each volume own corresponding backup proxy*/
     shared_ptr<BackupProxy> get_vol_backup_proxy(const string& vol_name);
 
-private:
+ private:
     map<string, shared_ptr<Volume>>& m_volumes;
 };
 
-#endif
+#endif  // SRC_SG_CLIENT_CONTROL_CONTROL_BACKUP_H_

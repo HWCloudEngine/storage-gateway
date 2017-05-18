@@ -97,7 +97,7 @@ void Connection::read_request_header() {
 
 void Connection::dispatch(IOHookRequest* header_ptr) {
 
-    DO_PERF(READ_BEGIN, header_ptr->seq);
+    DO_PERF(RECV_BEGIN, header_ptr->seq);
 
     switch (header_ptr->type) {
         case SCSI_READ:
