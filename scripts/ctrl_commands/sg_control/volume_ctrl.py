@@ -60,3 +60,28 @@ class VolumeCtrl(object):
         print ('get volume result:%s\n' % res.status)
         print ('volume info: %s' % res.volume)
         return res
+
+    def InitializeConnection(self, vol_id):
+        res = self.stub.InitializeConnection(
+            volume_control_pb2.InitializeConnectionReq(volume_id=vol_id))
+        print ('initialize connection result:%s' % res.status)
+        return res
+
+    def TerminateConnection(self, vol_id):
+        res = self.stub.TerminateConnection(
+            volume_control_pb2.TerminateConnectionReq(volume_id=vol_id))
+        print ('terminate connectionn result:%s' % res.status)
+        return res
+
+    def AttachVolume(self, vol_id, device):
+        res = self.stub.AttachVolume(
+            volume_control_pb2.AttachVolumeReq(volume_id=vol_id,
+                                               device=device))
+        print ('attach volume result:%s' % res.status)
+        return res
+
+    def DetachVolume(self, vol_id):
+        res = self.stub.DetachVolume(
+            volume_control_pb2.DetachVolumeReq(volume_id=vol_id))
+        print ('detach volume result:%s' % res.status)
+        return res

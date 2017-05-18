@@ -34,12 +34,8 @@ int main(int argc, char** argv)
     if(strcmp(object, "volume") == 0){
         char* op = argv[2];
         if(strcmp(op, "enable") == 0){
-            map<string, string> meta;
-            ret = vol_client->enable_sg(vol_name, vol_size, blk_device, meta);
+            ret = vol_client->enable_sg(vol_name, vol_size, blk_device);
             cout << "enable sg " << "vol_name:" << vol_name << " ret:" << ret << endl;
-            for(auto entry : meta){
-                cout << "enable sg " << entry.first << " " << entry.second << ret << endl;
-            }
         } else if(strcmp(op, "disable") == 0){
             ret = vol_client->disable_sg(vol_name);
             cout << "disable sg" << "vol_name:" << vol_name << " ret:" << ret << endl;

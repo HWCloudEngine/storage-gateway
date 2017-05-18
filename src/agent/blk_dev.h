@@ -33,8 +33,6 @@ struct pbdev
     unsigned long*        cbt_bitmap;
 
     struct transport*     network;
-
-    struct transport*     network;
     
     uint64_t              seq_id;
     wait_queue_head_t     send_wq;

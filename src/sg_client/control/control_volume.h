@@ -20,6 +20,8 @@
 #include "rpc/volume_control.pb.h"
 #include "rpc/volume_control.grpc.pb.h"
 #include "log/log.h"
+#include "control_iscsi.h"
+#include "control_agent.h"
 
 using grpc::Server;
 using grpc::ServerBuilder;
@@ -28,89 +30,43 @@ using grpc::Status;
 
 using namespace huawei::proto;
 
-class LunTuple {
- public:
-    LunTuple(uint32_t tid, std::string iqn, uint32_t lun,
-            std::string volume_name, std::string block_device);
-    LunTuple(const LunTuple& other);
-    LunTuple& operator=(const LunTuple& other);
-    ~LunTuple() {
-    }
-
-    friend std::ostream& operator<<(std::ostream& cout, const LunTuple& lun);
-
- public:
-    uint32_t tid_;
-    std::string   iqn_;
-    uint32_t lun_;
-    std::string   volume_name_;
-    std::string   block_device_;
-};
-
-
-class VolumeControlBase:public control::VolumeControl::Service {
- public:
-    explicit VolumeControlBase(std::shared_ptr<VolInnerCtrlClient> vol_inner_client);
-    virtual ~VolumeControlBase();
-    bool remove_device(const std::string& device);
-    bool execute_cmd(const std::string& command, std::string& result);
-    virtual bool recover_targets();
-    Status ListDevices(ServerContext* context,
-            const control::ListDevicesReq* req, control::ListDevicesRes* res);
-    Status GetVolume(ServerContext* context, const control::GetVolumeReq* req,
-            control::GetVolumeRes* res);
-    Status ListVolumes(ServerContext* context,
-            const control::ListVolumesReq* req, control::ListVolumesRes* res);
-    virtual Status EnableSG(ServerContext* context, const control::EnableSGReq* req,
-            control::EnableSGRes* res);
-    virtual Status DisableSG(ServerContext* context, const control::DisableSGReq* req,
-            control::DisableSGRes* res);
-
- private:
-    std::shared_ptr<VolInnerCtrlClient> vol_inner_client_;
-
-};
-
-class VolumeControlImpl final: public VolumeControlBase {
- public:
+class VolumeControlImpl:public control::VolumeControl::Service {
+public:
     VolumeControlImpl(const std::string& host, const std::string& port,
-            std::shared_ptr<VolInnerCtrlClient> vol_inner_client);
-    virtual ~VolumeControlImpl();
+                      std::shared_ptr<VolInnerCtrlClient> vol_inner_client);
+    ~VolumeControlImpl();
+    Status ListDevices(ServerContext* context,
+                       const control::ListDevicesReq* req, control::ListDevicesRes* res);
     Status EnableSG(ServerContext* context, const control::EnableSGReq* req,
-            control::EnableSGRes* res);
+                    control::EnableSGRes* res);
     Status DisableSG(ServerContext* context, const control::DisableSGReq* req,
-            control::DisableSGRes* res);
+                     control::DisableSGRes* res);
+    Status GetVolume(ServerContext* context, const control::GetVolumeReq* req,
+                     control::GetVolumeRes* res);
+    Status ListVolumes(ServerContext* context,
+                       const control::ListVolumesReq* req, control::ListVolumesRes* res);
+    Status InitializeConnection(ServerContext* context,
+                                const control::InitializeConnectionReq* req,
+                                control::InitializeConnectionRes* res);
+    Status TerminateConnection(ServerContext* context,
+                               const control::TerminateConnectionReq* req,
+                               control::TerminateConnectionRes* res);
+    Status AttachVolume(ServerContext* context,
+                        const control::AttachVolumeReq* req,
+                        control::AttachVolumeRes* res);
+    Status DetachVolume(ServerContext* context,
+                        const control::DetachVolumeReq* req,
+                        control::DetachVolumeRes* res);
     bool recover_targets();
 
- private:
-    bool enable_sg(const std::string vol_name, const std::string dev_name, const size_t dev_size,
-                   std::string& iqn_name, bool recover = true);
-    std::string get_target_iqn(const std::string& volume_id);
-    bool generate_config(const std::string& volume_id,
-                         const std::string& device, const std::string& target_iqn,
-                         std::string& config);
-    bool persist_config(const std::string& volume_id,
-                        const std::string& config);
-    bool remove_config(const std::string& volume_id);
-
-    bool add_target(const LunTuple& lun);
-    bool remove_target(uint32_t tid);
-    bool add_lun(const LunTuple& lun);
-    bool remove_lun(const LunTuple& lun);
-    bool acl_bind(const LunTuple& lun);
-    bool acl_unbind(const LunTuple& lun);
-
-    /*recover targets*/
-    bool recover_target(const char* vol_name);
-
+private:
+    bool execute_cmd(const std::string& command, std::string& result);
     std::shared_ptr<VolInnerCtrlClient> vol_inner_client_;
+    ISCSIControl* iscsi_control_ptr{nullptr};
+    AgentControl* agent_control_ptr{nullptr};
+
     std::string host_;
     std::string port_;
-    std::string target_path_;
-    std::string target_prefix_;
-    static int tid_id;
-    static int lun_id;
-    std::map<std::string, LunTuple> tgt_luns_;
 };
 
 #endif  // SRC_SG_CLIENT_CONTROL_CONTROL_VOLUME_H_
