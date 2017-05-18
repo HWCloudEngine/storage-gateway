@@ -1,11 +1,18 @@
-noinst_PROGRAMS=debug_client
-AM_CPPFLAGS=-I$(top_srcdir)/src -I$(top_srcdir)/src/rpc -std=c++11
-debug_client_LDFLAGS=-D_GNU_SOURCE
-debug_client_SOURCES=debug_client.cc
-debug_client_LDADD=$(top_srcdir)/src/rpc/librpc.la \
+bin_PROGRAMS=debug_client libs3_utils
+AM_CXXFLAGS=-std=c++11
+AM_CPPFLAGS=-D_GNU_SOURCE -DBOOST_ALL_DYN_LINK -DNDEBUG \
+            -I$(top_srcdir)/src -I$(top_srcdir)/src/rpc
+
+AM_LDFLAGS=-L$(top_srcdir)/lib
+
+LDADD=$(top_srcdir)/src/rpc/librpc.la \
                    $(top_srcdir)/src/log/liblog.la \
                    -lpthread -lprotobuf -lpthread -ldl -lgrpc -lgrpc++ \
                    -lboost_system -lboost_log_setup -lboost_log
 
-DEFS+=-D_GNU_SOURCE -DBOOST_ALL_DYN_LINK -DNDEBUG
+debug_client_SOURCES=debug_client.cc
 
+libs3_utils_SOURCES=libs3_utils.cc \
+                    ../src/common/config.cc \
+                    ../src/common/ceph_s3_api.cc
+libs3_utils_LDADD=$(LDADD) -ls3

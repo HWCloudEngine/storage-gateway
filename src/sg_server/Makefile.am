@@ -1,6 +1,7 @@
-noinst_PROGRAMS=sg_server
+bin_PROGRAMS=sg_server
+AM_CXXFLAGS=-std=c++11
 AM_CPPFLAGS=-I$(top_srcdir)/src -I$(top_srcdir)/src/include \
-            -I$(top_srcdir)/src/rpc -std=c++11
+            -I$(top_srcdir)/src/rpc
 ACLOCAL_AMFLAGS=-I m4
 AM_LDFLAGS = -rdynamic
 sg_server_SOURCES=dr_server.cc \
