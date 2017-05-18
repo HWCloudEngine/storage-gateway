@@ -20,7 +20,7 @@ class BackupControlImpl;
 class VolumeControlImpl;
 class ReplicateCtrl;
 class AgentControlImpl;
-class VolumeControlBase;
+class VolumeControlImpl;
 
 namespace Journal{
 
@@ -93,7 +93,7 @@ private:
 
     /*thread use to recover tgt target*/
     shared_ptr<thread> recover_targets_thr_;
-    VolumeControlBase*   vol_ctrl{nullptr};
+    VolumeControlImpl*   vol_ctrl{nullptr};
 
     std::string host_;
     std::string port_;

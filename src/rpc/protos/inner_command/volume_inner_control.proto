@@ -14,6 +14,7 @@ service VolumeInnerControl {
     rpc GetVolume(GetVolumeReq) returns(GetVolumeRes) {}
     rpc ListVolume(ListVolumeReq) returns(ListVolumeRes) {}
     rpc DeleteVolume(DeleteVolumeReq) returns(DeleteVolumeRes) {}
+    rpc UpdateVolumePath(UpdateVolumePathReq) returns(UpdateVolumePathRes) {}
 }
 message CreateVolumeReq{
     string vol_id = 1;
@@ -48,5 +49,14 @@ message DeleteVolumeReq{
     string vol_id = 1;
 }
 message DeleteVolumeRes{
+    StatusCode status = 1;
+}
+
+message UpdateVolumePathReq{
+    string vol_id = 1;
+    string path = 2;
+}
+
+message UpdateVolumePathRes{
     StatusCode status = 1;
 }
