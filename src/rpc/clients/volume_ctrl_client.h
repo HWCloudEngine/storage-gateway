@@ -73,8 +73,7 @@ public:
     }
 
     StatusCode enable_sg(const std::string& volume_id, size_t size,
-            const std::string& device,
-            std::map<std::string, std::string>& driver_data)
+            const std::string& device)
     {
         EnableSGReq req;
         req.set_volume_id(volume_id);
@@ -90,10 +89,6 @@ public:
         }
         else
         {
-            for(auto item: res.driver_data())
-            {
-                driver_data[item.first] = item.second;
-            }
             return res.status();
         }
     }

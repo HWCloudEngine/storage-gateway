@@ -25,6 +25,8 @@ using huawei::proto::inner::ListVolumeReq;
 using huawei::proto::inner::ListVolumeRes;
 using huawei::proto::inner::DeleteVolumeReq;
 using huawei::proto::inner::DeleteVolumeRes;
+using huawei::proto::inner::UpdateVolumePathReq;
+using huawei::proto::inner::UpdateVolumePathRes;
 using huawei::proto::VolumeInfo;
 using huawei::proto::VolumeMeta;
 using huawei::proto::VolumeStatus;
@@ -51,7 +53,7 @@ public:
         else{
             LOG_ERROR << "create volume failed:" 
                 << status.error_message() << ",code:" << status.error_code();
-            return sInternalError;
+            return sInternalError;
         }
     }
     StatusCode update_volume_status(const std::string& vol,
@@ -67,7 +69,7 @@ public:
         else{
             LOG_ERROR << "create volume failed:" 
                 << status.error_message() << ",code:" << status.error_code();
-            return sInternalError;
+            return sInternalError;
         }
     }
     StatusCode get_volume(const std::string& vol,VolumeInfo& info){
@@ -83,7 +85,7 @@ public:
         else{
             LOG_ERROR << "get volume failed:" 
                 << status.error_message() << ",code:" << status.error_code();
-            return sInternalError;
+            return sInternalError;
         }
     }
 
@@ -95,7 +97,7 @@ public:
         if(!status.ok()){
             LOG_ERROR << "list volume failed:" 
                 << status.error_message() << ",code:" << status.error_code();
-            return sInternalError;
+            return sInternalError;
         }
         if(!response.status()){
             for(int i=0;i<response.volumes_size();++i)
@@ -114,7 +116,23 @@ public:
         else{
             LOG_ERROR << "delete volume failed:" 
                 << status.error_message() << ",code:" << status.error_code();
-            return sInternalError;
+            return sInternalError;
+        }
+    }
+    StatusCode update_volume_path(const std::string& vol,
+                                  const std::string& path){
+        ClientContext context;
+        UpdateVolumePathReq request;
+        UpdateVolumePathRes response;
+        request.set_path(path);
+        request.set_vol_id(vol);
+        grpc::Status status = stub_->UpdateVolumePath(&context,request,&response);
+        if(status.ok())
+            return response.status();
+        else{
+            LOG_ERROR << "update volume path failed:"
+                      << status.error_message() << ",code:" << status.error_code();
+            return sInternalError;
         }
     }
 private:

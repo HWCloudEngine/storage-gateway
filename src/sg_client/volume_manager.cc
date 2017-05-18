@@ -9,7 +9,6 @@
 #include "control/control_backup.h"
 #include "control/control_replicate.h"
 #include "control/control_volume.h"
-#include "control/control_agent.h"
 
 using huawei::proto::VolumeInfo;
 using huawei::proto::StatusCode;
@@ -114,14 +113,7 @@ bool VolumeManager::init()
     writer_rpc_client.reset(new WriterClient(grpc::CreateChannel(meta_rpc_addr,
                     grpc::InsecureChannelCredentials())));
 
-    if(g_option.global_client_mode)
-    {
-        vol_ctrl = new AgentControlImpl(host_,port_, vol_inner_client_);
-    }
-    else
-    {
-        vol_ctrl = new VolumeControlImpl(host_, port_,vol_inner_client_);
-    }
+    vol_ctrl = new VolumeControlImpl(host_, port_,vol_inner_client_);
     ctrl_rpc_server->register_service(vol_ctrl);
 
     if(!ctrl_rpc_server->run()){
@@ -386,14 +378,6 @@ int  VolumeManager::update_all_producer_markers(){
 
 bool VolumeManager::del_volume(const string& vol)
 {
-    LOG_INFO << "del volume :" << vol << " on sg server";
-    StatusCode ret = vol_inner_client_->delete_volume(vol);
-    if(ret){
-        LOG_ERROR << "del volume from sgserver failed ret:" << ret;
-        return false;
-    }
-    LOG_INFO << "del volume :" << vol << " on sg server ok";
-
     std::unique_lock<std::mutex> lk(mtx);
     auto it = volumes.find(vol);
     if(it == volumes.end()){
@@ -415,7 +399,7 @@ bool VolumeManager::recover_targets()
         LOG_ERROR << "volume ctrl serivice not ok"; 
         return false;
     }
-    recover_targets_thr_ = make_shared<thread>(std::bind(&VolumeControlBase::recover_targets, vol_ctrl));
+    recover_targets_thr_ = make_shared<thread>(std::bind(&VolumeControlImpl::recover_targets, vol_ctrl));
     return true;
 }
 

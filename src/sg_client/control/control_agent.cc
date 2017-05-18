@@ -5,16 +5,14 @@
 #include <unistd.h>
 #include <errno.h>
 #include <stdio.h>
+#include <string.h>
 #include <fstream>
 #include "control_agent.h"
 #include "common/config_option.h"
 #include <boost/tokenizer.hpp>
 
-
-AgentControlImpl::AgentControlImpl(const std::string& host,
-        const std::string& port, std::shared_ptr<VolInnerCtrlClient> vol_inner_client) :
-        host_(host), port_(port), 
-        vol_inner_client_(vol_inner_client),VolumeControlBase(vol_inner_client)
+AgentControl::AgentControl(const std::string& host, const std::string& port) :
+        host_(host), port_(port)
 {
     fd_ = open(AGENT_CTL_DEVICE_PATH, O_RDWR);
     if(fd_ == -1)
@@ -25,7 +23,7 @@ AgentControlImpl::AgentControlImpl(const std::string& host,
 
 }
 
-AgentControlImpl::~AgentControlImpl()
+AgentControl::~AgentControl()
 {
     if (fd_ != -1)
     {
@@ -33,13 +31,13 @@ AgentControlImpl::~AgentControlImpl()
     }
 }
 
-bool AgentControlImpl::init()
+bool AgentControl::init()
 {
     struct agent_init init_info;
     init_info.pid = getpid();
     init_info.host = strdup(host_.c_str());
     init_info.port = std::stoi(port_);
-    int result = ioctl(fd_,AGENT_INIT,&init_info);
+    int result = ioctl(fd_, AGENT_INIT, &init_info);
     free(init_info.host);
     if(result != 0)
     {
@@ -53,7 +51,7 @@ bool AgentControlImpl::init()
     return true;
 }
 
-bool AgentControlImpl::recover_targets()
+bool AgentControl::recover_targets()
 {
     if(false == agent_device_recover())
     {
@@ -63,17 +61,24 @@ bool AgentControlImpl::recover_targets()
 }
 
 
-bool AgentControlImpl::agent_add_device(std::string vol_name, std::string device)
+bool AgentControl::agent_add_device(std::string vol_name, std::string device)
 {
     if(device.empty() || vol_name.empty())
     {
-        LOG_INFO << "agent add device failed,dev_path:"<<device<<"vol_name:"<<vol_name;
+        LOG_INFO << "agent add device failed,dev_path:" << device
+                 << "vol_name:" << vol_name;
         return false;
+    }
+    auto it = agent_vols.find(vol_name);
+    if(it != agent_vols.end())
+    {
+        LOG_INFO << "vol " << vol_name << " is already added";
+        return true;
     }
     struct agent_ioctl_add_dev info;
     info.dev_path = strdup(device.c_str());
     info.vol_name= strdup(vol_name.c_str());;
-    int result = ioctl(fd_,AGENT_ADD_DEVICE,&info);
+    int result = ioctl(fd_, AGENT_ADD_DEVICE, &info);
     free(info.dev_path);
     free(info.vol_name);
     if(result != 0)
@@ -81,20 +86,21 @@ bool AgentControlImpl::agent_add_device(std::string vol_name, std::string device
         LOG_INFO << "agent add device failed,errno:" << errno;
         return false;
     }
+    agent_vols.insert({vol_name, device});
     return true;
-    
 }
 
-bool AgentControlImpl::agent_del_device(std::string device)
+bool AgentControl::agent_del_device(std::string device)
 {
     if(device.empty())
     {
         LOG_INFO << "agent del device failed,device is null";
         return false;
     }
+
     struct agent_ioctl_del_dev info;
     info.dev_path = strdup(device.c_str());
-    int result = ioctl(fd_,AGENT_DEL_DEVICE,&info);
+    int result = ioctl(fd_, AGENT_DEL_DEVICE, &info);
     free(info.dev_path);
     if(result != 0)
     {
@@ -102,67 +108,48 @@ bool AgentControlImpl::agent_del_device(std::string device)
         return false;
     }
     return true;
-
 }
 
-Status AgentControlImpl::EnableSG(ServerContext* context, const control::EnableSGReq* req,
-        control::EnableSGRes* res)
+bool AgentControl::attach_volume(const std::string& vol_name,
+                                 const std::string& device)
 {
-    string vol_name = req->volume_id();
-    string dev_name = req->device();
-    size_t dev_size = req->size();
-    
-    LOG_INFO << "enable sg vol:" << vol_name << "device:" << dev_name << " size:" << dev_size;
+    LOG_INFO << "attach vol:" << vol_name << "device:" << device;
 
-    StatusCode ret = vol_inner_client_->create_volume(vol_name, dev_name, dev_size, VOL_AVAILABLE);
-    if(ret != StatusCode::sOk){
-        res->set_status(StatusCode::sInternalError);
-        LOG_ERROR << "enable sg vol:" << vol_name << " device:" << dev_name << " failed"; 
-        return Status::OK;
-    }
-
-    if(agent_add_device(vol_name, dev_name))
+    if(agent_add_device(vol_name, device))
     {
-        persist_device(vol_name,dev_name);
-        res->set_status(StatusCode::sOk);
-        return Status::OK;
-     }
-    LOG_ERROR << "enable sg failed,vol:" << vol_name << "device:" << dev_name;
-    vol_inner_client_->delete_volume(vol_name);
-    res->set_status(StatusCode::sInternalError);
-    return Status::CANCELLED;
+        persist_device(vol_name, device);
+        return true;
+    }
+    LOG_ERROR << "attach vol:" << vol_name << "device:" << device << " failed";
+    return false;
 }
 
-Status AgentControlImpl::DisableSG(ServerContext* context, const control::DisableSGReq* req,
-        control::DisableSGRes* res)
+bool AgentControl::detach_volume(const std::string& vol_name,
+                                 const std::string& device)
 {
-    std::string volume_id = req->volume_id();
-    VolumeInfo volume;
-    vol_inner_client_->get_volume(volume_id, volume);
-    std::string device = volume.path();
-    
-    LOG_INFO << "Disable sg volume:" << volume_id;
-
+    LOG_INFO << "detach volume:" << vol_name;
+    auto it = agent_vols.find(vol_name);
+    if(it == agent_vols.end())
+    {
+        LOG_INFO << "vol " << vol_name << " is already deleted";
+        return true;
+    }
     if(agent_del_device(device))
     {
-        std::string tmp = volume_id + ":" + device;
-        delete_device(tmp);
-        LOG_INFO << "Delete agent device :" << tmp;
-        if(StatusCode::sOk == (vol_inner_client_->delete_volume(volume_id)))
+        std::string tmp = vol_name + ":" + device;
+        if(delete_device(tmp))
         {
-            res->set_status(StatusCode::sOk);
-            return Status::OK;
+            LOG_INFO << "Delete agent device :" << tmp;
+            agent_vols.erase(vol_name);
+            return true;
         }
     }
-    
-    LOG_ERROR << "DisableSG failed,vol:" << volume_id;
-    res->set_status(StatusCode::sInternalError);
-    return Status::CANCELLED;
+    return false;
 }
 
-bool AgentControlImpl::persist_device(std::string vol_name,std::string device)
+bool AgentControl::persist_device(std::string vol_name,std::string device)
 {
-    std::ofstream f(g_option.agent_dev_conf,std::ios::app);
+    std::ofstream f(g_option.agent_dev_conf, std::ios::app);
     if(!f.is_open())
     {
         LOG_INFO <<" open agent dev conf file failed";
@@ -173,7 +160,8 @@ bool AgentControlImpl::persist_device(std::string vol_name,std::string device)
     f.close();
     return true;
 }
-bool AgentControlImpl::delete_device(std::string device)
+
+bool AgentControl::delete_device(std::string device)
 {
     std::ifstream fin(g_option.agent_dev_conf);
     if(!fin.is_open())
@@ -200,7 +188,7 @@ bool AgentControlImpl::delete_device(std::string device)
     fout.close();
 }
 
-bool AgentControlImpl::agent_device_recover()
+bool AgentControl::agent_device_recover()
 {
     std::ifstream f(g_option.agent_dev_conf);
     if(!f.is_open())

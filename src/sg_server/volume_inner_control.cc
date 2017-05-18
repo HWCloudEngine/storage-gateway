@@ -157,3 +157,29 @@ Status VolInnerCtrl::DeleteVolume(ServerContext* context,
     return Status::OK;
 }
 
+Status VolInnerCtrl::UpdateVolumePath(ServerContext* context,
+                                      const UpdateVolumePathReq* request,
+                                      UpdateVolumePathRes* response){
+    const string& vol = request->vol_id();
+    VolumeMeta meta;
+    RESULT res = vmeta_->read_volume_meta(vol,meta);
+    if(DRS_OK != res){
+        if(NO_SUCH_KEY == res)
+            response->set_status(sVolumeNotExist);
+        else
+            response->set_status(sInternalError);
+        return Status::OK;
+    }
+    LOG_INFO << "update volume[" << vol << "] path from "
+             << meta.info().path() << " to " << request->path();
+    meta.mutable_info()->set_path(request->path());
+    res = vmeta_->update_volume_meta(meta);
+    if(DRS_OK == res){
+        response->set_status(sOk);
+    }
+    else{
+        response->set_status(sVolumeMetaPersistError);
+        LOG_ERROR << "update volume[" << vol << "] path failed!";
+    }
+    return Status::OK;
+}

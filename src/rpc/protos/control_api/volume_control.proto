@@ -10,6 +10,10 @@ service VolumeControl {
     rpc DisableSG(DisableSGReq) returns (DisableSGRes) {}
     rpc GetVolume(GetVolumeReq) returns (GetVolumeRes) {}
     rpc ListVolumes(ListVolumesReq) returns (ListVolumesRes) {}
+    rpc InitializeConnection(InitializeConnectionReq) returns (InitializeConnectionRes) {}
+    rpc TerminateConnection(TerminateConnectionReq) returns (TerminateConnectionRes) {}
+    rpc AttachVolume(AttachVolumeReq) returns (AttachVolumeRes) {}
+    rpc DetachVolume(DetachVolumeReq) returns (DetachVolumeRes) {}
 }
 
 message ListDevicesReq {
@@ -28,7 +32,6 @@ message EnableSGReq {
 
 message EnableSGRes {
     StatusCode status = 1;
-    map<string, string> driver_data = 2;
 }
 
 message DisableSGReq {
@@ -56,3 +59,36 @@ message ListVolumesRes {
     repeated VolumeInfo volumes = 2;
 }
 
+message InitializeConnectionReq {
+    string volume_id = 1;
+}
+
+message InitializeConnectionRes {
+    StatusCode status = 1;
+    map<string, string> connection_info = 2;
+}
+
+message TerminateConnectionReq {
+    string volume_id = 1;
+}
+
+message TerminateConnectionRes {
+    StatusCode status = 1;
+}
+
+message AttachVolumeReq {
+    string volume_id = 1;
+    string device = 2;
+}
+
+message AttachVolumeRes {
+    StatusCode status = 1;
+}
+
+message DetachVolumeReq {
+    string volume_id = 1;
+}
+
+message DetachVolumeRes {
+    StatusCode status = 1;
+}
