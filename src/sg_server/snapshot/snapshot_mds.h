@@ -87,6 +87,7 @@ class SnapshotMds {
     /*maintain snapshot status*/
     StatusCode create_event_update_status(string snap_name);
     StatusCode delete_event_update_status(string snap_name);
+    StatusCode rollbacking_event_update_status(string snap_name);
 
     /*helper to generate cow object name*/
     string spawn_cow_object_name(const snapid_t snap_id, const block_t blk_id);

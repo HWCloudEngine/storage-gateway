@@ -246,13 +246,6 @@ StatusCode SnapshotMds::rollback_snapshot(const RollbackReq* req,
         roll_blk->set_blk_object(blk_it.second);
     }
 
-    SnapStatus cur_snap_status = SnapStatus::SNAP_ROLLBACKING;
-    m_snapshots[cur_snap_name].snap_status = cur_snap_status;
-
-    string pkey = DbUtil::spawn_attr_map_key(cur_snap_name);
-    string pval = DbUtil::spawn_attr_map_val(m_snapshots[cur_snap_name]);
-    m_index_store->db_put(pkey, pval);
-
     ack->mutable_header()->set_status(StatusCode::sOk);
     LOG_INFO << "rollback snapshot vname:" << vol_name
              << " snap_name:" << snap_name << " ok";
@@ -269,7 +262,7 @@ StatusCode SnapshotMds::create_event_update_status(string snap_name) {
         return StatusCode::sSnapAlreadyExist;
     }
     /*generate snapshot id*/
-    snapid_t snap_id  = spawn_snapshot_id();
+    snapid_t snap_id = spawn_snapshot_id();
 
     IndexStore::Transaction transaction = m_index_store->fetch_transaction();
     string pkey = DbUtil::spawn_latest_id_key();
@@ -386,6 +379,19 @@ StatusCode SnapshotMds::delete_event_update_status(string snap_name) {
     return StatusCode::sOk;
 }
 
+StatusCode SnapshotMds::rollbacking_event_update_status(string snap_name) {
+    auto it = m_snapshots.find(snap_name);
+    if (it == m_snapshots.end()) {
+        LOG_ERROR << "snap:" << snap_name << " not found";
+        return StatusCode::sSnapNotExist;
+    }
+    it->second.snap_status = SnapStatus::SNAP_ROLLBACKING;
+    string pkey = DbUtil::spawn_attr_map_key(snap_name);
+    string pval = DbUtil::spawn_attr_map_val(it->second);
+    m_index_store->db_put(pkey, pval);
+    return StatusCode::sOk;
+}
+
 string SnapshotMds::mapping_snap_name(const SnapReqHead& shead,
                                       const string& sname) {
     if (shead.replication_uuid().empty() &&
@@ -433,14 +439,16 @@ StatusCode SnapshotMds::update(const UpdateReq* req, UpdateAck* ack) {
             case UpdateEvent::DELETE_EVENT:
                 delete_event_update_status(cur_snap_name);
                 break;
-            case UpdateEvent::ROLLBACK_EVENT:
+            case UpdateEvent::ROLLBACKING_EVENT:
+                rollbacking_event_update_status(cur_snap_name);
+            case UpdateEvent::ROLLBACKED_EVENT:
                 // do nothing
                 break;
             default:
                 ret = StatusCode::sSnapUpdateError;
                 break;
         }
-    }while(0);
+    } while(0);
     ack->mutable_header()->set_status(ret);
     /*get the latest snapshot in system*/
     string latest_snap_name = get_latest_snap_name();
