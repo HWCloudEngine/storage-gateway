@@ -25,6 +25,7 @@ class BackupCtrl(object):
         elif args.action == 'restore':
             kwargs = {
                 'vol_id': args.vol_id,
+                'vol_size': args.vol_size,
                 'backup_id': args.backup_id,
                 'new_vol_id': args.new_vol_id,
                 'new_vol_size': args.new_vol_size,
@@ -76,11 +77,12 @@ class BackupCtrl(object):
         print "delete backup result: %s" % res.status
         return res
 
-    def RestoreBackup(self, backup_id, vol_id, new_vol_id, new_vol_size,
-                      new_device):
+    def RestoreBackup(self, backup_id, vol_id, vol_size, new_vol_id,
+                      new_vol_size, new_device):
         res = self.stub.RestoreBackup(
             backup_control_pb2.RestoreBackupReq(
                 vol_name=vol_id,
+                vol_size=vol_size,
                 backup_name=backup_id,
                 new_vol_name=new_vol_id,
                 new_vol_size=new_vol_size,

@@ -202,14 +202,14 @@ bool ISCSIControl::generate_connection(const std::string& vol_name,
     std::string error_msg;
     LOG_INFO << "generate connection vol:" << vol_name;
     do {
+        if(!recover)
+            iqn_name = get_target_iqn(vol_name);
         auto it = tgt_luns_.find(vol_name);
         if(it != tgt_luns_.end()){
             LOG_INFO << " target for this volume already exist";
             return true;
         }
         //add iscsi target
-        if(!recover)
-            iqn_name = get_target_iqn(vol_name);
         LunTuple lun_tuple(tid_id++, iqn_name, lun_id++, vol_name, device);
         result = add_target(lun_tuple);
         if(!result){
