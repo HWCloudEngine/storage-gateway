@@ -13,6 +13,7 @@
 #include "log/log.h"
 #include "../sg_util.h"
 #include <stdlib.h>// posix_memalign
+#include <chrono>
 using std::string;
 using grpc::Status;
 using google::protobuf::int32;
@@ -47,36 +48,56 @@ int TaskHandler::add_marker_context(ReplicatorContext* rep_ctx,
     else
         return -1;
 }
-
-void TaskHandler::work(){
-    // init stream
-    ClientContext* rpc_ctx = new ClientContext;
-    grpc_stream_ptr stream;
+void TaskHandler::wait_for_grpc_stream_ready(ClientContext* rpc_ctx,
+        grpc_stream_ptr& stream){
     while(running_){
         stream = NetSender::instance().create_stream(rpc_ctx);
         if(nullptr == stream){
             std::this_thread::sleep_for(std::chrono::seconds(2));
             continue;
         }
+        LOG_INFO << "create grpc stream success!";
         break;
     }
-    LOG_INFO << "create grpc stream success!";
+}
+
+void TaskHandler::work(){
+    // init stream
+    ClientContext* rpc_ctx = new ClientContext;
+    grpc_stream_ptr stream;
+    wait_for_grpc_stream_ready(rpc_ctx,stream);
 
     // do TransferTask
     while(running_){
         std::shared_ptr<TransferTask> task = in_task_que_->pop();
         SG_ASSERT(task != nullptr);
-        do_transfer(task,stream);
+        if(0 != do_transfer(task,stream)){
+            ClientState s = NetSender::instance().get_state(false);
+            LOG_INFO << "rpc channel state:"
+                << NetSender::instance().get_printful_state(s);
+            if(CLIENT_READY != s){
+                stream->WritesDone();
+                stream->Finish();
+                if(rpc_ctx){
+                    delete rpc_ctx;
+                    rpc_ctx = nullptr;
+                }
+                LOG_WARN << " re-create rpc stream...";
+                rpc_ctx = new ClientContext;
+                wait_for_grpc_stream_ready(rpc_ctx,stream);
+            }
+        }
     }
 
     // recycel rpc resource
-    if(rpc_ctx){
-        delete rpc_ctx;
-    }
     stream->WritesDone();
     Status status = stream->Finish();// may block if not all data in the stream were read
     if (!status.ok()) {
         LOG_ERROR << "replicate client close stream failed!";
+    }
+    if(rpc_ctx){
+        delete rpc_ctx;
+        rpc_ctx = nullptr;
     }
 }
 
@@ -102,7 +123,8 @@ int send_replicate_cmd(TransferRequest* req,
     return -1;
 }
 
-void TaskHandler::do_transfer(std::shared_ptr<TransferTask> task,
+
+int TaskHandler::do_transfer(std::shared_ptr<TransferTask> task,
                 grpc_stream_ptr& stream){
     LOG_DEBUG << "start transfer task, id=" << task->get_id();
 
@@ -159,6 +181,6 @@ void TaskHandler::do_transfer(std::shared_ptr<TransferTask> task,
             break;
         }
     }
-
+    return error_flag? -1:0;
 }
 

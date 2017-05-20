@@ -47,10 +47,8 @@ public:
             std::chrono::system_clock::time_point deadline);
     std::string get_printful_state(ClientState state);
 
-    // create a grpc stream; the stream should be used(write/read) in the same
-    // thread in which the stream is created
+    // create a grpc stream; better not use the same stream in multi-threads
     grpc_stream_ptr create_stream(ClientContext* ctx);
-    StatusCode send(TransferRequest* req,ClientContext* ctx);
 
 private:
     NetSender(){};
