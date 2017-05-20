@@ -9,8 +9,8 @@
 #include "volume.h"
 #include "common/rpc_server.h"
 #include "common/config_option.h"
-#include "../rpc/clients/volume_inner_ctrl_client.h"
-#include "../rpc/clients/writer_client.h"
+#include "rpc/clients/volume_inner_ctrl_client.h"
+#include "rpc/clients/writer_client.h"
 
 using namespace std; 
 
@@ -21,8 +21,6 @@ class VolumeControlImpl;
 class ReplicateCtrl;
 class AgentControlImpl;
 class VolumeControlImpl;
-
-namespace Journal{
 
 class VolumeManager
 {
@@ -111,7 +109,5 @@ private:
     // the map to keep last producer markers updated
     std::map<string,JournalMarker> last_producer_markers;
 };
-
-}
 
 #endif  

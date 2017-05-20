@@ -14,8 +14,6 @@
 #include "volume_manager.h"
 #include "volume.h"
 
-namespace Journal {
-
 Volume::Volume(VolumeManager& vol_manager,
                const VolumeInfo& vol_info,
                shared_ptr<CephS3LeaseClient> lease_client,
@@ -34,17 +32,12 @@ Volume::~Volume() {
 }
 
 bool Volume::init() {
-    buffer_pool_ = nedalloc::nedcreatepool(BUFFER_POOL_SIZE, 2);
-    if (buffer_pool_ == NULL) {
-        LOG_ERROR << "create buffer pool failed";
-        return false;
-    }
     idproxy_.reset(new IDGenerator());
     cacheproxy_.reset(new CacheProxy(vol_attr_.blk_device(), idproxy_));
     snapshotproxy_.reset(new SnapshotProxy(vol_attr_, entry_queue_));
     backupdecorator_.reset(new BackupDecorator(vol_attr_.vol_name(), snapshotproxy_));
     backupproxy_.reset(new BackupProxy(vol_attr_, backupdecorator_));
-    connection_.reset(new Connection(vol_manager_, raw_socket_, entry_queue_,
+    client_socket_.reset(new ClientSocket(vol_manager_, raw_socket_, entry_queue_,
                             write_queue_, read_queue_, reply_queue_));
     rep_proxy_.reset(new ReplicateProxy(vol_attr_.vol_name(),
                                         vol_attr_.vol_size(), snapshotproxy_));
@@ -52,7 +45,7 @@ bool Volume::init() {
     reader_.reset(new JournalReader(read_queue_, reply_queue_));
     writer_.reset(new JournalWriter(write_queue_, reply_queue_, vol_attr_));
     replayer_.reset(new JournalReplayer(vol_attr_));
-    if (!connection_->init(buffer_pool_)) {
+    if (!client_socket_->init()) {
         LOG_ERROR << "init connection failed,vol_name:" << vol_attr_.vol_name();
         return false;
     }
@@ -80,7 +73,7 @@ bool Volume::init() {
 
 void Volume::fini() {
     LOG_INFO << "Volume fini";
-    connection_->deinit();
+    client_socket_->deinit();
     LOG_INFO << "Volume fini connection deinit";
     reader_->deinit();
     LOG_INFO << "Volume fini reader deinit";
@@ -90,10 +83,6 @@ void Volume::fini() {
     LOG_INFO << "Volume fini writer deinit";
     replayer_->deinit();
     LOG_INFO << "Volume fini replayer deinit";
-    if (buffer_pool_ != NULL) {
-        nedalloc::neddestroypool(buffer_pool_);
-        buffer_pool_ = NULL;
-    }
     LOG_INFO << "Volume fini ok";
 }
 
@@ -115,13 +104,13 @@ shared_ptr<JournalWriter> Volume::get_writer() const {
 
 void Volume::start() {
     /*start network receive*/
-    connection_->start();
+    client_socket_->start();
 }
 
 void Volume::stop() {
     /*stop network receive*/
     LOG_INFO << "volume stop ";
-    connection_->stop();
+    client_socket_->stop();
     LOG_INFO << "volume stop ok";
 }
 
@@ -132,4 +121,3 @@ const string Volume::get_vol_id() {
 void Volume::update_volume_attr(const VolumeInfo& info) {
     vol_attr_.update(info);
 }
-}  // namespace Journal

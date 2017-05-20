@@ -24,8 +24,6 @@
 #include "common/journal_entry.h"
 #include "message.h"
 
-namespace Journal {
-
 class JournalPreProcessor : private boost::noncopyable {
  public:
     explicit JournalPreProcessor(BlockingQueue<shared_ptr<JournalEntry>>& entry_queue,
@@ -45,7 +43,5 @@ class JournalPreProcessor : private boost::noncopyable {
     bool running_flag;
     boost::thread_group worker_threads;
 };
-
-}  // namespace Journal
 
 #endif  // SRC_SG_CLIENT_JOURNAL_PREPROCESSOR_H_

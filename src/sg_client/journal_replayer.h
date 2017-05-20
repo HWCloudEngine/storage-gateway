@@ -30,8 +30,6 @@ using google::protobuf::Message;
 using huawei::proto::WriteMessage;
 using huawei::proto::VolumeInfo;
 
-namespace Journal {
-
 class JournalReplayer {
  public:
     explicit JournalReplayer(VolumeAttr& vol_attr);
@@ -92,7 +90,5 @@ class JournalReplayer {
     /*replicate proxy*/
     std::shared_ptr<ReplicateProxy> rep_proxy_ptr_;
 };
-
-}  // namespace Journal
 
 #endif  // SRC_SG_CLIENT_JOURNAL_REPLAYER_H_

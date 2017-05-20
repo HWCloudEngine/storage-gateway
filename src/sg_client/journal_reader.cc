@@ -12,9 +12,8 @@
 #include "perf_counter.h"
 #include "journal_reader.h"
 
-namespace Journal {
-JournalReader::JournalReader(BlockingQueue<struct IOHookRequest>& read_queue,
-                             BlockingQueue<struct IOHookReply*>&  reply_queue)
+JournalReader::JournalReader(BlockingQueue<io_request_t>& read_queue,
+                             BlockingQueue<io_reply_t*>& reply_queue)
     :m_read_queue(read_queue), m_reply_queue(reply_queue), m_run(false) {
     LOG_INFO << "IOReader work thread create";
 }
@@ -41,7 +40,7 @@ bool JournalReader::deinit() {
 void JournalReader::work() {
     while (m_run) {
         /*fetch io read request*/
-        struct IOHookRequest ioreq;
+        io_request_t ioreq;
         bool rval = m_read_queue.pop(ioreq);
         if (!rval) {
             break;
@@ -49,12 +48,12 @@ void JournalReader::work() {
 
         DO_PERF(READ_BEGIN, ioreq.seq);
 
-        int iorsp_len = sizeof(struct IOHookReply) + ioreq.len;
-        struct IOHookReply* iorsp = (struct IOHookReply*)new char[iorsp_len];
+        int iorsp_len = sizeof(io_request_t) + ioreq.len;
+        io_reply_t* iorsp = (io_reply_t*)new char[iorsp_len];
         iorsp->magic = ioreq.magic;
         iorsp->seq = ioreq.seq;
         iorsp->handle = ioreq.handle;
-        char* buf = reinterpret_cast<char*>(iorsp) + sizeof(struct IOHookReply);
+        char* buf = reinterpret_cast<char*>(iorsp) + sizeof(io_reply_t);
         LOG_DEBUG << "read" << " hdl:" << ioreq.handle
                   << " off:" << ioreq.offset << " len:" << ioreq.len;
         /*read*/
@@ -70,5 +69,3 @@ void JournalReader::work() {
         DO_PERF(READ_END, ioreq.seq);
     }
 }
-
-}  // namespace Journal

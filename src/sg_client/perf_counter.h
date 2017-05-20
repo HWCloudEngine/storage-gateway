@@ -16,8 +16,6 @@
 #include <thread>
 #include "message.h"
 
-using namespace Journal;
-
 #define ENABLE_PERF
 
 typedef struct {

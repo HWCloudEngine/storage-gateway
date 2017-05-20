@@ -16,8 +16,6 @@
 #include "perf_counter.h"
 #include "journal_preprocessor.h"
 
-namespace Journal {
-
 JournalPreProcessor::JournalPreProcessor(BlockingQueue<shared_ptr<JournalEntry>>& entry_queue,
                            BlockingQueue<shared_ptr<JournalEntry>>& write_queue)
     :entry_queue_(entry_queue),
@@ -64,4 +62,3 @@ bool JournalPreProcessor::deinit() {
     worker_threads.join_all();
     return true;
 }
-}  // namespace Journal

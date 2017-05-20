@@ -28,8 +28,6 @@ using huawei::proto::control::DisableReplicationReq;
 using huawei::proto::control::FailoverReplicationReq;
 using huawei::proto::control::ReverseReplicationReq;
 using huawei::proto::control::DeleteReplicationReq;
-using Journal::Volume;
-using Journal::JournalWriter;
 using huawei::proto::ReplicateOperation;
 
 class ReplicateCtrl:public huawei::proto::control::ReplicateControl::Service {

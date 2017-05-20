@@ -68,13 +68,13 @@ uint64_t PerfCounter::interval(uint64_t start, uint64_t end) {
 
 void PerfCounter::show(IoProbe* probe) {
     if (probe->dir == SCSI_READ) {
-        LOG_INFO << "seq:" << probe->seq << " dir:" << (IOHook_request_code_t)probe->dir
+        LOG_INFO << "seq:" << probe->seq << " dir:" << (io_request_code_t)probe->dir
                  << " off:" << probe->off << " len:" << probe->len
                  << " recv:" << interval(probe->recv_begin_ts, probe->recv_end_ts)
                  << " read:" << interval(probe->read_begin_ts, probe->read_end_ts)
                  << " reply:" << interval(probe->reply_begin_ts, probe->reply_end_ts);
     } else if (probe->dir == SCSI_WRITE) {
-        LOG_INFO << "seq:" << probe->seq << " dir:" << (IOHook_request_code_t)probe->dir
+        LOG_INFO << "seq:" << probe->seq << " dir:" << (io_request_code_t)probe->dir
                  << " off:" << probe->off << " len:" << probe->len
                  << " recv:" << interval(probe->recv_begin_ts, probe->recv_end_ts)
                  << " proc:" << interval(probe->proc_begin_ts, probe->proc_end_ts)

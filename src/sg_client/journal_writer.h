@@ -44,12 +44,10 @@
 #include "message.h"
 #include "epoll_event.h"
 
-namespace Journal {
-
 class JournalWriter :private boost::noncopyable {
  public:
     explicit JournalWriter(BlockingQueue<shared_ptr<JournalEntry>>& write_queue,
-                           BlockingQueue<struct IOHookReply*>& reply_queue,
+                           BlockingQueue<io_reply_t*>& reply_queue,
                            VolumeAttr& vol_attr);
     virtual ~JournalWriter();
     void work();
@@ -91,7 +89,7 @@ class JournalWriter :private boost::noncopyable {
     /*input queue*/
     BlockingQueue<shared_ptr<JournalEntry>>& write_queue_;
     /*output queue*/
-    BlockingQueue<struct IOHookReply*>& reply_queue_;
+    BlockingQueue<io_reply_t*>& reply_queue_;
     /*cache*/
     shared_ptr<IDGenerator> idproxy_;
     shared_ptr<CacheProxy> cacheproxy_;
@@ -123,6 +121,4 @@ class JournalWriter :private boost::noncopyable {
     // epoll fd, created in VolumeMgr, which collects the writers' events
     int epoll_fd;
 };
-
-}  // namespace Journal
 #endif  // SRC_SG_CLIENT_JOURNAL_WRITER_H_

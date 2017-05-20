@@ -6,9 +6,7 @@
 #define MAX_DEVICE_PATH (256)
 #define HEADER_SIZE (128)
 
-namespace Journal{
-
-struct IOHookRequest {
+struct io_request {
     uint32_t magic;
     uint32_t type;          /*command type*/
     uint64_t seq;
@@ -17,9 +15,9 @@ struct IOHookRequest {
     uint32_t len;
     uint8_t  data[0];
 }__attribute__((packed));
+typedef struct io_request io_request_t;
 
-
-struct IOHookReply {
+struct io_reply {
     uint32_t magic;
     uint32_t error;
     uint64_t seq;
@@ -27,8 +25,9 @@ struct IOHookReply {
     uint32_t len;
     uint8_t  data[0];
 }__attribute__((packed));
+typedef struct io_reply io_reply_t;
 
-enum IOHook_request_code {
+enum io_request_code {
     ADD_VOLUME = 0,
     DEL_VOLUME = 1,
 
@@ -36,7 +35,7 @@ enum IOHook_request_code {
     SCSI_WRITE = 4,   /*scsi write command*/
     SYNC_CACHE = 5    /*synchronize cache when iscsi initiator logout*/ 
 };
-typedef enum IOHook_request_code IOHook_request_code_t;
+typedef enum io_request_code io_request_code_t;
 
 struct add_vol_req{
     char volume_name[MAX_VOLUME_NAME];
@@ -49,5 +48,4 @@ struct del_vol_req{
 };
 typedef struct del_vol_req del_vol_req_t;
 
-}
 #endif

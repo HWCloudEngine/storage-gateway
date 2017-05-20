@@ -13,8 +13,6 @@
 using huawei::proto::VolumeInfo;
 using huawei::proto::StatusCode;
 
-namespace Journal{
-
 VolumeManager::~VolumeManager()
 {
     running_ = false;
@@ -159,7 +157,7 @@ void VolumeManager::read_req_head_cbt(raw_socket_t client_sock,
                                       const char* req_head_buffer,
                                       const boost::system::error_code& e)
 {
-    IOHookRequest* header_ptr = reinterpret_cast<IOHookRequest*>
+    io_request_t* header_ptr = reinterpret_cast<io_request_t*>
                                 (const_cast<char*>(req_head_buffer));
     if(!e && header_ptr->magic == MESSAGE_MAGIC){
         if(header_ptr->type == ADD_VOLUME){
@@ -225,16 +223,16 @@ void VolumeManager::send_reply(raw_socket_t client_sock,
                                const char* req_head_buffer, 
                                const char* req_body_buffer, bool success)
 {
-    char* rep_buffer = new char[sizeof(IOHookReply)]; 
-    IOHookReply* reply_ptr = reinterpret_cast<IOHookReply*>(rep_buffer);
-    IOHookRequest* header_ptr = reinterpret_cast<IOHookRequest*>
+    char* rep_buffer = new char[sizeof(io_reply_t)]; 
+    io_reply_t* reply_ptr = reinterpret_cast<io_reply_t*>(rep_buffer);
+    io_request_t* header_ptr = reinterpret_cast<io_request_t*>
                                 (const_cast<char*>(req_head_buffer));
     reply_ptr->magic = MESSAGE_MAGIC;
     reply_ptr->error = success ? 0 : 1;
     reply_ptr->handle = header_ptr->handle;
     reply_ptr->len = 0;
     boost::asio::async_write(*client_sock,
-        boost::asio::buffer(rep_buffer, sizeof(struct IOHookReply)),
+        boost::asio::buffer(rep_buffer, sizeof(io_reply_t)),
         boost::bind(&VolumeManager::send_reply_cbt, this,
                     req_head_buffer, req_body_buffer, rep_buffer,
                     boost::asio::placeholders::error));
@@ -258,9 +256,9 @@ void VolumeManager::start(raw_socket_t client_sock)
 {
     /*prepare to read add volume request*/
     /*will be free after send reply to client*/
-    char* req_head_buffer = new char[sizeof(IOHookRequest)];
+    char* req_head_buffer = new char[sizeof(io_request_t)];
     boost::asio::async_read(*client_sock,
-        boost::asio::buffer(req_head_buffer, sizeof(struct IOHookRequest)),
+        boost::asio::buffer(req_head_buffer, sizeof(io_request_t)),
         boost::bind(&VolumeManager::read_req_head_cbt, this, 
                      client_sock, req_head_buffer,
                      boost::asio::placeholders::error));
@@ -401,6 +399,4 @@ bool VolumeManager::recover_targets()
     }
     recover_targets_thr_ = make_shared<thread>(std::bind(&VolumeControlImpl::recover_targets, vol_ctrl));
     return true;
-}
-
 }

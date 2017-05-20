@@ -43,7 +43,6 @@ using huawei::proto::control::ListBackupReq;
 using huawei::proto::control::ListBackupAck;
 
 using namespace std;
-using namespace Journal;
 
 class BackupControlImpl final: public BackupControl::Service {
  public:

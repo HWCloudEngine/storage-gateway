@@ -30,16 +30,15 @@ sg_client_SOURCES=../common/crc32.c  \
                   cache/jcache.cc        \
                   replicate_proxy.cc  \
                   perf_counter.cc     \
-                  connection.cc       \
-                  io_service_pool.cc  \
                   seq_generator.cc    \
+                  server_socket.cc    \
+                  client_socket.cc    \
                   journal_writer.cc   \
                   journal_replayer.cc \
                   journal_reader.cc   \
                   journal_preprocessor.cc \
-                  volume.cc               \
-                  volume_manager.cc   \
-                  server.cc           \
+                  volume.cc         \
+                  volume_manager.cc \
                   main.cc  
   
 sg_client_LDADD=${top_srcdir}/src/rpc/librpc.la \

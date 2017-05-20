@@ -31,8 +31,6 @@ using huawei::proto::SnapType;
 using huawei::proto::RepStatus;
 using huawei::proto::RepRole;
 
-namespace Journal {
-
 JournalReplayer::JournalReplayer(VolumeAttr& vol_attr) :vol_attr_(vol_attr) {
     LOG_INFO << "IOReplayer work thread create";
 }
@@ -347,5 +345,3 @@ void JournalReplayer::update_consumer_marker(const std::string& journal,
     LOG_INFO << "consumer marker file:" << journal << " pos:" << off;
     update_ = true;
 }
-
-}  // namespace Journal

@@ -16,12 +16,10 @@
 #include "message.h"
 #include "cache/cache_proxy.h"
 
-namespace Journal {
-
 class JournalReader {
  public:
-    explicit JournalReader(BlockingQueue<struct IOHookRequest>& read_queue,
-                           BlockingQueue<struct IOHookReply*>&  reply_queue);
+    explicit JournalReader(BlockingQueue<io_request_t>& read_queue,
+                           BlockingQueue<io_reply_t*>& reply_queue);
     virtual ~JournalReader();
     JournalReader(const JournalReader& r) = delete;
     JournalReader& operator=(const JournalReader& r) = delete;
@@ -32,15 +30,13 @@ class JournalReader {
 
  private:
     /*in queue*/
-    BlockingQueue<struct IOHookRequest>& m_read_queue;
+    BlockingQueue<io_request_t>& m_read_queue;
     /*out queue*/
-    BlockingQueue<struct IOHookReply*>&  m_reply_queue;
-    shared_ptr<CacheProxy>  m_cacheproxy;
+    BlockingQueue<io_reply_t*>& m_reply_queue;
+    shared_ptr<CacheProxy> m_cacheproxy;
     bool m_run;
     shared_ptr<thread> m_thread;
 };
-
-}  // namespace Journal
 
 #endif  // SRC_SG_CLIENT_JOURNAL_READER_H_
 

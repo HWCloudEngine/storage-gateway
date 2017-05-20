@@ -9,17 +9,20 @@
 #include <fstream>
 #include "control_agent.h"
 #include "common/config_option.h"
+#include "common/env_posix.h"
 #include <boost/tokenizer.hpp>
 
 AgentControl::AgentControl(const std::string& host, const std::string& port) :
         host_(host), port_(port)
 {
-    fd_ = open(AGENT_CTL_DEVICE_PATH, O_RDWR);
-    if(fd_ == -1)
-    {
-        LOG_INFO << "open agent ctl device failed,errno:" <<errno;
+    if (Env::instance()->file_exists(AGENT_CTL_DEVICE_PATH)) {
+        fd_ = open(AGENT_CTL_DEVICE_PATH, O_RDWR);
+        if(fd_ == -1)
+        {
+            LOG_INFO << "open agent ctl device failed,errno:" <<errno;
+        }
+        init();
     }
-    init();
 }
 
 AgentControl::~AgentControl()

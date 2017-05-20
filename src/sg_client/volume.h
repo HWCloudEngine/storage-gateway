@@ -22,7 +22,7 @@
 #include "rpc/common.pb.h"
 #include "seq_generator.h"
 #include "cache/cache_proxy.h"
-#include "connection.h"
+#include "client_socket.h"
 #include "journal_preprocessor.h"
 #include "journal_writer.h"
 #include "journal_reader.h"
@@ -33,8 +33,6 @@
 
 #define BUFFER_POOL_SIZE 1024*1024*64
 #define REQUEST_BODY_SIZE 512
-
-namespace Journal {
 
 class VolumeManager;
 
@@ -77,9 +75,9 @@ class Volume {
     nedalloc::nedpool* buffer_pool_;
     /*queues*/
     BlockingQueue<shared_ptr<JournalEntry>> entry_queue_;
-    BlockingQueue<struct IOHookReply*> reply_queue_;
+    BlockingQueue<io_reply_t*> reply_queue_;
     BlockingQueue<shared_ptr<JournalEntry>> write_queue_;
-    BlockingQueue<struct IOHookRequest> read_queue_;
+    BlockingQueue<io_request_t> read_queue_;
     /*cache */
     shared_ptr<IDGenerator> idproxy_;
     shared_ptr<CacheProxy>  cacheproxy_;
@@ -91,7 +89,7 @@ class Volume {
     /*replicate proxy */
     mutable shared_ptr<ReplicateProxy> rep_proxy_;
     /*network*/
-    shared_ptr<Connection> connection_;
+    shared_ptr<ClientSocket> client_socket_;
     /*io preprocess*/
     shared_ptr<JournalPreProcessor>  pre_processor_;
     /*io write*/
@@ -101,6 +99,5 @@ class Volume {
     /*replay*/
     shared_ptr<JournalReplayer> replayer_;
 };
-}  // namespace Journal
 
 #endif  // SRC_SG_CLIENT_VOLUME_H_

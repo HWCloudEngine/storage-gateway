@@ -18,10 +18,8 @@
 #include "journal_writer.h"
 using huawei::proto::SnapshotMessage;
 
-namespace Journal {
-
 JournalWriter::JournalWriter(BlockingQueue<shared_ptr<JournalEntry>>& write_queue,
-                             BlockingQueue<struct IOHookReply*>& reply_queue,
+                             BlockingQueue<io_reply_t*>& reply_queue,
                              VolumeAttr& vol_attr)
     :thread_ptr(), write_queue_(write_queue), reply_queue_(reply_queue),
      vol_attr_(vol_attr), cur_journal_size(0),
@@ -390,7 +388,7 @@ int64_t JournalWriter::get_file_size(const char *path) {
 void JournalWriter::send_reply(JournalEntry* entry, bool success) {
     vector<uint64_t> handles = entry->get_handle();
     for (uint64_t handle : handles) {
-        IOHookReply* reply_ptr = reinterpret_cast<IOHookReply*>(new char[sizeof(IOHookReply)]);
+        io_reply_t* reply_ptr = reinterpret_cast<io_reply_t*>(new char[sizeof(io_reply_t)]);
         reply_ptr->magic = MESSAGE_MAGIC;
         reply_ptr->error = success?0:1;
         reply_ptr->seq   = entry->get_sequence();
@@ -415,7 +413,4 @@ void JournalWriter::invalid_current_journal() {
 VolumeAttr& JournalWriter::get_vol_attr() {
     return vol_attr_;
 }
-
-}  // namespace Journal
-
 

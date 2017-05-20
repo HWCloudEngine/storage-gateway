@@ -49,7 +49,6 @@ using huawei::proto::control::QueryVolumeFromSnapReq;
 using huawei::proto::control::QueryVolumeFromSnapAck;
 
 using namespace std;
-using namespace Journal;
 
 /*snapshot and other service service as northern interface for all volume*/
 class SnapshotControlImpl final: public SnapshotControl::Service { 
