@@ -50,11 +50,14 @@ private:
     TaskHandler();
     ~TaskHandler();
 
-    void do_transfer(std::shared_ptr<TransferTask> task,
+    int do_transfer(std::shared_ptr<TransferTask> task,
             grpc_stream_ptr& stream);
 
     // thread main loop method
     void work();
+
+    void wait_for_grpc_stream_ready(ClientContext* rpc_ctx,
+        grpc_stream_ptr& stream);
 };
 
 #endif
