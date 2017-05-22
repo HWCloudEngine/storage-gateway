@@ -24,6 +24,16 @@ class VolumeCtrl(object):
             res = self.EnableSG(**kwargs)
         elif args.action == 'disable':
             res = self.DisableSG(args.vol_id)
+        elif args.action == 'initialize':
+            res = self.InitializeConnection(args.vol_id)
+        elif args.action == 'terminate':
+            res = self.TerminateConnection(args.vol_id)
+        elif args.action == 'attach':
+            res = self.AttachVolume(args.vol_id,args.device_path)
+        elif args.action == 'detach':
+            res = self.AttachVolume(args.vol_id)
+        else:
+            res = 1
         return res
 
     def ListVolumes(self):

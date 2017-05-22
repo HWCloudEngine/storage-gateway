@@ -21,7 +21,8 @@ def replicate(args, host, port):
 def volume(args, host, port):
     print('volume %s \n' % args)
 
-    if args.action in ['get', 'disable', 'enable']:
+    if args.action in ['get', 'disable', 'enable',
+                      'initialize','terminate','attach','detach']:
         if not args.vol_id:
             print 'volume name is required!'
             return
@@ -109,7 +110,8 @@ def run():
     # volume control args
     parser_volume = sub_parsers.add_parser('volume')
     parser_volume.add_argument('-a', '--action', \
-                               choices=('list', 'enable', 'disable', 'get'),
+                               choices=('list', 'enable', 'disable', 'get',
+                               'initialize','terminate','attach','detach'),
                                required=True)
     parser_volume.add_argument('-v', '--volume', help='volume id',
                                dest='vol_id')
@@ -118,7 +120,7 @@ def run():
                                default='volume')
     parser_volume.add_argument('-s', '--size', help='volume size',
                                dest='vol_size', type=long)
-    parser_volume.add_argument('-p', '--device_path', help='block device path',
+    parser_volume.add_argument('-d', '--device_path', help='block device path',
                                dest='device_path')
     parser_volume.set_defaults(func=volume)
 
