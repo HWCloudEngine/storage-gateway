@@ -56,6 +56,11 @@ class JournalReplayer {
                              const off_t& end_pos);
     bool handle_io_cmd(shared_ptr<JournalEntry> entry);
     bool handle_ctrl_cmd(shared_ptr<JournalEntry> entry);
+    void handle_snapshot_cmd(int type, SnapReqHead shead, std::string snap_name);
+    void handle_backup_cmd(int type, SnapReqHead shead, std::string snap_name);
+    void handle_replication_cmd(int type, SnapReqHead shead, std::string snap_name);
+    void handle_replication_failover_cmd(int type, SnapReqHead shead, std::string snap_name);
+
     bool process_journal_entry(shared_ptr<JournalEntry> entry);
     /*entry from memory*/
     bool process_memory(shared_ptr<JournalEntry> entry);

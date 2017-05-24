@@ -35,8 +35,10 @@ int main(int argc, char** argv)
         char* op = argv[2];
         if(strcmp(op, "enable") == 0){
             ret = vol_client->enable_sg(vol_name, vol_size, blk_device);
+            ret = vol_client->init_conn(vol_name);
             cout << "enable sg " << "vol_name:" << vol_name << " ret:" << ret << endl;
         } else if(strcmp(op, "disable") == 0){
+            ret = vol_client->fini_conn(vol_name);
             ret = vol_client->disable_sg(vol_name);
             cout << "disable sg" << "vol_name:" << vol_name << " ret:" << ret << endl;
         } 
