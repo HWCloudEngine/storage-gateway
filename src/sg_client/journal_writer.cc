@@ -147,7 +147,7 @@ IS_WRITABLE:
             return;
         }
 
-        DO_PERF(WRITE_BEGIN, entry->get_sequence());
+        do_perf(WRITE_BEGIN, entry->get_sequence());
         success = false;
         time(&start);
         time(&end);
@@ -244,7 +244,7 @@ IS_WRITABLE:
             LOG_DEBUG << "trigger to update producer marker:" << vol_attr_.vol_name();
         }
 
-        DO_PERF(WRITE_END, entry->get_sequence());
+        do_perf(WRITE_END, entry->get_sequence());
 
         // response to io scheduler
         if (entry->get_type() == IO_WRITE) {

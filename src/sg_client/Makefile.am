@@ -14,6 +14,8 @@ sg_client_SOURCES=../common/crc32.c  \
                   ../common/ceph_s3_api.cc   \
                   ../common/journal_entry.cc \
                   ../common/env_posix.cc     \
+                  ../common/timer.cc         \
+                  ../common/atomic_ptr.cc    \
                   control/control_snapshot.cc  \
                   control/control_backup.cc    \
                   control/control_replicate.cc \
@@ -39,14 +41,14 @@ sg_client_SOURCES=../common/crc32.c  \
                   journal_preprocessor.cc \
                   volume.cc         \
                   volume_manager.cc \
-                  main.cc  
+                  main.cc
   
 sg_client_LDADD=${top_srcdir}/src/rpc/librpc.la \
                 ${top_srcdir}/src/log/liblog.la 
 
 sg_client_LDFLAGS=-D_GNU_SOURCE -L$(top_srcdir)/lib -L/usr/local/lib
 DEFS+=-D_GNU_SOURCE -DBOOST_ALL_DYN_LINK -DNDEBUG
-LIBS=-lpthread \
+LIBS=-lpthread -lrt \
      -lboost_system -lboost_log_setup -lboost_log \
      -lboost_date_time -lboost_thread -lboost_filesystem \
      -lprotobuf -lgrpc -lgrpc++ \

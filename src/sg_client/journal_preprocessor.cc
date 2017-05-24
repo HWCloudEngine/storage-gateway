@@ -37,14 +37,14 @@ void JournalPreProcessor::work() {
         if (!ret) {
             return;
         }
-        
-        DO_PERF(PROC_BEGIN, entry->get_sequence());
+
+        do_perf(PROC_BEGIN, entry->get_sequence());
         /*message serialize*/
         entry->serialize();
         /*calculate crc*/
         entry->calculate_crc();
         write_queue_.push(entry, pos);
-        DO_PERF(PROC_END, entry->get_sequence());
+        do_perf(PROC_END, entry->get_sequence());
     }
 }
 

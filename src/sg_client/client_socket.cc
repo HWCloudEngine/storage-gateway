@@ -44,6 +44,7 @@ bool ClientSocket::init() {
     if (!recv_buf_) {
         LOG_ERROR << "allocate recv buf failed";
     }
+    memset(recv_buf_, 0, recv_buf_len_);
     running_flag = true;
     recv_thread_.reset(new thread(bind(&ClientSocket::recv_thread, this)));
     reply_thread_.reset(new thread(bind(&ClientSocket::send_thread, this)));
@@ -112,9 +113,10 @@ void ClientSocket::recv_thread() {
             LOG_ERROR << "recv_req failed";
             break;
         }
-        DO_PERF(RECV_BEGIN, head.seq);
-
+        pre_perf(head.seq, (uint8_t)head.type, head.offset, head.len);
+        do_perf(RECV_BEGIN, head.seq);
         dispatch(&head);
+        do_perf(RECV_END, head.seq);
     }
 }
 
@@ -141,7 +143,6 @@ void ClientSocket::dispatch(const io_request_t* head) {
 
 void ClientSocket::handle_read_req(const io_request_t* req) {
     read_queue_.push(*req);
-    DO_PERF(RECV_END, req->seq);
 }
 
 void ClientSocket::handle_write_req(const io_request_t* req) {
@@ -160,7 +161,6 @@ void ClientSocket::handle_write_req(const io_request_t* req) {
     entry->set_message(message);
     /*enqueue*/
     entry_queue_.push(entry);
-    DO_PERF(RECV_END, req->seq);
 }
 
 void ClientSocket::handle_flush_req(const io_request_t* req) {
@@ -210,7 +210,7 @@ void ClientSocket::send_reply(const io_reply_t* reply) {
         LOG_ERROR << "Invalid reply ptr";
         return;
     }
-    DO_PERF(REPLY_BEGIN, reply->seq);
+    do_perf(REPLY_BEGIN, reply->seq);
     size_t write_ret = raw_socket_->write_some(buffer(reply, sizeof(*reply)));
     if (write_ret != sizeof(*reply)) {
         LOG_ERROR << "reply head failed size:" << sizeof(*reply) << " ret:" << write_ret;
@@ -223,6 +223,7 @@ void ClientSocket::send_reply(const io_reply_t* reply) {
             return;
         }
     }
+    do_perf(REPLY_END, reply->seq);
+    post_perf(reply->seq);
     delete []reply;
-    DO_PERF(REPLY_END, reply->seq);
 }
