@@ -10,10 +10,10 @@
 *************************************************/
 #ifndef SRC_COMMON_PERF_COUNTER_H_
 #define SRC_COMMON_PERF_COUNTER_H_
-#include <mutex>
 #include <map>
-#include <atomic>
-#include <thread>
+#include "common/timer.h"
+#include "common/atomic_ptr.h"
+#include "common/env_posix.h"
 #include "message.h"
 
 #define ENABLE_PERF
@@ -35,24 +35,31 @@ typedef struct {
     uint64_t reply_end_ts;
 } IoProbe;
 
-class PerfCounter {
- private:
+using probe_map_t = std::map<uint64_t, IoProbe>;
+
+class PerfCounter : public TimerTask {
+ public:
      PerfCounter(); 
      ~PerfCounter();
+
  public:
     static PerfCounter& instance();
-    void insert(uint64_t seq, IoProbe* probe);
-    IoProbe* retrieve(uint64_t seq);
-    void remove(uint64_t seq);
 
-    uint64_t interval(uint64_t start, uint64_t end);
-    void show(IoProbe* probe);    
-    void report();
+    void     insert(uint64_t seq, IoProbe probe);
+    IoProbe* fetch(uint64_t seq);
+    void     remove(uint64_t seq);
+
+    void show_probe(const IoProbe* probe);    
+
  private:
-    std::map<uint64_t, IoProbe*> probes_;
-    std::mutex lock_;
-    std::atomic_bool run_;
-    std::thread* thr_;
+    probe_map_t* native_map();
+    uint64_t cost_time(uint64_t start, uint64_t end);
+    void show_stat(io_request_code_t rw);
+    /*timer callback*/
+    virtual void callback() override;
+
+ private:
+    AtomicPtr* probe_map_;
 };
 
 #define g_perf (PerfCounter::instance())
@@ -71,69 +78,67 @@ typedef enum {
 } perf_phase_t;
 
 #ifdef ENABLE_PERF
-#define PRE_PERF(seq, dir, off, len) do {                     \
-    IoProbe* probe = (IoProbe*)malloc(sizeof(IoProbe));       \
-    if (probe) {                                              \
-        probe->seq = seq;                                     \
-        probe->dir = dir;                                     \
-        probe->off = off;                                     \
-        probe->len = len;                                     \
-        probe->recv_begin_ts = Env::instance()->now_micros(); \
-        g_perf.insert(probe->seq, probe);                     \
-    }                                                         \
-} while(0)
+static inline void pre_perf(uint64_t seq, uint8_t dir, uint64_t off, uint64_t len) {
+    IoProbe probe = {0};
+    probe.seq = (seq);
+    probe.dir = (dir);
+    probe.off = (off);
+    probe.len = (len);
+    g_perf.insert(seq, probe);
+}
 
-#define DO_PERF(phase, seq) do {             \
-    IoProbe* probe = g_perf.retrieve(seq);   \
-    if (probe) {                             \
-        switch (phase) {                 \
-        case RECV_BEGIN:                 \
-            probe->recv_begin_ts = Env::instance()->now_micros(); \
-            break;                       \
-        case RECV_END:                   \
-            probe->recv_end_ts = Env::instance()->now_micros(); \
-            break;                       \
-        case PROC_BEGIN:                 \
-            probe->proc_begin_ts = Env::instance()->now_micros(); \
-            break;                       \
-        case PROC_END:                   \
-            probe->proc_end_ts = Env::instance()->now_micros(); \
-            break;                       \
-        case WRITE_BEGIN:                \
-            probe->write_begin_ts = Env::instance()->now_micros(); \
-            break;                       \
-        case WRITE_END:                  \
-            probe->write_end_ts = Env::instance()->now_micros(); \
-            break;                       \
-        case READ_BEGIN:                 \
-            probe->read_begin_ts = Env::instance()->now_micros(); \
-            break;                       \
-        case READ_END:                   \
-            probe->read_end_ts = Env::instance()->now_micros(); \
-            break;                       \
-        case REPLY_BEGIN:                \
-            probe->reply_begin_ts = Env::instance()->now_micros(); \
-            break;                       \
-        case REPLY_END:                  \
-            probe->reply_end_ts = Env::instance()->now_micros(); \
-            break;                       \
-        default:                         \
-            break;                       \
-        }                                \
-    }                                    \
-} while(0)
+static inline void do_perf(perf_phase_t phase, uint64_t seq) {
+    IoProbe* probe = g_perf.fetch(seq);
+    if (probe == nullptr) {
+        return;
+    }
+    uint64_t now_micros = Env::instance()->now_micros();
+    switch (phase) {
+        case RECV_BEGIN:
+            probe->recv_begin_ts = now_micros;
+            break;
+        case RECV_END:
+            probe->recv_end_ts = now_micros;
+            break;
+        case PROC_BEGIN:
+            probe->proc_begin_ts = now_micros;
+            break;
+        case PROC_END:
+            probe->proc_end_ts = now_micros;
+            break;
+        case WRITE_BEGIN:
+            probe->write_begin_ts = now_micros;
+            break;
+        case WRITE_END:
+            probe->write_end_ts = now_micros;
+            break;
+        case READ_BEGIN:
+            probe->read_begin_ts = now_micros;
+            break;
+        case READ_END:
+            probe->read_end_ts = now_micros;
+            break;
+        case REPLY_BEGIN:
+            probe->reply_begin_ts = now_micros;
+            break;
+        case REPLY_END:
+            probe->reply_end_ts = now_micros;
+            break;
+        default:
+            break;
+    }
+}
 
-#define POST_PERF(seq) do {                \
-    IoProbe* probe = g_perf.retrieve(seq); \
-    if (probe) {                           \
-        g_perf.show(probe);                \
-        g_perf.remove(seq);                \
-    }                                      \
-} while(0)
+static inline void post_perf(uint64_t seq) {
+    //IoProbe* probe = g_perf.fetch(seq);
+    //if (probe) {
+    //   g_perf.show_probe(probe);
+    //}
+}
 #else
-#define PRE_PERF(seq, dir, off, len) ()
-#define DO_PERF(phase, seq) ()
-#define POST_PERF(seq) ()
+static inline void pre_perf(uint64_t seq, uint8_t dir, uint64_t off, uint64_t len) {}
+static inline void do_perf(perf_phase_t phase, uint64_t seq) {}
+static inline void post_perf(uint64_t seq) {}
 #endif
 
 #endif  //  SRC_COMMON_PERF_COUNTER_H_

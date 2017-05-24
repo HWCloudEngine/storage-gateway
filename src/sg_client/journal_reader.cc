@@ -46,7 +46,7 @@ void JournalReader::work() {
             break;
         }
 
-        DO_PERF(READ_BEGIN, ioreq.seq);
+        do_perf(READ_BEGIN, ioreq.seq);
 
         int iorsp_len = sizeof(io_request_t) + ioreq.len;
         io_reply_t* iorsp = (io_reply_t*)new char[iorsp_len];
@@ -54,7 +54,7 @@ void JournalReader::work() {
         iorsp->seq = ioreq.seq;
         iorsp->handle = ioreq.handle;
         char* buf = reinterpret_cast<char*>(iorsp) + sizeof(io_reply_t);
-        LOG_DEBUG << "read" << " hdl:" << ioreq.handle
+        LOG_DEBUG << "read" << " seq:" << ioreq.seq
                   << " off:" << ioreq.offset << " len:" << ioreq.len;
         /*read*/
         int ret = m_cacheproxy->read(ioreq.offset, ioreq.len, buf);
@@ -66,6 +66,6 @@ void JournalReader::work() {
             return;
         }
 
-        DO_PERF(READ_END, ioreq.seq);
+        do_perf(READ_END, ioreq.seq);
     }
 }
