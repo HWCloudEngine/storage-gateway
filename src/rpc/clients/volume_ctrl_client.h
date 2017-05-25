@@ -32,8 +32,12 @@ using huawei::proto::control::ListDevicesReq;
 using huawei::proto::control::ListDevicesRes;
 using huawei::proto::control::EnableSGReq;
 using huawei::proto::control::EnableSGRes;
+using huawei::proto::control::InitializeConnectionReq;
+using huawei::proto::control::InitializeConnectionRes;
 using huawei::proto::control::DisableSGReq;
 using huawei::proto::control::DisableSGRes;
+using huawei::proto::control::TerminateConnectionReq;
+using huawei::proto::control::TerminateConnectionRes;
 using huawei::proto::control::GetVolumeReq;
 using huawei::proto::control::GetVolumeRes;
 using huawei::proto::control::ListVolumesReq;
@@ -89,6 +93,34 @@ public:
         }
         else
         {
+            return res.status();
+        }
+    }
+    
+    StatusCode init_conn(const std::string& vol_id) {
+        ClientContext context;
+        InitializeConnectionReq req;
+        InitializeConnectionRes res;
+        req.set_volume_id(vol_id);
+    
+        Status status = stub_->InitializeConnection(&context, req, &res);
+        if (!status.ok()) {
+            return sInternalError;
+        } else {
+            return res.status();
+        }
+    }
+
+    StatusCode fini_conn(const std::string& vol_id) {
+        ClientContext context;
+        TerminateConnectionReq req;
+        TerminateConnectionRes res;
+        req.set_volume_id(vol_id);
+    
+        Status status = stub_->TerminateConnection(&context, req, &res);
+        if (!status.ok()) {
+            return sInternalError;
+        } else {
             return res.status();
         }
     }

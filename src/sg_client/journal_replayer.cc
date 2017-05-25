@@ -1,11 +1,11 @@
 /**********************************************
 *  Copyright (c) 2016 Huawei Technologies Co., Ltd. All rights reserved.
 *
-*  File name:   journal_reader.cc 
+*  File name:   journal_reply.cc 
 *  Author: 
 *  Date:         2016/11/03
 *  Version:      1.0
-*  Description:  handle read io
+*  Description:  handle io replay
 *
 *************************************************/
 #include <fcntl.h>
@@ -232,6 +232,55 @@ bool JournalReplayer::handle_io_cmd(shared_ptr<JournalEntry> entry) {
     return true;
 }
 
+void JournalReplayer::handle_snapshot_cmd(int type, SnapReqHead shead,
+                                          std::string snap_name) {
+    switch (type) {
+        case SNAPSHOT_CREATE:
+            LOG_INFO << "journal_replayer create snapshot:" << snap_name;
+            snapshot_proxy_ptr_->create_transaction(shead, snap_name);
+            break;
+        case SNAPSHOT_DELETE:
+            LOG_INFO << "journal_replayer delete snapshot:" << snap_name;
+            snapshot_proxy_ptr_->delete_transaction(shead, snap_name);
+            break;
+        case SNAPSHOT_ROLLBACK:
+            LOG_INFO << "journal_replayer rollback snapshot:" << snap_name;
+            snapshot_proxy_ptr_->rollback_transaction(shead, snap_name);
+            break;
+        default:
+            break;
+    }
+}
+
+void JournalReplayer::handle_backup_cmd(int type, SnapReqHead shead,
+                                        std::string snap_name) {
+    if (SNAPSHOT_CREATE == type) {
+        LOG_INFO << "journal_replayer create snapshot:" << snap_name;
+        backup_decorator_ptr_->create_transaction(shead, snap_name);
+    }
+}
+
+void JournalReplayer::handle_replication_cmd(int type, SnapReqHead shead,
+                                             std::string snap_name) {
+    if (SNAPSHOT_CREATE == type) {
+        LOG_INFO << "journal_replayer create rep snapshot:" << snap_name;
+        rep_proxy_ptr_->create_transaction(shead, snap_name,
+                                           vol_attr_.replicate_role());
+    }
+}
+
+void JournalReplayer::handle_replication_failover_cmd(int type, SnapReqHead shead,
+                                                      std::string snap_name) {
+    if (type == SNAPSHOT_CREATE) {
+        LOG_INFO << " journal_replayer create failovaer snapshot:" << snap_name;
+        rep_proxy_ptr_->create_transaction(shead, snap_name, vol_attr_.replicate_role());
+        if (vol_attr_.replicate_role() == RepRole::REP_SECONDARY) {
+            vol_attr_.set_replicate_status(RepStatus::REP_FAILED_OVER);
+            LOG_INFO << " update rep status to failed over volume:" << vol_attr_.vol_name();
+        }
+    }
+}
+
 //  todo this function need refactor
 bool JournalReplayer::handle_ctrl_cmd(shared_ptr<JournalEntry> entry) {
     /*handle snapshot*/
@@ -247,66 +296,25 @@ bool JournalReplayer::handle_ctrl_cmd(shared_ptr<JournalEntry> entry) {
         shead.set_snap_type((SnapType)snap_message->snap_type());
         std::string snap_name = snap_message->snap_name();
         SnapScene scene  = (SnapScene)snap_message->snap_scene();
-        if (scene == SnapScene::FOR_NORMAL) {
-            switch (type) {
-                case SNAPSHOT_CREATE:
-                    LOG_INFO << "journal_replayer create snapshot:" << snap_name;
-                    snapshot_proxy_ptr_->create_transaction(shead, snap_name);
-                    break;
-                case SNAPSHOT_DELETE:
-                    LOG_INFO << "journal_replayer delete snapshot:" << snap_name;
-                    snapshot_proxy_ptr_->delete_transaction(shead, snap_name);
-                    break;
-                case SNAPSHOT_ROLLBACK:
-                    LOG_INFO << "journal_replayer rollback snapshot:" << snap_name;
-                    snapshot_proxy_ptr_->rollback_transaction(shead, snap_name);
-                    break;
-                default:
-                    break;
-            }
-        } else if (scene == SnapScene::FOR_BACKUP) {
-            switch (type) {
-                case SNAPSHOT_CREATE:
-                    LOG_INFO << "journal_replayer create snapshot:" << snap_name;
-                    backup_decorator_ptr_->create_transaction(shead, snap_name);
-                    break;
-                default:
-                    break;
-            }
-        } else if (scene == SnapScene::FOR_REPLICATION) {
-            switch (type) {
-                case SNAPSHOT_CREATE:
-                    {
-                        LOG_INFO << "journal_replayer create rep snapshot:" << snap_name;
-                        rep_proxy_ptr_->create_transaction(shead, snap_name,
-                                vol_attr_.replicate_role());
-                        break;
-                    }
-                default:
-                    break;
-            }
-        } else if (scene == SnapScene::FOR_REPLICATION_FAILOVER) {
-            switch (type) {
-                case SNAPSHOT_CREATE:
-                    {
-                        LOG_INFO << " journal_replayer create failovaer snapshot:" << snap_name;
-                        rep_proxy_ptr_->create_transaction(shead, snap_name,
-                                vol_attr_.replicate_role());
-                        if (vol_attr_.replicate_role() == RepRole::REP_SECONDARY) {
-                            vol_attr_.set_replicate_status(RepStatus::REP_FAILED_OVER);
-                            LOG_INFO << " update rep status to failed over volume:" << vol_attr_.vol_name();
-                        }
-                        break;
-                    }
-                default:
-                    break;
-            }
-        } else {
+        switch (scene) {
+            case SnapScene::FOR_NORMAL:
+                handle_snapshot_cmd(type, shead, snap_name);
+                break;
+            case SnapScene::FOR_BACKUP:
+                handle_backup_cmd(type, shead, snap_name);
+                break;
+            case SnapScene::FOR_REPLICATION:
+                handle_replication_cmd(type, shead, snap_name);
+                break;
+            case SnapScene::FOR_REPLICATION_FAILOVER:
+                handle_replication_failover_cmd(type, shead, snap_name);
+                break;
+            default:
+                break;
         }
-        return true;
-    } else {
     }
-    return false;
+
+    return true;
 }
 
 bool JournalReplayer::process_journal_entry(shared_ptr<JournalEntry> entry) {
