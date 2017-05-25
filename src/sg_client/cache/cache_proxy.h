@@ -50,10 +50,7 @@ class CacheProxy {
     bool isfull(size_t cur_io_size);
 
     /*backgroud cache evict */
-    void start_cache_evict_thr();
-    void trigger_cache_evict();
     void cache_evict_work();
-    void stop_cache_evict_thr();
 
     /*debug*/
     void trace();
@@ -66,10 +63,6 @@ class CacheProxy {
     /*current cache memory size*/
     atomic<size_t>  total_mem_size; 
     /*backgroud cache evict*/
-    bool evict_run;
-    thread* evict_thread;
-    mutex evict_lock;
-    condition_variable evict_cond;
     mutex cache_lock;
     /*accelerate journal replay*/
     Jcache* jcache;

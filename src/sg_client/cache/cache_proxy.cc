@@ -18,7 +18,6 @@ CacheProxy::CacheProxy(string blk_dev, shared_ptr<IDGenerator> id_maker) {
     blkdev = blk_dev;
     idproc = id_maker;
     total_mem_size = 0;
-    start_cache_evict_thr();
     jcache = new Jcache(blk_dev);
     bcache = new Bcache(blk_dev);
     LOG_INFO << "CacheProxy create";
@@ -26,7 +25,6 @@ CacheProxy::CacheProxy(string blk_dev, shared_ptr<IDGenerator> id_maker) {
 
 CacheProxy::~CacheProxy() {
     LOG_INFO << "CacheProxy destroy";
-    stop_cache_evict_thr();
     delete bcache;
     delete jcache;
     LOG_INFO << "CacheProxy destroy ok";
@@ -51,7 +49,7 @@ void CacheProxy::write(string journal_file, off_t journal_off,
                      << " io_seq:" << io_seq << " blk_off:" << off << " blk_len:" << len;
             if (isfull(len)) {
                 /*trigger bcache evict*/
-                trigger_cache_evict();
+                cache_evict_work();
                 /*cache memory over threshold, cache point to journal file location*/
                 Bkey bkey(off, len, io_seq);
                 shared_ptr<CEntry> v(new CEntry(io_seq, off, len, journal_file,journal_off));
@@ -143,74 +141,46 @@ bool CacheProxy::isfull(size_t cur_io_size) {
     return false;
 }
 
-void CacheProxy::start_cache_evict_thr() {
-    evict_run = true;
-    evict_thread = new thread(bind(&CacheProxy::cache_evict_work, this));
-}
-
-void CacheProxy::stop_cache_evict_thr() {
-    evict_run = false;
-    LOG_INFO << "stop cache evict thr";
-    evict_cond.notify_all();
-    evict_thread->join();
-    LOG_INFO << "stop cache evict thr ok";
-    delete evict_thread;
-}
-
-void CacheProxy::trigger_cache_evict() {
-    unique_lock<mutex> lock(evict_lock);
-    evict_cond.notify_all();
-    LOG_INFO << "trigger cache evict";
-}
-
 void CacheProxy::cache_evict_work() {
-    while (evict_run) {
-        unique_lock<mutex> evict_lock_region(evict_lock);
-        evict_cond.wait(evict_lock_region);
-        int already_evit_size = 0;
-        
-        {
-            unique_lock<mutex> cache_lock_region(cache_lock);
-            /*evict should start from the oldest entry in jcache*/
-            Jcache::Iterator it = jcache->begin();
-            for (; it != jcache->end(); it++) {
-                shared_ptr<CEntry> centry = it.second();
-                int centry_mem_size = centry->get_mem_size();
-                /*entry is in journal file*/
-                if (centry->get_cache_type() == CEntry::IN_JOURANL) {
-                    continue;
-                }
-                /*entry is control command*/
-                if (centry->get_blk_off() == 0 && centry->get_blk_len() == 0) {
-                    continue;
-                }
-                /*CEntry point to journal file instead of ReplayEntry in memory*/
-                centry->set_cache_type(CEntry::IN_JOURANL);
-                centry->get_journal_entry().reset();
+    int already_evit_size = 0;
+    unique_lock<mutex> cache_lock_region(cache_lock);
+    /*evict should start from the oldest entry in jcache*/
+    Jcache::Iterator it = jcache->begin();
+    for (; it != jcache->end(); it++) {
+        shared_ptr<CEntry> centry = it.second();
+        int centry_mem_size = centry->get_mem_size();
+        /*entry is in journal file*/
+        if (centry->get_cache_type() == CEntry::IN_JOURANL) {
+            continue;
+        }
+        /*entry is control command*/
+        if (centry->get_blk_off() == 0 && centry->get_blk_len() == 0) {
+            continue;
+        }
+        /*CEntry point to journal file instead of ReplayEntry in memory*/
+        centry->set_cache_type(CEntry::IN_JOURANL);
+        centry->get_journal_entry().reset();
 
-                LOG_INFO << "update key" << " off:" << centry->get_blk_off()
-                    << " len:" << centry->get_blk_len() 
-                    << " seq:" << centry->get_io_seq();
+        LOG_INFO << "update key" << " off:" << centry->get_blk_off()
+                 << " len:" << centry->get_blk_len() 
+                 << " seq:" << centry->get_io_seq();
 
-                /*update bcache Centry*/
-                Bkey bkey(centry->get_blk_off(), centry->get_blk_len(),
-                        centry->get_io_seq());
-                bool ret = bcache->update(bkey, centry);
+        /*update bcache Centry*/
+        Bkey bkey(centry->get_blk_off(), centry->get_blk_len(), centry->get_io_seq());
+        bool ret = bcache->update(bkey, centry);
 
-                /*update jcache Centry*/
-                Jkey jkey(centry->get_io_seq());
-                ret &= jcache->update(jkey, centry);
+        /*update jcache Centry*/
+        Jkey jkey(centry->get_io_seq());
+        ret &= jcache->update(jkey, centry);
 
-                /*both update ok*/
-                if (ret) {
-                    already_evit_size += centry_mem_size;
-                    total_mem_size -= centry_mem_size;
-                }
+        /*both update ok*/
+        if (ret) {
+            already_evit_size += centry_mem_size;
+            total_mem_size -= centry_mem_size;
+        }
 
-                if (already_evit_size >= CACHE_EVICT_SIZE) {
-                    break;
-                }
-            }
+        if (already_evit_size >= CACHE_EVICT_SIZE) {
+            break;
         }
     }
 }
