@@ -96,12 +96,14 @@ class BackupCtrlClient {
 
     StatusCode RestoreBackup(const string& vol_name,
                              const string& backup_name,
+                             const BackupType& backup_type,
                              const string& new_vol_name,
                              const size_t& new_vol_size,
                              const string& new_block_device) {
         RestoreBackupReq req;
         req.set_vol_name(vol_name);
         req.set_backup_name(backup_name);
+        req.set_backup_type(backup_type);
         req.set_new_vol_name(new_vol_name);
         req.set_new_vol_size(new_vol_size);
         req.set_new_block_device(new_block_device);

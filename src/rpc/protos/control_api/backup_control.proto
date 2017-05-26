@@ -35,9 +35,10 @@ message RestoreBackupReq {
     string vol_name = 1; 
     uint64 vol_size = 2;
     string backup_name  = 3;
-    string new_vol_name = 4;
-    uint64 new_vol_size = 5;
-    string new_block_device = 6;
+    BackupType backup_type = 4;
+    string new_vol_name = 5;
+    uint64 new_vol_size = 6;
+    string new_block_device = 7;
 }
 
 message RestoreBackupAck {
