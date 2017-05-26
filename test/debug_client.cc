@@ -25,20 +25,21 @@ int main(int argc, char** argv)
                 grpc::InsecureChannelCredentials()));
 
     string vol_name = "test_volume";
-    size_t vol_size = 17179869184UL;
-    string blk_device = "/dev/sdc";
+    size_t vol_size = 209715200UL;
+    string blk_device = "/dev/sdd";
     
     /*"volume", "snapshot", "backup"*/
     char* object = argv[1];
     
     if(strcmp(object, "volume") == 0){
         char* op = argv[2];
+        int mode = atoi(argv[3]);
         if(strcmp(op, "enable") == 0){
             ret = vol_client->enable_sg(vol_name, vol_size, blk_device);
-            ret = vol_client->init_conn(vol_name);
+            ret = vol_client->init_conn(mode, vol_name, blk_device);
             cout << "enable sg " << "vol_name:" << vol_name << " ret:" << ret << endl;
         } else if(strcmp(op, "disable") == 0){
-            ret = vol_client->fini_conn(vol_name);
+            ret = vol_client->fini_conn(mode, vol_name);
             ret = vol_client->disable_sg(vol_name);
             cout << "disable sg" << "vol_name:" << vol_name << " ret:" << ret << endl;
         } 
@@ -97,10 +98,11 @@ int main(int argc, char** argv)
         char* op = argv[2];
         if(strcmp(op, "create") == 0){
             string backup_name = argv[3];
-            int backup_mode = atoi(argv[4]);
+            BackupType backup_type = (BackupType)atoi(argv[4]);
+            BackupMode backup_mode = (BackupMode)atoi(argv[5]);
             BackupOption backup_option;
-            backup_option.set_backup_mode(backup_mode ? BackupMode::BACKUP_FULL : BackupMode::BACKUP_INCR);
-            backup_option.set_backup_type(BackupType::BACKUP_LOCAL);
+            backup_option.set_backup_mode(backup_mode);
+            backup_option.set_backup_type(backup_type);
             ret = backup_client->CreateBackup(vol_name, vol_size, backup_name, backup_option);
             cout << "create backup " << "backup_name:" << backup_name << " ret:" << ret << endl;
         } else if(strcmp(op, "delete") == 0){
@@ -109,10 +111,11 @@ int main(int argc, char** argv)
             cout << "delete backup " << "backup_name:" << backup_name << " ret:" << ret << endl;
         } else if(strcmp(op, "restore") == 0){
             string backup_name = argv[3];
-            string new_vol_name = argv[4];
-            size_t new_vol_size = atoi(argv[5]);
-            string new_block_deive = argv[6];
-            ret = backup_client->RestoreBackup(vol_name, backup_name, new_vol_name, new_vol_size, new_block_deive);
+            BackupType backup_type = (BackupType)atoi(argv[4]);
+            string new_vol_name = argv[5];
+            size_t new_vol_size = atoi(argv[6]);
+            string new_block_deive = argv[7];
+            ret = backup_client->RestoreBackup(vol_name, backup_name, backup_type, new_vol_name, new_vol_size, new_block_deive);
             cout << "restore backup " << "backup_name:" << backup_name << " ret:" << ret << endl;
         } else if(strcmp(op, "list") == 0){
             set<string> backup_set;

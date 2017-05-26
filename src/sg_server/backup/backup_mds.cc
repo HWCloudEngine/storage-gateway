@@ -220,18 +220,28 @@ StatusCode BackupMds::restore_backup(const RestoreBackupInReq* req,
     StatusCode ret = StatusCode::sOk;
     std::string vol_name = req->vol_name();
     std::string backup_name = req->backup_name();
-    BackupType backup_type = m_ctx->get_backup_type(backup_name);
+    BackupType  restore_backup_type = req->backup_type();
     LOG_INFO << "restore backup vname:" << m_ctx->vol_name()
-             << " bname:" << backup_name;
+             << " bname:" << backup_name << " btype:" << restore_backup_type;
+    if (!m_ctx->is_backup_exist(backup_name)) {
+        RestoreBackupInAck ack;
+        ack.set_status(StatusCode::sBackupNotExist);
+        ack.set_blk_over(true);
+        writer->Write(ack);
+        LOG_INFO << "restore backup vname:" << m_ctx->vol_name()
+                << " bname:" << backup_name << " btype:" << restore_backup_type
+                << " failed not exist";
+        return StatusCode::sOk;
+    }
     m_ctx->update_backup_status(backup_name, BackupStatus::BACKUP_RESTORING);
-    if (backup_type == BackupType::BACKUP_LOCAL) {
+    if (restore_backup_type == BackupType::BACKUP_LOCAL) {
         ret = local_restore(backup_name, writer);
     } else {
         ret = remote_restore(backup_name, writer);
     }
     m_ctx->update_backup_status(backup_name, BackupStatus::BACKUP_AVAILABLE);
     LOG_INFO << "restore backup vname:" << m_ctx->vol_name()
-             << " bname:" << backup_name << " ok";
+             << " bname:" << backup_name << " btype:" << restore_backup_type << " ok";
     return ret;
 }
 
@@ -332,14 +342,10 @@ StatusCode BackupMds::do_remote_create_start(const RemoteBackupStartReq* req,
     }
     auto it = m_ctx->cur_backups_map().find(backup_name);
     if (it == m_ctx->cur_backups_map().end()) {
-        LOG_INFO << "do remote create start vname:" << m_ctx->vol_name()
-                 << " bname:" << backup_name <<"failed already exist";
         return StatusCode::sBackupNotExist;
     }
-
     /*generate backup id*/
     backupid_t backup_id  = m_ctx->spawn_backup_id();
-
     /*update backup attr*/
     it->second.backup_id     = backup_id;
 
@@ -360,22 +366,29 @@ StatusCode BackupMds::do_remote_create_upload(UploadDataReq* req,
     const char* blk_data = req->blk_data().c_str();
     size_t blk_len = req->blk_data().length();
 
-    LOG_INFO << " do remote upload vname:" << m_ctx->vol_name()
-             << " bname:" << backup_name;
-
+    LOG_INFO << " do remote upload vname:" << m_ctx->vol_name() << " bname:" << backup_name;
+    if (!m_ctx->is_backup_exist(backup_name)) {
+        LOG_ERROR << " do remote upload vname:" << m_ctx->vol_name()
+                  << " bname:" << backup_name << " failed not exist";
+        return StatusCode::sBackupNotExist;
+    }
     backupid_t backup_id = m_ctx->get_backup_id(backup_name);
-    backup_object_t blk_obj = spawn_backup_object_name(m_ctx->vol_name(), \
-                                                       backup_id, blk_no);
+    backup_object_t blk_obj = spawn_backup_object_name(m_ctx->vol_name(), backup_id, blk_no);
 
     /*store backup data to block store in object*/
-    int write_ret = m_ctx->block_store()->write(blk_obj,
-                                                const_cast<char*>(blk_data),
+    int write_ret = m_ctx->block_store()->write(blk_obj, const_cast<char*>(blk_data),
                                                 blk_len, blk_off);
-    assert(write_ret == 0);
+    if (write_ret != 0) {
+        LOG_ERROR << "do remote update wrie failed"; 
+        return StatusCode::sInternalError;
+    }
 
     /*update backup block map*/
     auto backup_block_map_it = m_ctx->cur_blocks_map().find(backup_id);
-    assert(backup_block_map_it != m_ctx->cur_blocks_map().end());
+    if (backup_block_map_it == m_ctx->cur_blocks_map().end()) {
+        LOG_ERROR << "do remote update find failed"; 
+        return StatusCode::sInternalError;
+    }
     map<block_t, backup_object_t> &backup_block_map = backup_block_map_it->second;
     backup_block_map.insert({blk_no, blk_obj});
 
@@ -390,13 +403,14 @@ StatusCode BackupMds::do_remote_create_end(const RemoteBackupEndReq* req,
 
     LOG_INFO << " do remote create end vname:" << m_ctx->vol_name()
              << " bname:" << backup_name;
-
-    auto it = m_ctx->cur_backups_map().find(backup_name);
-    if (it == m_ctx->cur_backups_map().end()) {
-        LOG_ERROR << "do remote create end vname:" << m_ctx->vol_name()
-                  << " bname:" << backup_name <<"failed already exist";
+    if (!m_ctx->is_backup_exist(backup_name)) {
+        LOG_ERROR << " do remote create end vname:" << m_ctx->vol_name()
+                  << " bname:" << backup_name << " failed not exist";
         return StatusCode::sBackupNotExist;
     }
+
+    auto it = m_ctx->cur_backups_map().find(backup_name);
+    assert( it != m_ctx->cur_backups_map().end());
     it->second.backup_status = BackupStatus::BACKUP_AVAILABLE;
 
     IndexStore::Transaction transaction = m_ctx->index_store()->fetch_transaction();
@@ -451,42 +465,52 @@ StatusCode BackupMds::do_remote_delete(const RemoteBackupDeleteReq* req,
 
 StatusCode BackupMds::do_remote_download(const DownloadDataReq* req,
         ServerReaderWriter<TransferResponse, TransferRequest>* stream) {
+    StatusCode ret = StatusCode::sOk;
     std::string backup_name = req->backup_name();
 
     LOG_INFO << "do remote download vname:" << m_ctx->vol_name()
              << " bname:" << backup_name;
+    if (!m_ctx->is_backup_exist(backup_name)) {
+        LOG_ERROR << " do remote download vname:" << m_ctx->vol_name()
+                  << " bname:" << backup_name << " failed not exist";
+        /*notify no any more data any more*/
+        DownloadDataAck end_ack;
+        end_ack.set_blk_over(true);
+        std::string end_ack_buf;
+        end_ack.SerializeToString(&end_ack_buf);
+        TransferResponse res;
+        res.set_type(MessageType::REMOTE_BACKUP_DOWNLOAD_DATA);
+        res.set_data(end_ack_buf.c_str(), end_ack_buf.length());
+        bool bret = stream->Write(res);
+        assert(bret == true);
+        return StatusCode::sBackupNotExist;
+    }
 
     backupid_t backup_id = m_ctx->get_backup_id(backup_name);
     auto block_map_it = m_ctx->cur_blocks_map().find(backup_id);
     auto& block_map = block_map_it->second;
     char* buf = new char[BACKUP_BLOCK_SIZE];
     assert(buf != nullptr);
-
     for (auto block : block_map) {
         uint64_t blk_no = block.first;
-        std::string   blk_obj = block.second;
+        std::string blk_obj = block.second;
         LOG_INFO << "download data blk_no:" << blk_no << " blk_obj:" << blk_obj;
-        int read_ret = m_ctx->block_store()->read(blk_obj, buf, \
-                                                  BACKUP_BLOCK_SIZE, 0);
+        int read_ret = m_ctx->block_store()->read(blk_obj, buf, BACKUP_BLOCK_SIZE, 0);
         assert(read_ret == BACKUP_BLOCK_SIZE);
         DownloadDataAck ack;
         ack.set_blk_no(blk_no);
         ack.set_blk_data(buf, BACKUP_BLOCK_SIZE);
-
         std::string ack_buf;
         ack.SerializeToString(&ack_buf);
-
         TransferResponse res;
         res.set_type(MessageType::REMOTE_BACKUP_DOWNLOAD_DATA);
         res.set_data(ack_buf.c_str(), ack_buf.length());
         bool bret = stream->Write(res);
         assert(bret == true);
     }
-
     if (buf) {
         delete [] buf;
     }
-
     /*notify no any more data any more*/
     DownloadDataAck end_ack;
     end_ack.set_blk_over(true);
@@ -497,7 +521,6 @@ StatusCode BackupMds::do_remote_download(const DownloadDataReq* req,
     res.set_data(end_ack_buf.c_str(), end_ack_buf.length());
     bool bret = stream->Write(res);
     assert(bret == true);
-
     LOG_INFO << "do remote download vname:" << m_ctx->vol_name()
              << " bname:" << backup_name << " ok";
     return StatusCode::sOk;

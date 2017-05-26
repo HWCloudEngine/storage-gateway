@@ -28,7 +28,7 @@ static PerfCounter* default_perf = nullptr;
 static pthread_once_t once = PTHREAD_ONCE_INIT;
 static void init_default_perf() {
     default_perf = new PerfCounter();
-    default_perf->start(1, 10);
+    default_perf->start(1, 5);
 }
 
 PerfCounter& PerfCounter::instance() {
@@ -40,7 +40,7 @@ probe_map_t* PerfCounter::native_map() {
     return reinterpret_cast<probe_map_t*>(probe_map_->lock_load());
 }
 
-void PerfCounter::insert(uint64_t seq, IoProbe  probe) {
+void PerfCounter::insert(uint64_t seq, io_probe_t  probe) {
     auto it = native_map()->find(seq);
     if (it != native_map()->end()) {
         native_map()->erase(seq);
@@ -56,7 +56,7 @@ void PerfCounter::remove(uint64_t seq) {
     native_map()->erase(seq);
 }
 
-IoProbe* PerfCounter::fetch(uint64_t seq) {
+io_probe_t* PerfCounter::fetch(uint64_t seq) {
     auto it = native_map()->find(seq);
     if (it == native_map()->end()) {
         return nullptr;
@@ -101,7 +101,7 @@ void PerfCounter::show_stat(io_request_code_t rw) {
              << " min:" << min << " min_io_seq:" << min_io_seq;
 }
 
-void PerfCounter::show_probe(const IoProbe* probe) {
+void PerfCounter::show_probe(const io_probe_t* probe) {
     if (probe->dir == SCSI_READ) {
         LOG_INFO << "seq:" << probe->seq
                  << " dir:" << (io_request_code_t)probe->dir
@@ -118,7 +118,8 @@ void PerfCounter::show_probe(const IoProbe* probe) {
                  << " recv:" << cost_time(probe->recv_begin_ts, probe->recv_end_ts)
                  << " proc:" << cost_time(probe->proc_begin_ts, probe->proc_end_ts)
                  << " write:" << cost_time(probe->write_begin_ts, probe->write_end_ts)
-                 << " reply:" << cost_time(probe->reply_begin_ts, probe->reply_end_ts);
+                 << " reply:" << cost_time(probe->reply_begin_ts, probe->reply_end_ts)
+                 << " replay:" << cost_time(probe->replay_begin_ts, probe->replay_end_ts);
     }
 }
 

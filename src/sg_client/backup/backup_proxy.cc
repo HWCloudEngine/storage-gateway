@@ -51,6 +51,11 @@ StatusCode BackupProxy::create_backup(const CreateBackupReq* req,
     StatusCode ret = StatusCode::sOk;
 
     LOG_INFO << "create backup vname:" << vol_name << " bname:" << backup_name;
+    if (is_backup_exist(vol_name, backup_name)) {
+        LOG_INFO << "create backup vname:" << vol_name
+                 << " bname:" << backup_name << " failed exist";
+        return StatusCode::sBackupAlreadyExist;
+    }
 
     do {
         if (!m_vol_attr.is_backup_allowable(backup_type)) {
@@ -59,10 +64,8 @@ StatusCode BackupProxy::create_backup(const CreateBackupReq* req,
             ret = StatusCode::sBackupCreateDenied;
             break;
         }
-
         // transaction begin
         m_backup_decorator->add_sync(backup_name, "backup on creating");
-
         //1. create snapshot
         string snap_name = backup_to_snap_name(backup_name);
         CreateSnapshotReq snap_req;
@@ -77,7 +80,6 @@ StatusCode BackupProxy::create_backup(const CreateBackupReq* req,
                       << "create snapshot failed:" << ret;
             break;
         }
-
         //2.create backup
         ret = m_backup_inner_rpc_client->CreateBackup(vol_name, vol_size,
                                                       backup_name, backup_option);
@@ -87,7 +89,6 @@ StatusCode BackupProxy::create_backup(const CreateBackupReq* req,
             break;
         }
     }while(0);
-
     // transaction end
     m_backup_decorator->del_sync(backup_name);
     ack->set_status(ret);
@@ -118,13 +119,27 @@ StatusCode BackupProxy::list_backup(const ListBackupReq* req,
     return ret;
 }
 
+bool BackupProxy::is_backup_exist(const std::string vol, const std::string bname) {
+    std::set<std::string> backup_set;    
+    StatusCode ret = m_backup_inner_rpc_client->ListBackup(vol, backup_set);
+    if (ret != StatusCode::sOk) {
+        LOG_ERROR << " list backup vo:" << vol << " failed";
+        return false;
+    }
+    auto it = backup_set.find(bname);
+    if (it == backup_set.end()) {
+        return false; 
+    }
+    return true;
+}
+
 StatusCode BackupProxy::get_backup(const GetBackupReq* req,
                                    GetBackupAck* ack) {
     StatusCode ret = StatusCode::sOk;
     string vol_name = req->vol_name();
     string backup_name = req->backup_name();
-    LOG_INFO << "get backup vname:" << vol_name << " bname:" << backup_name;
     BackupStatus backup_status;
+    LOG_INFO << "get backup vname:" << vol_name << " bname:" << backup_name;
 
     do {
         ret = m_backup_inner_rpc_client->GetBackup(vol_name, backup_name, backup_status);
@@ -145,6 +160,11 @@ StatusCode BackupProxy::delete_backup(const DeleteBackupReq* req,
     string vol_name = req->vol_name();
     string backup_name = req->backup_name();
     LOG_INFO << "delete backup vname:" << vol_name << " bname:" << backup_name;
+    if (!is_backup_exist(vol_name, backup_name)) {
+        LOG_ERROR << "delete backup vname:" << vol_name << " bname:" << backup_name
+                  << " failed not exist";
+        return StatusCode::sBackupNotExist;
+    }
     ret = m_backup_inner_rpc_client->DeleteBackup(vol_name, backup_name);
     ack->set_status(ret);
     LOG_INFO << "delete backup vname:" << vol_name << " bname:" << backup_name
@@ -157,11 +177,20 @@ StatusCode BackupProxy::restore_backup(const RestoreBackupReq* req,
     StatusCode ret = StatusCode::sOk;
     string vol_name = req->vol_name();
     string backup_name = req->backup_name();
+    BackupType backup_type = req->backup_type();
     string new_vol_name = req->new_vol_name();
     size_t new_vol_size = req->new_vol_size();
     string new_block_device = req->new_block_device();
     LOG_INFO << "restore backup vname:" << vol_name << " bname:" << backup_name;
-    ret = m_backup_inner_rpc_client->RestoreBackup(vol_name, backup_name,
+    if (!is_backup_exist(vol_name, backup_name)) {
+        LOG_ERROR << "restore backup vname:" << vol_name << " bname:" << backup_name
+                  << " failed not exist";
+        return StatusCode::sBackupNotExist;
+    }
+
+    ret = m_backup_inner_rpc_client->RestoreBackup(vol_name, 
+                                                   backup_name,
+                                                   backup_type,
                                                    new_vol_name,
                                                    new_vol_size,
                                                    new_block_device,

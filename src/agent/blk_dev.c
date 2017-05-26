@@ -536,6 +536,9 @@ err:
 int blk_dev_unprotect(const char* dev_path)
 {
     struct pbdev* dev;
+    if (dev_path == NULL) {
+        return 0; 
+    }
     LOG_INFO("unprotect dev_path:%s", dev_path);
     dev = pbdev_mgr_get_by_path(&g_dev_mgr, dev_path);
     if(dev == NULL){
@@ -578,92 +581,108 @@ int blk_dev_unprotect(const char* dev_path)
 
 int pbdev_mgr_init(struct pbdev_mgr* dev_mgr)
 {
-    dev_mgr->sg_host = NULL;
-    spin_lock_init(&(dev_mgr->dev_lock));
-    INIT_LIST_HEAD(&(dev_mgr->dev_list));
+    if (dev_mgr) {
+        dev_mgr->sg_host = NULL;
+        spin_lock_init(&(dev_mgr->dev_lock));
+        INIT_LIST_HEAD(&(dev_mgr->dev_list));
+
+    }
     return 0;
 }
 
 void pbdev_mgr_fini(struct pbdev_mgr* dev_mgr)
 {
-    struct pbdev* bdev;
-    struct pbdev* tmp;
-    list_for_each_entry_safe(bdev, tmp, &dev_mgr->dev_list, link)
-    {
-        blk_dev_unprotect(bdev->blk_path);
-    }
-    if(dev_mgr->sg_host)
-    {
-        kfree(dev_mgr->sg_host);
-        dev_mgr->sg_host = NULL;
+    if (dev_mgr) {
+        struct pbdev* bdev = NULL;
+        struct pbdev* tmp = NULL;
+        list_for_each_entry_safe(bdev, tmp, &dev_mgr->dev_list, link) {
+            if (bdev && bdev->blk_path) {
+                blk_dev_unprotect(bdev->blk_path);
+            }
+        }
+        if (dev_mgr->sg_host) {
+            kfree(dev_mgr->sg_host);
+            dev_mgr->sg_host = NULL;
+        }
     }
 }
 
 int pbdev_mgr_add(struct pbdev_mgr* dev_mgr, struct pbdev* dev)
 {
-    spin_lock_irq(&dev_mgr->dev_lock);
-    list_add_tail(&dev->link, &dev_mgr->dev_list);
-    spin_unlock_irq(&dev_mgr->dev_lock);
+    if (dev_mgr && dev) {
+        spin_lock_irq(&dev_mgr->dev_lock);
+        list_add_tail(&dev->link, &dev_mgr->dev_list);
+        spin_unlock_irq(&dev_mgr->dev_lock);
+
+    }
     return 0;
 }
 
 int pbdev_mgr_del(struct pbdev_mgr* dev_mgr, const char* blk_path)
 {
-    struct pbdev* bdev;
-    struct pbdev* tmp;
-    spin_lock_irq(&dev_mgr->dev_lock);
-    if(list_empty(&(dev_mgr->dev_list)))
-    {
-        spin_unlock_irq(&dev_mgr->dev_lock);
-        return 0;
-    }
-    list_for_each_entry_safe(bdev, tmp, &dev_mgr->dev_list, link){
-        if(strcmp(bdev->blk_path, blk_path) == 0){
-            list_del_init(&bdev->link); 
+    if (dev_mgr && blk_path) {
+        struct pbdev* bdev = NULL;
+        struct pbdev* tmp = NULL;
+        spin_lock_irq(&dev_mgr->dev_lock);
+        if (list_empty(&(dev_mgr->dev_list))) {
             spin_unlock_irq(&dev_mgr->dev_lock);
             return 0;
-        } 
+        }
+        list_for_each_entry_safe(bdev, tmp, &dev_mgr->dev_list, link) {
+            if(strcmp(bdev->blk_path, blk_path) == 0){
+                list_del_init(&bdev->link); 
+                spin_unlock_irq(&dev_mgr->dev_lock);
+                return 0;
+            } 
+        }
+        spin_unlock_irq(&dev_mgr->dev_lock);
     }
-    spin_unlock_irq(&dev_mgr->dev_lock);
     return -ENOENT;
 }
 
 struct pbdev* pbdev_mgr_get_by_path(struct pbdev_mgr* dev_mgr, const char* blk_path)
 {
-    struct pbdev* bdev;
-    struct pbdev* tmp;
-    spin_lock_irq(&dev_mgr->dev_lock);
-    if(list_empty(&(dev_mgr->dev_list)))
-    {
-        spin_unlock_irq(&dev_mgr->dev_lock);
-        return NULL;
-    }
-    list_for_each_entry_safe(bdev, tmp, &(dev_mgr->dev_list), link){
-        if(bdev && bdev->blk_path && strcmp(bdev->blk_path, blk_path) == 0){
+    if (dev_mgr && blk_path) {
+        struct pbdev* bdev = NULL;
+        struct pbdev* tmp = NULL;
+        if (dev_mgr == NULL || blk_path == NULL) {
+            LOG_ERR("get by path failed dev_mgr and blk_path is null");
+            return NULL;
+        }
+        spin_lock_irq(&dev_mgr->dev_lock);
+        if (list_empty(&(dev_mgr->dev_list))) {
             spin_unlock_irq(&dev_mgr->dev_lock);
-            return bdev;
-        } 
+            LOG_ERR("get by path failed dev_list is empty");
+            return NULL;
+        }
+        list_for_each_entry_safe(bdev, tmp, &(dev_mgr->dev_list), link) {
+            if(bdev && bdev->blk_path && strcmp(bdev->blk_path, blk_path) == 0){
+                spin_unlock_irq(&dev_mgr->dev_lock);
+                return bdev;
+            } 
+        }
+        spin_unlock_irq(&dev_mgr->dev_lock);
     }
-    spin_unlock_irq(&dev_mgr->dev_lock);
     return NULL;
 }
 
 struct pbdev* pbdev_mgr_get_by_queue(struct pbdev_mgr* dev_mgr, struct request_queue* q)
 {
-    struct pbdev* bdev;
-    struct pbdev* tmp;
-    spin_lock_irq(&dev_mgr->dev_lock);
-    if(list_empty(&(dev_mgr->dev_list)))
-    {
-        spin_unlock_irq(&dev_mgr->dev_lock);
-        return NULL;
-    }
-    list_for_each_entry_safe(bdev, tmp, &dev_mgr->dev_list, link){
-        if(bdev->blk_queue == q){
+    if (dev_mgr && q) {
+        struct pbdev* bdev = NULL;
+        struct pbdev* tmp = NULL;
+        spin_lock_irq(&dev_mgr->dev_lock);
+        if (list_empty(&(dev_mgr->dev_list))) {
             spin_unlock_irq(&dev_mgr->dev_lock);
-            return bdev;
-        } 
+            return NULL;
+        }
+        list_for_each_entry_safe(bdev, tmp, &dev_mgr->dev_list, link) {
+            if(bdev && bdev->blk_queue == q){
+                spin_unlock_irq(&dev_mgr->dev_lock);
+                return bdev;
+            } 
+        }
+        spin_unlock_irq(&dev_mgr->dev_lock);
     }
-    spin_unlock_irq(&dev_mgr->dev_lock);
     return ERR_PTR(-ENOENT);
 }

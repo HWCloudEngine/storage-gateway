@@ -3,7 +3,7 @@
  *
  * File name:    volume_ctrl_client.h
  * Author:
- * Date:         Jan 20, 2017
+ * Date:         Jan 21, 2017
  * Version:      1.0
  * Description:
  *
@@ -42,6 +42,10 @@ using huawei::proto::control::GetVolumeReq;
 using huawei::proto::control::GetVolumeRes;
 using huawei::proto::control::ListVolumesReq;
 using huawei::proto::control::ListVolumesRes;
+using huawei::proto::control::AttachVolumeReq;
+using huawei::proto::control::AttachVolumeRes;
+using huawei::proto::control::DetachVolumeReq;
+using huawei::proto::control::DetachVolumeRes;
 
 class VolumeCtrlClient
 {
@@ -97,32 +101,39 @@ public:
         }
     }
     
-    StatusCode init_conn(const std::string& vol_id) {
+    StatusCode init_conn(int mode, const std::string& vol_id, const std::string& blk_dev) {
         ClientContext context;
-        InitializeConnectionReq req;
-        InitializeConnectionRes res;
-        req.set_volume_id(vol_id);
-    
-        Status status = stub_->InitializeConnection(&context, req, &res);
-        if (!status.ok()) {
-            return sInternalError;
+        Status status;
+        if (mode == 0) {
+            AttachVolumeReq req;
+            AttachVolumeRes res;
+            req.set_volume_id(vol_id);
+            req.set_device(blk_dev);
+            status = stub_->AttachVolume(&context, req, &res);
         } else {
-            return res.status();
+            InitializeConnectionReq req;
+            InitializeConnectionRes res;
+            req.set_volume_id(vol_id);
+            status = stub_->InitializeConnection(&context, req, &res);
         }
+        return StatusCode::sOk;
     }
 
-    StatusCode fini_conn(const std::string& vol_id) {
+    StatusCode fini_conn(int mode, const std::string& vol_id) {
         ClientContext context;
-        TerminateConnectionReq req;
-        TerminateConnectionRes res;
-        req.set_volume_id(vol_id);
-    
-        Status status = stub_->TerminateConnection(&context, req, &res);
-        if (!status.ok()) {
-            return sInternalError;
+        Status status;
+        if (mode == 0) {
+            DetachVolumeReq req;
+            DetachVolumeRes res;
+            req.set_volume_id(vol_id);
+            status = stub_->DetachVolume(&context, req, &res);
         } else {
-            return res.status();
+            TerminateConnectionReq req;
+            TerminateConnectionRes res;
+            req.set_volume_id(vol_id);
+            status = stub_->TerminateConnection(&context, req, &res);
         }
+        return StatusCode::sOk;
     }
 
     StatusCode disable_sg(const std::string& volume_id)

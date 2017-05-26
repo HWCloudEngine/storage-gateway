@@ -44,9 +44,11 @@ class BackupProxy {
     StatusCode get_backup(const GetBackupReq* req, GetBackupAck* ack);
 
  private:
+    bool is_backup_exist(const std::string vol, const std::string bname);
+
+ private:
     /*volume basic*/
     VolumeAttr& m_vol_attr;
-
     shared_ptr<BackupDecorator> m_backup_decorator;
     shared_ptr<BackupInnerCtrlClient> m_backup_inner_rpc_client;
     shared_ptr<BlockStore> m_block_store;

@@ -18,7 +18,7 @@
 
 #define ENABLE_PERF
 
-typedef struct {
+struct io_probe {
     uint64_t seq;
     uint8_t  dir;
     off_t    off;
@@ -29,13 +29,16 @@ typedef struct {
     uint64_t proc_end_ts;
     uint64_t write_begin_ts;
     uint64_t write_end_ts;
+    uint64_t replay_begin_ts;
+    uint64_t replay_end_ts;
     uint64_t read_begin_ts;
     uint64_t read_end_ts;
     uint64_t reply_begin_ts;
     uint64_t reply_end_ts;
-} IoProbe;
+};
+typedef struct io_probe io_probe_t;
 
-using probe_map_t = std::map<uint64_t, IoProbe>;
+using probe_map_t = std::map<uint64_t, io_probe_t>;
 
 class PerfCounter : public TimerTask {
  public:
@@ -45,11 +48,11 @@ class PerfCounter : public TimerTask {
  public:
     static PerfCounter& instance();
 
-    void     insert(uint64_t seq, IoProbe probe);
-    IoProbe* fetch(uint64_t seq);
+    void     insert(uint64_t seq, io_probe_t probe);
+    io_probe_t* fetch(uint64_t seq);
     void     remove(uint64_t seq);
 
-    void show_probe(const IoProbe* probe);    
+    void show_probe(const io_probe_t* probe);    
 
  private:
     probe_map_t* native_map();
@@ -64,7 +67,7 @@ class PerfCounter : public TimerTask {
 
 #define g_perf (PerfCounter::instance())
 
-typedef enum {
+enum perf_phase {
     RECV_BEGIN  = 0,
     RECV_END    = 1,
     PROC_BEGIN  = 2,
@@ -75,11 +78,14 @@ typedef enum {
     READ_END    = 7,
     REPLY_BEGIN = 8,
     REPLY_END   = 9,
-} perf_phase_t;
+    REPLAY_BEGIN = 10,
+    REPLAY_END   = 11,
+};
+typedef perf_phase perf_phase_t;
 
 #ifdef ENABLE_PERF
 static inline void pre_perf(uint64_t seq, uint8_t dir, uint64_t off, uint64_t len) {
-    IoProbe probe = {0};
+    io_probe_t probe = {0};
     probe.seq = (seq);
     probe.dir = (dir);
     probe.off = (off);
@@ -88,7 +94,7 @@ static inline void pre_perf(uint64_t seq, uint8_t dir, uint64_t off, uint64_t le
 }
 
 static inline void do_perf(perf_phase_t phase, uint64_t seq) {
-    IoProbe* probe = g_perf.fetch(seq);
+    io_probe_t* probe = g_perf.fetch(seq);
     if (probe == nullptr) {
         return;
     }
@@ -124,13 +130,19 @@ static inline void do_perf(perf_phase_t phase, uint64_t seq) {
         case REPLY_END:
             probe->reply_end_ts = now_micros;
             break;
+        case REPLAY_BEGIN:
+            probe->replay_begin_ts = now_micros;
+            break;
+        case REPLAY_END:
+            probe->replay_end_ts = now_micros;
+            break;
         default:
             break;
     }
 }
 
 static inline void post_perf(uint64_t seq) {
-    //IoProbe* probe = g_perf.fetch(seq);
+    //io_probe_t* probe = g_perf.fetch(seq);
     //if (probe) {
     //   g_perf.show_probe(probe);
     //}

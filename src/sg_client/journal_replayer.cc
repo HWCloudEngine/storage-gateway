@@ -20,6 +20,7 @@
 #include "common/config_option.h"
 #include "common/utils.h"
 #include "rpc/message.pb.h"
+#include "perf_counter.h"
 #include "journal_replayer.h"
 
 using google::protobuf::Message;
@@ -255,7 +256,7 @@ void JournalReplayer::handle_snapshot_cmd(int type, SnapReqHead shead,
 void JournalReplayer::handle_backup_cmd(int type, SnapReqHead shead,
                                         std::string snap_name) {
     if (SNAPSHOT_CREATE == type) {
-        LOG_INFO << "journal_replayer create snapshot:" << snap_name;
+        LOG_INFO << "journal_replayer create backup snapshot:" << snap_name;
         backup_decorator_ptr_->create_transaction(shead, snap_name);
     }
 }
@@ -318,13 +319,15 @@ bool JournalReplayer::handle_ctrl_cmd(shared_ptr<JournalEntry> entry) {
 }
 
 bool JournalReplayer::process_journal_entry(shared_ptr<JournalEntry> entry) {
-    bool retval = false;
+    bool retval = true;
     journal_event_type_t type = entry->get_type();
+    do_perf(REPLAY_BEGIN, entry->get_sequence());
     if (IO_WRITE == type) {
         retval = handle_io_cmd(entry);
     } else {
         retval = handle_ctrl_cmd(entry);
     }
+    do_perf(REPLAY_END, entry->get_sequence());
     return retval;
 }
 
@@ -334,14 +337,20 @@ bool JournalReplayer::process_memory(std::shared_ptr<JournalEntry> entry) {
 
 bool JournalReplayer::process_file(shared_ptr<CEntry> entry) {
     std::string file_name = entry->get_journal_file();
-    off_t  off = entry->get_journal_off();
+    off_t file_off = entry->get_journal_off();
 
     unique_ptr<AccessFile> file;
     Env::instance()->create_access_file(file_name, false, &file);
+    if (file.get() == nullptr) {
+        LOG_ERROR << " create access file:" << file_name << " failed";
+        return false;
+    }
     size_t file_size = Env::instance()->file_size(file_name);
-    /*todo avoid open frequently*/
+    if (file_size == 0) {
+        return false;
+    }
     shared_ptr<JournalEntry> jentry = make_shared<JournalEntry>();
-    jentry->parse(&file, file_size, off);
+    jentry->parse(&file, file_size, file_off);
     return process_journal_entry(jentry);
 }
 
