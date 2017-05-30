@@ -61,6 +61,7 @@ message ListVolumesRes {
 
 message InitializeConnectionReq {
     string volume_id = 1;
+    ClientMode mode = 2;
 }
 
 message InitializeConnectionRes {
@@ -70,6 +71,8 @@ message InitializeConnectionRes {
 
 message TerminateConnectionReq {
     string volume_id = 1;
+    ClientMode mode = 2;
+    string device = 3;
 }
 
 message TerminateConnectionRes {

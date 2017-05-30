@@ -1,6 +1,7 @@
 #include "volume_manager.h"
 #include <boost/bind.hpp>
 #include <algorithm>
+#include <fstream>
 #include "log/log.h"
 #include "common/volume_attr.h"
 #include "common/utils.h"
@@ -111,8 +112,14 @@ bool VolumeManager::init()
     writer_rpc_client.reset(new WriterClient(grpc::CreateChannel(meta_rpc_addr,
                     grpc::InsecureChannelCredentials())));
 
-    vol_ctrl = new VolumeControlImpl(host_, port_,vol_inner_client_);
+    vol_ctrl = new VolumeControlImpl(host_, port_,vol_inner_client_, *this);
     ctrl_rpc_server->register_service(vol_ctrl);
+
+    if(!init_volumes())
+    {
+        LOG_FATAL << "init volumes failed!";
+        return false;
+    }
 
     if(!ctrl_rpc_server->run()){
         LOG_FATAL << "start ctrl rpc server failed!";
@@ -121,6 +128,37 @@ bool VolumeManager::init()
     LOG_INFO << "start ctrl rpc server ok";
 
     writer_thread.reset(new std::thread(&VolumeManager::writer_thread_work,this));
+    return true;
+}
+
+bool VolumeManager::init_volumes()
+{
+    LOG_INFO << "init volumes";
+    std::ifstream f(g_option.volumes_conf);
+    if(!f.is_open())
+    {
+        LOG_INFO <<" open volumes conf file failed";
+        return false;
+    }
+    std::string vol_name;
+    while(getline(f,vol_name))
+    {
+        if(vol_name.empty())
+        {
+            LOG_INFO <<" persistent volume info is invalid,info:"<<vol_name;
+            continue;
+        }
+        VolumeInfo volume_info;
+        StatusCode ret = vol_inner_client_->get_volume(vol_name, volume_info);
+        if (ret != StatusCode::sOk)
+        {
+            LOG_INFO <<" get volume info from sg server failed"<<vol_name;
+            continue;
+        }
+        add_volume(volume_info, true);
+    }
+    f.close();
+    LOG_INFO << "init volumes ok";
     return true;
 }
 
@@ -177,6 +215,77 @@ void VolumeManager::read_req_head_cbt(raw_socket_t client_sock,
     }
 }
 
+bool VolumeManager::deinit_socket(const std::string &vol_name)
+{
+    LOG_INFO << "get volume obj:" << vol_name;
+    auto iter = volumes.find(vol_name);
+    if (iter == volumes.end())
+    {
+        LOG_INFO << "get volume obj:" << vol_name << " is not exist";
+        return true;
+    }
+    iter->second->deinit_socket();
+    return true;
+}
+
+shared_ptr<Volume> VolumeManager::add_volume(const VolumeInfo& volume_info, bool recover)
+{
+    shared_ptr<Volume> vol;
+    std::unique_lock<std::mutex> lk(mtx);
+    std::string vol_name = volume_info.vol_id();
+    LOG_INFO << "add volume:" << vol_name;
+    auto iter = volumes.find(vol_name);
+    if (iter == volumes.end())
+    {
+        /*create volume*/
+        LOG_INFO << "create volume obj:" << vol_name;
+        vol = make_shared<Volume>(*this, volume_info, lease_client,
+                                  writer_rpc_client, epoll_fd);
+        vol->init();
+        volumes.insert({vol_name, vol});
+        if (!recover)
+        {
+            persist_volume(vol_name);
+        }
+    }
+    else
+    {
+        vol = iter->second;
+        vol->update_volume_attr(volume_info);
+    }
+    LOG_INFO << "add volume:" << vol_name <<" ok";
+    return vol;
+}
+
+bool VolumeManager::persist_volume(const std::string& vol_name)
+{
+    LOG_INFO << "persist volume:" << vol_name << " to conf file";
+    std::ifstream fin(g_option.volumes_conf);
+    if(!fin.is_open())
+    {
+        LOG_INFO <<" open volumes conf file failed";
+        return false;
+    }
+    std::string s((std::istreambuf_iterator<char>(fin)), std::istreambuf_iterator<char>());
+    fin.close();
+    std::string::size_type pos = s.find(vol_name);
+    if(pos != std::string::npos)
+    {
+        LOG_INFO << vol_name <<" already persist in volumes.conf file";
+        return true;
+    }
+    std::ofstream fout(g_option.volumes_conf, std::ios::app);
+    if(!fout.is_open())
+    {
+        LOG_INFO <<" open volumes conf file failed";
+        return false;
+    }
+    fout<< vol_name << std::endl;
+    fout.close();
+    LOG_INFO << "persist volume:" << vol_name << " to conf file ok";
+    return true;
+}
+
 void VolumeManager::read_req_body_cbt(raw_socket_t client_sock,
                                       const char* req_head_buffer,
                                       const char* req_body_buffer,
@@ -202,19 +311,13 @@ void VolumeManager::read_req_body_cbt(raw_socket_t client_sock,
  
     LOG_INFO << "get volume:" << volume_info.vol_id() << " dev_path:" << volume_info.path()
              << " vol_status:" << volume_info.vol_status() << " vol_size:" << volume_info.size();
-    /*create volume*/
-    shared_ptr<Volume> vol = make_shared<Volume>(*this, volume_info,    \
-                                        lease_client, writer_rpc_client, \
-                                        epoll_fd, client_sock);
-    /*add to map*/
-    std::unique_lock<std::mutex> lk(mtx);
-    volumes.insert({vol_name, vol});
+    shared_ptr<Volume> vol = add_volume(volume_info);
 
     /*reply to tgt client*/
     send_reply(client_sock, req_head_buffer, req_body_buffer, true);
 
     /*volume init*/
-    vol->init();        
+    vol->init_socket(client_sock);
     /*volume start, start receive io from network*/
     vol->start();
 }
@@ -376,6 +479,7 @@ int  VolumeManager::update_all_producer_markers(){
 
 bool VolumeManager::del_volume(const string& vol)
 {
+    LOG_INFO << "delete volume:" << vol;
     std::unique_lock<std::mutex> lk(mtx);
     auto it = volumes.find(vol);
     if(it == volumes.end()){
@@ -388,6 +492,38 @@ bool VolumeManager::del_volume(const string& vol)
     LOG_INFO << "stop volume:" << vol << " ok";
 
     volumes.erase(vol);
+    remove_volume(vol);
+    LOG_INFO << "delete volume:" << vol << " ok";
+    return true;
+}
+
+bool VolumeManager::remove_volume(const std::string &vol_name)
+{
+    LOG_INFO << "remove volume:" << vol_name << " from conf file";
+    std::ifstream fin(g_option.volumes_conf);
+    if(!fin.is_open())
+    {
+        LOG_INFO <<" open volumes conf file failed";
+        return false;
+    }
+    std::string s((std::istreambuf_iterator<char>(fin)), std::istreambuf_iterator<char>());
+    fin.close();
+    std::string::size_type pos = s.find(vol_name);
+    if(pos == std::string::npos)
+    {
+        LOG_INFO << vol_name <<" not found in volumes conf file";
+        return true;
+    }
+    s.erase(pos, vol_name.size()+1);
+    std::ofstream fout(g_option.volumes_conf);
+    if(!fout.is_open())
+    {
+        LOG_INFO <<" open volumes conf file failed";
+        return false;
+    }
+    fout<<s;
+    fout.close();
+    LOG_INFO << "remove volume:" << vol_name << " from conf file ok";
     return true;
 }
 

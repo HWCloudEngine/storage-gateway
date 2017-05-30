@@ -20,6 +20,7 @@
 #include <boost/format.hpp>
 #include <boost/tokenizer.hpp>
 #include "control_volume.h"
+#include "volume_manager.h"
 
 using namespace std;
 using google::protobuf::Map;
@@ -27,13 +28,16 @@ using huawei::proto::StatusCode;
 using huawei::proto::VolumeInfo;
 using huawei::proto::VOL_AVAILABLE;
 using huawei::proto::VOL_ENABLING;
+using huawei::proto::ClientMode;
 
 // start class VolumeControlImpl
 VolumeControlImpl::VolumeControlImpl(const std::string& host,
                                      const std::string& port,
-                                     std::shared_ptr<VolInnerCtrlClient> vol_inner_client) :
+                                     std::shared_ptr<VolInnerCtrlClient> vol_inner_client,
+                                     VolumeManager& vol_manager) :
         host_(host), port_(port),
-        vol_inner_client_(vol_inner_client)
+        vol_inner_client_(vol_inner_client),
+        vol_manager_(vol_manager)
 {
     iscsi_control_ptr = new ISCSIControl(host_, port_);
     agent_control_ptr = new AgentControl(host_, port_);
@@ -165,7 +169,15 @@ Status VolumeControlImpl::EnableSG(ServerContext* context,
         }
         else
         {
+            StatusCode ret = vol_inner_client_->get_volume(vol_name, volume);
+            if (ret != StatusCode::sOk)
+            {
+                LOG_ERROR << "enable sg vol:" << vol_name << " failed";
+                res->set_status(ret);
+                return Status::OK;
+            }
             LOG_INFO << "enable sg vol:" << vol_name << " device:" << dev_name << " succeed";
+            vol_manager_.add_volume(volume);
             res->set_status(StatusCode::sOk);
         }
     }
@@ -177,13 +189,21 @@ Status VolumeControlImpl::EnableSG(ServerContext* context,
                                                                    dev_name);
             if(ret != StatusCode::sOk)
             {
-                LOG_ERROR << "attach vol:" << vol_name << " failed";
+                LOG_ERROR << "enable sg vol:" << vol_name << " failed";
                 res->set_status(ret);
                 return Status::OK;
             }
         }
+        StatusCode ret = vol_inner_client_->get_volume(vol_name, volume);
+        if (ret != StatusCode::sOk)
+        {
+            LOG_ERROR << "enable sg vol:" << vol_name << " failed";
+            res->set_status(ret);
+            return Status::OK;
+        }
         LOG_INFO << "enable sg vol:" << vol_name << " device:" << dev_name
                  << " succeed";
+        vol_manager_.add_volume(volume);
         res->set_status(StatusCode::sOk);
     }
     return Status::OK;
@@ -208,7 +228,8 @@ Status VolumeControlImpl::DisableSG(ServerContext* context,
         if(ret == StatusCode::sOk)
         {
             LOG_INFO << "disable sg volume:" << vol_name << " succeed";
-            res->set_status(StatusCode::sOk);
+            vol_manager_.del_volume(vol_name);
+            res->set_status(ret);
         }else
         {
             LOG_ERROR << "disable sg volume:" << vol_name << " failed";
@@ -218,13 +239,14 @@ Status VolumeControlImpl::DisableSG(ServerContext* context,
     return Status::OK;
 }
 
-// used for iscsi mode to start io-hook
+// used to start io-hook(iscsi mode) or del volume (agent mode)
 Status VolumeControlImpl::InitializeConnection(ServerContext* context,
                                                const control::InitializeConnectionReq* req,
                                                control::InitializeConnectionRes* res)
 {
     std::string vol_name = req->volume_id();
-    LOG_INFO << "initialize connection vol:" << vol_name;
+    ClientMode client_mode = req->mode();
+    LOG_INFO << "initialize connection vol:" << vol_name << ", mode" << client_mode;
     VolumeInfo volume;
     StatusCode ret = vol_inner_client_->get_volume(vol_name, volume);
     if(ret != StatusCode::sOk)
@@ -234,34 +256,45 @@ Status VolumeControlImpl::InitializeConnection(ServerContext* context,
     }
     else
     {
-        std::map<std::string, std::string> connection_info;
-        if(iscsi_control_ptr->initialize_connection(vol_name,
-                                                    volume.path(),
-                                                    connection_info))
+        if (client_mode == ClientMode::ISCSI_MODE)
         {
-            LOG_INFO << "initialize connection vol:" << vol_name << " ok";
-            res->set_status(StatusCode::sOk);
-            for(auto item: connection_info)
+            std::map <std::string, std::string> connection_info;
+            if(iscsi_control_ptr->initialize_connection(vol_name,
+                                                        volume.path(),
+                                                        connection_info))
             {
-                (*res->mutable_connection_info())[item.first] = item.second;
+                LOG_INFO << "initialize connection vol:" << vol_name << " ok";
+                res->set_status(StatusCode::sOk);
+                for(auto item: connection_info)
+                {
+                    (*res->mutable_connection_info())[item.first] = item.second;
+                }
+            }
+            else
+            {
+                LOG_ERROR << "initialize connection vol:" << vol_name
+                          << " failed";
+                res->set_status(StatusCode::sInternalError);
             }
         }
         else
         {
-            LOG_ERROR << "initialize connection vol:" << vol_name << " failed";
-            res->set_status(StatusCode::sInternalError);
+            vol_manager_.del_volume(vol_name);
+            res->set_status(StatusCode::sOk);
         }
     }
     return Status::OK;
 }
 
-// used for iscsi mode to stop io-hook
+// used to stop io-hook(iscsi mode) or update device (agent mode)
 Status VolumeControlImpl::TerminateConnection(ServerContext* context,
                                               const control::TerminateConnectionReq* req,
                                               control::TerminateConnectionRes* res)
 {
     std::string vol_name = req->volume_id();
-    LOG_INFO << "terminate connection vol:" << vol_name;
+    ClientMode client_mode = req->mode();
+    std::string device = req->device();
+    LOG_INFO << "terminate connection vol:" << vol_name << ", mode:" << client_mode;
     VolumeInfo volume;
     StatusCode ret = vol_inner_client_->get_volume(vol_name, volume);
     if(ret != StatusCode::sOk)
@@ -271,21 +304,49 @@ Status VolumeControlImpl::TerminateConnection(ServerContext* context,
     }
     else
     {
-        if(iscsi_control_ptr->terminate_connection(vol_name))
+        if (client_mode == ClientMode::ISCSI_MODE)
         {
-            LOG_INFO << "terminate connection vol:" << vol_name << " ok";
-            res->set_status(StatusCode::sOk);
+            if(iscsi_control_ptr->terminate_connection(vol_name))
+            {
+                LOG_INFO << "terminate connection vol:" << vol_name << " ok";
+                res->set_status(StatusCode::sOk);
+            }
+            else
+            {
+                LOG_ERROR << "terminate connection vol:" << vol_name
+                          << " failed";
+                res->set_status(StatusCode::sInternalError);
+            }
+            vol_manager_.deinit_socket(vol_name);
         }
         else
         {
-            LOG_ERROR << "terminate connection vol:" << vol_name << " failed";
-            res->set_status(StatusCode::sInternalError);
+            if(device != volume.path())
+            {
+                StatusCode ret = vol_inner_client_->update_volume_path(vol_name,
+                                                                       device);
+                if(ret != StatusCode::sOk)
+                {
+                    LOG_ERROR << "terminate connection vol:" << vol_name << " failed";
+                    res->set_status(ret);
+                    return Status::OK;
+                }
+            }
+            StatusCode ret = vol_inner_client_->get_volume(vol_name, volume);
+            if (ret != StatusCode::sOk)
+            {
+                LOG_ERROR << "terminate connection vol:" << vol_name << " failed";
+                res->set_status(ret);
+                return Status::OK;
+            }
+            vol_manager_.add_volume(volume);
+            res->set_status(StatusCode::sOk);
         }
     }
     return Status::OK;
 }
 
-// used for agent mode to start io-hook
+// used for agent mode to start io-hook and add volume
 Status VolumeControlImpl::AttachVolume(ServerContext* context,
                                        const control::AttachVolumeReq* req,
                                        control::AttachVolumeRes* res)
@@ -312,6 +373,13 @@ Status VolumeControlImpl::AttachVolume(ServerContext* context,
                 return Status::OK;
             }
         }
+        StatusCode ret = vol_inner_client_->get_volume(vol_name, volume);
+        if(ret != StatusCode::sOk)
+        {
+            LOG_ERROR << "attach vol:" << vol_name << " failed";
+            res->set_status(ret);
+        }
+        vol_manager_.add_volume(volume);
         if(agent_control_ptr->attach_volume(vol_name, device))
         {
             res->set_status(StatusCode::sOk);
@@ -324,6 +392,7 @@ Status VolumeControlImpl::AttachVolume(ServerContext* context,
     return Status::OK;
 }
 
+// used for agent mode to start io-hook and del volume
 Status VolumeControlImpl::DetachVolume(ServerContext* context,
                                        const control::DetachVolumeReq* req,
                                        control::DetachVolumeRes* res)
@@ -342,6 +411,7 @@ Status VolumeControlImpl::DetachVolume(ServerContext* context,
         if(agent_control_ptr->detach_volume(vol_name, volume.path()))
         {
             res->set_status(StatusCode::sOk);
+            vol_manager_.del_volume(vol_name);
         }
         else
         {

@@ -42,13 +42,14 @@ class Volume {
                     const VolumeInfo& vol_info,
                     shared_ptr<CephS3LeaseClient> lease_client,
                     std::shared_ptr<WriterClient> writer_rpc_client,
-                    int epoll_fd,
-                    raw_socket_t client_sock);
+                    int epoll_fd);
     Volume(const Volume& other) = delete;
     Volume& operator=(const Volume& other) = delete;
     virtual ~Volume();
 
     bool init();
+    bool init_socket(raw_socket_t client_sock);
+    bool deinit_socket();
     void fini();
     void start();
     void stop();

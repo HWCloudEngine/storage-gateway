@@ -59,7 +59,7 @@ bool ClientSocket::deinit() {
     recv_thread_->join();
     reply_queue_.stop();
     reply_thread_->join();
-   return true;
+    return true;
 }
 
 void ClientSocket::start() {
@@ -82,7 +82,12 @@ void ClientSocket::stop() {
 }
 
 bool ClientSocket::recv_request(io_request_t* req) {
-    size_t read_ret = boost::asio::read(*raw_socket_, buffer(req, sizeof(*req))); 
+    boost::system::error_code ec;
+    size_t read_ret = boost::asio::read(*raw_socket_, buffer(req, sizeof(*req)), ec);
+    if (!ec && ec == boost::asio::error::eof) {
+        LOG_INFO << "socket eof";
+        return false;
+    }
     if (read_ret != sizeof(*req)) {
         LOG_ERROR << "read request failed size: " << sizeof(*req)
                   << " ret:" << read_ret;
@@ -190,7 +195,6 @@ void ClientSocket::handle_delete_req(const io_request_t* req) {
     boost::asio::write(*raw_socket_, boost::asio::buffer(&reply, sizeof(io_reply_t)));
     std::string vol_name(del_req->volume_name);
     LOG_INFO << "delete volume :" << vol_name;
-    vol_manager_.del_volume(vol_name);
     LOG_INFO << "delete volume :" << vol_name << " ok";
 }
 

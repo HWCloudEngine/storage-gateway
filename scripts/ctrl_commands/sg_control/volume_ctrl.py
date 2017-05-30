@@ -71,15 +71,18 @@ class VolumeCtrl(object):
         print ('volume info: %s' % res.volume)
         return res
 
-    def InitializeConnection(self, vol_id):
+    def InitializeConnection(self, vol_id, mode):
         res = self.stub.InitializeConnection(
-            volume_control_pb2.InitializeConnectionReq(volume_id=vol_id))
+            volume_control_pb2.InitializeConnectionReq(volume_id=vol_id,
+                                                       mode=mode))
         print ('initialize connection result:%s' % res.status)
         return res
 
-    def TerminateConnection(self, vol_id):
+    def TerminateConnection(self, vol_id, mode, device):
         res = self.stub.TerminateConnection(
-            volume_control_pb2.TerminateConnectionReq(volume_id=vol_id))
+            volume_control_pb2.TerminateConnectionReq(volume_id=vol_id,
+                                                      mode=mode,
+                                                      device=device))
         print ('terminate connectionn result:%s' % res.status)
         return res
 

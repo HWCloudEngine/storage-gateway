@@ -36,6 +36,8 @@ public:
     void stop(std::string vol_id);
     void stop_all();
     bool init();
+    bool deinit_socket(const std::string& vol_name);
+    shared_ptr<Volume> add_volume(const VolumeInfo& volume_info, bool recover=false);
     bool del_volume(const string& vol);
     bool recover_targets();
 
@@ -64,6 +66,10 @@ private:
                         const char* req_body_buffer,
                         const char* rep_buffer,
                         const boost::system::error_code& error);
+
+    bool init_volumes();
+    bool persist_volume(const std::string& vol_name);
+    bool remove_volume(const std::string& vol_name);
 
     // work method of producer marker update thread
     void update_producer_markers(

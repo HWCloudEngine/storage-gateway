@@ -43,3 +43,9 @@ enum StatusCode {
     sBackupCanNotDelete      = 403;
     sBackupCreateDenied      = 404;
 }
+
+// client mode
+enum ClientMode {
+    ISCSI_MODE = 0;
+    AGENT_MODE = 1;
+}

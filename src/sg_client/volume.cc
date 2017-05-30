@@ -17,12 +17,10 @@
 Volume::Volume(VolumeManager& vol_manager,
                const VolumeInfo& vol_info,
                shared_ptr<CephS3LeaseClient> lease_client,
-               shared_ptr<WriterClient> writer_rpc_client, int epoll_fd,
-               raw_socket_t client_sock)
+               shared_ptr<WriterClient> writer_rpc_client, int epoll_fd)
               : vol_manager_(vol_manager), vol_attr_(vol_info),
                 lease_client_(lease_client),
-                writer_rpc_client_(writer_rpc_client), epoll_fd_(epoll_fd),
-                raw_socket_(client_sock) {
+                writer_rpc_client_(writer_rpc_client), epoll_fd_(epoll_fd){
 }
 
 Volume::~Volume() {
@@ -31,31 +29,26 @@ Volume::~Volume() {
     LOG_INFO << "volume destroy ok";
 }
 
-bool Volume::init() {
+bool Volume::init()
+{
     idproxy_.reset(new IDGenerator());
     cacheproxy_.reset(new CacheProxy(vol_attr_.blk_device(), idproxy_));
     snapshotproxy_.reset(new SnapshotProxy(vol_attr_, entry_queue_));
     backupdecorator_.reset(new BackupDecorator(vol_attr_.vol_name(), snapshotproxy_));
     backupproxy_.reset(new BackupProxy(vol_attr_, backupdecorator_));
-    client_socket_.reset(new ClientSocket(vol_manager_, raw_socket_, entry_queue_,
-                            write_queue_, read_queue_, reply_queue_));
     rep_proxy_.reset(new ReplicateProxy(vol_attr_.vol_name(),
                                         vol_attr_.vol_size(), snapshotproxy_));
     pre_processor_.reset(new JournalPreProcessor(entry_queue_, write_queue_));
     reader_.reset(new JournalReader(read_queue_, reply_queue_));
     writer_.reset(new JournalWriter(write_queue_, reply_queue_, vol_attr_));
     replayer_.reset(new JournalReplayer(vol_attr_));
-    if (!client_socket_->init()) {
-        LOG_ERROR << "init connection failed,vol_name:" << vol_attr_.vol_name();
-        return false;
-    }
     if (!pre_processor_->init()) {
         LOG_ERROR << "init pre_processor failed,vol_name:"<< vol_attr_.vol_name();
         return false;
     }
     /*todo read from config*/
     if (!writer_->init(idproxy_, cacheproxy_, snapshotproxy_,
-                      lease_client_, writer_rpc_client_, epoll_fd_)) {
+                       lease_client_, writer_rpc_client_, epoll_fd_)) {
         LOG_ERROR << "init journal writer failed,vol_name:" << vol_attr_.vol_name();
         return false;
     }
@@ -68,13 +61,36 @@ bool Volume::init() {
         LOG_ERROR << "init journal replayer failed,vol_name:" << vol_attr_.vol_name();
         return false;
     }
+}
+
+bool Volume::init_socket(raw_socket_t client_sock) {
+    raw_socket_ = client_sock;
+    client_socket_.reset(new ClientSocket(vol_manager_, raw_socket_, entry_queue_,
+                            write_queue_, read_queue_, reply_queue_));
+    if (!client_socket_->init()) {
+        LOG_ERROR << "init connection failed,vol_name:" << vol_attr_.vol_name();
+        return false;
+    }
     return true;
+}
+
+bool Volume::deinit_socket()
+{
+    if (client_socket_)
+    {
+        LOG_INFO << "Volume fini connection deinit";
+        client_socket_->deinit();
+        client_socket_.reset();
+    }
 }
 
 void Volume::fini() {
     LOG_INFO << "Volume fini";
-    client_socket_->deinit();
-    LOG_INFO << "Volume fini connection deinit";
+    if (client_socket_)
+    {
+        client_socket_->deinit();
+        LOG_INFO << "Volume fini connection deinit";
+    }
     reader_->deinit();
     LOG_INFO << "Volume fini reader deinit";
     pre_processor_->deinit();
@@ -109,9 +125,12 @@ void Volume::start() {
 
 void Volume::stop() {
     /*stop network receive*/
-    LOG_INFO << "volume stop ";
-    client_socket_->stop();
-    LOG_INFO << "volume stop ok";
+    if(client_socket_)
+    {
+        LOG_INFO << "volume stop ";
+        client_socket_->stop();
+        LOG_INFO << "volume stop ok";
+    }
 }
 
 const string Volume::get_vol_id() {

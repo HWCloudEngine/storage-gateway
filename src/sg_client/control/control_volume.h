@@ -30,10 +30,13 @@ using grpc::Status;
 
 using namespace huawei::proto;
 
+class VolumeManager;
+
 class VolumeControlImpl:public control::VolumeControl::Service {
 public:
     VolumeControlImpl(const std::string& host, const std::string& port,
-                      std::shared_ptr<VolInnerCtrlClient> vol_inner_client);
+                      std::shared_ptr<VolInnerCtrlClient> vol_inner_client,
+                      VolumeManager& vol_manager);
     ~VolumeControlImpl();
     Status ListDevices(ServerContext* context,
                        const control::ListDevicesReq* req, control::ListDevicesRes* res);
@@ -67,6 +70,7 @@ private:
 
     std::string host_;
     std::string port_;
+    VolumeManager& vol_manager_;
 };
 
 #endif  // SRC_SG_CLIENT_CONTROL_CONTROL_VOLUME_H_

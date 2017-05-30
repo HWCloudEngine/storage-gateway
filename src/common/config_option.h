@@ -65,6 +65,8 @@ class ConfigureOptions {
     int    replicate_port;
     /*agent*/
     std::string agent_dev_conf;
+    /*volumes*/
+    std::string volumes_conf;
 };
 
 #define g_option (ConfigureOptions::instance())
