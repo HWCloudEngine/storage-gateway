@@ -309,6 +309,7 @@ Status VolumeControlImpl::TerminateConnection(ServerContext* context,
             if(iscsi_control_ptr->terminate_connection(vol_name))
             {
                 LOG_INFO << "terminate connection vol:" << vol_name << " ok";
+                vol_manager_.deinit_socket(vol_name);
                 res->set_status(StatusCode::sOk);
             }
             else
@@ -317,7 +318,6 @@ Status VolumeControlImpl::TerminateConnection(ServerContext* context,
                           << " failed";
                 res->set_status(StatusCode::sInternalError);
             }
-            vol_manager_.deinit_socket(vol_name);
         }
         else
         {
