@@ -153,7 +153,7 @@ void JournalReplayer::replica_replay() {
     bool ret = rpc_client_ptr_->GetJournalList(vol_attr_.vol_name(), journal_marker_,
                                                limit, journal_list);
     if (!ret || journal_list.empty()) {
-        LOG_ERROR << "get journal list failed ret:" << ret << " size:" << journal_list.size();
+        //LOG_ERROR << "get journal list failed ret:" << ret << " size:" << journal_list.size();
         usleep(200);
         return;
     }
@@ -163,6 +163,7 @@ void JournalReplayer::replica_replay() {
         off_t start_pos = it.start_offset() == 0 ?
                           sizeof(journal_file_header_t) : it.start_offset();
         off_t end_pos   = it.end_offset();
+        LOG_INFO << "replica replay journal:" << journal;
         ret = replay_each_journal(journal, start_pos, end_pos);
         /*replay ok, update in memory consumer marker*/
         if (ret) {

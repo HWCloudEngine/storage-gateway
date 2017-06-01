@@ -39,7 +39,7 @@ int main(int argc, char** argv)
             ret = vol_client->init_conn(mode, vol_name, blk_device);
             cout << "enable sg " << "vol_name:" << vol_name << " ret:" << ret << endl;
         } else if(strcmp(op, "disable") == 0){
-            ret = vol_client->fini_conn(mode, vol_name);
+            ret = vol_client->fini_conn(mode, vol_name, blk_device);
             ret = vol_client->disable_sg(vol_name);
             cout << "disable sg" << "vol_name:" << vol_name << " ret:" << ret << endl;
         } 

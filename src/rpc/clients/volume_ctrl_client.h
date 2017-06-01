@@ -26,6 +26,7 @@ using huawei::proto::RESULT;
 using huawei::proto::StatusCode;
 using huawei::proto::VolumeStatus;
 using huawei::proto::VolumeInfo;
+using huawei::proto::ClientMode;
 using huawei::proto::sInternalError;
 using huawei::proto::control::VolumeControl;
 using huawei::proto::control::ListDevicesReq;
@@ -49,77 +50,64 @@ using huawei::proto::control::DetachVolumeRes;
 
 class VolumeCtrlClient
 {
-public:
+ public:
     VolumeCtrlClient(std::shared_ptr<Channel> channel) :
-            stub_(huawei::proto::control::VolumeControl::NewStub(channel))
-    {
+        stub_(huawei::proto::control::VolumeControl::NewStub(channel)) {
     }
-    ~VolumeCtrlClient();
+    ~VolumeCtrlClient() {
+    }
 
-    StatusCode list_devices(std::list<std::string>& devices)
-    {
-        ListDevicesReq req;
+    StatusCode list_devices(std::list<std::string>& devices) {
         ClientContext context;
+        ListDevicesReq req;
         ListDevicesRes res;
-
         Status status = stub_->ListDevices(&context, req, &res);
-        if (!status.ok())
-        {
+        if (!status.ok()) {
             return sInternalError;
-        }
-        else
-        {
-            if (!res.status())
-            {
-                for (auto device : res.devices())
-                {
-                    devices.push_back(device);
-                }
+        } 
+        if (!res.status()) {
+            for (auto device : res.devices()) {
+                devices.push_back(device);
             }
-            return res.status();
         }
+        return res.status();
     }
 
     StatusCode enable_sg(const std::string& volume_id, size_t size,
-            const std::string& device)
-    {
+                         const std::string& device) {
+        ClientContext context;
         EnableSGReq req;
+        EnableSGRes res;
         req.set_volume_id(volume_id);
         req.set_size(size);
         req.set_device(device);
-        ClientContext context;
-        EnableSGRes res;
-    
         Status status = stub_->EnableSG(&context, req, &res);
-        if (!status.ok())
-        {
+        if (!status.ok()) {
             return sInternalError;
         }
-        else
-        {
-            return res.status();
-        }
+        return res.status();
     }
     
-    StatusCode init_conn(int mode, const std::string& vol_id, const std::string& blk_dev) {
+    StatusCode init_conn(int mode, const std::string& vol_id, 
+                         const std::string& blk_dev) {
         ClientContext context;
-        Status status;
+        InitializeConnectionReq req;
+        InitializeConnectionRes res;
+        req.set_volume_id(vol_id);
+        req.set_mode((enum ClientMode)mode);
+        Status status = stub_->InitializeConnection(&context, req, &res);
         if (mode == 0) {
             AttachVolumeReq req;
             AttachVolumeRes res;
             req.set_volume_id(vol_id);
             req.set_device(blk_dev);
             status = stub_->AttachVolume(&context, req, &res);
-        } else {
-            InitializeConnectionReq req;
-            InitializeConnectionRes res;
-            req.set_volume_id(vol_id);
-            status = stub_->InitializeConnection(&context, req, &res);
         }
         return StatusCode::sOk;
     }
 
-    StatusCode fini_conn(int mode, const std::string& vol_id) {
+    StatusCode fini_conn(int mode, const std::string& vol_id,
+                         const std::string& blk_dev) {
         ClientContext context;
         Status status;
         if (mode == 0) {
@@ -127,79 +115,60 @@ public:
             DetachVolumeRes res;
             req.set_volume_id(vol_id);
             status = stub_->DetachVolume(&context, req, &res);
-        } else {
-            TerminateConnectionReq req;
-            TerminateConnectionRes res;
-            req.set_volume_id(vol_id);
-            status = stub_->TerminateConnection(&context, req, &res);
-        }
+        } 
+        TerminateConnectionReq req;
+        TerminateConnectionRes res;
+        req.set_volume_id(vol_id);
+        req.set_mode((enum ClientMode)mode);
+        req.set_device(blk_dev);
+        status = stub_->TerminateConnection(&context, req, &res);
         return StatusCode::sOk;
     }
 
-    StatusCode disable_sg(const std::string& volume_id)
-    {
-        DisableSGReq req;
-        req.set_volume_id(volume_id);
+    StatusCode disable_sg(const std::string& volume_id) {
         ClientContext context;
+        DisableSGReq req;
         DisableSGRes res;
-
+        req.set_volume_id(volume_id);
         Status status = stub_->DisableSG(&context, req, &res);
-        if (!status.ok())
-        {
+        if (!status.ok()) {
             return sInternalError;
         }
-        else
-        {
-            return res.status();
-        }
+        return res.status();
     }
 
-    StatusCode get_volume(const std::string& volume_id, VolumeInfo& volume)
-    {
-        GetVolumeReq req;
-        req.set_volume_id(volume_id);
+    StatusCode get_volume(const std::string& volume_id, VolumeInfo& volume) {
         ClientContext context;
+        GetVolumeReq req;
         GetVolumeRes res;
+        req.set_volume_id(volume_id);
 
         Status status = stub_->GetVolume(&context, req, &res);
-        if (!status.ok())
-        {
+        if (!status.ok()) {
             return sInternalError;
         }
-        else
-        {
-            if (!res.status())
-            {
-                volume = res.volume();
-            }
-            return res.status();
+        if (!res.status()) {
+            volume = res.volume();
         }
+        return res.status();
     }
 
-    int list_volumes(std::list<VolumeInfo>& volumes)
-    {
-        ListVolumesReq req;
+    int list_volumes(std::list<VolumeInfo>& volumes) {
         ClientContext context;
+        ListVolumesReq req;
         ListVolumesRes res;
-
         Status status = stub_->ListVolumes(&context, req, &res);
-        if (!status.ok())
-        {
+        if (!status.ok()) {
             return sInternalError;
         }
-        else
-        {
-            if (!res.status())
-            {
-                for (auto volume : res.volumes())
-                {
-                    volumes.push_back(volume);
-                }
+        if (!res.status()) {
+            for (auto volume : res.volumes()) {
+                volumes.push_back(volume);
             }
-            return res.status();
         }
+        return res.status();
     }
-private:
+ private:
     std::unique_ptr<huawei::proto::control::VolumeControl::Stub> stub_;
 };
 

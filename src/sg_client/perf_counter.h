@@ -16,7 +16,7 @@
 #include "common/env_posix.h"
 #include "message.h"
 
-#define ENABLE_PERF
+//#define ENABLE_PERF
 
 struct io_probe {
     uint64_t seq;

@@ -93,12 +93,14 @@ void PerfCounter::show_stat(io_request_code_t rw) {
         total_io_bytes += it.second.len;
         total_io_num++;
     }
-
-    LOG_INFO << "rw:" << rw << " total_io_num:" << total_io_num
-             << " total_io_bytes:" << total_io_bytes
-             << " total_io_time:"  << total_io_time
-             << " max:" << max << " max_io_seq:" << max_io_seq
-             << " min:" << min << " min_io_seq:" << min_io_seq;
+    
+    if (total_io_num) {
+        LOG_INFO << "rw:" << rw << " total_io_num:" << total_io_num
+                 << " total_io_bytes:" << total_io_bytes
+                 << " total_io_time:"  << total_io_time
+                 << " max:" << max << " max_io_seq:" << max_io_seq
+                 << " min:" << min << " min_io_seq:" << min_io_seq;
+    }
 }
 
 void PerfCounter::show_probe(const io_probe_t* probe) {
@@ -124,12 +126,10 @@ void PerfCounter::show_probe(const io_probe_t* probe) {
 }
 
 void PerfCounter::callback() {
-    LOG_INFO << "report now ";
     for (auto it : (*(native_map()))) {
         show_probe(&(it.second));
     }
     show_stat(SCSI_READ);
     show_stat(SCSI_WRITE);
     native_map()->clear();
-    LOG_INFO << "report now ok ";
 }
