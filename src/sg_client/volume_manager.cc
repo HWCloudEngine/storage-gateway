@@ -115,10 +115,8 @@ bool VolumeManager::init()
     vol_ctrl = new VolumeControlImpl(host_, port_,vol_inner_client_, *this);
     ctrl_rpc_server->register_service(vol_ctrl);
 
-    if(!init_volumes())
-    {
-        LOG_FATAL << "init volumes failed!";
-        return false;
+    if(!init_volumes()){
+        LOG_ERROR << "init volumes failed!";
     }
 
     if(!ctrl_rpc_server->run()){
@@ -137,8 +135,8 @@ bool VolumeManager::init_volumes()
     std::ifstream f(g_option.volumes_conf);
     if(!f.is_open())
     {
-        LOG_INFO <<" open volumes conf file failed";
-        return false;
+        LOG_INFO <<" open volumes conf file failed no exist";
+        return true;
     }
     std::string vol_name;
     while(getline(f,vol_name))

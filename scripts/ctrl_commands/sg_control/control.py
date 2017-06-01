@@ -122,6 +122,8 @@ def run():
                                dest='vol_size', type=long)
     parser_volume.add_argument('-d', '--device_path', help='block device path',
                                dest='device_path')
+    parser_volume.add_argument('-m', '--client_mode', help='client mode',
+                               dest='mode', choices = ('agent', 'iscsi'))
     parser_volume.set_defaults(func=volume)
 
     # backup control args
