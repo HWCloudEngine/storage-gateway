@@ -1,6 +1,6 @@
 import grpc
-
 from control_api import volume_control_pb2
+from control_api import common_pb2
 
 
 class VolumeCtrl(object):
@@ -25,7 +25,11 @@ class VolumeCtrl(object):
         elif args.action == 'disable':
             res = self.DisableSG(args.vol_id)
         elif args.action == 'initialize':
-            res = self.InitializeConnection(args.vol_id)
+            if args.mode.upper() == 'AGENT':
+                mode = common_pb2.AGENT_MODE
+            else:
+                mode = common_pb2.ISCSI_MODE
+            res = self.InitializeConnection(args.vol_id, mode)
         elif args.action == 'terminate':
             res = self.TerminateConnection(args.vol_id)
         elif args.action == 'attach':
