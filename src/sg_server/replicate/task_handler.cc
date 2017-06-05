@@ -71,7 +71,18 @@ void TaskHandler::work(){
     while(running_){
         std::shared_ptr<TransferTask> task = in_task_que_->pop();
         SG_ASSERT(task != nullptr);
-        if(0 != do_transfer(task,stream)){
+        if(0 == do_transfer(task,stream)){
+            task->set_status(T_DONE);
+            // note: if failed, do not run callback function, 
+            // or task window goes wrong
+            std::shared_ptr<RepContext> rep_ctx =
+                std::dynamic_pointer_cast<RepContext>(task->get_context());
+            LOG_DEBUG << "task id:" << task->get_id()
+                << ",vol:" << rep_ctx->get_vol_id()
+                << ",journal:" << rep_ctx->get_j_counter();
+            rep_ctx->get_callback()(task);
+        }
+        else{
             ClientState s = NetSender::instance().get_state(false);
             LOG_INFO << "rpc channel state:"
                 << NetSender::instance().get_printful_state(s);
@@ -156,14 +167,6 @@ int TaskHandler::do_transfer(std::shared_ptr<TransferTask> task,
                     LOG_ERROR << "handle replicate end req failed!, task id:"
                         << task->get_id();
                     error_flag = true;
-                }
-                else{
-                    task->set_status(T_DONE);
-                    // note: if failed, do not run callback function, 
-                    // or task window goes wrong
-                    std::shared_ptr<RepContext> rep_ctx =
-                        std::dynamic_pointer_cast<RepContext>(task->get_context());
-                    rep_ctx->get_callback()(task);
                 }
                 break;
 

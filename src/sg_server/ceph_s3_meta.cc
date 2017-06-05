@@ -208,6 +208,8 @@ bool CephS3Meta::get_marker(const string& vol_id,
             // TODO: how to init for secondary site
             marker.set_cur_journal(list.front());
             marker.set_pos(0L);
+            LOG_INFO << "init volume " << vol_id << " 's marker at "
+                << marker.cur_journal() << ":" << marker.pos();
             return true;
         }
     }
@@ -480,7 +482,7 @@ RESULT CephS3Meta::seal_volume_journals(const string& uuid, const string& vol_id
         JournalMeta meta;
         res = get_journal_meta(journals[i],meta);
         if(DRS_OK != res){
-            LOG_ERROR << "get journal " << journals[i] << " meta failed!";
+            LOG_WARN << "get journal " << journals[i] << " meta failed!";
             break;
         }
         meta.set_status(SEALED);

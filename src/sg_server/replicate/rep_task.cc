@@ -26,6 +26,9 @@ using google::protobuf::Message;
 using huawei::proto::WriteMessage;
 using huawei::proto::DiskPos;
 #define JOURNAL_BLOCK_SIZE (512*1024L)
+// suppose that the serialized entry length was never longer than MAX_JOURNAL_ENTRY_LEN
+#define PREFIX_DATA_LEN 128
+#define MAX_JOURNAL_ENTRY_LEN (PREFIX_DATA_LEN + COW_BLOCK_SIZE)
 
 int construct_journal_entry(JournalEntry& entry, 
                     const char* data, const uint64_t& off, const size_t& len){
@@ -193,20 +196,11 @@ int DiffSnapTask::init(){
     StatusCode ret = SnapClientWrapper::instance().get_client()->DiffSnapshot(
             ctx->get_vol_id(),pre_snap,cur_snap,diff_blocks);
     SG_ASSERT(ret == StatusCode::sOk);
-    LOG_DEBUG << diff_blocks.size() << " blocks in diffSnapTask.";
-    if(diff_blocks.empty()){
-        LOG_INFO << "there was no diff block in task[" << this->get_id()
-                << "]";
+    if(SnapClientWrapper::instance().diff_snapshot_is_empty(ctx->get_vol_id(),
+        cur_snap,pre_snap)){
+        LOG_INFO << "no data sync for diff snapshot,pre:" << cur_snap
+            << ",pre:" << pre_snap;
         end = true;
-        return 0;
-    }
-    else{
-        if(diff_blocks[0].diff_block_no_size()<=0){
-            LOG_INFO << "there was no diff block in task[" << this->get_id()
-                << "]";
-            end = true;
-            return 0;
-        }
     }
 
     buffer = (char*)malloc(COW_BLOCK_SIZE);
@@ -251,64 +245,53 @@ TransferRequest* DiffSnapTask::get_next_package(){
         cur_off += size;
         return req;
     }
-    //read diff block data from snapshot
+
     DiffBlocks& diff_block = diff_blocks[vector_cursor];
-    uint64_t diff_block_no = diff_block.diff_block_no(array_cursor);
-    off_t    diff_block_off = diff_block_no * COW_BLOCK_SIZE;
-    size_t   diff_block_size = COW_BLOCK_SIZE;
-    StatusCode ret = SnapClientWrapper::instance().get_client()->ReadSnapshot(
-        ctx->get_vol_id(),cur_snap,buffer,diff_block_size,diff_block_off);
-    SG_ASSERT(ret == StatusCode::sOk);
-
-    //construct JournalEntry
-    JournalEntry entry;
-    construct_journal_entry(entry,buffer,diff_block_off,diff_block_size);
-    string entry_string;
-    size_t size = entry.copy_entry(entry_string);
-    LOG_DEBUG << "get snap diff block no:" << diff_block_off
-        << " ,vector cursor:" << vector_cursor
-        << " ,array cursor:" << array_cursor
-        << " ,entry len:" << entry.get_length()
-        << " ,entry crc:" << entry.get_crc()
-        << " ,entry_string len:" << entry_string.length();
-
     // construct transfer request
     TransferRequest* req = new TransferRequest;
-    // if no enough space in cur journal file, use next
-    if(cur_off + size > max_journal_size){
-        sub_counter++;
-        SG_ASSERT(sub_counter < 0xffff);
-        cur_off = 0;
-        // fill journal file header
-        journal_file_header_t header;
-        header.magic = 0;
-        header.version = 0;
-        header.reserve = 0;
-        entry_string.insert(0,(char*)(&header),sizeof(journal_file_header_t));
-        size += sizeof(journal_file_header_t);
+    if(diff_block.diff_block_no_size() > 0){// first diff_blocks may be empty
+        // if no enough space in cur journal file, seal it
+        if(cur_off + MAX_JOURNAL_ENTRY_LEN > max_journal_size){
+            construct_transfer_end_request(req,ctx->get_peer_vol(),
+                ctx->get_j_counter(),sub_counter,++package_id,ctx->get_is_open());
+            LOG_DEBUG << "journal[" << sub_counter << "] is full"
+                << ", cur_snap" << cur_snap;
+            // next journal
+            sub_counter++;
+            SG_ASSERT(sub_counter < 0xffff);
+            cur_off = 0;
+            return req;
+        }
+        //read diff block data from snapshot
+        uint64_t diff_block_no = diff_block.diff_block_no(array_cursor);
+        off_t    diff_block_off = diff_block_no * COW_BLOCK_SIZE;
+        size_t   diff_block_size = COW_BLOCK_SIZE;
+        StatusCode ret = SnapClientWrapper::instance().get_client()->ReadSnapshot(
+            ctx->get_vol_id(),cur_snap,buffer,diff_block_size,diff_block_off);
+        SG_ASSERT(ret == StatusCode::sOk);
+
+        //construct JournalEntry
+        JournalEntry entry;
+        construct_journal_entry(entry,buffer,diff_block_off,diff_block_size);
+        string entry_string;
+        size_t size = entry.copy_entry(entry_string);
+        LOG_DEBUG << "get snap diff block no:" << diff_block_off
+            << " ,vector cursor:" << vector_cursor
+            << " ,array cursor:" << array_cursor
+            << " ,entry len:" << entry.get_length()
+            << " ,entry crc:" << entry.get_crc()
+            << " ,entry_string len:" << entry_string.length();
 
         construct_transfer_data_request(req,ctx->get_peer_vol(),
             ctx->get_j_counter(),sub_counter,
             entry_string.c_str(),cur_off,size,++package_id);
-
+        // debug
         uint32_t crc = crc32c(entry_string.c_str(),size,0);
         LOG_DEBUG << "transfer journal sub[" << sub_counter << "] from "<< cur_off 
             << ",len [" << size << "],crc[" << crc << "].";
 
         cur_off += size;
     }
-    else{
-        construct_transfer_data_request(req,ctx->get_peer_vol(),
-            ctx->get_j_counter(),sub_counter,
-            entry_string.c_str(),cur_off,size,++package_id);
-
-        uint32_t crc = crc32c(entry_string.c_str(),size,0);
-        LOG_DEBUG << "transfer journal sub[" << sub_counter << "] from "<< cur_off 
-            << ",len [" << size << "],crc[" << crc << "].";
-
-        cur_off += size;
-    }
-
     //move cursors
     if(array_cursor + 1 >= diff_block.diff_block_no_size()){
         // check next diffblock
@@ -373,7 +356,6 @@ void BaseSnapTask::set_vol_size(const uint64_t& _size){
     vol_size = _size;
 }
 
-
 int BaseSnapTask::init(){
     cur_off = 0;
     sub_counter = 1;
@@ -408,6 +390,33 @@ TransferRequest* BaseSnapTask::get_next_package(){
         return req;
     }
 
+    if(cur_off == 0){
+        // write journal file header:
+        TransferRequest* req = new TransferRequest;
+        journal_file_header_t header;
+        header.magic = 0;
+        header.version = 0;
+        header.reserve = 0;
+        size_t size = sizeof(journal_file_header_t);
+        construct_transfer_data_request(req,ctx->get_peer_vol(),
+            ctx->get_j_counter(),sub_counter,
+            (char*)(&header),cur_off,size,++package_id);
+        cur_off += size;
+        return req;
+    }
+    // if no enough space in cur journal file, seal it
+    if(cur_off + MAX_JOURNAL_ENTRY_LEN > max_journal_size){
+        TransferRequest* req = new TransferRequest;
+        construct_transfer_end_request(req,ctx->get_peer_vol(),
+            ctx->get_j_counter(),sub_counter,++package_id,ctx->get_is_open());
+        LOG_DEBUG << "journal[" << sub_counter << "] is full"
+            << ", base_snap" << base_snap;
+        // next journal
+        sub_counter++;
+        SG_ASSERT(sub_counter < 0xffff);
+        cur_off = 0;
+        return req;
+    }
     // read snapshot
     uint64_t len = vol_size - read_off > COW_BLOCK_SIZE ?
         COW_BLOCK_SIZE:(vol_size - read_off);
@@ -427,40 +436,15 @@ TransferRequest* BaseSnapTask::get_next_package(){
 
     // construct transfer request
     TransferRequest* req = new TransferRequest;
-    // if no enough space in cur journal file, use next
-    if(cur_off + size > max_journal_size){
-        sub_counter++;
-        SG_ASSERT(sub_counter < 0xffff);
-        cur_off = 0;
-        // fill journal file header
-        journal_file_header_t header;
-        header.magic = 0;
-        header.version = 0;
-        header.reserve = 0;
-        entry_string.insert(0,(char*)(&header),sizeof(journal_file_header_t));
-        size += sizeof(journal_file_header_t);
+    construct_transfer_data_request(req,ctx->get_peer_vol(),
+        ctx->get_j_counter(),sub_counter,
+        entry_string.c_str(),cur_off,size,++package_id);
 
-        construct_transfer_data_request(req,ctx->get_peer_vol(),
-            ctx->get_j_counter(),sub_counter,
-            entry_string.c_str(),cur_off,size,++package_id);
+    uint32_t crc = crc32c(entry_string.c_str(),size,0);
+    LOG_DEBUG << "transfer journal sub[" << sub_counter << "] from "<< cur_off 
+        << ",len [" << size << "],crc[" << crc << "].";
 
-        uint32_t crc = crc32c(entry_string.c_str(),size,0);
-        LOG_DEBUG << "transfer journal sub[" << sub_counter << "] from "<< cur_off 
-            << ",len [" << size << "],crc[" << crc << "].";
-
-        cur_off += size;
-    }
-    else{
-        construct_transfer_data_request(req,ctx->get_peer_vol(),
-            ctx->get_j_counter(),sub_counter,
-            entry_string.c_str(),cur_off,size,++package_id);
-
-        uint32_t crc = crc32c(entry_string.c_str(),size,0);
-        LOG_DEBUG << "transfer journal sub[" << sub_counter << "] from "<< cur_off 
-            << ",len [" << size << "],crc[" << crc << "].";
-
-        cur_off += size;
-    }
+    cur_off += size;
 
     // update read offset
     read_off += size;

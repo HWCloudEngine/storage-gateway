@@ -216,8 +216,7 @@ void RepVolume::notify_rep_state_changed(){
             transient_state = true;
         }
         // set base sync state
-        if(vol_meta_.info().rep_status() == REP_ENABLING
-            || vol_meta_.info().rep_status() == REP_REVERSING){
+        if(vol_meta_.info().rep_status() == REP_ENABLING){
             base_sync_state_ = NEED_SYNC;
         }
         // check whether need to register/unregister replicator

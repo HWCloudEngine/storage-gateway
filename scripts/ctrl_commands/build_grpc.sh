@@ -47,4 +47,5 @@ then
     rm journal/ -rf
     rm control_api/ -rf
     rm *.pyc -rf
+    rm sg_control/control_api -rf
 fi
