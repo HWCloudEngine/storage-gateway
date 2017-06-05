@@ -30,7 +30,6 @@ public:
     MarkersMaintainer& operator=(MarkersMaintainer const&) = delete;
     // add sync-marker function to thread_pools' inner queue
     void init(std::shared_ptr<BlockingQueue<std::shared_ptr<MarkerContext>>> in_que);
-
 private:
     MarkersMaintainer():running_(true){}
     ~MarkersMaintainer(){
@@ -39,5 +38,9 @@ private:
 
     // thread work loop
     void work();
+    int sync_marker(std::shared_ptr<MarkerContext>& ctx,
+        grpc_stream_ptr& stream);
+    void wait_for_grpc_stream_ready(ClientContext* rpc_ctx,
+        grpc_stream_ptr& stream);
 };
 #endif

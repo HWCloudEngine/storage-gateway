@@ -11,7 +11,9 @@
 #ifndef SNAP_CLIENT_WRAPPER_H_
 #define SNAP_CLIENT_WRAPPER_H_
 #include <memory>
-#include "../rpc/clients/snapshot_ctrl_client.h"
+#include "rpc/clients/snapshot_ctrl_client.h"
+#include "log/log.h"
+#include "common/config_option.h"
 class SnapClientWrapper{
     std::shared_ptr<SnapshotCtrlClient> snap_ctrl_client;
 public:
@@ -27,11 +29,41 @@ public:
         return snap_ctrl_client;
     }
 
+    bool diff_snapshot_is_empty(const string& vol,const string& cur_snap,
+        const string& pre_snap){
+        std::vector<DiffBlocks> diff_blocks;
+        StatusCode ret = snap_ctrl_client->DiffSnapshot(
+                vol,pre_snap,cur_snap,diff_blocks);
+        SG_ASSERT(ret == StatusCode::sOk);
+        LOG_DEBUG << diff_blocks.size() << " blocks in diffSnapTask.";
+        if(diff_blocks.empty()){
+            LOG_INFO << "there was no diff blocks in task[" << cur_snap << "]";
+            return true;
+        }
+        else{
+            for(int i=0; i<diff_blocks.size(); i++){
+                if(diff_blocks[i].diff_block_no_size() > 0){
+                    return false;
+                }
+            }
+            LOG_INFO << "there was no diff block in snap[" << cur_snap
+                    << "]";
+            return true;
+        }
+        return false;
+    }
+
+    bool snapshot_is_empty(const string& vol,const string& snap){
+        return false;
+    }
+
+
 private:
     SnapClientWrapper(){
-        // TODO: get sg_cleint rpc port from config file
+        std::string host = g_option.ctrl_server_ip;
+        host += ":" + std::to_string(g_option.ctrl_server_port);
         snap_ctrl_client.reset(new SnapshotCtrlClient(
-                grpc::CreateChannel("127.0.0.1:1111", 
+                grpc::CreateChannel(host, 
                     grpc::InsecureChannelCredentials())));
     }
     ~SnapClientWrapper(){}
