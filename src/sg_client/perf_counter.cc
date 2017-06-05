@@ -15,12 +15,16 @@
 #include "perf_counter.h"
 
 PerfCounter::PerfCounter() {
-    probe_map_ = new AtomicPtr(new probe_map_t);
+    perf_run_ = true;
+    perf_thr_ = new std::thread(std::bind(&PerfCounter::perf_work, this));
 }
 
 PerfCounter::~PerfCounter() {
-    if (native_map()) {
-        native_map()->clear();
+    probe_map_.clear();
+    perf_run_ = false;
+    if (perf_thr_) {
+        perf_thr_->join();
+        delete perf_thr_;
     }
 }
 
@@ -28,7 +32,6 @@ static PerfCounter* default_perf = nullptr;
 static pthread_once_t once = PTHREAD_ONCE_INIT;
 static void init_default_perf() {
     default_perf = new PerfCounter();
-    default_perf->start(1, 5);
 }
 
 PerfCounter& PerfCounter::instance() {
@@ -36,32 +39,97 @@ PerfCounter& PerfCounter::instance() {
     return *default_perf;
 }
 
-probe_map_t* PerfCounter::native_map() {
-    return reinterpret_cast<probe_map_t*>(probe_map_->lock_load());
+void PerfCounter::start_perf(uint64_t seq, uint8_t dir, uint64_t off, uint64_t len) {
+#ifdef ENABLE_PERF
+    std::lock_guard<std::mutex> lock(probe_map_lock_);
+    io_probe_t probe = {0};
+    probe.seq = (seq);
+    probe.dir = (dir);
+    probe.off = (off);
+    probe.len = (len);
+    g_perf.insert(seq, probe);
+#endif
+}
+
+void PerfCounter::doing_perf(perf_phase_t phase, uint64_t seq) {
+#ifdef ENABLE_PERF
+    std::lock_guard<std::mutex> lock(probe_map_lock_);
+    io_probe_t* probe = nullptr;
+    g_perf.fetch(seq, &probe);
+    if (probe == nullptr) {
+        return;
+    }
+    uint64_t now_micros = Env::instance()->now_micros();
+    switch (phase) {
+        case RECV_BEGIN:
+            probe->recv_begin_ts = now_micros;
+            break;
+        case RECV_END:
+            probe->recv_end_ts = now_micros;
+            break;
+        case PROC_BEGIN:
+            probe->proc_begin_ts = now_micros;
+            break;
+        case PROC_END:
+            probe->proc_end_ts = now_micros;
+            break;
+        case WRITE_BEGIN:
+            probe->write_begin_ts = now_micros;
+            break;
+        case WRITE_END:
+            probe->write_end_ts = now_micros;
+            break;
+        case READ_BEGIN:
+            probe->read_begin_ts = now_micros;
+            break;
+        case READ_END:
+            probe->read_end_ts = now_micros;
+            break;
+        case REPLY_BEGIN:
+            probe->reply_begin_ts = now_micros;
+            break;
+        case REPLY_END:
+            probe->reply_end_ts = now_micros;
+            break;
+        case REPLAY_BEGIN:
+            probe->replay_begin_ts = now_micros;
+            break;
+        case REPLAY_END:
+            probe->replay_end_ts = now_micros;
+            break;
+        default:
+            break;
+    }
+#endif
+}
+
+void PerfCounter::done_perf(uint64_t seq) {
+
 }
 
 void PerfCounter::insert(uint64_t seq, io_probe_t  probe) {
-    auto it = native_map()->find(seq);
-    if (it != native_map()->end()) {
-        native_map()->erase(seq);
+    auto it = probe_map_.find(seq);
+    if (it != probe_map_.end()) {
+        probe_map_.erase(seq);
     }
-    native_map()->insert({seq, probe}); 
+    probe_map_.insert({seq, probe}); 
 }
 
 void PerfCounter::remove(uint64_t seq) {
-    auto it = native_map()->find(seq);
-    if (it == native_map()->end()) {
+    auto it = probe_map_.find(seq);
+    if (it == probe_map_.end()) {
         return;
     }
-    native_map()->erase(seq);
+    probe_map_.erase(seq);
 }
 
-io_probe_t* PerfCounter::fetch(uint64_t seq) {
-    auto it = native_map()->find(seq);
-    if (it == native_map()->end()) {
-        return nullptr;
+void PerfCounter::fetch(uint64_t seq, io_probe_t** probe) {
+    auto it = probe_map_.find(seq);
+    if (it == probe_map_.end()) {
+        *probe = nullptr;
+        return;
     }
-    return &(it->second);
+    *probe = &(it->second);
 }
 
 uint64_t PerfCounter::cost_time(uint64_t start, uint64_t end) {
@@ -76,7 +144,7 @@ void PerfCounter::show_stat(io_request_code_t rw) {
     uint64_t min = UINTMAX_MAX;
     uint64_t max_io_seq = 0;
     uint64_t min_io_seq = 0;
-    for (auto it : (*(native_map()))) {
+    for (auto it : probe_map_) {
         if (it.second.dir != (uint8_t)rw) {
             continue;
         }
@@ -125,11 +193,17 @@ void PerfCounter::show_probe(const io_probe_t* probe) {
     }
 }
 
-void PerfCounter::callback() {
-    for (auto it : (*(native_map()))) {
-        show_probe(&(it.second));
+void PerfCounter::perf_work() {
+    while (perf_run_) {
+        {
+            std::lock_guard<std::mutex> lock(probe_map_lock_);
+            for (auto it : probe_map_){
+                show_probe(&(it.second));
+            }
+            show_stat(SCSI_READ);
+            show_stat(SCSI_WRITE);
+            probe_map_.clear();
+        }
+       sleep(5);
     }
-    show_stat(SCSI_READ);
-    show_stat(SCSI_WRITE);
-    native_map()->clear();
 }

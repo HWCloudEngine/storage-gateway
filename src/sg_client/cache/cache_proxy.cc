@@ -20,14 +20,14 @@ CacheProxy::CacheProxy(string blk_dev, shared_ptr<IDGenerator> id_maker) {
     total_mem_size = 0;
     jcache = new Jcache(blk_dev);
     bcache = new Bcache(blk_dev);
-    LOG_INFO << "CacheProxy create";
+    LOG_INFO << "cacheProxy create";
 }
 
 CacheProxy::~CacheProxy() {
-    LOG_INFO << "CacheProxy destroy";
+    LOG_INFO << "cacheProxy destroy";
     delete bcache;
     delete jcache;
-    LOG_INFO << "CacheProxy destroy ok";
+    LOG_INFO << "cacheProxy destroy ok";
 }
 
 /*journal write call*/

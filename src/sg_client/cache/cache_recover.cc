@@ -190,7 +190,7 @@ CacheRecovery::CacheRecovery(std::string volume,
 }
 
 void CacheRecovery::start() {
-    LOG_INFO << "CacheRecovery start";
+    LOG_INFO << "cache recover start";
     m_processor = new ProcessWorker[m_processor_num];
     for (int i = 0; i < m_processor_num; i++) {
         /*todo: here use a trick*/
@@ -203,11 +203,11 @@ void CacheRecovery::start() {
         m_processor[i].register_producer(m_src_worker);
     }
     m_src_worker->start();
-    LOG_INFO << "CacheRecovery start ok";
+    LOG_INFO << "cache recover start ok";
 }
 
 void CacheRecovery::stop() {
-    LOG_INFO << "CacheRecovery stop";
+    LOG_INFO << "cache recover stop";
     if (m_src_worker) {
         m_src_worker->stop();
         delete m_src_worker;
@@ -218,5 +218,5 @@ void CacheRecovery::stop() {
         }
         delete [] m_processor;
     }
-    LOG_INFO << "CacheRecovery stop ok";
+    LOG_INFO << "cache recover stop ok";
 }

@@ -1,7 +1,16 @@
-#include "volume_manager.h"
-#include <boost/bind.hpp>
-#include <algorithm>
+/**********************************************
+*  Copyright (c) 2016 Huawei Technologies Co., Ltd. All rights reserved.
+*
+*  File name:    volume_manage.h
+*  Author: 
+*  Date:         2016/11/03
+*  Version:      1.0
+*  Description:  volume management
+*
+*************************************************/
 #include <fstream>
+#include <algorithm>
+#include <boost/bind.hpp>
 #include "log/log.h"
 #include "common/volume_attr.h"
 #include "common/utils.h"
@@ -10,6 +19,7 @@
 #include "control/control_backup.h"
 #include "control/control_replicate.h"
 #include "control/control_volume.h"
+#include "volume_manager.h"
 
 using huawei::proto::VolumeInfo;
 using huawei::proto::StatusCode;
@@ -17,7 +27,6 @@ using huawei::proto::StatusCode;
 VolumeManager::~VolumeManager()
 {
     running_ = false;
-    
     if(recover_targets_thr_){
         recover_targets_thr_->join();
     }
@@ -25,10 +34,8 @@ VolumeManager::~VolumeManager()
     thread_ptr->join();
     if(ctrl_rpc_server){
         ctrl_rpc_server->join(); 
-        LOG_INFO << "stop ctrl rpc server ok";
         delete ctrl_rpc_server;
     }
-
     if(writer_thread->joinable()){
         writer_thread->join();
     }
@@ -36,23 +43,18 @@ VolumeManager::~VolumeManager()
         close(epoll_fd);
         epoll_fd = -1;
     }
-
     if(snapshot_ctrl){
         delete snapshot_ctrl; 
     }
-
     if(backup_ctrl){
         delete backup_ctrl; 
     }
-
     if(vol_ctrl){
         delete vol_ctrl;
     }
-
     if(rep_ctrl){
         delete rep_ctrl;
     }
-
     if(ep_events){
         delete ep_events;
     }
@@ -115,9 +117,7 @@ bool VolumeManager::init()
     vol_ctrl = new VolumeControlImpl(host_, port_,vol_inner_client_, *this);
     ctrl_rpc_server->register_service(vol_ctrl);
 
-    if(!init_volumes()){
-        LOG_ERROR << "init volumes failed!";
-    }
+    init_volumes();
 
     if(!ctrl_rpc_server->run()){
         LOG_FATAL << "start ctrl rpc server failed!";
@@ -129,35 +129,33 @@ bool VolumeManager::init()
     return true;
 }
 
-bool VolumeManager::init_volumes()
+void VolumeManager::init_volumes()
 {
     LOG_INFO << "init volumes";
     std::ifstream f(g_option.volumes_conf);
     if(!f.is_open())
     {
-        LOG_INFO <<" open volumes conf file failed no exist";
-        return true;
+        return;
     }
     std::string vol_name;
     while(getline(f,vol_name))
     {
         if(vol_name.empty())
         {
-            LOG_INFO <<" persistent volume info is invalid,info:"<<vol_name;
+            LOG_INFO <<"persistent volume info is invalid,info:"<<vol_name;
             continue;
         }
         VolumeInfo volume_info;
         StatusCode ret = vol_inner_client_->get_volume(vol_name, volume_info);
         if (ret != StatusCode::sOk)
         {
-            LOG_INFO <<" get volume info from sg server failed"<<vol_name;
+            LOG_INFO <<"get volume info from sg server failed"<<vol_name;
             continue;
         }
         add_volume(volume_info, true);
     }
     f.close();
     LOG_INFO << "init volumes ok";
-    return true;
 }
 
 void VolumeManager::periodic_task()
@@ -261,7 +259,7 @@ bool VolumeManager::persist_volume(const std::string& vol_name)
     std::ifstream fin(g_option.volumes_conf);
     if(!fin.is_open())
     {
-        LOG_INFO <<" open volumes conf file failed";
+        LOG_INFO << " open volumes conf file failed";
         return false;
     }
     std::string s((std::istreambuf_iterator<char>(fin)), std::istreambuf_iterator<char>());

@@ -106,21 +106,21 @@ bool SnapshotProxy::fini() {
 }
 
 StatusCode SnapshotProxy::sync_state() {
-    LOG_INFO << "sync_state";
+    LOG_INFO << "synchronize current snapshot state";
     ClientContext context;
     SyncReq ireq;
     ireq.set_vol_name(m_vol_attr.vol_name());
     SyncAck iack;
     Status st = m_rpc_stub->Sync(&context, ireq, &iack);
     if (!st.ok()) {
-        LOG_INFO << "sync_state failed err:" << iack.header().status();
+        LOG_INFO << "synchronize current snapshot state, no active snaphsot";
         return iack.header().status();
     }
     m_active_snapshot = iack.latest_snap_name();
     if (!m_active_snapshot.empty()) {
         m_exist_snapshot = true;
     }
-    LOG_INFO << "sync_state" << " ret:" << iack.header().status();
+    LOG_INFO << "synchronize current snapshot state, active snaphsot:" << m_active_snapshot;
     return StatusCode::sOk;
 }
 
