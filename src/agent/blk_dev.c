@@ -69,7 +69,11 @@ void hook_make_request_fn(struct request_queue* q, struct bio* bio)
         if (bio_data_dir(bio) == WRITE) {
             //LOG_INFO("cbt clear start:%ld, nr_sects:%ld", bio->bi_iter.bi_sector,
             //        (bio->bi_iter.bi_size >> 9));
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,14,0))
+            cbt_clear(dev, bio->bi_sector, (bio->bi_size >> 9)); 
+#else
             cbt_clear(dev, bio->bi_iter.bi_sector, (bio->bi_iter.bi_size >> 9)); 
+#endif
         }
         dev->blk_bio_fn(q,bio);
         return;
@@ -78,20 +82,28 @@ void hook_make_request_fn(struct request_queue* q, struct bio* bio)
     if (bio_data_dir(bio) == WRITE) {
          //LOG_INFO("cbt set start:%ld, nr_sects:%ld", bio->bi_iter.bi_sector,
          //       (bio->bi_iter.bi_size >> 9));
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,14,0))
+         cbt_set(dev, bio->bi_sector, (bio->bi_size >> 9)); 
+#else
          cbt_set(dev, bio->bi_iter.bi_sector, (bio->bi_iter.bi_size >> 9)); 
+#endif
     }
 
     if (bio_data_dir(bio) == READ) {
         //LOG_INFO("cbt check start:%ld, nr_sects:%ld", bio->bi_iter.bi_sector,
         //         (bio->bi_iter.bi_size >> 9));
  
-        if (!cbt_check(dev, bio->bi_iter.bi_sector,
-                     (bio->bi_iter.bi_size >> 9))) {
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,14,0))
+        int ret = cbt_check(dev, bio->bi_sector,(bio->bi_size >> 9));
+#else
+        int ret = cbt_check(dev, bio->bi_iter.bi_sector,(bio->bi_iter.bi_size >> 9));
+#endif
+        if (!ret) {
             //LOG_INFO("cbt check start:%ld, nr_sects:%ld", bio->bi_iter.bi_sector,
             //        (bio->bi_iter.bi_size >> 9));
             dev->blk_bio_fn(q,bio);
             return;
-        } 
+        }
     }
 
     spin_lock_irq(&dev->lock);
