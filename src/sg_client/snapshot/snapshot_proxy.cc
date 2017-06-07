@@ -551,6 +551,7 @@ StatusCode SnapshotProxy::do_cow(const off_t& off, const size_t& size,
         cow_req.set_blk_no(cow_block.blk_no);
         status = m_rpc_stub->CowOp(&ctx1, cow_req, &cow_ack);
         if (!status.ok()) {
+            LOG_ERROR << "do_cow cowop failed";
             return cow_ack.header().status();
         }
 
@@ -578,11 +579,13 @@ StatusCode SnapshotProxy::do_cow(const off_t& off, const size_t& size,
         char* block_buf = (char*)malloc(block_size);
         ssize_t read_ret = m_block_file->read(block_buf, block_size, block_off);
         assert(read_ret == block_size);
+        LOG_INFO << "do cow read from block device";
         /*write to cow object*/
         string cow_object = cow_ack.cow_blk_object();
         int ret = m_block_store->write(cow_object, block_buf, block_size, 0);
         assert(ret == 0);
         free(block_buf);
+        LOG_INFO << "do cow write to ceph rados";
 
         /*write new data to block device*/
         char* cow_buf = buf + cow_block.off - off;
@@ -590,6 +593,7 @@ StatusCode SnapshotProxy::do_cow(const off_t& off, const size_t& size,
         size_t cow_len = cow_block.len;
         ssize_t write_ret = m_block_file->write(cow_buf, cow_len, cow_off);
         assert(write_ret == cow_len);
+        LOG_INFO << "do cow write to block device";
 
         /*update cow meta to dr server*/
         ClientContext ctx2;
@@ -601,6 +605,7 @@ StatusCode SnapshotProxy::do_cow(const off_t& off, const size_t& size,
         update_req.set_cow_blk_object(cow_object);
         status = m_rpc_stub->CowUpdate(&ctx2, update_req, &update_ack);
         if (!status.ok()) {
+            LOG_ERROR << "do cow cowupdate failed";
             return update_ack.header().status();
         }
     }

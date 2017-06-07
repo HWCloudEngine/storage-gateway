@@ -35,9 +35,9 @@ ConfigureOptions::ConfigureOptions() {
     ceph_s3_secret_key = config_parser.get_default("ceph_s3.secret_key", std::string(""));
     ceph_s3_host = config_parser.get_default("ceph_s3.host", std::string(""));
     ceph_s3_bucket = config_parser.get_default("ceph_s3.bucket", std::string(""));
-    ceph_cluster_name = config_parser.get_default("ceph_cluster_name", std::string("ceph"));
-    ceph_user_name = config_parser.get_default("ceph_user_name", std::string("client.admin"));
-    ceph_pool_name = config_parser.get_default("ceph_pool_name", std::string("mypool"));
+    ceph_cluster_name = config_parser.get_default("ceph_rados.ceph_cluster_name", std::string("ceph"));
+    ceph_user_name = config_parser.get_default("ceph_rados.ceph_user_name", std::string("client.admin"));
+    ceph_pool_name = config_parser.get_default("ceph_rados.ceph_pool_name", std::string("mypool"));
 
     gc_window = config_parser.get_default("ceph_s3.gc_window",100);
 
