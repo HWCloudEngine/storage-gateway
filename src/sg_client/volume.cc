@@ -85,21 +85,21 @@ bool Volume::deinit_socket()
 }
 
 void Volume::fini() {
-    LOG_INFO << "Volume fini";
+    LOG_INFO << "volume fini";
     if (client_socket_)
     {
         client_socket_->deinit();
-        LOG_INFO << "Volume fini connection deinit";
+        LOG_INFO << "volume fini connection deinit";
     }
     reader_->deinit();
-    LOG_INFO << "Volume fini reader deinit";
+    LOG_INFO << "volume fini reader deinit";
     pre_processor_->deinit();
-    LOG_INFO << "Volume fini processor deinit";
+    LOG_INFO << "volume fini processor deinit";
     writer_->deinit();
-    LOG_INFO << "Volume fini writer deinit";
+    LOG_INFO << "volume fini writer deinit";
     replayer_->deinit();
-    LOG_INFO << "Volume fini replayer deinit";
-    LOG_INFO << "Volume fini ok";
+    LOG_INFO << "volume fini replayer deinit";
+    LOG_INFO << "volume fini ok";
 }
 
 shared_ptr<SnapshotProxy>& Volume::get_snapshot_proxy() const {

@@ -21,11 +21,11 @@ JournalPreProcessor::JournalPreProcessor(BlockingQueue<shared_ptr<JournalEntry>>
     :entry_queue_(entry_queue),
      write_queue_(write_queue),
      worker_threads() {
-    LOG_INFO << "Processor work thread create";
+    LOG_INFO << "ioprocessor work thread create";
 }
 
 JournalPreProcessor::~JournalPreProcessor() {
-    LOG_INFO << "Processor work thread destroy";
+    LOG_INFO << "ioprocessor work thread destroy";
 }
 
 void JournalPreProcessor::work() {

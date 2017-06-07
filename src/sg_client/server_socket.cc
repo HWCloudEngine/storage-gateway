@@ -99,7 +99,7 @@ void ServerSocket::run() {
 
 void ServerSocket::start_accept() {
     raw_socket_t client_sock(new socket_t(io_service_pool_.get_io_service()));
-    LOG_INFO << "Aready to accept client connection";
+    LOG_INFO << "ready to accept client connection";
     acceptor_.async_accept(*client_sock,
         boost::bind(&ServerSocket::accept_cbt, this, 
                     client_sock, boost::asio::placeholders::error));
@@ -117,7 +117,7 @@ void ServerSocket::accept_cbt(raw_socket_t client_sock,
         return;
     }
 
-    LOG_INFO << "Now accept new client connect ok";
+    LOG_INFO << "now accept new client connect ok";
     
     /*notify volume manager to add volume*/
     volume_manager_.start(client_sock);

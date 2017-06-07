@@ -32,11 +32,11 @@ ClientSocket::ClientSocket(VolumeManager& vol_manager,
                     : vol_manager_(vol_manager), raw_socket_(socket_),
                       entry_queue_(entry_queue), write_queue_(write_queue),
                       read_queue_(read_queue), reply_queue_(reply_queue) {
-    LOG_INFO << "Network work thread create";
+    LOG_INFO << "network work thread create";
 }
 
 ClientSocket::~ClientSocket() {
-    LOG_INFO << "NetWork work thread destroy";
+    LOG_INFO << "netWork work thread destroy";
 }
 
 bool ClientSocket::init() {

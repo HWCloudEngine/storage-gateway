@@ -24,12 +24,12 @@ JournalWriter::JournalWriter(BlockingQueue<shared_ptr<JournalEntry>>& write_queu
     :thread_ptr(), write_queue_(write_queue), reply_queue_(reply_queue),
      vol_attr_(vol_attr), cur_journal_size(0),
      written_size_since_last_update(0LLU), producer_marker_hold_flag(false) {
-    LOG_INFO << "IOWriter work thread create";
+    LOG_INFO << "iowriter work thread create";
     cur_file_.reset();
 }
 
 JournalWriter::~JournalWriter() {
-    LOG_INFO << "IOWriter work thread destory";
+    LOG_INFO << "iowriter work thread destory";
     cur_file_.reset();
     // todo seal journals
     while (!seal_queue.empty()) {

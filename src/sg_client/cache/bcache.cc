@@ -93,12 +93,12 @@ bool BkeyOffsetCompare(const Bkey& a, const Bkey& b) {
 Bcache::Bcache(string bdev) {
     m_blkdev = bdev;
     Env::instance()->create_access_file(m_blkdev, true, &m_blkfile);
-    LOG_INFO << "Bcache create";
+    LOG_INFO << "bcache create";
 }
 
 Bcache::~Bcache() {
     m_bcache.clear();
-    LOG_INFO << "Bcache destroy";
+    LOG_INFO << "bcache destroy";
 }
 
 bool Bcache::add(Bkey key, shared_ptr<CEntry> value) {

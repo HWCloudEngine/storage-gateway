@@ -96,26 +96,30 @@ class VolumeCtrlClient
         req.set_volume_id(vol_id);
         req.set_mode((enum ClientMode)mode);
         Status status = stub_->InitializeConnection(&context, req, &res);
-        if (mode == 0) {
+        if ((enum ClientMode)mode == ClientMode::AGENT_MODE) {
+            LOG_INFO << "xxxx 0";
+            ClientContext context;
             AttachVolumeReq req;
             AttachVolumeRes res;
             req.set_volume_id(vol_id);
             req.set_device(blk_dev);
             status = stub_->AttachVolume(&context, req, &res);
+            LOG_INFO << "xxxx 1";
         }
         return StatusCode::sOk;
     }
 
     StatusCode fini_conn(int mode, const std::string& vol_id,
                          const std::string& blk_dev) {
-        ClientContext context;
         Status status;
-        if (mode == 0) {
+        if ((enum ClientMode)mode == ClientMode::AGENT_MODE) {
+            ClientContext context;
             DetachVolumeReq req;
             DetachVolumeRes res;
             req.set_volume_id(vol_id);
             status = stub_->DetachVolume(&context, req, &res);
         } 
+        ClientContext context;
         TerminateConnectionReq req;
         TerminateConnectionRes res;
         req.set_volume_id(vol_id);
