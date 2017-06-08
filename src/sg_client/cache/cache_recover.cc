@@ -84,7 +84,9 @@ void ProcessWorker::process_file(const JournalElement& file) {
              << " end_pos:" << file.end_offset() << " size:" << access_file_size;
 
     off_t start = file.start_offset();
-    off_t end = file.end_offset();
+    //important: end should be fiile size, instead of end_offset
+    //let parse to check where should stop parse entry
+    off_t end = access_file_size;
     while (start < end) {
         shared_ptr<JournalEntry> journal_entry = std::make_shared<JournalEntry>();
         ssize_t ret = journal_entry->parse(&access_file, access_file_size, start);
