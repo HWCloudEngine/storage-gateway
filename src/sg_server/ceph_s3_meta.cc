@@ -890,8 +890,22 @@ RESULT CephS3Meta::list_volume_meta(std::list<VolumeMeta> &list){
 RESULT CephS3Meta::read_volume_meta(const string& id,VolumeMeta& meta){
     if(vol_cache_.get(id,meta))
         return DRS_OK;
-    else
+    string key = construct_volume_meta_key(id);
+    string value;
+    StatusCode res = kvApi_ptr_->get_object(key.c_str(),&value);
+    if(StatusCode::sOk != res){
+        if(StatusCode::sNotFound == res)
+            return NO_SUCH_KEY;
+        else
+            return INTERNAL_ERROR;
+    }
+    if(meta.ParseFromString(value)){
+        vol_cache_.put_if_not_exsit(id, meta);
+        return DRS_OK;
+    }
+    else {
         return INTERNAL_ERROR;
+    }
 }
 RESULT CephS3Meta::create_volume(const VolumeMeta& meta){
     string key = construct_volume_meta_key(meta.info().vol_id());
