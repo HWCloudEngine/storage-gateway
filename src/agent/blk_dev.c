@@ -6,6 +6,7 @@
 #include <linux/delay.h>
 #include <linux/pid.h>
 #include <linux/version.h>
+#include <linux/vmalloc.h>
 #include <asm/barrier.h>
 #include <scsi/scsi_host.h>
 #include <scsi/scsi_cmnd.h>
@@ -449,7 +450,7 @@ int blk_dev_protect(const char* dev_path, const char* vol_name)
             dev->granularity = (2 << dev->granularity_shit);
             size_t cbt_bitmap_bits = (bd_disk->part0.nr_sects << 9) >> dev->granularity_shit;
             dev->cbt_bitmap_size = BITS_TO_LONGS(cbt_bitmap_bits) * sizeof(unsigned long);
-            dev->cbt_bitmap = kzalloc(dev->cbt_bitmap_size, GFP_KERNEL);
+            dev->cbt_bitmap = vmalloc(dev->cbt_bitmap_size);
             if (!dev->cbt_bitmap) {
                 LOG_ERR("allocate cbt bitmap faild"); 
                 goto err;
@@ -532,7 +533,7 @@ err:
             kfree(dev->network);
         }
         if(dev->cbt_bitmap) {
-            kfree(dev->cbt_bitmap);
+            vfree(dev->cbt_bitmap);
         }
         if(dev->blk_path){
             kfree(dev->blk_path);    
@@ -583,7 +584,7 @@ int blk_dev_unprotect(const char* dev_path)
         kfree(dev->blk_path);    
     }
     if(dev->cbt_bitmap){
-        kfree(dev->cbt_bitmap); 
+        vfree(dev->cbt_bitmap); 
     }
     LOG_INFO("delete from mgr");
     kfree(dev);
