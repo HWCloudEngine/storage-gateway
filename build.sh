@@ -1,6 +1,7 @@
 #!/bin/sh
 USAGE="$0 [make | clean] \n option: -debug, enable debug mode"
-CUR_PATH=$(/bin/pwd)
+CUR_PATH=${CUR_PATH:-$(cd $(dirname $0);pwd)}
+
 RPC_SOURCE_PATH=${CUR_PATH}/src/rpc
 PROTO_PATH=${CUR_PATH}/src/rpc/protos
 TEST_PATH=${CUR_PATH}/src/test
@@ -71,13 +72,13 @@ chmod +x ${CUR_PATH}/configure
 if [ 2 -eq $# ] && [ x"-debug" = x$2 ]
 then
     ${CUR_PATH}/configure --prefix=${CUR_PATH} --disable-dependency-tracking \
-    CXXFLAGS='-g2 -O0 -w' CFLAGS='-g2 -O0 -w'
+    CXXFLAGS='-g2 -O0 -w -fprofile-arcs -ftest-coverage' CFLAGS='-g2 -O0 -w -fprofile-arcs -ftest-coverage'
 else
     ${CUR_PATH}/configure --prefix=${CUR_PATH} --disable-dependency-tracking
 fi
 
 make clean
-make -j 8
+make -j
 
 elif [ "$1"a = "clean"a ]
 then
@@ -99,6 +100,8 @@ find . -name Makefile | grep -v -E "agent|auto" | xargs rm -f
 find . -name Makefile.in | xargs rm -f
 find . -name .dirstamp | xargs rm -f
 find . -name .deps | xargs rm -rf
+find . -name *.gcno | xargs rm -rf
+find . -name *.gcda | xargs rm -rf
 else
 echo ${USAGE}
 fi
