@@ -3,10 +3,18 @@
 build_home=${build_home:-$(cd $(dirname $0);pwd)}
 echo "build_home:$build_home"
 proto_path=../../src/rpc/protos
+apt-get > /dev/null
+if [ 0 -eq $? ]
+then
+    get_tool="apt-get"
+else
+    get_tool="yum"
+fi
+echo "install tool: $get_tool"
 
 if [ 0 -eq $# ] || [ "$1"a = "make"a ]
 then
-    apt-get install python-pip
+    $get_tool install python-pip
     has_tool=`pip list | grep grpcio-tools`
     if [[ $has_tool != grpcio-tools* ]] ;then
         pip install grpcio-tools
@@ -48,4 +56,7 @@ then
     rm control_api/ -rf
     rm *.pyc -rf
     rm sg_control/control_api -rf
+    rm AUTHORS ChangeLog -f
+    rm build -rf
+    rm sg_control.egg-info -rf
 fi
