@@ -58,7 +58,7 @@ class ReplicateCtrl:public huawei::proto::control::ReplicateControl::Service {
         const string& snap_name);
 
  public:
-    ReplicateCtrl(std::map<string, std::shared_ptr<Volume>>& volumes);
+    explicit ReplicateCtrl(std::map<string, std::shared_ptr<Volume>>& volumes);
     ~ReplicateCtrl();
  private:
     std::unique_ptr<RepInnerCtrlClient> rep_ctrl_client_;

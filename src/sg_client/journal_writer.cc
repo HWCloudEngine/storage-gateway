@@ -26,6 +26,8 @@ JournalWriter::JournalWriter(BlockingQueue<shared_ptr<JournalEntry>>& write_queu
      written_size_since_last_update(0LLU), producer_marker_hold_flag(false) {
     LOG_INFO << "iowriter work thread create";
     cur_file_.reset();
+    running_flag = false;
+    epoll_fd = -1;
 }
 
 JournalWriter::~JournalWriter() {

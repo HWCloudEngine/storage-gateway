@@ -19,7 +19,7 @@ private:
     bool init();
     bool agent_add_device(std::string vol_name,std::string device, bool recover=false);
     bool agent_del_device(std::string device);
-    bool persist_device(std::string vol_name,std::string device);
+    bool persist_device(const std::string& vol_name, const std::string& device);
     bool delete_device(std::string device);
     bool agent_device_recover();
 

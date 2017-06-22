@@ -33,6 +33,8 @@ ClientSocket::ClientSocket(VolumeManager& vol_manager,
                       entry_queue_(entry_queue), write_queue_(write_queue),
                       read_queue_(read_queue), reply_queue_(reply_queue) {
     LOG_INFO << "network work thread create";
+    recv_buf_ = nullptr;
+    running_flag = false;
 }
 
 ClientSocket::~ClientSocket() {
@@ -40,6 +42,9 @@ ClientSocket::~ClientSocket() {
 }
 
 bool ClientSocket::init() {
+    if (recv_buf_) {
+        delete recv_buf_;
+    }
     recv_buf_ = new char[recv_buf_len_];
     if (!recv_buf_) {
         LOG_ERROR << "allocate recv buf failed";

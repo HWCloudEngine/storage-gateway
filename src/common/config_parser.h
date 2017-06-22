@@ -19,7 +19,7 @@ private:
     const char* file_;
     boost::property_tree::ptree pt_;
 public:
-    ConfigParser(const char* file);
+    explicit ConfigParser(const char* file);
     template<class Type>
         bool get_array(const char* key,std::vector<Type> &v) const;
     template<class Type>

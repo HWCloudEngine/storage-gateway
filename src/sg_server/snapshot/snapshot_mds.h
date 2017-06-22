@@ -54,6 +54,8 @@ using huawei::proto::inner::SyncAck;
 class SnapshotMds {
  public:
     SnapshotMds(const string& vol_name, const size_t& vol_size);
+    SnapshotMds(const SnapshotMds& other) = delete;
+    SnapshotMds& operator=(const SnapshotMds& other) = delete;
     virtual ~SnapshotMds();
 
     /*storage client sync snapshot status*/

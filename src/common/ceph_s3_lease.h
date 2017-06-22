@@ -27,6 +27,7 @@ public:
             int expire_window, int validity_window);
     std::string& get_lease();
     virtual bool check_lease_validity(const std::string&);
+    CephS3LeaseClient();
     virtual ~CephS3LeaseClient();
 };
 
@@ -40,6 +41,7 @@ private:
 public:
     StatusCode init(std::shared_ptr<KVApi>& kv_ptr, int gc_interval);
     virtual bool check_lease_existance(const std::string&);
+    CephS3LeaseServer();
     virtual ~CephS3LeaseServer();
 };
 

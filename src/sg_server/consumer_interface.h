@@ -20,7 +20,7 @@ class IConsumer {
 protected:
     std::string vol_;
 public:
-    IConsumer(const std::string& vol_id):
+    explicit IConsumer(const std::string& vol_id):
             vol_(vol_id){
     }
     virtual ~IConsumer(){}

@@ -23,9 +23,8 @@ static constexpr size_t kSectorSize = 512;
 static constexpr size_t kPageSize = 4096;
 
 PosixStreamAccessFile::PosixStreamAccessFile(const std::string& fname,
-                                             FILE* file) {
-    fname_ = fname;
-    file_ = file;
+                                             FILE* file) 
+    : fname_(fname),file_(file) {
     fd_ = fileno(file_);
 }
 
@@ -50,6 +49,10 @@ ssize_t PosixStreamAccessFile::read(char* buf, const size_t& len) {
 ssize_t PosixStreamAccessFile::read(char* buf, const size_t& size,
                                     const off_t& off) {
     int ret = fseek(file_, off, SEEK_SET);
+    if (ret == -1) {
+        LOG_ERROR << "fseek off:" << off << " failed";
+        return ret;
+    }
     return read(buf, size);
 }
 
@@ -77,6 +80,10 @@ ssize_t PosixStreamAccessFile::write(char* buf, size_t size) {
 
 ssize_t PosixStreamAccessFile::write(char* buf, size_t size, off_t off) {
     int ret = fseek(file_, off, SEEK_SET);
+    if (ret == -1) {
+        LOG_ERROR << "fseek off:" << off << " failed";
+        return ret;
+    }
     return write(buf, size);
 }
 
@@ -106,9 +113,8 @@ int PosixStreamAccessFile::fadvise(const off_t& off, const size_t& len,
     return posix_fadvise(fd_, off, len, advice);
 }
 
-PosixDirectAccessFile::PosixDirectAccessFile(const std::string& fname, int fd) {
-    fname_ = fname;
-    fd_ = fd;
+PosixDirectAccessFile::PosixDirectAccessFile(const std::string& fname, int fd) 
+    : fname_(fname), fd_(fd) {
 }
 
 PosixDirectAccessFile::~PosixDirectAccessFile() {

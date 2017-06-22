@@ -14,10 +14,8 @@
 
 CephBlockStore::CephBlockStore(const std::string& cluster,
                                const std::string& user,
-                               const std::string& pool) {
-    m_cluster_name = cluster;
-    m_user_name = user;
-    m_pool_name = pool;
+                               const std::string& pool) 
+    : m_cluster_name(cluster), m_user_name(user), m_pool_name(pool) {
     int ret = init();
     if (ret) {
         LOG_ERROR << "CephBlockStore init failed";
@@ -73,20 +71,20 @@ void CephBlockStore::fini() {
     rados_shutdown(m_cluster_ctx);
 }
 
-int CephBlockStore::create(std::string object) {
+int CephBlockStore::create(const std::string& object) {
     return 0;
 }
 
-int CephBlockStore::remove(std::string object) {
+int CephBlockStore::remove(const std::string& object) {
     return rados_remove(m_io_ctx, object.c_str());
 }
 
-int CephBlockStore::write(std::string object, char* buf, size_t len, off_t off) {
+int CephBlockStore::write(const std::string& object, char* buf, size_t len, off_t off) {
     /*success return 0*/
     return rados_write(m_io_ctx, object.c_str(), buf, len, off);
 }
 
-int CephBlockStore::read(std::string object, char* buf, size_t len, off_t off) {
+int CephBlockStore::read(const std::string& object, char* buf, size_t len, off_t off) {
     /*return read size if success*/
     return rados_read(m_io_ctx, object.c_str(), buf, len, off);
 }

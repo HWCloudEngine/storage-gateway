@@ -119,7 +119,7 @@ StatusCode BackupProxy::list_backup(const ListBackupReq* req,
     return ret;
 }
 
-bool BackupProxy::is_backup_exist(const std::string vol, const std::string bname) {
+bool BackupProxy::is_backup_exist(const std::string& vol, const std::string& bname) {
     std::set<std::string> backup_set;    
     StatusCode ret = m_backup_inner_rpc_client->ListBackup(vol, backup_set);
     if (ret != StatusCode::sOk) {

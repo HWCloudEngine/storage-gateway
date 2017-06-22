@@ -35,7 +35,7 @@ class WriterServiceImpl final : public Writer::Service {
 private:
     std::shared_ptr <JournalMetaManager> _meta;
 public:
-    WriterServiceImpl(std::shared_ptr<JournalMetaManager> meta);
+    explicit WriterServiceImpl(std::shared_ptr<JournalMetaManager> meta);
     Status GetWriteableJournals(ServerContext* context,
             const GetWriteableJournalsRequest* request,
             GetWriteableJournalsResponse* reply);

@@ -62,6 +62,7 @@ using huawei::proto::inner::UpdateEvent;
 SnapshotProxy::SnapshotProxy(VolumeAttr& vol_attr,
                     BlockingQueue<shared_ptr<JournalEntry>>& entry_queue)
     :m_vol_attr(vol_attr), m_entry_queue(entry_queue) {
+    m_backup_inner_rpc_client = nullptr;
     init();
     LOG_INFO << "create proxy vname:" << m_vol_attr.vol_name() << " ok";
 }

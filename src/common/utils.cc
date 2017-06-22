@@ -44,6 +44,6 @@ void save_file(const std::string& fname, const char* buf, const size_t& len) {
     outfile.close();
 }
 
-std::string rpc_address(const std::string host, const uint16_t& port) {
+std::string rpc_address(const std::string& host, const uint16_t& port) {
     return host + ":" + std::to_string(port);
 }

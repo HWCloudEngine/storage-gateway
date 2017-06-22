@@ -152,7 +152,7 @@ bool AgentControl::detach_volume(const std::string& vol_name,
     return false;
 }
 
-bool AgentControl::persist_device(std::string vol_name,std::string device)
+bool AgentControl::persist_device(const std::string& vol_name, const std::string& device)
 {
     std::ofstream f(g_option.agent_dev_conf, std::ios::app);
     if(!f.is_open())

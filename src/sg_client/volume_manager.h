@@ -32,8 +32,7 @@ class VolumeControlImpl;
 
 class VolumeManager {
  public:
-    VolumeManager(const std::string& host, const std::string& port):
-        host_(host), port_(port),running_(true){};
+    VolumeManager(const std::string& host, const std::string& port);
     virtual ~VolumeManager();
 
     VolumeManager(const VolumeManager& other) = delete;

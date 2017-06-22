@@ -21,6 +21,7 @@ JournalPreProcessor::JournalPreProcessor(BlockingQueue<shared_ptr<JournalEntry>>
     :entry_queue_(entry_queue),
      write_queue_(write_queue),
      worker_threads() {
+    running_flag = false;
     LOG_INFO << "ioprocessor work thread create";
 }
 

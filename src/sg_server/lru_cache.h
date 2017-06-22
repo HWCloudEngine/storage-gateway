@@ -35,17 +35,17 @@ public:
         max_size_(size>0?size:INT_MAX),
         get_(f){}
 
-    LruCache(pFn_get f):
+    explicit LruCache(pFn_get f):
         LruCache(0,f){}
 
     LruCache(const int& size,std::function<bool(const key_t&,value_t&)> f):
         max_size_(size>0?size:INT_MAX),
         get_(f){}
 
-    LruCache(std::function<bool(const key_t&,value_t&)> f):
+    explicit LruCache(std::function<bool(const key_t&,value_t&)> f):
         LruCache(0,f){}
 
-    LruCache(const int& size):
+    explicit LruCache(const int& size):
         LruCache(size,default_get){}
 
     LruCache():LruCache(0,default_get){}
@@ -133,7 +133,7 @@ public:
         map_.clear();
     }
 private:
-     std::mutex mtx_;
+    std::mutex mtx_;
     int max_size_;
     std::list<kv_pair_t> list_;
     std::unordered_map<key_t,list_it_t> map_;

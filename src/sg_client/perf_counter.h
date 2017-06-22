@@ -59,6 +59,8 @@ typedef perf_phase perf_phase_t;
 class PerfCounter {
  public:
      PerfCounter(); 
+     PerfCounter(const PerfCounter& other) = delete;
+     PerfCounter& operator=(const PerfCounter& other) = delete;
      ~PerfCounter();
 
  public:

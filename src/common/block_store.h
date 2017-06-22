@@ -21,10 +21,10 @@ class BlockStore {
     }
     virtual ~BlockStore() {
     }
-    virtual int create(std::string object) = 0;
-    virtual int remove(std::string object) = 0;
-    virtual int write(std::string object, char* buf, size_t len, off_t off) = 0;
-    virtual int read(std::string object, char* buf, size_t len, off_t off) = 0;
+    virtual int create(const std::string& object) = 0;
+    virtual int remove(const std::string& object) = 0;
+    virtual int write(const std::string& object, char* buf, size_t len, off_t off) = 0;
+    virtual int read(const std::string& object, char* buf, size_t len, off_t off) = 0;
 };
 
 class CephBlockStore : public BlockStore {
@@ -36,10 +36,10 @@ class CephBlockStore : public BlockStore {
     int init();
     void fini();
 
-    int create(std::string object) override;
-    int remove(std::string object) override;
-    int write(std::string object, char* buf, size_t len, off_t off) override;
-    int read(std::string object, char* buf, size_t len, off_t off) override;
+    int create(const std::string& object) override;
+    int remove(const std::string& object) override;
+    int write(const std::string& object, char* buf, size_t len, off_t off) override;
+    int read(const std::string& object, char* buf, size_t len, off_t off) override;
 
  private:
     std::string m_cluster_name;

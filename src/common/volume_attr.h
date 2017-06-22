@@ -6,26 +6,25 @@
 #include "rpc/backup.pb.h"
 #include "rpc/volume.pb.h"
 #include "locks.h"
-using namespace std;
 using huawei::proto::VolumeInfo;
 using huawei::proto::SnapType;
 using huawei::proto::BackupType;
 using huawei::proto::RepRole;
 using huawei::proto::RepStatus;
 
-class VolumeAttr
-{
-public:
+class VolumeAttr {
+
+ public:
     VolumeAttr() = default;
-    VolumeAttr(const string& vol_name, const size_t& vol_size);
-    VolumeAttr(const VolumeInfo& vol_info);
+    VolumeAttr(const std::string& vol_name, const size_t& vol_size);
+    explicit VolumeAttr(const VolumeInfo& vol_info);
     ~VolumeAttr();
 
     void update(const VolumeInfo& vol_info);
 
-    string vol_name();
+    std::string vol_name();
     size_t vol_size();
-    string blk_device();
+    std::string blk_device();
     RepRole replicate_role();
 
     /*whether create snapshot allowable*/
@@ -57,7 +56,8 @@ public:
     RepStatus replicate_status();
 
     void set_replicate_status(const RepStatus& status);
-private:
+
+ private:
     VolumeInfo m_vol_info;
     mutable SharedMutex mtx;
 };

@@ -37,7 +37,10 @@ class IDGenerator
     /*each volume index*/
     static uint32_t s_volume_idx;
 public:
-    IDGenerator(){s_volume_idx++;}
+    IDGenerator(){
+        m_journal_files_num = 0;
+        s_volume_idx++;
+    }
     ~IDGenerator(){} 
     
     void add_file(string jfile);

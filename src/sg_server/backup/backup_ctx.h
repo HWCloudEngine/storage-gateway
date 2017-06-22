@@ -22,6 +22,8 @@ class BackupCtx {
  public:
     BackupCtx() = default;
     explicit BackupCtx(const string& vol_name, const size_t& vol_size);
+    BackupCtx(const BackupCtx& other) = delete;
+    BackupCtx& operator=(const BackupCtx& other) = delete;
     ~BackupCtx();
 
     string vol_name()const;

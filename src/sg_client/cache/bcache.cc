@@ -25,16 +25,12 @@
 using google::protobuf::Message;
 using huawei::proto::WriteMessage;
 
-Bkey::Bkey(off_t off, size_t len, IoVersion seq) {
-    m_off = off;
-    m_len = len;
-    m_seq = seq;
+Bkey::Bkey(off_t off, size_t len, IoVersion seq) 
+    : m_off(off),m_len(len),m_seq(seq) {
 }
 
-Bkey::Bkey(const Bkey& other) {
-    m_off = other.m_off;
-    m_len = other.m_len;
-    m_seq = other.m_seq;
+Bkey::Bkey(const Bkey& other) 
+    : m_off(other.m_off),m_len(other.m_len),m_seq(other.m_seq) {
 }
 
 Bkey::Bkey(Bkey&& other) {

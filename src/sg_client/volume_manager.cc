@@ -23,7 +23,17 @@
 
 using huawei::proto::VolumeInfo;
 using huawei::proto::StatusCode;
-
+VolumeManager::VolumeManager(const std::string& host, const std::string& port):
+        host_(host), port_(port),running_(true)
+{
+    interval = 0;
+    journal_limit = 0;
+    epoll_fd = -1;
+    ep_events = 0;
+    max_ep_events_num = 0;
+    producer_marker_update_interval = 0;
+}
+ 
 VolumeManager::~VolumeManager()
 {
     running_ = false;
@@ -419,7 +429,7 @@ void VolumeManager::writer_thread_work(){
         if(ret > 0){
             std::map<string,JournalMarker> markers_to_update;
             for(int i=0;i<ret;i++){
-                JournalWriter* writer = (JournalWriter*)ep_events[i].data.ptr;
+                JournalWriter* writer = reinterpret_cast<JournalWriter*>(ep_events[i].data.ptr);
                 SG_ASSERT(writer!=nullptr);
                 writer->clear_producer_event();
                 

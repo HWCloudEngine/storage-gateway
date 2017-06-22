@@ -53,7 +53,7 @@ using namespace std;
 /*snapshot and other service service as northern interface for all volume*/
 class SnapshotControlImpl final: public SnapshotControl::Service { 
  public:
-    SnapshotControlImpl(map<string, shared_ptr<Volume>>& volumes);
+    explicit SnapshotControlImpl(map<string, shared_ptr<Volume>>& volumes);
     virtual ~SnapshotControlImpl();
 
     Status CreateSnapshot(ServerContext* context, const CreateSnapshotReq* req,
@@ -94,11 +94,10 @@ class SnapshotControlImpl final: public SnapshotControl::Service {
     const static int BG_DONE  = 2;
     const static int BG_ERR   = 3;
     struct BgJob {
-        BgJob(string new_vol, string new_blk, string vol, string snap) {
-            new_volume = new_vol;
-            new_blk_device = new_blk;
-            vol_name = vol;
-            snap_name = snap;
+        BgJob(const std::string& new_vol, const std::string new_blk,
+              const std::string& vol, const std::string& snap)
+            : new_volume(new_vol),new_blk_device(new_blk),vol_name(vol),snap_name(snap){
+            status = -1;
         }
         string new_volume;
         string new_blk_device;

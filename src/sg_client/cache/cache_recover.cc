@@ -25,6 +25,7 @@ void IWorker::register_producer(IWorker* worker) {
 ProcessWorker::ProcessWorker(shared_ptr<IDGenerator> id_maker,
                              shared_ptr<CacheProxy> cache_proxy)
            :m_id_generator(id_maker), m_cache_proxy(cache_proxy) {
+    m_que = nullptr;
 }
 
 void ProcessWorker::start() {

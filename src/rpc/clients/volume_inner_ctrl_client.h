@@ -34,7 +34,7 @@ using huawei::proto::StatusCode;
 using huawei::proto::sInternalError;
 class VolInnerCtrlClient{
 public:
-    VolInnerCtrlClient(std::shared_ptr<grpc::Channel> channel):
+    explicit VolInnerCtrlClient(std::shared_ptr<grpc::Channel> channel):
         stub_(huawei::proto::inner::VolumeInnerControl::NewStub(channel)){
     }
     ~VolInnerCtrlClient(){}

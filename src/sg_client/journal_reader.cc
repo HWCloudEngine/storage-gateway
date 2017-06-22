@@ -16,6 +16,7 @@ JournalReader::JournalReader(BlockingQueue<io_request_t>& read_queue,
                              BlockingQueue<io_reply_t*>& reply_queue)
     :m_read_queue(read_queue), m_reply_queue(reply_queue), m_run(false) {
     LOG_INFO << "ioreader work thread create";
+    m_run = false;
 }
 
 JournalReader::~JournalReader() {

@@ -29,7 +29,7 @@ class ReplicatorContext:public IConsumer {
         std::vector<std::shared_ptr<TransferTask>> tasks;
         int window_size;
     public:
-        TaskWindow(int size):
+        explicit TaskWindow(int size):
             window_size(size),
             last_acked_id(0L),
             last_sent_id(0L),

@@ -94,6 +94,13 @@ bool CephS3LeaseClient::check_lease_validity(const std::string& uuid) {
     }
 }
 
+CephS3LeaseClient::CephS3LeaseClient() {
+    lease_expire_time_ = 0;
+    expire_window_ = 0;
+    renew_window_ = 0;
+    validity_window_ = 0;
+}
+
 CephS3LeaseClient::~CephS3LeaseClient() {
     if (renew_thread_ptr_.get()) {
         renew_thread_ptr_->interrupt();
@@ -144,7 +151,6 @@ void CephS3LeaseServer::gc_task() {
 }
 
 bool CephS3LeaseServer::check_lease_existance(const std::string& uuid) {
-    std::string value;
     std::map<std::string, std::string> metadata;
     std::string object_key = prefix_ + uuid;
     StatusCode result = kv_ptr_->head_object(object_key.c_str(), &metadata);
@@ -171,6 +177,10 @@ bool CephS3LeaseServer::check_lease_existance(const std::string& uuid) {
             return true;
         }
     }
+}
+
+CephS3LeaseServer::CephS3LeaseServer() {
+    gc_interval_ = 0;
 }
 
 CephS3LeaseServer::~CephS3LeaseServer() {

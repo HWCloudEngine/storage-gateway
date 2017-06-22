@@ -31,7 +31,7 @@ class ConsumerServiceImpl final : public Consumer::Service {
 private:
     std::shared_ptr<JournalMetaManager> _meta;
 public:
-    ConsumerServiceImpl(std::shared_ptr<JournalMetaManager> meta);
+    explicit ConsumerServiceImpl(std::shared_ptr<JournalMetaManager> meta);
     // rpc APIs, consumers could call the APIs remotely
     Status GetJournalMarker(ServerContext* context,
             const GetJournalMarkerRequest* request,

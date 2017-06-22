@@ -1,0 +1,17 @@
+syntaxError
+unusedFunction
+clarifyCalculation
+missingIncludeSystem
+toomanyconfigs
+unreadVariable
+unusedFunction
+assertWithSideEffect
+variableScope
+duplicateExpressionTernary
+duplicateBreak
+ConfigurationNotChecked
+knownConditionTrueFalse
+useInitializationList
+passedByValue
+variableScope
+redundantAssignment

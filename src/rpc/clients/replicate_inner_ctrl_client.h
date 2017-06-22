@@ -35,7 +35,7 @@ using huawei::proto::StatusCode;
 using huawei::proto::sInternalError;
 class RepInnerCtrlClient{
 public:
-    RepInnerCtrlClient(std::shared_ptr<grpc::Channel> channel):
+    explicit RepInnerCtrlClient(std::shared_ptr<grpc::Channel> channel):
         stub_(huawei::proto::inner::ReplicateInnerControl::NewStub(channel)){
     }
     ~RepInnerCtrlClient(){};

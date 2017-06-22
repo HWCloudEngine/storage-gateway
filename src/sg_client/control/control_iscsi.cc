@@ -250,7 +250,6 @@ bool ISCSIControl::initialize_connection(const std::string& vol_name,
                                          const std::string& device,
                                          std::map<std::string, std::string>& connection_info)
 {
-    bool result;
     std::string error_msg;
     std::string iqn_name;
     LOG_INFO << "initialize connection vol:" << vol_name;

@@ -53,10 +53,9 @@ bool cbt_check(struct pbdev* dev, sector_t start, sector_t nr_sects)
 
 void hook_make_request_fn(struct request_queue* q, struct bio* bio)
 {
-    struct pbdev* dev = NULL;
     int pass = 0;
     pid_t cur_tgid = current->tgid;
-    dev = pbdev_mgr_get_by_queue(&g_dev_mgr, q);
+    struct pbdev* dev = pbdev_mgr_get_by_queue(&g_dev_mgr, q);
     if(dev == NULL){
         LOG_ERR("get dev by queue failed");
         return;
@@ -241,7 +240,7 @@ static int net_send_bvec(struct pbdev* dev, struct bio_vec* bvec)
 {
     int ret;
     void* kaddr = kmap(bvec->bv_page);
-    ret = tp_send(dev->network, kaddr + bvec->bv_offset, bvec->bv_len);
+    ret = tp_send(dev->network, (const char*)kaddr + bvec->bv_offset, bvec->bv_len);
     kunmap(kaddr);
     return ret;
 }
@@ -287,8 +286,8 @@ static int net_send_bio(struct pbdev* dev, struct bio* bio)
         }
 #else
         {
-            struct bio_vec bv;
-            struct bvec_iter iter;
+            struct bio_vec bv = {NULL, 0, 0};
+            struct bvec_iter iter = {0};
             bio_for_each_segment(bv, bio, iter){
                 ret = net_send_bvec(dev, &bv);
                 if(ret){
@@ -309,7 +308,7 @@ static int net_recv_bvec(struct pbdev* dev, struct bio_vec* bvec)
 {
     int ret;
     void* kaddr = kmap(bvec->bv_page);
-    ret = tp_recv(dev->network, kaddr + bvec->bv_offset, bvec->bv_len);
+    ret = tp_recv(dev->network, (const char*)kaddr + bvec->bv_offset, bvec->bv_len);
     kunmap(bvec->bv_page);
     return ret;
 }

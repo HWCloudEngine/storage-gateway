@@ -34,6 +34,8 @@ using huawei::proto::RepRole;
 
 JournalReplayer::JournalReplayer(VolumeAttr& vol_attr) :vol_attr_(vol_attr) {
     LOG_INFO << "ioreplayer work thread create";
+    running_ = false;
+    update_ = false;
 }
 
 JournalReplayer::~JournalReplayer() {

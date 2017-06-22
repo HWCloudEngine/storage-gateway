@@ -59,7 +59,9 @@ public:
 class RocksDbIndexStore : public IndexStore
 {
 public:
-    RocksDbIndexStore(string db_path):m_db_path(db_path){}
+    explicit RocksDbIndexStore(const string& db_path):m_db_path(db_path){
+        m_db = nullptr;
+    }
 
     ~RocksDbIndexStore(){
         db_close();
@@ -75,7 +77,7 @@ public:
     class IteratorImpl : public IndexStore::SimpleIterator
     {
     public:
-        IteratorImpl(rocksdb::Iterator* db_iter):m_db_iter(db_iter){
+        explicit IteratorImpl(rocksdb::Iterator* db_iter):m_db_iter(db_iter){
         }
 
         ~IteratorImpl(){

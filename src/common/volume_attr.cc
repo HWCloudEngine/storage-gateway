@@ -4,7 +4,7 @@ using huawei::proto::RepStatus;
 using huawei::proto::RepRole;
 using huawei::proto::VolumeStatus;
 
-VolumeAttr::VolumeAttr(const string& vol_name, const size_t& vol_size)
+VolumeAttr::VolumeAttr(const std::string& vol_name, const size_t& vol_size)
 {
     m_vol_info.set_vol_id(vol_name);
     m_vol_info.set_size(vol_size);
@@ -30,7 +30,7 @@ void VolumeAttr::update(const VolumeInfo& vol_info)
     m_vol_info.CopyFrom(vol_info);
 }
 
-string VolumeAttr::vol_name()
+std::string VolumeAttr::vol_name()
 {
     ReadLock lck(mtx);
     return m_vol_info.vol_id();
@@ -42,7 +42,7 @@ size_t VolumeAttr::vol_size()
     return m_vol_info.size();
 }
 
-string VolumeAttr::blk_device()
+std::string VolumeAttr::blk_device()
 {
     ReadLock lck(mtx);
     return m_vol_info.path();

@@ -98,7 +98,7 @@ private:
             JournalMarker& marker);
     bool _get_volume_meta(const string& key,VolumeMeta& info);
 public:
-    CephS3Meta(std::shared_ptr<KVApi> kvApi_ptr);
+    explicit CephS3Meta(std::shared_ptr<KVApi> kvApi_ptr);
     ~CephS3Meta();
 
     // wait for any volume's replicator producer marker changed, or timeout(milliseconds)
