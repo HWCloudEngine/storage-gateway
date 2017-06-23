@@ -15,7 +15,7 @@
 #include <sys/stat.h>
 #include <assert.h>
 #include "common/config_option.h"
-#include "snapshot_util.h"
+#include "snapshot_type.h"
 #include "snapshot_mds.h"
 
 using huawei::proto::DiffBlocks;
@@ -23,20 +23,14 @@ using huawei::proto::inner::UpdateEvent;
 using huawei::proto::inner::ReadBlock;
 using huawei::proto::inner::RollBlock;
 
-SnapshotMds::SnapshotMds(const string& vol_name, const size_t& vol_size) {
-    m_volume_name = vol_name;
-    m_volume_size = vol_size;
+SnapshotMds::SnapshotMds(const std::string& vol_name, const size_t& vol_size)
+    : m_volume_name(vol_name),m_volume_size(vol_size) {
     m_latest_snapid = 0;
-    m_snapshots.clear();
-    m_cow_block_map.clear();
-    m_cow_object_map.clear();
-
     m_block_store = new CephBlockStore(g_option.ceph_cluster_name,
                                        g_option.ceph_user_name,
                                        g_option.ceph_pool_name);
-
-    /*todo: read from configure file*/
-    string db_path = DB_DIR + vol_name + "/snapshot";
+    assert(m_block_store != nullptr);
+    std::string db_path = DB_DIR + vol_name + "/snapshot";
     if (access(db_path.c_str(), F_OK)) {
         char cmd[256] = "";
         snprintf(cmd, sizeof(cmd), "mkdir -p %s", db_path.c_str());
@@ -44,6 +38,7 @@ SnapshotMds::SnapshotMds(const string& vol_name, const size_t& vol_size) {
         assert(ret != -1);
     }
     m_index_store = IndexStore::create("rocksdb", db_path);
+    assert(m_index_store != nullptr);
     m_index_store->db_open();
 }
 
@@ -54,90 +49,135 @@ SnapshotMds::~SnapshotMds() {
     if (m_block_store) {
         delete m_block_store;
     }
-    m_cow_object_map.clear();
-    m_cow_block_map.clear();
-    m_snapshots.clear();
 }
 
-snapid_t SnapshotMds::spawn_snapshot_id() {
-    lock_guard<std::mutex> lock(m_mutex);
-    /*todo: how to maintain and recycle snapshot id*/
-    snapid_t snap_id = m_latest_snapid;
-    m_latest_snapid++;
-    return snap_id;
+snap_id_t SnapshotMds::get_prev_snap_id(const snap_id_t current) {
+    snap_t cur_snap;
+    cur_snap.snap_id = current;
+    IndexStore::IndexIterator it = m_index_store->db_iterator();
+    it->seek_to_first(cur_snap.key());
+    it->prev();
+    if (!it->valid()) {
+        LOG_ERROR << "current:" << current << " no prev snapshot";
+        return -1;
+    }
+    if (-1 == it->key().find(snap_prefix)) {
+        LOG_ERROR << "current:" << current << " no prev snapshot";
+        return -1;
+    }
+    snap_t prev_snap;
+    prev_snap.decode(it->value());
+    LOG_INFO << "current:" << current << " prev:" << prev_snap.snap_id;
+    return prev_snap.snap_id;
 }
 
-snapid_t SnapshotMds::get_snapshot_id(string snap_name) {
-    auto it = m_snapshots.find(snap_name);
-    if (it != m_snapshots.end()) {
-        return it->second.snap_id;
+snap_id_t SnapshotMds::get_next_snap_id(const snap_id_t current) {
+    snap_t cur_snap;
+    cur_snap.snap_id = current;
+    IndexStore::IndexIterator it = m_index_store->db_iterator();
+    it->seek_to_first(cur_snap.key());
+    it->next();
+    if (!it->valid()) {
+        LOG_ERROR << "current:" << current << " no next snapshot";
+        return -1;
+    }
+    if (-1 == it->key().find(snap_prefix)) {
+        LOG_ERROR << "current:" << current << " no next snapshot";
+        return -1;
+    }
+    snap_t next_snap;
+    next_snap.decode(it->value());
+    LOG_INFO << "current:" << current << " next:" << next_snap.snap_id;
+    return next_snap.snap_id;
+}
+
+snap_id_t SnapshotMds::get_snap_id(const std::string& snap_name) {
+    IndexStore::IndexIterator it = m_index_store->db_iterator();
+    it->seek_to_first(snap_prefix);
+    for (; it->valid() && (-1 != it->key().find(snap_prefix)); it->next()) {
+        if (-1 != it->value().find(snap_name)) {
+            snap_t cur_snap;
+            cur_snap.decode(it->value());
+            return cur_snap.snap_id;
+        }
     }
     return -1;
 }
 
-string SnapshotMds::get_snapshot_name(snapid_t snap_id) {
-    for (auto it : m_snapshots) {
-        if (it.second.snap_id == snap_id) {
-            return it.first;
-        }
-    }
-    return "";
+std::string SnapshotMds::get_snap_name(snap_id_t snap_id) {
+    snap_t cur_snap;
+    cur_snap.snap_id = snap_id;
+    std::string val = m_index_store->db_get(cur_snap.key());
+    cur_snap.decode(val);
+    return cur_snap.snap_name;
 }
 
-string SnapshotMds::get_latest_snap_name() {
-    auto rit = m_cow_block_map.rbegin();
-    if (rit == m_cow_block_map.rend()) {
+std::string SnapshotMds::get_latest_snap_name() {
+    IndexStore::IndexIterator it = m_index_store->db_iterator();
+    it->seek_to_last(snap_prefix);
+    if (!it->valid()) {
+        LOG_ERROR << "seek to last failed prefix:" << snap_prefix;
         return "";
     }
-    snapid_t snap_id = rit->first;
-    if (snap_id == -1) {
-        return "";
+    snap_t cur_snap;
+    cur_snap.decode(it->value());
+    LOG_INFO << " latest snap name:" << cur_snap.snap_name;
+    return cur_snap.snap_name;
+}
+
+snap_id_t SnapshotMds::get_latest_snap_id() {
+    IndexStore::IndexIterator it = m_index_store->db_iterator();
+    it->seek_to_last(snap_prefix);
+    if (!it->valid()) {
+        LOG_ERROR << "seek to last failed prefix:" << snap_prefix;
+        return -1;
     }
-    string snap_name = get_snapshot_name(snap_id);
-    return snap_name;
+    snap_t cur_snap;
+    cur_snap.decode(it->value());
+    LOG_INFO << " latest snap id:" << cur_snap.snap_id;
+    return cur_snap.snap_id;
 }
 
 StatusCode SnapshotMds::sync(const SyncReq* req, SyncAck* ack) {
-    string vol_name = req->vol_name();
+    std::string vol_name = req->vol_name();
     LOG_INFO << "sync" << " vname:" << vol_name;
-    lock_guard<std::mutex> lock(m_mutex);
-    string latest_snap_name = get_latest_snap_name();
+    std::string latest_snap_name = get_latest_snap_name();
     ack->set_latest_snap_name(latest_snap_name);
     ack->mutable_header()->set_status(StatusCode::sOk);
     LOG_INFO << "sync" << " vname:" << vol_name << " ok";
     return StatusCode::sOk;
 }
 
-StatusCode SnapshotMds::create_snapshot(const CreateReq* req, CreateAck* ack) {
-    string vol_name = req->vol_name();
-    string snap_name = req->snap_name();
-    LOG_INFO << "create snapshot vname:" << vol_name << " sname:" << snap_name;
+bool SnapshotMds::check_snap_exist(const std::string& snap_name) {
+    IndexStore::IndexIterator it = m_index_store->db_iterator();
+    it->seek_to_first(snap_prefix);
+    for (; it->valid()&&(-1 != it->key().find(snap_prefix)); it->next()) {
+        if (-1 != it->value().find(snap_name)) {
+            return true;
+        }
+    }
+    return false;
+}
 
-    lock_guard<std::mutex> lock(m_mutex);
-    auto it = m_snapshots.find(snap_name);
-    if (it != m_snapshots.end()) {
+StatusCode SnapshotMds::create_snapshot(const CreateReq* req, CreateAck* ack) {
+    std::string vol_name = req->vol_name();
+    std::string snap_name = req->snap_name();
+    LOG_INFO << "create snapshot vname:" << vol_name << " sname:" << snap_name;
+    if (check_snap_exist(snap_name)) {
         ack->mutable_header()->set_status(StatusCode::sSnapAlreadyExist);
         LOG_INFO << "create snapshot vname:" << vol_name <<" sname:"
                  << snap_name <<" failed already exist";
         return StatusCode::sOk;
     }
-
-    snap_attr_t cur_snap_attr;
-    cur_snap_attr.replication_uuid = req->header().replication_uuid();
-    cur_snap_attr.checkpoint_uuid  = req->header().checkpoint_uuid();
-    cur_snap_attr.volume_uuid = vol_name;
-    cur_snap_attr.snap_type = (SnapType)req->header().snap_type();
-    cur_snap_attr.snap_name = snap_name;
-    cur_snap_attr.snap_status = SnapStatus::SNAP_CREATING;
-
-    /*in db update snapshot status*/
-    string pkey = DbUtil::spawn_attr_map_key(snap_name);
-    string pval = DbUtil::spawn_attr_map_val(cur_snap_attr);
-    m_index_store->db_put(pkey, pval);
-
-    /*in memroy update snapshot status*/
-    m_snapshots.insert({snap_name, cur_snap_attr});
-
+    snap_t cur_snap;
+    cur_snap.vol_id = vol_name;
+    cur_snap.rep_id = req->header().replication_uuid();
+    cur_snap.ckp_id = req->header().checkpoint_uuid();
+    cur_snap.snap_name = snap_name;
+    cur_snap.snap_id = m_latest_snapid++; 
+    cur_snap.snap_type = (SnapType)req->header().snap_type();
+    cur_snap.snap_status = SnapStatus::SNAP_CREATING;
+    m_index_store->db_put(cur_snap.key(), cur_snap.encode());
     ack->mutable_header()->set_status(StatusCode::sOk);
     LOG_INFO << "create snapshot vname:" << vol_name
              << " sname:" << snap_name <<" ok";
@@ -145,11 +185,14 @@ StatusCode SnapshotMds::create_snapshot(const CreateReq* req, CreateAck* ack) {
 }
 
 StatusCode SnapshotMds::list_snapshot(const ListReq* req, ListAck* ack) {
-    string vol_name = req->vol_name();
+    std::string vol_name = req->vol_name();
     LOG_INFO << "list snapshot vname:" << vol_name;
-    lock_guard<std::mutex> lock(m_mutex);
-    for (auto it : m_snapshots) {
-        ack->add_snap_name(it.first);
+    IndexStore::IndexIterator it = m_index_store->db_iterator();
+    it->seek_to_first(snap_prefix);
+    for (; it->valid()&&(-1 != it->key().find(snap_prefix)); it->next()) {
+        snap_t cur_snap;
+        cur_snap.decode(it->value());
+        ack->add_snap_name(cur_snap.snap_name);
     }
     ack->mutable_header()->set_status(StatusCode::sOk);
     LOG_INFO << "list snapshot vname:" << vol_name << " ok";
@@ -157,21 +200,20 @@ StatusCode SnapshotMds::list_snapshot(const ListReq* req, ListAck* ack) {
 }
 
 StatusCode SnapshotMds::query_snapshot(const QueryReq* req, QueryAck* ack) {
-    string vol_name = req->vol_name();
-    string snap_name = req->snap_name();
-    LOG_INFO << "query snapshot vname:" << vol_name << " snap:" << snap_name;
-
-    lock_guard<std::mutex> lock(m_mutex);
+    std::string vol_name = req->vol_name();
+    std::string snap_name = req->snap_name();
     StatusCode ret = StatusCode::sOk;
-    do {
-        auto it = m_snapshots.find(snap_name);
-        if (it == m_snapshots.end()) {
-            ack->set_snap_status(SnapStatus::SNAP_DELETED);
-            break;
+    LOG_INFO << "query snapshot vname:" << vol_name << " snap:" << snap_name;
+    ack->set_snap_status(SnapStatus::SNAP_DELETED);
+    IndexStore::IndexIterator it = m_index_store->db_iterator();
+    it->seek_to_first(snap_prefix);
+    for (; it->valid()&&(-1 != it->key().find(snap_prefix)); it->next()) {
+        snap_t cur_snap;
+        cur_snap.decode(it->value());
+        if (cur_snap.snap_name.compare(snap_name) == 0) {
+            ack->set_snap_status(cur_snap.snap_status);
         }
-        ack->set_snap_status(it->second.snap_status);
-    }while(0);
-
+    }
     ack->mutable_header()->set_status(ret);
     LOG_INFO << "query snapshot vname:" << vol_name << " snap:" << snap_name
              << " snap_status:" << ack->snap_status() << " ok";
@@ -179,256 +221,186 @@ StatusCode SnapshotMds::query_snapshot(const QueryReq* req, QueryAck* ack) {
 }
 
 StatusCode SnapshotMds::delete_snapshot(const DeleteReq* req, DeleteAck* ack) {
-    string vol_name = req->vol_name();
-    string snap_name = req->snap_name();
+    std::string vol_name = req->vol_name();
+    std::string snap_name = req->snap_name();
     LOG_INFO << "delete snapshot vname:" << vol_name << " sname:" << snap_name;
-
-    lock_guard<std::mutex> lock(m_mutex);
-    auto it = m_snapshots.find(snap_name);
-    if (it == m_snapshots.end()) {
+    if (!check_snap_exist(snap_name)) {
         ack->mutable_header()->set_status(StatusCode::sSnapNotExist);
         LOG_INFO << "delete snapshot vname:" << vol_name
                  << " sname:" << snap_name << " failed no exist";
         return StatusCode::sOk;
     }
-    SnapStatus cur_snap_status = SnapStatus::SNAP_DELETING;
-    /*in memroy update snapshot status*/
-    it->second.snap_status = cur_snap_status;
-
-    /*in db update snapshot status*/
-    string pkey = DbUtil::spawn_attr_map_key(snap_name);
-    string pval = DbUtil::spawn_attr_map_val(it->second);
-    m_index_store->db_put(pkey, pval);
-
+    IndexStore::IndexIterator it = m_index_store->db_iterator();
+    it->seek_to_first(snap_prefix);
+    for (; it->valid()&&(-1 != it->key().find(snap_prefix)); it->next()) {
+        snap_t cur_snap;
+        cur_snap.decode(it->value());
+        if (cur_snap.snap_name.compare(snap_name) == 0) {
+            cur_snap.snap_status = SnapStatus::SNAP_DELETING;
+            m_index_store->db_put(cur_snap.key(), cur_snap.encode());
+        }
+    }
     ack->mutable_header()->set_status(StatusCode::sOk);
     LOG_INFO << "delete snapshot vname:" << vol_name
              << " sname:" << snap_name << " ok";
     return StatusCode::sOk;
 }
 
-StatusCode SnapshotMds::rollback_snapshot(const RollbackReq* req,
-                                          RollbackAck* ack) {
-    string vol_name = req->vol_name();
-    string snap_name = req->snap_name();
-    LOG_INFO << "rollback snapshot vname:" << vol_name
-             << " snap_name:" << snap_name;
-
-    lock_guard<std::mutex> lock(m_mutex);
-    string cur_snap_name = mapping_snap_name(req->header(), snap_name);
+StatusCode SnapshotMds::rollback_snapshot(const RollbackReq* req, RollbackAck* ack) {
+    std::string vol_name = req->vol_name();
+    std::string snap_name = req->snap_name();
+    LOG_INFO << "rollback snapshot vname:" << vol_name << " sname:" << snap_name;
+    std::string cur_snap_name = mapping_snap_name(req->header(), snap_name);
     if (cur_snap_name.empty()) {
         ack->mutable_header()->set_status(StatusCode::sSnapNotExist);
         LOG_INFO << "rollback snapshot vname:" << vol_name
                  << " snap_name:" << snap_name << "not exist";
         return StatusCode::sOk;
     }
-
-    auto it = m_snapshots.find(cur_snap_name);
-    if (it == m_snapshots.end()) {
+    if (!check_snap_exist(cur_snap_name)) {
         ack->mutable_header()->set_status(StatusCode::sSnapNotExist);
         LOG_INFO << "rollback snapshot vname:" << vol_name
-                 << " snap_name:" << snap_name << "not exist";
+                 << " sname:" << snap_name << "not exist";
         return StatusCode::sOk;
     }
-
-    snapid_t snap_id = it->second.snap_id;
-    auto snap_it = m_cow_block_map.find(snap_id);
-    if (snap_it == m_cow_block_map.end()) {
-        ack->mutable_header()->set_status(StatusCode::sSnapNotExist);
-        LOG_INFO << "rollback snapshot vname:" << vol_name
-                 << " snap_id:" << snap_id << " not exist";
-        return StatusCode::sOk;
-    }
-
-    map<block_t, cow_object_t>& block_map = snap_it->second;
-    for (auto blk_it : block_map) {
+    snap_id_t cur_snap_id = get_snap_id(cur_snap_name);
+    cow_block_t cur_pivot_block;
+    cur_pivot_block.snap_id = cur_snap_id;
+    IndexStore::IndexIterator it = m_index_store->db_iterator();
+    it->seek_to_first(cur_pivot_block.prefix());
+    for (; it->valid() && (-1 != it->key().find(cur_pivot_block.prefix())); it->next()) {
+        cow_block_t cur_block;
+        cur_block.decode(it->value());
         RollBlock* roll_blk = ack->add_roll_blocks();
-        roll_blk->set_blk_no(blk_it.first);
-        roll_blk->set_blk_object(blk_it.second);
+        roll_blk->set_blk_no(cur_block.block_id);
+        roll_blk->set_blk_object(cur_block.block_url);
     }
-
     ack->mutable_header()->set_status(StatusCode::sOk);
     LOG_INFO << "rollback snapshot vname:" << vol_name
              << " snap_name:" << snap_name << " ok";
     return StatusCode::sOk;
 }
 
-StatusCode SnapshotMds::create_event_update_status(string snap_name) {
-    auto it = m_snapshots.find(snap_name);
-    if (it == m_snapshots.end()) {
+StatusCode SnapshotMds::create_event_update_status(const std::string& snap_name) {
+    if (!check_snap_exist(snap_name)) {
+        LOG_ERROR << "snap:" << snap_name << "no exist";
         return StatusCode::sSnapNotExist;
     }
-
-    if (it->second.snap_status != SnapStatus::SNAP_CREATING) {
-        return StatusCode::sSnapAlreadyExist;
+    IndexStore::IndexIterator it = m_index_store->db_iterator();
+    it->seek_to_first(snap_prefix);
+    for (; it->valid() && (-1 != it->key().find(snap_prefix)); it->next()) {
+        snap_t current;
+        current.decode(it->value());
+        if (current.snap_name.compare(snap_name) == 0) {
+            if (current.snap_status != SnapStatus::SNAP_CREATING) {
+                LOG_ERROR << "snap:" << snap_name << "no in creating";
+                return StatusCode::sSnapAlreadyExist;
+            }
+            current.snap_status = SnapStatus::SNAP_CREATED; 
+            m_index_store->db_put(current.key(), current.encode());
+            break;
+        }
     }
-    /*generate snapshot id*/
-    snapid_t snap_id = spawn_snapshot_id();
-
-    IndexStore::Transaction transaction = m_index_store->fetch_transaction();
-    string pkey = DbUtil::spawn_latest_id_key();
-    string pval = to_string(snap_id+1);
-    transaction->put(pkey, pval);
-    pkey = DbUtil::spawn_latest_name_key();
-    pval = snap_name;
-    transaction->put(pkey, pval);
-    pkey = DbUtil::spawn_attr_map_key(snap_name);
-    snap_attr_t snap_attr = it->second;
-    snap_attr.snap_id = snap_id;
-    snap_attr.snap_status = SnapStatus::SNAP_CREATED;
-    pval = DbUtil::spawn_attr_map_val(snap_attr);
-    transaction->put(pkey, pval);
-    int ret = m_index_store->submit_transaction(transaction);
-    if (ret) {
-        return StatusCode::sSnapMetaPersistError;
-    }
-
-    /*update snapshot attr*/
-    it->second.snap_id = snap_id;
-    it->second.snap_status = SnapStatus::SNAP_CREATED;
-
-    /*prepare cow block map*/
-    map<block_t, cow_object_t> block_map;
-    m_cow_block_map.insert({snap_id, block_map});
-    LOG_INFO << "update sname:" << snap_name << " create event ok";
     return StatusCode::sOk;
 }
 
-StatusCode SnapshotMds::delete_event_update_status(string snap_name) {
-    lock_guard<std::mutex> lock(m_mutex);
-    auto it = m_snapshots.find(snap_name);
-    if (it == m_snapshots.end()) {
+StatusCode SnapshotMds::delete_event_update_status(const std::string& snap_name) {
+    if (!check_snap_exist(snap_name)) {
+        LOG_ERROR << "snap:" << snap_name << "no exist";
         return StatusCode::sSnapNotExist;
     }
-
-    /*all snapshot status support delete*/
-    if (it->second.snap_status == SnapStatus::SNAP_CREATING) {
-        m_snapshots.erase(snap_name);
-        string pkey = DbUtil::spawn_attr_map_key(snap_name);
-        m_index_store->db_del(pkey);
-        return StatusCode::sOk;
-    }
-
-    if (it->second.snap_status == SnapStatus::SNAP_DELETED) {
-        return StatusCode::sOk;
-    }
-
-    snapid_t snap_id = it->second.snap_id;
-    auto snap_it = m_cow_block_map.find(snap_id);
-    if (snap_it == m_cow_block_map.end()) {
-        return StatusCode::sSnapNotExist;
-    }
-
-    map<block_t, cow_object_t>& block_map = snap_it->second;
-    /*-----transction begin-----*/
     IndexStore::Transaction transaction = m_index_store->fetch_transaction();
-    string pkey;
-    string pval;
-    /*delete cow block in the snapshot*/
-    for (auto blk_it : block_map) {
-        /*in db delete cow block key*/
-        pkey = DbUtil::spawn_cow_block_map_key(snap_id, blk_it.first);
-        transaction->del(pkey);
-
-        cow_object_t cow_obj = blk_it.second;
-
-        /*in db read modify write cow object reference*/
-        pkey = DbUtil::spawn_cow_object_map_key(cow_obj);
-        pval = m_index_store->db_get(pkey);
-        cow_object_ref_t obj_ref;
-        DbUtil::split_cow_object_map_val(pval, obj_ref);
-        obj_ref.erase(snap_id);
-        pval = DbUtil::spawn_cow_object_map_val(obj_ref);
-        transaction->put(pkey, pval);
-        if (obj_ref.empty()) {
-            transaction->del(pkey);
+    IndexStore::IndexIterator it = m_index_store->db_iterator();
+    snap_id_t snap_id = get_snap_id(snap_name);
+    assert(snap_id != -1);
+    snap_t current;
+    current.snap_id = snap_id;
+    transaction->del(current.key());
+    /*locate current snapshot cow blocks*/
+    cow_block_t cow_block;
+    cow_block.snap_id = snap_id;
+    it->seek_to_first(cow_block.prefix());
+    for (; it->valid() && (-1 != it->key().find(cow_block.prefix())); it->next()) {
+        /*maintain cow block ref */
+        cow_block_t cur_block;
+        cur_block.decode(it->value());
+        cow_block_ref_t cur_block_ref;
+        cur_block_ref.block_url = cur_block.block_url;
+        std::string cur_block_ref_val = m_index_store->db_get(cur_block_ref.key());
+        cur_block_ref.decode(cur_block_ref_val);
+        cur_block_ref.block_url_refs.erase(snap_id);
+        if (cur_block_ref.block_url_refs.empty()) {
+            transaction->del(cur_block_ref.key()); 
+            m_block_store->remove(cur_block_ref.block_url);
+        } else {
+            transaction->put(cur_block_ref.key(), cur_block_ref.encode()); 
         }
+        transaction->del(it->key()); 
     }
-    pkey = DbUtil::spawn_attr_map_key(snap_name);
-    transaction->del(pkey);
     int ret = m_index_store->submit_transaction(transaction);
     if (ret) {
+        LOG_ERROR << "snap:" << snap_name << " submit transaction failed";
         return StatusCode::sSnapMetaPersistError;
     }
-    /*-----transction end-----*/
-
-    for (auto blk_it : block_map) {
-        cow_object_t cow_obj = blk_it.second;
-
-        /*in memory update cow object reference*/
-        cow_object_ref_t& cow_obj_ref = m_cow_object_map[cow_obj];
-        cow_obj_ref.erase(snap_id);
-
-        if (cow_obj_ref.empty()) {
-            /*in mem delete cow object key*/
-            m_cow_object_map.erase(cow_obj);
-            /*block store reclaim the cow object*/
-            m_block_store->remove(cow_obj);
-        }
-    }
-    block_map.clear();
-
-    m_cow_block_map.erase(snap_id);
-
-    m_snapshots.erase(snap_name);
-    pkey = DbUtil::spawn_attr_map_key(snap_name);
-    m_index_store->db_del(pkey);
-
     trace();
-
     LOG_INFO << "update sname:" << snap_name << " delete event ok";
     return StatusCode::sOk;
 }
 
-StatusCode SnapshotMds::rollbacking_event_update_status(string snap_name) {
-    auto it = m_snapshots.find(snap_name);
-    if (it == m_snapshots.end()) {
-        LOG_ERROR << "snap:" << snap_name << " not found";
+StatusCode SnapshotMds::rollback_event_update_status(const std::string& snap_name) {
+    if (!check_snap_exist(snap_name)) {
+        LOG_ERROR << "snap:" << snap_name << "no exist";
         return StatusCode::sSnapNotExist;
     }
-    it->second.snap_status = SnapStatus::SNAP_ROLLBACKING;
-    string pkey = DbUtil::spawn_attr_map_key(snap_name);
-    string pval = DbUtil::spawn_attr_map_val(it->second);
-    m_index_store->db_put(pkey, pval);
+    IndexStore::IndexIterator it = m_index_store->db_iterator();
+    it->seek_to_first(snap_prefix);
+    for (; it->valid() && (-1 != it->key().find(snap_prefix)); it->next()) {
+        snap_t current;
+        current.decode(it->value());
+        if (current.snap_name.compare(snap_name) == 0) {
+            current.snap_status = SnapStatus::SNAP_ROLLBACKING; 
+            m_index_store->db_put(current.key(), current.encode());
+            break;
+        }
+    }
     return StatusCode::sOk;
 }
 
-string SnapshotMds::mapping_snap_name(const SnapReqHead& shead,
-                                      const string& sname) {
-    if (shead.replication_uuid().empty() &&
-        shead.checkpoint_uuid().empty() &&
+std::string SnapshotMds::mapping_snap_name(const SnapReqHead& shead,
+                                           const std::string& sname) {
+    if (shead.replication_uuid().empty() && shead.checkpoint_uuid().empty() &&
         shead.snap_type() == SnapType::SNAP_LOCAL) {
         /*local snapshot */
         return sname;
     }
-
     /*remote snapshot, only check checkpoint_uuid same*/
-    const string& checkpoint = shead.checkpoint_uuid();
-    for (auto it : m_snapshots) {
-        if (it.second.checkpoint_uuid.compare(checkpoint) == 0) {
-            return it.second.snap_name;
+    const std::string& checkpoint = shead.checkpoint_uuid();
+    IndexStore::IndexIterator it = m_index_store->db_iterator();
+    it->seek_to_first(snap_prefix);
+    for (; it->valid() && (-1 != it->key().find(snap_prefix)); it->next()) {
+        snap_t current;
+        current.decode(it->value());
+        if (current.ckp_id.compare(checkpoint) == 0) {
+            return current.snap_name;
         }
     }
-
-    return string();
+    return "";
 }
 
 StatusCode SnapshotMds::update(const UpdateReq* req, UpdateAck* ack) {
-    string vol_name = req->vol_name();
-    string snap_name = req->snap_name();
+    std::string vol_name = req->vol_name();
+    std::string snap_name = req->snap_name();
     UpdateEvent snap_event = req->snap_event();
-
     LOG_INFO << "update vname:" << vol_name << " sname:" << snap_name
              << " event:" << snap_event;
     StatusCode ret = StatusCode::sOk;
-    string cur_snap_name = mapping_snap_name(req->header(), snap_name);
-
+    std::string cur_snap_name = mapping_snap_name(req->header(), snap_name);
     do {
         if (cur_snap_name.empty()) {
             ret = StatusCode::sSnapNotExist;
             break;
         }
-        auto it = m_snapshots.find(cur_snap_name);
-        if (it == m_snapshots.end()) {
+        if (!check_snap_exist(cur_snap_name)) {
             ret = StatusCode::sSnapNotExist;
             break;
         }
@@ -440,9 +412,8 @@ StatusCode SnapshotMds::update(const UpdateReq* req, UpdateAck* ack) {
                 delete_event_update_status(cur_snap_name);
                 break;
             case UpdateEvent::ROLLBACKING_EVENT:
-                rollbacking_event_update_status(cur_snap_name);
+                rollback_event_update_status(cur_snap_name);
             case UpdateEvent::ROLLBACKED_EVENT:
-                // do nothing
                 break;
             default:
                 ret = StatusCode::sSnapUpdateError;
@@ -450,187 +421,170 @@ StatusCode SnapshotMds::update(const UpdateReq* req, UpdateAck* ack) {
         }
     } while(0);
     ack->mutable_header()->set_status(ret);
+    trace();
     /*get the latest snapshot in system*/
-    string latest_snap_name = get_latest_snap_name();
+    std::string latest_snap_name = get_latest_snap_name();
     ack->set_latest_snap_name(latest_snap_name);
     LOG_INFO << "update vname:" << vol_name << " sname:" << snap_name
-             << " event:" << snap_event << " ok";
+             << " event:" << snap_event << " latest_snap_name:" << latest_snap_name << " ok";
     return StatusCode::sOk;
 }
 
 StatusCode SnapshotMds::cow_op(const CowReq* req, CowAck* ack) {
-    string vname = req->vol_name();
-    string snap_name = req->snap_name();
+    std::string vname = req->vol_name();
+    std::string snap_name = req->snap_name();
     block_t blk_id = req->blk_no();
-
-    lock_guard<std::mutex> lock(m_mutex);
-    snapid_t snap_id = get_snapshot_id(snap_name);
+    snap_id_t snap_id = get_snap_id(snap_name);
     assert(snap_id != -1);
-    LOG_INFO << "cow_op vname:" << vname << " snap_name:" << snap_name
+    LOG_INFO << "cow op vname:" << vname << " snap_name:" << snap_name
              << " snap_id:" << snap_id << " blk_id:"  << blk_id;
-
-    auto snap_it = m_cow_block_map.find(snap_id);
-    map<block_t, cow_object_t>& block_map = snap_it->second;
-    auto blk_it = block_map.find(blk_id);
-    if (blk_it != block_map.end()) {
-        /*block already cow*/
-        LOG_INFO << "cow_op COW_NO";
-        ack->mutable_header()->set_status(StatusCode::sOk);
-        ack->set_op(COW_NO);
-        return StatusCode::sOk;
+    /*locate snapshot cow block*/ 
+    IndexStore::IndexIterator it = m_index_store->db_iterator();
+    cow_block_t cur_pivot_block;
+    cur_pivot_block.snap_id = snap_id;
+    it->seek_to_first(cur_pivot_block.prefix());
+    for (; it->valid() && (-1 != it->key().find(cur_pivot_block.prefix())); it->next()) {
+        cow_block_t cur_cow_block;
+        cur_cow_block.decode(it->value());
+        if (cur_cow_block.block_id == blk_id) {
+            /*block already cow*/
+            LOG_INFO << "cow op block:" << blk_id << " block_url:"
+                     << cur_cow_block.block_url << " already cow";
+            ack->mutable_header()->set_status(StatusCode::sOk);
+            ack->set_op(COW_NO);
+            return StatusCode::sOk;
+        }
     }
-
     /*create cow object*/
-    cow_object_t cow_object = spawn_cow_object_name(snap_id, blk_id);
-    /*block store create cow object*/
-    m_block_store->create(cow_object);
+    std::string block_url = spawn_block_url(snap_id, blk_id);
+    m_block_store->create(block_url);
     ack->mutable_header()->set_status(StatusCode::sOk);
     ack->set_op(COW_YES);
-    ack->set_cow_blk_object(cow_object);
-    LOG_INFO << "cow_op COW_YES " << " cow_object:" << cow_object;
+    ack->set_cow_blk_object(block_url);
+    LOG_INFO << "cow op block:" << blk_id << " block_url:" << block_url << " need cow";
     return StatusCode::sOk;
 }
 
 StatusCode SnapshotMds::cow_update(const CowUpdateReq* req, CowUpdateAck* ack) {
-    string vname = req->vol_name();
-    string snap_name = req->snap_name();
+    std::string vname = req->vol_name();
+    std::string snap_name = req->snap_name();
     block_t blk_no = req->blk_no();
-    string cow_obj = req->cow_blk_object();
-
-    lock_guard<std::mutex> lock(m_mutex);
-    snapid_t snap_id = get_snapshot_id(snap_name);
+    std::string blk_url = req->cow_blk_object();
+    snap_id_t snap_id = get_snap_id(snap_name);
     assert(snap_id != -1);
-    LOG_INFO << "cow_update vname:" << vname << " snap_name:" << snap_name
+    LOG_INFO << "cow update vname:" << vname << " snap_name:" << snap_name
              << " snap_id:" << snap_id << " blk_id:"  << blk_no
-             << " cow_obj:" << cow_obj;
-
-    /*----transaction begin-------*/
+             << " blk_url:" << blk_url;
     IndexStore::Transaction transaction = m_index_store->fetch_transaction();
-    /*in db update cow block*/
-    string pkey = DbUtil::spawn_cow_block_map_key(snap_id, blk_no);
-    transaction->put(pkey, cow_obj);
-    /*in db update cow object */
-    pkey = DbUtil::spawn_cow_object_map_key(cow_obj);
-    cow_object_ref_t cow_obj_ref;
-    cow_obj_ref.insert(snap_id);
-    string pval = DbUtil::spawn_cow_object_map_val(cow_obj_ref);
-    transaction->put(pkey, pval);
+    cow_block_t cur_cow_block;
+    cur_cow_block.snap_id = snap_id;
+    cur_cow_block.block_id = blk_no;
+    cur_cow_block.block_zero = false;
+    cur_cow_block.block_url = blk_url;
+    transaction->put(cur_cow_block.key(), cur_cow_block.encode());
+    /*maintain cow block ref*/
+    cow_block_ref_t cur_cow_block_ref;
+    cur_cow_block_ref.block_url = blk_url;
+    cur_cow_block_ref.block_url_refs.clear();
+    cur_cow_block_ref.block_url_refs.insert(snap_id);
+    /*backward add block ref to previous snapshot*/
+    IndexStore::IndexIterator it = m_index_store->db_iterator();
+    bool loop = true;
+    snap_id_t prev_snap_id = get_prev_snap_id(snap_id);
+    while (loop && (-1 != prev_snap_id)) {
+        cow_block_t prev_first_block;
+        prev_first_block.snap_id = prev_snap_id;
+        it->seek_to_first(prev_first_block.prefix());
+        for (; it->valid() && (-1 != it->key().find(prev_first_block.prefix())); it->next()) {
+            cow_block_t trip_block;
+            trip_block.decode(it->value());
+            if (trip_block.block_id == blk_no) {
+                loop = false;
+                break;
+            }
+        }
+        if (loop) {
+            cur_cow_block.snap_id = prev_snap_id;
+            transaction->put(cur_cow_block.key(), cur_cow_block.encode());
+            cur_cow_block_ref.block_url_refs.insert(prev_snap_id);
+        }
+        prev_snap_id = get_prev_snap_id(prev_snap_id);
+    }
+    transaction->put(cur_cow_block_ref.key(), cur_cow_block_ref.encode());
+
     int ret = m_index_store->submit_transaction(transaction);
     if (ret) {
+        LOG_ERROR << "cow update submit transaction failed";
         return StatusCode::sSnapMetaPersistError;
     }
-
-    /*in mem update cow_block_map*/
-    auto snap_it = m_cow_block_map.find(snap_id);
-    assert(snap_it != m_cow_block_map.end());
-    map<block_t, cow_object_t>& block_map = snap_it->second;
-    block_map.insert({blk_no, cow_obj});
-
-    /*in mem update cow object*/
-    auto obj_it = m_cow_object_map.find(cow_obj);
-    assert(obj_it == m_cow_object_map.end());
-    m_cow_object_map.insert({cow_obj, cow_obj_ref});
-
-    /*todo :travel forward to update other snapshot in cow_block_map
-     * should optimize by backward*/
-    auto travel_it = m_cow_block_map.begin();
-    for (; travel_it != m_cow_block_map.end() && travel_it->first < snap_id;
-          travel_it++) {
-        map<block_t, cow_object_t>& block_map = travel_it->second;
-        auto blk_it = block_map.find(blk_no);
-        if (blk_it != block_map.end()) {
-            LOG_INFO << "cow_update snapshot: " << travel_it->first
-                     << " has block:" << blk_no << " break";
-            continue;
-        }
-
-        LOG_INFO << "cow_update snapshot: " << travel_it->first
-                 << " has no block:" << blk_no;
-        IndexStore::Transaction transaction = m_index_store->fetch_transaction();
-        /*in db update cow block*/
-        string pkey = DbUtil::spawn_cow_block_map_key(travel_it->first, blk_no);
-        transaction->put(pkey, cow_obj);
-        /*in db update cow object(move up)*/
-        pkey = DbUtil::spawn_cow_object_map_key(cow_obj);
-        string pval = m_index_store->db_get(pkey);
-        cow_object_ref_t obj_ref;
-        DbUtil::split_cow_object_map_val(pval, obj_ref);
-        obj_ref.insert(travel_it->first);
-        pval = DbUtil::spawn_cow_object_map_val(obj_ref);
-        transaction->put(pkey, pval);
-        ret = m_index_store->submit_transaction(transaction);
-        if (ret) {
-            LOG_ERROR << "cow_update persist meta failed";
-            return StatusCode::sSnapMetaPersistError;
-        }
-
-        /*in mem update cow block*/
-        block_map.insert({blk_no, cow_obj});
-        /*in mem update cow object*/
-        auto obj_it = m_cow_object_map.find(cow_obj);
-        assert(obj_it != m_cow_object_map.end());
-        cow_object_ref_t& cow_obj_ref = obj_it->second;
-        cow_obj_ref.insert(travel_it->first);
-    }
-
     trace();
     ack->mutable_header()->set_status(StatusCode::sOk);
-    LOG_INFO << "cow_update vname:" << vname << " snap_name:" << snap_name
+    LOG_INFO << "cow update vname:" << vname << " snap_name:" << snap_name
              << " snap_id:" << snap_id << " blk_id:" << blk_no
-             << " cow_obj:" << cow_obj << " ok";
+             << " blk_url:" << blk_url << " ok";
     return StatusCode::sOk;
 }
 
-string SnapshotMds::spawn_cow_object_name(const snapid_t snap_id,
-                                          const block_t  blk_id) {
-    /*todo: may add pool name*/
-    string cow_object_name = m_volume_name;
-    cow_object_name.append(FS);
-    cow_object_name.append(to_string(snap_id));
-    cow_object_name.append(FS);
-    cow_object_name.append(to_string(blk_id));
-    cow_object_name.append(OBJ_SUFFIX);
-    return cow_object_name;
+std::string SnapshotMds::spawn_block_url(const snap_id_t snap_id,
+                                         const block_t  blk_id) {
+    std::string block_url = m_volume_name;
+    block_url.append("@");
+    block_url.append(std::to_string(snap_id));
+    block_url.append("@");
+    block_url.append(std::to_string(blk_id));
+    block_url.append(".obj");
+    return block_url; 
 }
 
 StatusCode SnapshotMds::diff_snapshot(const DiffReq* req, DiffAck* ack) {
-    string vname = req->vol_name();
-    string first_snap = req->first_snap_name();
-    string last_snap  = req->last_snap_name();
+    std::string vname = req->vol_name();
+    std::string first_snap = req->first_snap_name();
+    std::string last_snap = req->last_snap_name();
 
     LOG_INFO << "diff snapshot vname:" << vname
              << " first_snap:" << first_snap << " last_snap:"  << last_snap;
+    snap_id_t first_snapid = get_snap_id(first_snap);
+    snap_id_t last_snapid  = get_snap_id(last_snap);
+    assert(first_snapid != -1 && last_snapid != -1);
+    snap_id_t cur_snap_id = first_snapid;
+    while (cur_snap_id < last_snapid) {
+        snap_id_t next_snap_id = get_next_snap_id(cur_snap_id);
 
-    lock_guard<std::mutex> lock(m_mutex);
-    snapid_t first_snapid = get_snapshot_id(first_snap);
-    snapid_t last_snapid  = get_snapshot_id(last_snap);
-    assert(first_snapid != -1 && m_latest_snapid != -1);
-
-    auto first_snap_it = m_cow_block_map.find(first_snapid);
-    auto last_snap_it  = m_cow_block_map.find(last_snapid);
-    assert(first_snap_it != m_cow_block_map.end() &&
-           last_snap_it  != m_cow_block_map.end());
-    for (auto cur_snap_it = first_snap_it ; cur_snap_it != last_snap_it;
-         cur_snap_it++) {
-        auto next_snap_it = std::next(cur_snap_it, 1);
-        map<block_t, cow_object_t>& cur_block_map  = cur_snap_it->second;
-        map<block_t, cow_object_t>& next_block_map = next_snap_it->second;
-
+        cow_block_t cur_pivot_block;
+        cur_pivot_block.snap_id = cur_snap_id;
+        IndexStore::IndexIterator cur_it = m_index_store->db_iterator();
+        cur_it->seek_to_first(cur_pivot_block.prefix());
         DiffBlocks* diffblocks = ack->add_diff_blocks();
         diffblocks->set_vol_name(vname);
-        diffblocks->set_snap_name(get_snapshot_name(cur_snap_it->first));
-        for (auto cur_blk_it : cur_block_map) {
-            auto next_blk_it = next_block_map.find(cur_blk_it.first);
-            if (next_blk_it == next_block_map.end()) {
-                /*block not apear in next snapshot*/
-                diffblocks->add_diff_block_no(cur_blk_it.first);
-            } else {
-                /*block in next snapshot, but cow after next snapshot*/
-                if (cur_blk_it.second.compare(next_blk_it->second) != 0) {
-                    diffblocks->add_diff_block_no(cur_blk_it.first);
+        diffblocks->set_snap_name(get_snap_name(cur_snap_id));
+
+        for (; cur_it->valid() && (-1 != cur_it->key().find(cur_pivot_block.prefix())); cur_it->next()) {
+            bool block_same_in_two_snap = false;
+            cow_block_t cur_block;
+            cur_block.decode(cur_it->value());
+            LOG_INFO << "cur_block_url:" << cur_block.block_url;
+
+            cow_block_t next_pivot_block;
+            next_pivot_block.snap_id = next_snap_id;
+            IndexStore::IndexIterator next_it = m_index_store->db_iterator();
+            next_it->seek_to_first(next_pivot_block.prefix());
+            for (; next_it->valid() && (-1 != next_it->key().find(next_pivot_block.prefix())); next_it->next()) {
+                cow_block_t next_block;
+                next_block.decode(next_it->value());
+                LOG_INFO << "next_block_url:" << next_block.block_url;
+                if (cur_block.block_id == next_block.block_id &&
+                    cur_block.block_url.compare(next_block.block_url) == 0) {
+                    block_same_in_two_snap = true;
+                    break;
                 }
             }
+            LOG_INFO << "cur_block_url:" << cur_block.block_url << " same:" << block_same_in_two_snap;
+            if (!block_same_in_two_snap) {
+                diffblocks->add_diff_block_no(cur_block.block_id);
+            }
         }
+
+        cur_snap_id = next_snap_id;
     }
     ack->mutable_header()->set_status(StatusCode::sOk);
     LOG_INFO << "diff snapshot" << " vname:" << vname
@@ -640,127 +594,58 @@ StatusCode SnapshotMds::diff_snapshot(const DiffReq* req, DiffAck* ack) {
 }
 
 StatusCode SnapshotMds::read_snapshot(const ReadReq* req, ReadAck* ack) {
-    string vol_name = req->vol_name();
-    string snap_name = req->snap_name();
+    std::string vol_name = req->vol_name();
+    std::string snap_name = req->snap_name();
     off_t off = req->off();
     size_t len = req->len();
-
-    LOG_INFO << "read snapshot" << " vname:" << vol_name
-             << " sname:" << snap_name << " off:"  << off << " len:"  << len;
-
-    lock_guard<std::mutex> lock(m_mutex);
-    snapid_t snap_id = get_snapshot_id(snap_name);
+    LOG_INFO << "read snapshot" << " vname:" << vol_name << " sname:" << snap_name
+             << " off:"  << off << " len:"  << len;
+    snap_id_t snap_id = get_snap_id(snap_name);
     assert(snap_id != -1);
-    auto snap_it = m_cow_block_map.find(snap_id);
-    map<block_t, cow_object_t>& block_map = snap_it->second;
-
-    for (auto blk_it : block_map) {
-        block_t blk_no = blk_it.first;
-        off_t blk_start = blk_no * COW_BLOCK_SIZE;
-        off_t blk_end = (blk_no+1) * COW_BLOCK_SIZE;
+    cow_block_t cur_pivot_block;
+    cur_pivot_block.snap_id = snap_id;
+    IndexStore::IndexIterator it = m_index_store->db_iterator();
+    it->seek_to_first(cur_pivot_block.prefix());
+    for (; it->valid() && (-1 != it->key().find(cur_pivot_block.prefix())); it->next()) {
+        cow_block_t cur_block;
+        cur_block.decode(it->value());
+        off_t blk_start = cur_block.block_id * COW_BLOCK_SIZE;
+        off_t blk_end = (cur_block.block_id+1) * COW_BLOCK_SIZE;
         if (blk_start >= off + len || blk_end <= off) {
             continue;
         }
         ReadBlock* rblock = ack->add_read_blocks();
-        rblock->set_blk_no(blk_no);
-        rblock->set_blk_object(blk_it.second);
+        rblock->set_blk_no(cur_block.block_id);
+        rblock->set_blk_object(cur_block.block_url);
     }
-
     ack->mutable_header()->set_status(StatusCode::sOk);
-    LOG_INFO << "read snapshot" << " vname:" << vol_name
-             << " sname:" << snap_name << " off:"  << off << " len:"  << len
-             << " ok";
+    LOG_INFO << "read snapshot" << " vname:" << vol_name << " sname:" << snap_name
+             << " off:"  << off << " len:"  << len << " ok";
     return StatusCode::sOk;
 }
 
 int SnapshotMds::recover() {
-    IndexStore::SimpleIteratorPtr it = m_index_store->db_iterator();
-
-    /*recover latest snapshot id*/
-    string prefix = SNAPSHOT_ID_PREFIX;
-    it->seek_to_first(prefix);
-    for (; it->valid()&& !it->key().compare(0, prefix.size(), prefix.c_str());
-          it->next()) {
-        string value = it->value();
-        m_latest_snapid = atol(value.c_str());
-    }
-
-    /*recover snapshot attr map*/
-    prefix = SNAPSHOT_MAP_PREFIX;
-    it->seek_to_first(prefix);
-    for (; it->valid()&& !it->key().compare(0, prefix.size(), prefix.c_str());
-           it->next()) {
-        string key = it->key();
-        string value = it->value();
-        string snap_name;
-        DbUtil::split_attr_map_key(key, snap_name);
-        snap_attr_t snap_attr;
-        DbUtil::split_attr_map_val(value, snap_attr);
-        m_snapshots.insert({snap_name, snap_attr});
-    }
-
-    /*recover snapshot cow block map*/
-    for (auto snap : m_snapshots) {
-        snapid_t snap_id = snap.second.snap_id;
-        map<block_t, cow_object_t> cow_block_map;
-        prefix = SNAPSHOT_COWBLOCK_PREFIX;
-        prefix.append(FS);
-        prefix.append(to_string(snap_id));
-        prefix.append(FS);
-        it->seek_to_first(prefix);
-        for (; it->valid()&& !it->key().compare(0, prefix.size(), prefix.c_str());
-                it->next()) {
-            snapid_t snap_id;
-            block_t  blk_id;
-            DbUtil::split_cow_block_map_key(it->key(), snap_id, blk_id);
-            cow_block_map.insert({blk_id, it->value()});
-        }
-
-        m_cow_block_map.insert(pair<snapid_t, map<block_t, cow_object_t>> \
-                               (snap_id, cow_block_map));
-    }
-
-    /*recove cow object reference*/
-    prefix = SNAPSHOT_COWOBJECT_PREFIX;
-    it->seek_to_first(prefix);
-    for (; it->valid()&& !it->key().compare(0, prefix.size(), prefix.c_str());
-            it->next()) {
-        cow_object_t cow_object;
-        DbUtil::split_cow_object_map_key(it->key(), cow_object);
-        cow_object_ref_t cow_object_ref;
-        DbUtil::split_cow_object_map_val(it->value(), cow_object_ref);
-        m_cow_object_map.insert(pair<cow_object_t, cow_object_ref_t> \
-                                (cow_object, cow_object_ref));
-    }
-    trace();
-    LOG_INFO << "drserver recover snapshot meta data ok";
+    m_latest_snapid = get_latest_snap_id();
     return 0;
 }
 
 void SnapshotMds::trace() {
-    LOG_INFO << "\t latest snapid:" << m_latest_snapid;
-    LOG_INFO << "\t current snapshot";
-    for (auto it : m_snapshots) {
-        LOG_INFO << "\t\t snap_name:" << it.first
-                 << " snap_id:" << it.second.snap_id
-                 << " snap_status:" << it.second.snap_status;
+    LOG_INFO << "\t current snapshot info";
+    IndexStore::IndexIterator snap_it = m_index_store->db_iterator();
+    snap_it->seek_to_first(snap_prefix);
+    for (; snap_it->valid() && (-1 != snap_it->key().find(snap_prefix)); snap_it->next()) {
+        LOG_INFO << "\t\t" << snap_it->key() << " " << snap_it->value();
     }
-
-    LOG_INFO << "\t cow block map";
-    for (auto it : m_cow_block_map) {
-        LOG_INFO << "\t\t snap_id:" << it.first;
-        map<block_t, cow_object_t>& blk_map = it.second;
-        for (auto blk_it : blk_map) {
-            LOG_INFO << "\t\t\t blk_no:" << blk_it.first
-                     << " cow_obj:" << blk_it.second;
-        }
+    LOG_INFO << "\t current snapshot block info";
+    IndexStore::IndexIterator block_it = m_index_store->db_iterator();
+    block_it->seek_to_first(block_prefix);
+    for (; block_it->valid() && (-1 != block_it->key().find(block_prefix)); block_it->next()) {
+        LOG_INFO << "\t\t" << block_it->key() << " " << block_it->value();
     }
-    LOG_INFO << "\t cow object map";
-    for (auto it : m_cow_object_map) {
-        LOG_INFO << "\t\t cow_obj:" << it.first;
-        cow_object_ref_t& cow_obj_ref = it.second;
-        for (auto ref_it : cow_obj_ref) {
-            LOG_INFO << "\t\t\t\t snapid:" << ref_it;
-        }
+    LOG_INFO << "\t current snapshot block ref info";
+    IndexStore::IndexIterator block_ref_it = m_index_store->db_iterator();
+    block_ref_it->seek_to_first(block_ref_prefix);
+    for (; block_ref_it->valid() && (-1 != block_ref_it->key().find(block_ref_prefix)); block_ref_it->next()) {
+        LOG_INFO << "\t\t" << block_ref_it->key() << " " << block_ref_it->value();
     }
 }

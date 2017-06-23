@@ -2,5 +2,5 @@
 host=59.36.10.18
 port=39418
 project=Hybrid-Cloud/storage-gateway
-defaultbranch=master
+defaultbranch=devel
 defaultremote=gerrit

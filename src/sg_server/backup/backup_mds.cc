@@ -527,7 +527,7 @@ StatusCode BackupMds::do_remote_download(const DownloadDataReq* req,
 }
 
 int BackupMds::recover() {
-    IndexStore::SimpleIteratorPtr it = m_ctx->index_store()->db_iterator();
+    IndexStore::IndexIterator it = m_ctx->index_store()->db_iterator();
     /*recover latest backup id*/
     std::string prefix = BACKUP_ID_PREFIX;
     it->seek_to_first(prefix);

@@ -1,11 +1,11 @@
 /**********************************************
 *  Copyright (c) 2016 Huawei Technologies Co., Ltd. All rights reserved.
 * 
-*  File name:    snapshot.h
+*  File name:    snapshot_mds.h
 *  Author:
 *  Date:         2016/11/03
 *  Version:      1.0
-*  Description:  snapshot interface
+*  Description:  snapshot meta management
 * 
 *************************************************/
 #ifndef SRC_SG_SERVER_SNAPSHOT_SNAPSHOT_MDS_H_
@@ -22,12 +22,12 @@
 #include "common/block_store.h"
 #include "common/index_store.h"
 #include "common/define.h"
-#include "snapshot_def.h"
+#include "snapshot_type.h"
 
 using huawei::proto::StatusCode;
 using huawei::proto::SnapStatus;
+using huawei::proto::SnapType;
 using huawei::proto::SnapReqHead;
-
 using huawei::proto::inner::CreateReq;
 using huawei::proto::inner::CreateAck;
 using huawei::proto::inner::ListReq;
@@ -53,14 +53,13 @@ using huawei::proto::inner::SyncAck;
 
 class SnapshotMds {
  public:
-    SnapshotMds(const string& vol_name, const size_t& vol_size);
+    SnapshotMds(const std::string& vol_name, const size_t& vol_size);
     SnapshotMds(const SnapshotMds& other) = delete;
     SnapshotMds& operator=(const SnapshotMds& other) = delete;
     virtual ~SnapshotMds();
 
     /*storage client sync snapshot status*/
     StatusCode sync(const SyncReq* req, SyncAck* ack);
-
     /*snapshot common operation*/
     StatusCode create_snapshot(const CreateReq* req, CreateAck* ack);
     StatusCode delete_snapshot(const DeleteReq* req, DeleteAck* ack);
@@ -79,39 +78,30 @@ class SnapshotMds {
 
  private:
     /*common helper*/
-    snapid_t spawn_snapshot_id();
-    snapid_t get_snapshot_id(string snap_name);
-    string   get_snapshot_name(snapid_t snap_id);
-    string   get_latest_snap_name();
-
+    snap_id_t get_prev_snap_id(const snap_id_t current);
+    snap_id_t get_next_snap_id(const snap_id_t current);
+    snap_id_t   get_snap_id(const std::string& snap_name);
+    std::string get_snap_name(snap_id_t snap_id);
+    std::string get_latest_snap_name();
+    snap_id_t   get_latest_snap_id();
+    bool check_snap_exist(const std::string& snap_name);
     /*accord local and remote to mapping snapshot pair*/
-    string mapping_snap_name(const SnapReqHead& shead, const string& sname);
+    std::string mapping_snap_name(const SnapReqHead& shead, const std::string& sname);
     /*maintain snapshot status*/
-    StatusCode create_event_update_status(string snap_name);
-    StatusCode delete_event_update_status(string snap_name);
-    StatusCode rollbacking_event_update_status(string snap_name);
-
+    StatusCode create_event_update_status(const std::string& snap_name);
+    StatusCode delete_event_update_status(const std::string& snap_name);
+    StatusCode rollback_event_update_status(const std::string& snap_name);
     /*helper to generate cow object name*/
-    string spawn_cow_object_name(const snapid_t snap_id, const block_t blk_id);
-    void split_cow_object_name(const string& raw, string& vol_name,
-                               snapid_t& snap_id, block_t&  blk_id);
+    std::string spawn_block_url(const snap_id_t snap_id, const block_t blk_id);
     /*debug*/
     void trace();
 
  private:
     /*volume name*/
-    string m_volume_name;
+    std::string m_volume_name;
     size_t m_volume_size;
-    /*lock*/
-    mutex m_mutex;
     /*the latest snapshot id*/
-    snapid_t m_latest_snapid;
-    /*snapshot and attr map*/
-    map<string, snap_attr_t> m_snapshots;
-    /*snapshot id and snapshot cow block map*/
-    map<snapid_t, map<block_t, cow_object_t>> m_cow_block_map;
-    /*cow object and snapshot referece map*/
-    map<cow_object_t, cow_object_ref_t> m_cow_object_map;
+    snap_id_t m_latest_snapid;
     /*index store for snapshot meta persist*/
     IndexStore* m_index_store;
     /*block store for cow object*/

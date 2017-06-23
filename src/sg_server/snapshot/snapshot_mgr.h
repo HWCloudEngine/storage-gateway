@@ -85,8 +85,8 @@ class SnapshotMgr final: public SnapshotInnerControl::Service {
 
  private:
     /*each volume has a snapshot mds*/
-    mutex m_mutex;
-    map<std::string, shared_ptr<SnapshotMds>> m_all_snapmds;
+    std::mutex m_mutex;
+    std::map<std::string, std::shared_ptr<SnapshotMds>> m_all_snapmds;
 };
 
 #endif  // SRC_SG_SERVER_SNAPSHOT_SNAPSHOT_MGR_H_

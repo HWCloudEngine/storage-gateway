@@ -36,7 +36,7 @@ sg_server_SOURCES=dr_server.cc \
                   backup/backup_mds.cc  \
                   backup/backup_mgr.cc  \
                   backup/backup_msg_handler.cc  \
-                  snapshot/snapshot_util.cc \
+                  snapshot/snapshot_type.cc \
                   snapshot/snapshot_mds.cc \
                   snapshot/snapshot_mgr.cc 
 

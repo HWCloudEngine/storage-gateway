@@ -18,7 +18,7 @@ using huawei::proto::StatusCode;
 
 #define CMD_PREV(vol, op)            \
 do {                                 \
-    string log_msg = "SnapshotMgr";  \
+    std::string log_msg = "SnapshotMgr";  \
     log_msg += " ";                  \
     log_msg += op;                   \
     log_msg += " ";                  \
@@ -29,7 +29,7 @@ do {                                 \
 
 #define CMD_POST(vol, op, ret)       \
 do {                                 \
-    string log_msg = "SnapshotMgr";  \
+    std::string log_msg = "SnapshotMgr";  \
     log_msg += " ";                  \
     log_msg += op;                   \
     log_msg += " ";                  \
@@ -64,7 +64,7 @@ SnapshotMgr::~SnapshotMgr() {
     m_all_snapmds.clear();
 }
 
-StatusCode SnapshotMgr::add_volume(const string& vol_name,
+StatusCode SnapshotMgr::add_volume(const std::string& vol_name,
                                    const size_t& vol_size) {
     std::lock_guard<std::mutex> lock(m_mutex);
     auto it = m_all_snapmds.find(vol_name);
@@ -72,16 +72,14 @@ StatusCode SnapshotMgr::add_volume(const string& vol_name,
         LOG_INFO << "add volume:" << vol_name << "failed, already exist";
         return StatusCode::sVolumeAlreadyExist;
     }
-
-    shared_ptr<SnapshotMds> snap_mds;
+    std::shared_ptr<SnapshotMds> snap_mds;
     snap_mds.reset(new SnapshotMds(vol_name, vol_size));
     m_all_snapmds.insert({vol_name, snap_mds});
     snap_mds->recover();
-
     return StatusCode::sOk;
 }
 
-StatusCode SnapshotMgr::del_volume(const string& vol_name) {
+StatusCode SnapshotMgr::del_volume(const std::string& vol_name) {
     std::lock_guard<std::mutex> lock(m_mutex);
     m_all_snapmds.erase(vol_name);
     return StatusCode::sOk;
@@ -90,8 +88,7 @@ StatusCode SnapshotMgr::del_volume(const string& vol_name) {
 grpc::Status SnapshotMgr::Sync(ServerContext* context, const SyncReq* req,
                                SyncAck* ack) {
     StatusCode ret;
-    string vname = req->vol_name();
-
+    std::string vname = req->vol_name();
     CMD_PREV(vname, "Sync");
     CMD_DO(vname, sync, req, ack);
     CMD_POST(vname, "Sync", ret);
@@ -100,7 +97,7 @@ grpc::Status SnapshotMgr::Sync(ServerContext* context, const SyncReq* req,
 grpc::Status SnapshotMgr::Create(ServerContext* context, const CreateReq* req,
                                  CreateAck* ack)  {
     StatusCode ret;
-    string vname = req->vol_name();
+    std::string vname = req->vol_name();
     size_t vsize = req->vol_size();
     auto it = m_all_snapmds.find(vname);
     shared_ptr<SnapshotMds> snap_mds;
@@ -111,7 +108,6 @@ grpc::Status SnapshotMgr::Create(ServerContext* context, const CreateReq* req,
     /*(todo debug only)create snapshotmds for each volume*/
     snap_mds.reset(new SnapshotMds(vname, vsize));
     m_all_snapmds.insert({vname, snap_mds});
-
 create:
     CMD_PREV(vname, "create");
     ret = snap_mds->create_snapshot(req, ack);
@@ -121,8 +117,7 @@ create:
 grpc::Status SnapshotMgr::List(ServerContext* context, const ListReq* req,
                                ListAck* ack) {
     StatusCode ret;
-    string vname = req->vol_name();
-
+    std::string vname = req->vol_name();
     CMD_PREV(vname, "List");
     CMD_DO(vname, list_snapshot, req, ack);
     CMD_POST(vname, "List", ret);
@@ -131,8 +126,7 @@ grpc::Status SnapshotMgr::List(ServerContext* context, const ListReq* req,
 grpc::Status SnapshotMgr::Query(ServerContext* context, const QueryReq* req,
                                 QueryAck* ack) {
     StatusCode ret;
-    string vname = req->vol_name();
-
+    std::string vname = req->vol_name();
     CMD_PREV(vname, "Query");
     CMD_DO(vname, query_snapshot, req, ack);
     CMD_POST(vname, "Query", ret);
@@ -141,9 +135,7 @@ grpc::Status SnapshotMgr::Query(ServerContext* context, const QueryReq* req,
 grpc::Status SnapshotMgr::Delete(ServerContext* context, const DeleteReq* req,
                                  DeleteAck* ack) {
     StatusCode ret;
-    string vname = req->vol_name();
-    string snap_name = req->snap_name();
-
+    std::string vname = req->vol_name();
     CMD_PREV(vname, "Delete");
     CMD_DO(vname, delete_snapshot, req, ack);
     CMD_POST(vname, "Delete", ret);
@@ -152,8 +144,7 @@ grpc::Status SnapshotMgr::Delete(ServerContext* context, const DeleteReq* req,
 grpc::Status SnapshotMgr::Rollback(ServerContext* context,
                            const RollbackReq* req, RollbackAck* ack) {
     StatusCode ret;
-    string vname = req->vol_name();
-
+    std::string vname = req->vol_name();
     CMD_PREV(vname, "Rollback");
     CMD_DO(vname, rollback_snapshot, req, ack);
     CMD_POST(vname, "Rollback", ret);
@@ -162,8 +153,7 @@ grpc::Status SnapshotMgr::Rollback(ServerContext* context,
 grpc::Status SnapshotMgr::Update(ServerContext* context, const UpdateReq* req,
                                  UpdateAck* ack) {
     StatusCode ret;
-    string vname = req->vol_name();
-
+    std::string vname = req->vol_name();
     CMD_PREV(vname, "Update");
     CMD_DO(vname, update, req, ack);
     CMD_POST(vname, "Update", ret);
@@ -172,8 +162,7 @@ grpc::Status SnapshotMgr::Update(ServerContext* context, const UpdateReq* req,
 grpc::Status SnapshotMgr::CowOp(ServerContext* context, const CowReq* req,
                                 CowAck* ack) {
     StatusCode ret;
-    string vname = req->vol_name();
-
+    std::string vname = req->vol_name();
     CMD_PREV(vname, "Cowop");
     CMD_DO(vname, cow_op, req, ack);
     CMD_POST(vname, "Cowop", ret);
@@ -182,8 +171,7 @@ grpc::Status SnapshotMgr::CowOp(ServerContext* context, const CowReq* req,
 grpc::Status SnapshotMgr::CowUpdate(ServerContext* context,
             const CowUpdateReq* req, CowUpdateAck* ack) {
     StatusCode ret;
-    string vname = req->vol_name();
-
+    std::string vname = req->vol_name();
     CMD_PREV(vname, "CowUpdate");
     CMD_DO(vname, cow_update, req, ack);
     CMD_POST(vname, "CowUpdate", ret);
@@ -192,8 +180,7 @@ grpc::Status SnapshotMgr::CowUpdate(ServerContext* context,
 grpc::Status SnapshotMgr::Diff(ServerContext* context, const DiffReq* req,
                                DiffAck* ack) {
     StatusCode ret;
-    string vname = req->vol_name();
-
+    std::string vname = req->vol_name();
     CMD_PREV(vname, "Diff");
     CMD_DO(vname, diff_snapshot, req, ack);
     CMD_POST(vname, "Diff", ret);
@@ -202,8 +189,7 @@ grpc::Status SnapshotMgr::Diff(ServerContext* context, const DiffReq* req,
 grpc::Status SnapshotMgr::Read(ServerContext* context, const ReadReq* req,
                                ReadAck* ack) {
     StatusCode ret;
-    string vname = req->vol_name();
-
+    std::string vname = req->vol_name();
     CMD_PREV(vname, "Read");
     CMD_DO(vname, read_snapshot, req, ack);
     CMD_POST(vname, "Read", ret);
