@@ -43,7 +43,7 @@ sg_server_SOURCES=dr_server.cc \
 sg_server_LDADD=${top_srcdir}/src/rpc/librpc.la \
                  ${top_srcdir}/src/log/liblog.la 
 
-sg_server_LDFLAGS=-D_GNU_SOURCE -L$(top_srcdir)/lib -L/usr/local/lib 
+sg_server_LDFLAGS=-D_GNU_SOURCE -L/usr/local/lib 
 DEFS+=-D_GNU_SOURCE -DBOOST_ALL_DYN_LINK
 LIBS=-lpthread -ldl \
      -lboost_system -lboost_log_setup -lboost_log -lboost_date_time -lboost_thread \

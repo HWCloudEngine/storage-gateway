@@ -3,8 +3,6 @@ AM_CXXFLAGS=-std=c++11
 AM_CPPFLAGS=-D_GNU_SOURCE -DBOOST_ALL_DYN_LINK -DNDEBUG \
             -I$(top_srcdir)/src -I$(top_srcdir)/src/rpc
 
-AM_LDFLAGS=-L$(top_srcdir)/lib
-
 LDADD=$(top_srcdir)/src/rpc/librpc.la \
                    $(top_srcdir)/src/log/liblog.la \
                    -lpthread -lprotobuf -lpthread -ldl -lgrpc -lgrpc++ \
