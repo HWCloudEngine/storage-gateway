@@ -14,7 +14,6 @@
 `make -j8`  
 `make install`  
 `cd ../../`  
-
 `apt-get install cmake -y`  
 `git clone https://github.com/google/googletest.git`  
 `cd googletest`  
@@ -22,14 +21,12 @@
 `cmake googlemock/`  
 `make & make install`  
 `cd ..`  
-
-`apt-get install libcurl4-nss-dev`
-`git clone https://github.com/ceph/libs3.git`
-`cd libs3`
-`make`
-`cp build/lib/libs3.so.trunk0 /lib64/libs3.so`
-`cd ..`
-
+`apt-get install libcurl4-nss-dev`  
+`git clone https://github.com/ceph/libs3.git`  
+`cd libs3`  
+`make`  
+`cp build/lib/libs3.so.trunk0 /lib64/libs3.so`  
+`cd ..`  
 `ldconfig`  
 3. compile storage-gateway source code  
 `apt-get install libboost-all-dev libcurl3-nss`  
