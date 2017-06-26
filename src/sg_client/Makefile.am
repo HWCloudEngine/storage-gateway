@@ -39,6 +39,7 @@ sg_client_SOURCES=../common/crc32.c  \
                   journal_replayer.cc \
                   journal_reader.cc   \
                   journal_preprocessor.cc \
+                  journal_marker.cc \
                   volume.cc         \
                   volume_manager.cc \
                   main.cc

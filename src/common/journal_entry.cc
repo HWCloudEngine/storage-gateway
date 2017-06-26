@@ -14,6 +14,10 @@
 #include "../log/log.h"
 #include "../rpc/message.pb.h"
 #include "journal_entry.h"
+#include "utils.h"
+#include "xxhash.h"
+
+
 using huawei::proto::WriteMessage;
 using huawei::proto::SnapshotMessage;
 
@@ -107,9 +111,16 @@ uint32_t JournalEntry::get_crc()const {
 uint32_t JournalEntry::calculate_crc() {
     uint32_t initial = 0;
     assert(!message_serialized_data.empty());
-    this->crc = crc32c(message_serialized_data.c_str(),
-                       message_serialized_data.size(),
-                       initial);
+    if(is_support_sse4_2()){
+        this->crc = crc32c(message_serialized_data.c_str(),
+                           message_serialized_data.size(),
+                           initial);
+    }
+    else{
+        this->crc = XXH32(message_serialized_data.c_str(),
+                          message_serialized_data.size(),
+                          initial);
+    }
     return this->crc;
 }
 

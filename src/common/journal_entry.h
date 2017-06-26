@@ -19,6 +19,7 @@
 #include "env_posix.h"
 #include "define.h"
 
+
 using google::protobuf::Message;
 
 class JournalEntry {
