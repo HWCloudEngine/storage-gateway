@@ -429,15 +429,15 @@ void VolumeManager::writer_thread_work(){
         if(ret > 0){
             std::map<string,JournalMarker> markers_to_update;
             for(int i=0;i<ret;i++){
-                JournalWriter* writer = reinterpret_cast<JournalWriter*>(ep_events[i].data.ptr);
-                SG_ASSERT(writer!=nullptr);
-                writer->clear_producer_event();
+                MarkerHandler* marker_handler = (MarkerHandler*)ep_events[i].data.ptr;
+                SG_ASSERT(marker_handler!=nullptr);
+                marker_handler->clear_producer_event();
                 
-                if(writer->is_producer_marker_holding()){
+                if(marker_handler->is_producer_marker_holding()){
                     continue;
                 }
-                JournalMarker marker = writer->get_cur_producer_marker();
-                auto it = last_producer_markers.find(writer->get_vol_attr().vol_name());
+                JournalMarker marker = marker_handler->get_cur_producer_marker();
+                auto it = last_producer_markers.find(marker_handler->get_vol_attr().vol_name());
                 if(it != last_producer_markers.end()){
                     // if marker not changed, no need to update
                     if(is_markers_equal(marker,it->second)){
@@ -445,7 +445,7 @@ void VolumeManager::writer_thread_work(){
                     }
                 }
                 // last one not found or changed, need to update
-                markers_to_update.insert({writer->get_vol_attr().vol_name(), marker});
+                markers_to_update.insert({marker_handler->get_vol_attr().vol_name(), marker});
 
             }
             LOG_DEBUG << "invoked to update producer marker";
@@ -469,8 +469,9 @@ int  VolumeManager::update_all_producer_markers(){
             LOG_WARN << "writer of volume [" << it->first << "] not init.";
             continue;
         }
-        if(!writer->is_producer_marker_holding()){
-            JournalMarker marker = writer->get_cur_producer_marker();
+        MarkerHandler& marker_handler = writer->get_maker_handler();
+        if(!marker_handler.is_producer_marker_holding()){
+            JournalMarker marker = marker_handler.get_cur_producer_marker();
             auto it2 = last_producer_markers.find(it->first);
             if(it2 != last_producer_markers.end()){
                 if(is_markers_equal(marker,it2->second))
