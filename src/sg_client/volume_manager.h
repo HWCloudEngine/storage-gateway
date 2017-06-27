@@ -21,6 +21,8 @@
 #include "common/config_option.h"
 #include "rpc/clients/volume_inner_ctrl_client.h"
 #include "rpc/clients/writer_client.h"
+#include "journal_marker.h"
+
 
 /*forward declaration*/
 class SnapshotControlImpl;

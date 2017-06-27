@@ -39,6 +39,7 @@ sg_client_SOURCES=../common/crc32.c  \
                   journal_replayer.cc \
                   journal_reader.cc   \
                   journal_preprocessor.cc \
+                  journal_marker.cc \
                   volume.cc         \
                   volume_manager.cc \
                   main.cc
@@ -46,7 +47,7 @@ sg_client_SOURCES=../common/crc32.c  \
 sg_client_LDADD=${top_srcdir}/src/rpc/librpc.la \
                 ${top_srcdir}/src/log/liblog.la 
 
-sg_client_LDFLAGS=-D_GNU_SOURCE -L$(top_srcdir)/lib -L/usr/local/lib
+sg_client_LDFLAGS=-D_GNU_SOURCE  -L/usr/local/lib
 DEFS+=-D_GNU_SOURCE -DBOOST_ALL_DYN_LINK -DNDEBUG
 LIBS=-lpthread -lrt \
      -lboost_system -lboost_log_setup -lboost_log \

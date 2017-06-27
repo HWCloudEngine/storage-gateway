@@ -96,8 +96,8 @@ StatusCode ReplicateCtrl::do_replicate_operation(const string& vol,
         LOG_ERROR << "replicate proxy not found for volume: " << vol;
         return (StatusCode::sInternalError);
     }
-
-    writer->hold_producer_marker();
+    MarkerHandler& marker_handler = writer->get_maker_handler();
+    marker_handler.hold_producer_marker();
     // 2. hold replayer until replicate operation was finished
     rep_proxy->add_sync_item(snap_name,"enable");
 
@@ -124,7 +124,7 @@ StatusCode ReplicateCtrl::do_replicate_operation(const string& vol,
             break;
         }
         // 4. update producer marker to checkpoint/snapshot entry
-        if(0 != writer->update_producer_marker(marker)){
+        if(0 != marker_handler.update_producer_marker(marker)){
             LOG_ERROR << "update producer marker of volume" << vol << "] failed!";
             res = sInternalError;
             break;
@@ -155,7 +155,7 @@ StatusCode ReplicateCtrl::do_replicate_operation(const string& vol,
 
     //5. unhold replayer & producer marker
     rep_proxy->delete_sync_item(snap_name);
-    writer->unhold_producer_marker();
+    marker_handler.unhold_producer_marker();
     return res;
 }
 

@@ -3,6 +3,8 @@
 #include <map>
 #include <grpc++/grpc++.h>
 #include "../writer.grpc.pb.h"
+#include "log/log.h"
+
 
 using grpc::Channel;
 using grpc::ClientContext;
