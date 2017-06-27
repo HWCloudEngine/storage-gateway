@@ -40,9 +40,10 @@
 #include "seq_generator.h"
 #include "cache/cache_proxy.h"
 #include "snapshot/snapshot_proxy.h"
-#include "rpc/clients/writer_client.h"
+#include "rpc/clients/rpc_client.h"
 #include "message.h"
 #include "epoll_event.h"
+#include "journal_marker.h"
 
 class JournalWriter :private boost::noncopyable {
  public:
@@ -55,7 +56,6 @@ class JournalWriter :private boost::noncopyable {
               shared_ptr<CacheProxy> cacheproxy,
               shared_ptr<SnapshotProxy> snapshotproxy,
               shared_ptr<CephS3LeaseClient> lease_client,
-              shared_ptr<WriterClient> writer_client,
               int _epoll_fd);
     bool deinit();
     // The following two function must be called in another thread,can't call in write thread
@@ -64,25 +64,21 @@ class JournalWriter :private boost::noncopyable {
     bool seal_journals(const std::string& uuid);
 
     VolumeAttr& get_vol_attr();
-    // producer marker related methods
-    void clear_producer_event();
-    void hold_producer_marker();
-    void unhold_producer_marker();
-    bool is_producer_marker_holding();
-    JournalMarker get_cur_producer_marker();
-    // called by replicate control
-    int update_producer_marker(const JournalMarker& marker);
+    MarkerHandler& get_maker_handler();
 
  private:
-    int get_next_journal();
-    int open_current_journal();
-    int to_seal_current_journal();
-    int close_current_journal_file();
-    void invalid_current_journal();
-    int64_t get_file_size(const char *path);
-    bool write_journal_header();
-    void send_reply(JournalEntry* entry, bool success);
-    void handle_lease_invalid();
+    inline int get_next_journal();
+    inline int open_current_journal();
+    inline int to_seal_current_journal();
+    inline int close_current_journal_file();
+    inline void invalid_current_journal();
+    inline bool write_journal_header();
+    inline void send_reply(JournalEntry* entry, bool success);
+    inline void handle_lease_invalid();
+    inline bool write_journal_preprocess();
+    inline void write_journal_response(shared_ptr<JournalEntry> entry, bool success);
+    inline void synchronize_snapshot_cmd(shared_ptr<JournalEntry> entry);
+    inline void seal_snapshot_journal(shared_ptr<JournalEntry> entry);
 
     /*lease with dr server*/
     shared_ptr<CephS3LeaseClient> lease_client_;
@@ -97,7 +93,6 @@ class JournalWriter :private boost::noncopyable {
     shared_ptr<SnapshotProxy> snapshot_proxy_;
     /*journal file prefetch and seal thread*/
     std::mutex rpc_mtx_;
-    shared_ptr<WriterClient> rpc_client;
     boost::shared_ptr<boost::thread> thread_ptr;
     std::queue<std::pair<std::string, JournalElement>> journal_queue;
     std::queue<std::pair<std::string, JournalElement>> seal_queue;
@@ -109,16 +104,6 @@ class JournalWriter :private boost::noncopyable {
     uint64_t cur_journal_size;
     VolumeAttr& vol_attr_;
     bool running_flag;
-    // new written size in journals since last update of producer marker
-    uint64_t written_size_since_last_update;
-    EpollEvent producer_event;
-    // whether to hold updating producer marker
-    std::atomic<bool> producer_marker_hold_flag;
-    // the producer marker which need update
-    JournalMarker cur_producer_marker;
-    // mutex for producer marker
-    std::mutex producer_mtx;
-    // epoll fd, created in VolumeMgr, which collects the writers' events
-    int epoll_fd;
+    MarkerHandler marker_handler;
 };
 #endif  // SRC_SG_CLIENT_JOURNAL_WRITER_H_

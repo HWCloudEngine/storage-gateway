@@ -41,7 +41,6 @@ class Volume {
     explicit Volume(VolumeManager& vol_manager,
                     const VolumeInfo& vol_info,
                     shared_ptr<CephS3LeaseClient> lease_client,
-                    std::shared_ptr<WriterClient> writer_rpc_client,
                     int epoll_fd);
     Volume(const Volume& other) = delete;
     Volume& operator=(const Volume& other) = delete;
@@ -67,7 +66,6 @@ class Volume {
     VolumeManager& vol_manager_;
     VolumeAttr vol_attr_;
     shared_ptr<CephS3LeaseClient> lease_client_;
-    shared_ptr<WriterClient>  writer_rpc_client_;
     /*socket*/
     mutable raw_socket_t raw_socket_;
     // epoll fd to sync producer marker

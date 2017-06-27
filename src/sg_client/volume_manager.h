@@ -21,6 +21,8 @@
 #include "common/config_option.h"
 #include "rpc/clients/volume_inner_ctrl_client.h"
 #include "rpc/clients/writer_client.h"
+#include "journal_marker.h"
+
 
 /*forward declaration*/
 class SnapshotControlImpl;
@@ -84,7 +86,6 @@ class VolumeManager {
     /*all volumes to be protected*/
     std::map<std::string, shared_ptr<Volume>> volumes;
     /*journal prefetch and seal*/
-    std::shared_ptr<WriterClient> writer_rpc_client;
     int_least64_t interval;
     int journal_limit;
     shared_ptr<CephS3LeaseClient> lease_client;
