@@ -92,12 +92,7 @@ int RocksDbIndexStore::IteratorImpl::seek_to_last(const std::string& prefix) {
     limit.push_back(1);
     rocksdb::Slice slice_limit(limit);
     m_db_iter->Seek(slice_limit);
-    if (!m_db_iter->Valid()) {
-        LOG_ERROR << "a1 seek_to_last key:" << m_db_iter->key().ToString() << " val:" << m_db_iter->value().ToString();
-        m_db_iter->Prev();
-        LOG_ERROR << "a2 seek_to_last key:" << m_db_iter->key().ToString() << " val:" << m_db_iter->value().ToString();
-    } else {
-        LOG_ERROR << "b1 seek_to_last key:" << m_db_iter->key().ToString() << " val:" << m_db_iter->value().ToString();
+    if (m_db_iter->Valid()) {
         m_db_iter->SeekToLast();
         while (m_db_iter->Valid()) {
             if (m_db_iter->key().ToString(false).find(prefix) != -1) {
@@ -105,7 +100,6 @@ int RocksDbIndexStore::IteratorImpl::seek_to_last(const std::string& prefix) {
             }
             m_db_iter->Prev();
         }
-        LOG_ERROR << "b2 seek_to_last key:" << m_db_iter->key().ToString() << " val:" << m_db_iter->value().ToString();
     }
     return m_db_iter->status().ok() ? 0 : -1;
 }

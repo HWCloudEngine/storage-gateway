@@ -38,6 +38,7 @@
 #include "snapshot.h"
 #include "syncbarrier.h"
 #include "transaction.h"
+#include "snapshot_rpccli.h"
 #include "common/journal_entry.h"
 
 using grpc::Channel;
@@ -53,23 +54,26 @@ using huawei::proto::DiffBlocks;
 using huawei::proto::inner::SnapshotInnerControl;
 using huawei::proto::inner::UpdateEvent;
 
+/*split io into fixed size block*/
+struct cow_block {
+    off_t   off;
+    size_t  len;
+    block_t blk_no;
+};
+typedef struct cow_block cow_block_t;
+
 /*work on storage gateway client, each volume own a SnapshotProxy*/
-class SnapshotProxy : public ISnapshot, public ITransaction,
-                      public ISyncBarrier {
+class SnapshotProxy : public ISnapshot, public ITransaction, public ISyncBarrier {
  public:
-    SnapshotProxy(VolumeAttr& vol_attr,
-                  BlockingQueue<shared_ptr<JournalEntry>>& entry_queue);
+    SnapshotProxy(VolumeAttr& vol_attr, BlockingQueue<shared_ptr<JournalEntry>>& entry_queue);
     ~SnapshotProxy();
 
     bool init();
     bool fini();
 
-    /*crash recover, synchronize snapshot status with dr_server*/
-    StatusCode sync_state();
-
     /*called by control layer*/
     StatusCode create_snapshot(const CreateSnapshotReq* req,
-            CreateSnapshotAck* ack, JournalMarker& marker);  // for replicate
+                               CreateSnapshotAck* ack, JournalMarker& marker);
     StatusCode create_snapshot(const CreateSnapshotReq* req,
                                CreateSnapshotAck* ack) override;
     StatusCode delete_snapshot(const DeleteSnapshotReq* req,
@@ -92,17 +96,10 @@ class SnapshotProxy : public ISnapshot, public ITransaction,
                                   const std::string& snap_name) override;
     StatusCode rollback_transaction(const SnapReqHead& shead,
                                     const std::string& snap_name) override;
-
+    StatusCode cow_op(const off_t& off, const size_t& size, char* buf, bool rollback);
+    StatusCode update(const SnapReqHead& shead, const std::string& sname,
+                      const UpdateEvent& sevent);
     bool check_exist_snapshot()const;
-
-    /*rpc with dr server*/
-    StatusCode do_create(const SnapReqHead& shead, const std::string& sname);
-    StatusCode do_delete(const SnapReqHead& shead, const std::string& sname);
-    StatusCode do_cow(const off_t& off, const size_t& size, char* buf,
-                      bool rollback);
-    StatusCode do_update(const SnapReqHead& shead, const std::string& sname,
-                         const UpdateEvent& sevent);
-    StatusCode do_rollback(const SnapReqHead& shead, const std::string& sname);
 
     /*make sure journal writer persist ok then ack to client*/
     void cmd_persist_wait();
@@ -113,22 +110,12 @@ class SnapshotProxy : public ISnapshot, public ITransaction,
     bool check_sync_on(const std::string& actor) override;
 
  private:
-    /*split io into fixed size block*/
-    struct cow_block {
-        off_t   off;
-        size_t  len;
-        block_t blk_no;
-    };
-    typedef struct cow_block cow_block_t;
-    void split_cow_block(const off_t& off, const size_t& size,
-                         vector<cow_block_t>& cow_blocks);
-    /*block device read and write*/
-    size_t raw_device_write(char* buf, size_t len, off_t off);
-    size_t raw_device_read(char* buf, size_t len, off_t off);
+   void split_cow_block(const off_t& off, const size_t& size, vector<cow_block_t>& cow_blocks);
 
     /*accord message type to spawn journal entry*/
     shared_ptr<JournalEntry> spawn_journal_entry(const SnapReqHead& shead,
-         const std::string& sname, const journal_event_type_t& entry_type);
+                                                 const std::string& sname,
+                                                 const journal_event_type_t& entry_type);
 
     /*common transaction mechanism*/
     StatusCode transaction(const SnapReqHead& shead, const std::string& sname,
@@ -157,8 +144,8 @@ class SnapshotProxy : public ISnapshot, public ITransaction,
     atomic_bool m_exist_snapshot{false};
     /*snapshot block store*/
     BlockStore* m_block_store;
-    /*rpc interact with dr server, snapshot meta data access*/
-    unique_ptr<SnapshotInnerControl::Stub> m_rpc_stub;
+    /*snapshot rpc client*/
+    SnapRpcCli* m_snap_rpc_cli;
 };
 
 #endif  // SRC_SG_CLIENT_SNAPSHOT_SNAPSHOT_PROXY_H_

@@ -227,7 +227,7 @@ bool JournalReplayer::handle_io_cmd(shared_ptr<JournalEntry> entry) {
             ssize_t ret = blk_file_->write(data, len, off);
             assert(ret == len);
         } else {
-            StatusCode ret = snapshot_proxy_ptr_->do_cow(off, len, data, false);
+            StatusCode ret = snapshot_proxy_ptr_->cow_op(off, len, data, false);
             assert(ret == StatusCode::sOk);
         }
         /*next io data offset*/

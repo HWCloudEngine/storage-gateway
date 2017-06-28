@@ -18,7 +18,6 @@ class ISyncBarrier {
     ISyncBarrier() = default;
     virtual ~ISyncBarrier() {
     }
-
     virtual void add_sync(const std::string& actor,
                           const std::string& action) =  0;
     virtual void del_sync(const std::string& actor) = 0;
@@ -26,5 +25,4 @@ class ISyncBarrier {
     /*true: action still on; false: action already over*/
     virtual bool check_sync_on(const std::string& actor) = 0;
 };
-
 #endif  // SRC_SG_CLIENT_SNAPSHOT_SYNCBARRIER_H_

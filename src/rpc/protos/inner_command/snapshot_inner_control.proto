@@ -63,8 +63,9 @@ message RollbackReq {
 
 /*indicate which block will be rollback*/
 message RollBlock {
-    uint64 blk_no     = 1;
-    string blk_object = 2; /*rollback data from object*/
+    uint64 blk_no   = 1;
+    bool   blk_zero = 2;
+    string blk_url  = 3; 
 }
 
 message RollbackAck {
@@ -86,7 +87,7 @@ message DiffReq {
     SnapReqHead header = 1;
     string vol_name    = 2;
     string first_snap_name = 3;
-    string last_snap_name = 4;
+    string last_snap_name  = 4;
 }
 
 message DiffAck {
@@ -102,12 +103,10 @@ message ReadReq {
     uint64 len       = 5;
 }
 
-/*indicate which block should read from block store, 
- *others read from blockdevice
- */
 message ReadBlock {
-    uint64 blk_no = 1;
-    string blk_object = 2;
+    uint64 blk_no   = 1;
+    bool   blk_zero = 2;
+    string blk_url  = 3;
 }
 
 message ReadAck {
@@ -147,8 +146,8 @@ message CowReq {
 message CowAck {
     SnapAckHead header = 1;
     /*cow/direct overlap/other*/
-    int32 op = 2;
-    string cow_blk_object = 3;  /*cow data write to blk object*/
+    int32  cow_op = 2;
+    string blk_url = 3;  /*cow data write to blk object*/
 }
 
 /*after cow, then update snapshot index in dr server*/
@@ -157,7 +156,8 @@ message CowUpdateReq {
     string vol_name  = 2;
     string snap_name = 3;
     uint64 blk_no    = 4;
-    string cow_blk_object = 5;
+    bool   blk_zero  = 5;
+    string blk_url   = 6;
 }
 
 message CowUpdateAck {

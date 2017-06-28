@@ -97,8 +97,8 @@ StatusCode LocalCreateTask::do_full_backup() {
 
 StatusCode LocalCreateTask::do_incr_backup() {
     StatusCode ret_code = StatusCode::sOk;
-    string cur_backup = m_backup_name;
-    string prev_backup = m_ctx->get_prev_backup(cur_backup);
+    string cur_backup   = m_backup_name;
+    string prev_backup  = m_ctx->get_prev_backup(cur_backup);
     if (prev_backup.empty()) {
         LOG_ERROR << "incr backup:" << cur_backup<< "has no previous backup";
         return StatusCode::sBackupNotExist;
@@ -115,19 +115,21 @@ StatusCode LocalCreateTask::do_incr_backup() {
     /*todo modify as stream interface*/
     /*1. diff cur and prev snapshot*/
     vector<DiffBlocks> diff_blocks;
-    ret_code = m_ctx->snap_client()->DiffSnapshot(m_ctx->vol_name(),
-                                            pre_snap, cur_snap, diff_blocks);
+    ret_code = m_ctx->snap_client()->DiffSnapshot(m_ctx->vol_name(), pre_snap,
+                                                  cur_snap, diff_blocks);
     assert(ret_code == StatusCode::sOk);
 
     /*2. read diff data(current snapshot and diff region)*/
     char* buf = new char[COW_BLOCK_SIZE];
-    for (auto it : diff_blocks) {
-        uint64_t diff_block_no_size = it.diff_block_no_size();
-        for (int i = 0; i < diff_block_no_size; i++) {
-            uint64_t diff_block_no = it.diff_block_no(i);
-            off_t    diff_block_off = diff_block_no * COW_BLOCK_SIZE;
-            size_t   diff_block_size = COW_BLOCK_SIZE;
-
+    for (auto diff_block : diff_blocks) {
+        uint64_t block_size = diff_block.block_size();
+        for (int i = 0; i < block_size; i++) {
+            uint64_t diff_block_no = diff_block.block(i).blk_no();
+            bool diff_block_zero = diff_block.block(i).blk_zero();
+            std::string diff_block_url = diff_block.block(i).blk_url();
+            off_t diff_block_off = diff_block_no * COW_BLOCK_SIZE;
+            size_t diff_block_size = COW_BLOCK_SIZE;
+            
             ret_code = m_ctx->snap_client()->ReadSnapshot(m_ctx->vol_name(),
                             cur_snap, buf, diff_block_size, diff_block_off);
             assert(ret_code == StatusCode::sOk);
@@ -157,7 +159,6 @@ StatusCode LocalCreateTask::do_incr_backup() {
     if (buf) {
         delete [] buf;
     }
-
     return ret_code;
 }
 
@@ -325,11 +326,13 @@ StatusCode RemoteCreateTask::do_incr_backup() {
     /*read diff data(current snapshot and diff region)*/
     size_t chunk_size = COW_BLOCK_SIZE;
     char* chunk_buf = new char[COW_BLOCK_SIZE];
-    for (auto it : diff_blocks) {
-        uint64_t diff_block_no_size = it.diff_block_no_size();
-        for (int i = 0; i < diff_block_no_size; i++) {
-            uint64_t diff_block_no = it.diff_block_no(i);
-            off_t    diff_block_off = diff_block_no * COW_BLOCK_SIZE;
+    for (auto diff_block : diff_blocks) {
+        uint64_t block_num = diff_block.block_size();
+        for (int i = 0; i < block_num; i++) {
+            uint64_t diff_block_no = diff_block.block(i).blk_no();
+            bool diff_block_zero = diff_block.block(i).blk_zero();
+            std::string diff_block_url = diff_block.block(i).blk_url();
+            off_t diff_block_off = diff_block_no * COW_BLOCK_SIZE;
 
             ret_code = m_ctx->snap_client()->ReadSnapshot(m_ctx->vol_name(),
                                                           cur_snap,

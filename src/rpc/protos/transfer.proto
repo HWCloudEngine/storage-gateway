@@ -111,9 +111,10 @@ message RemoteBackupDeleteAck {
 message UploadDataReq {
     string vol_name = 1; 
     string backup_name = 2;
-    uint64 blk_no = 3;
-    uint64 blk_off = 4;
-    bytes  blk_data = 5;
+    uint64 blk_no   = 3;
+    uint64 blk_off  = 4;
+    bool   blk_zero = 5;
+    bytes  blk_data = 6;
 }
 
 message UploadDataAck {
@@ -126,7 +127,8 @@ message DownloadDataReq {
 }
 
 message DownloadDataAck {
-    uint64 blk_no = 1;
-    bytes  blk_data = 2;
-    bool   blk_over = 3; //no blk data any more
+    uint64 blk_no   = 1;
+    bool   blk_zero = 2;
+    bytes  blk_data = 3;
+    bool   blk_over = 4; //no blk data any more
 }

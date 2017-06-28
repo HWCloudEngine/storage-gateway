@@ -21,7 +21,6 @@ class ITransaction {
     ITransaction() = default;
     virtual ~ITransaction() {
     }
-
     virtual StatusCode create_transaction(const SnapReqHead& shead,
                                           const std::string& snap_name) = 0;
     virtual StatusCode delete_transaction(const SnapReqHead& shead,
@@ -29,5 +28,4 @@ class ITransaction {
     virtual StatusCode rollback_transaction(const SnapReqHead& shead,
                                             const std::string& snap_name) = 0;
 };
-
 #endif  // SRC_SG_CLIENT_SNAPSHOT_TRANSACTION_H_

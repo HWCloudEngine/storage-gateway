@@ -64,8 +64,7 @@ StatusCode ReplicateProxy::create_transaction(const SnapReqHead& shead,
     }
     else{
         //if snapshot is not found in volume replicate operation records,delete it
-        ret_code = snapshot_proxy_->do_update(shead, snap_name,
-                UpdateEvent::DELETE_EVENT);
+        ret_code = snapshot_proxy_->update(shead, snap_name, UpdateEvent::DELETE_EVENT);
         if(ret_code != StatusCode::sOk){
             LOG_ERROR << "try to delete volume[" << vol_name_
                 << "] replicate snapshot[" << snap_name << "]failed!";

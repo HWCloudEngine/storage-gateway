@@ -42,7 +42,7 @@ public:
         }
         else{
             for(int i=0; i<diff_blocks.size(); i++){
-                if(diff_blocks[i].diff_block_no_size() > 0){
+                if(diff_blocks[i].block_size() > 0){
                     return false;
                 }
             }

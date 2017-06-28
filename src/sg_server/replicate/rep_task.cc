@@ -249,7 +249,7 @@ TransferRequest* DiffSnapTask::get_next_package(){
     DiffBlocks& diff_block = diff_blocks[vector_cursor];
     // construct transfer request
     TransferRequest* req = new TransferRequest;
-    if(diff_block.diff_block_no_size() > 0){// first diff_blocks may be empty
+    if(diff_block.block_size() > 0){// first diff_blocks may be empty
         // if no enough space in cur journal file, seal it
         if(cur_off + MAX_JOURNAL_ENTRY_LEN > max_journal_size){
             construct_transfer_end_request(req,ctx->get_peer_vol(),
@@ -263,7 +263,7 @@ TransferRequest* DiffSnapTask::get_next_package(){
             return req;
         }
         //read diff block data from snapshot
-        uint64_t diff_block_no = diff_block.diff_block_no(array_cursor);
+        uint64_t diff_block_no = diff_block.block(array_cursor).blk_no();
         off_t    diff_block_off = diff_block_no * COW_BLOCK_SIZE;
         size_t   diff_block_size = COW_BLOCK_SIZE;
         StatusCode ret = SnapClientWrapper::instance().get_client()->ReadSnapshot(
@@ -293,7 +293,7 @@ TransferRequest* DiffSnapTask::get_next_package(){
         cur_off += size;
     }
     //move cursors
-    if(array_cursor + 1 >= diff_block.diff_block_no_size()){
+    if(array_cursor + 1 >= diff_block.block_size()){
         // check next diffblock
         vector_cursor++;
         array_cursor = 0;
@@ -303,7 +303,7 @@ TransferRequest* DiffSnapTask::get_next_package(){
             all_data_sent = true;
         }
         else{
-            if(diff_blocks[vector_cursor].diff_block_no_size()<=0){
+            if(diff_blocks[vector_cursor].block_size()<=0){
                 LOG_WARN << "no diff block was found in task["
                     << this->get_id() << "], cursor:" << vector_cursor;
                 all_data_sent = true;

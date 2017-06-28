@@ -19,4 +19,6 @@ std::string rpc_address(const std::string& host, const uint16_t& port);
 
 void save_file(const std::string& fname, const char* buf, const size_t& len);
 
+bool mem_is_zero(const char* data, size_t len);
+
 #endif  // SRC_COMMON_UTILS_H_

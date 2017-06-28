@@ -51,12 +51,15 @@ enum SnapStatus{
     SNAP_INVALID = 10;
 }
 
-//(todo) there exist many repeated message defined
-//       in snapshot_control and snapshot_inner, need abstract
-
 //differ blocks between snapshot
+message DiffBlock {
+    uint64 blk_no   = 1;
+    bool   blk_zero = 2;
+    string blk_url  = 3;
+}
+
 message DiffBlocks {
-    string vol_name  = 1;
-    string snap_name = 2;
-    repeated uint64 diff_block_no = 3;
+    string   vol_name  = 1;
+    string   snap_name = 2;
+    repeated DiffBlock block = 3;
 }

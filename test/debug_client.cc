@@ -1,6 +1,7 @@
 #include <set>
 #include <string>
 #include <iostream>
+#include "common/utils.h"
 #include "../log/log.h"
 #include "../rpc/clients/volume_ctrl_client.h"
 #include "../rpc/clients/snapshot_ctrl_client.h"
@@ -25,8 +26,8 @@ int main(int argc, char** argv)
                 grpc::InsecureChannelCredentials()));
 
     string vol_name = "test_volume";
-    size_t vol_size = 209715200UL;
-    string blk_device = "/dev/sdd";
+    size_t vol_size = 16777216UL;
+    string blk_device = "/dev/sde";
     
     /*"volume", "snapshot", "backup"*/
     char* object = argv[1];
@@ -66,12 +67,24 @@ int main(int argc, char** argv)
             ret = snap_client->DiffSnapshot(vol_name, first_snap_name, last_snap_name, diff);
             cout << "diff snapshot " << "first_snap_name:" << first_snap_name 
                 << " last_snap_name:" << last_snap_name << " ret:" << ret << endl;
+            for (auto blocks : diff) {
+                cout << "diff snap:" << blocks.snap_name() << endl;
+                int block_num = blocks.block_size();
+                for (int i = 0; i < block_num; i++) {
+                    cout << "\t" << blocks.block(i).blk_no() << " "
+                         << blocks.block(i).blk_zero() << " " << blocks.block(i).blk_url();
+                }
+                cout << endl;
+            }
         } else if(strcmp(op, "read") == 0){
             string snap_name = argv[3];
-            off_t  len  = atoi(argv[4]);
-            size_t off  = atoi(argv[5]);
+            off_t  off = atoi(argv[4]);
+            size_t len = atoi(argv[5]);
             char*  buf = (char*)malloc(len);
             ret = snap_client->ReadSnapshot(vol_name, snap_name, buf, len, off);
+            string file = "/opt/" + snap_name + to_string(off) + to_string(len);
+            save_file(file, buf, len);
+            free(buf);
             cout << "read snapshot " << " snap_name:" << snap_name << " off:" << off
                  << " len:" << len << " ret:" << ret << endl;
         } else if(strcmp(op, "query") == 0){

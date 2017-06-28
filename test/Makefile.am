@@ -10,7 +10,8 @@ LDADD=$(top_srcdir)/src/rpc/librpc.la \
                    -lpthread -lprotobuf -lpthread -ldl -lgrpc -lgrpc++ \
                    -lboost_system -lboost_log_setup -lboost_log
 
-debug_client_SOURCES=debug_client.cc
+debug_client_SOURCES=debug_client.cc \
+					 ../src/common/utils.cc
 
 libs3_utils_SOURCES=libs3_utils.cc \
                     ../src/common/config_option.cc \

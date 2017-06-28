@@ -47,3 +47,55 @@ void save_file(const std::string& fname, const char* buf, const size_t& len) {
 std::string rpc_address(const std::string& host, const uint16_t& port) {
     return host + ":" + std::to_string(port);
 }
+
+#if defined(__GNUC__) && defined(__x86_64__)
+typedef unsigned uint128_t __attribute__((mode(TI)));
+bool mem_is_zero(const char* data, size_t len) {
+    if (len / sizeof(uint128_t) > 0) {
+        while (((unsigned long long)data) & 15) {
+            if (*(uint8_t*)data != 0) {
+                return false;
+            }
+            data += sizeof(uint8_t);
+            --len;
+        }
+        const char* data_start = data;
+        const char* max128 = data + (len/sizeof(uint128_t)) * sizeof(uint128_t);
+        while (data < max128) {
+            if (*(uint128_t*)data != 0) {
+                return false;
+            }
+            data += sizeof(uint128_t);
+        }
+        len -= (data-data_start);
+    }
+
+    const char* max = data + len;
+    const char* max32 = data + (len/sizeof(uint32_t)) * sizeof(uint32_t);
+    while (data < max32) {
+        if (*(uint32_t*)data != 0) {
+            return false;
+        } 
+        data += sizeof(uint32_t);
+    }
+
+    while (data < max) {
+        if (*(uint8_t*)data != 0) {
+            return false;
+        }
+        data += sizeof(uint8_t);
+    }
+    return true;
+}
+#else
+bool mem_is_zero(const char* data, size_t len) {
+    const char* end = data + len;
+    while (data < end) {
+        if (*data != 0) {
+            return false;
+        }
+        ++data;
+    }
+    return true;
+}
+#endif

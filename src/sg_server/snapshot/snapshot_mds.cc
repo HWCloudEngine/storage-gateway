@@ -18,6 +18,7 @@
 #include "snapshot_type.h"
 #include "snapshot_mds.h"
 
+using huawei::proto::DiffBlock;
 using huawei::proto::DiffBlocks;
 using huawei::proto::inner::UpdateEvent;
 using huawei::proto::inner::ReadBlock;
@@ -273,7 +274,8 @@ StatusCode SnapshotMds::rollback_snapshot(const RollbackReq* req, RollbackAck* a
         cur_block.decode(it->value());
         RollBlock* roll_blk = ack->add_roll_blocks();
         roll_blk->set_blk_no(cur_block.block_id);
-        roll_blk->set_blk_object(cur_block.block_url);
+        roll_blk->set_blk_zero(cur_block.block_zero);
+        roll_blk->set_blk_url(cur_block.block_url);
     }
     ack->mutable_header()->set_status(StatusCode::sOk);
     LOG_INFO << "rollback snapshot vname:" << vol_name
@@ -451,17 +453,16 @@ StatusCode SnapshotMds::cow_op(const CowReq* req, CowAck* ack) {
             LOG_INFO << "cow op block:" << blk_id << " block_url:"
                      << cur_cow_block.block_url << " already cow";
             ack->mutable_header()->set_status(StatusCode::sOk);
-            ack->set_op(COW_NO);
+            ack->set_cow_op(COW_NO);
             return StatusCode::sOk;
         }
     }
     /*create cow object*/
-    std::string block_url = spawn_block_url(snap_id, blk_id);
-    m_block_store->create(block_url);
+    std::string blk_url = spawn_block_url(snap_id, blk_id);
     ack->mutable_header()->set_status(StatusCode::sOk);
-    ack->set_op(COW_YES);
-    ack->set_cow_blk_object(block_url);
-    LOG_INFO << "cow op block:" << blk_id << " block_url:" << block_url << " need cow";
+    ack->set_cow_op(COW_YES);
+    ack->set_blk_url(blk_url);
+    LOG_INFO << "cow op block:" << blk_id << " block_url:" << blk_url << " need cow";
     return StatusCode::sOk;
 }
 
@@ -469,7 +470,8 @@ StatusCode SnapshotMds::cow_update(const CowUpdateReq* req, CowUpdateAck* ack) {
     std::string vname = req->vol_name();
     std::string snap_name = req->snap_name();
     block_t blk_no = req->blk_no();
-    std::string blk_url = req->cow_blk_object();
+    bool blk_zero = req->blk_zero();
+    std::string blk_url = req->blk_url();
     snap_id_t snap_id = get_snap_id(snap_name);
     assert(snap_id != -1);
     LOG_INFO << "cow update vname:" << vname << " snap_name:" << snap_name
@@ -479,7 +481,7 @@ StatusCode SnapshotMds::cow_update(const CowUpdateReq* req, CowUpdateAck* ack) {
     cow_block_t cur_cow_block;
     cur_cow_block.snap_id = snap_id;
     cur_cow_block.block_id = blk_no;
-    cur_cow_block.block_zero = false;
+    cur_cow_block.block_zero = blk_zero;
     cur_cow_block.block_url = blk_url;
     transaction->put(cur_cow_block.key(), cur_cow_block.encode());
     /*maintain cow block ref*/
@@ -520,7 +522,7 @@ StatusCode SnapshotMds::cow_update(const CowUpdateReq* req, CowUpdateAck* ack) {
     trace();
     ack->mutable_header()->set_status(StatusCode::sOk);
     LOG_INFO << "cow update vname:" << vname << " snap_name:" << snap_name
-             << " snap_id:" << snap_id << " blk_id:" << blk_no
+             << " snap_id:" << snap_id << " blk_id:" << blk_no << " blk_zero:" << blk_zero
              << " blk_url:" << blk_url << " ok";
     return StatusCode::sOk;
 }
@@ -549,7 +551,6 @@ StatusCode SnapshotMds::diff_snapshot(const DiffReq* req, DiffAck* ack) {
     snap_id_t cur_snap_id = first_snapid;
     while (cur_snap_id < last_snapid) {
         snap_id_t next_snap_id = get_next_snap_id(cur_snap_id);
-
         cow_block_t cur_pivot_block;
         cur_pivot_block.snap_id = cur_snap_id;
         IndexStore::IndexIterator cur_it = m_index_store->db_iterator();
@@ -557,13 +558,11 @@ StatusCode SnapshotMds::diff_snapshot(const DiffReq* req, DiffAck* ack) {
         DiffBlocks* diffblocks = ack->add_diff_blocks();
         diffblocks->set_vol_name(vname);
         diffblocks->set_snap_name(get_snap_name(cur_snap_id));
-
         for (; cur_it->valid() && (-1 != cur_it->key().find(cur_pivot_block.prefix())); cur_it->next()) {
             bool block_same_in_two_snap = false;
             cow_block_t cur_block;
             cur_block.decode(cur_it->value());
             LOG_INFO << "cur_block_url:" << cur_block.block_url;
-
             cow_block_t next_pivot_block;
             next_pivot_block.snap_id = next_snap_id;
             IndexStore::IndexIterator next_it = m_index_store->db_iterator();
@@ -580,7 +579,10 @@ StatusCode SnapshotMds::diff_snapshot(const DiffReq* req, DiffAck* ack) {
             }
             LOG_INFO << "cur_block_url:" << cur_block.block_url << " same:" << block_same_in_two_snap;
             if (!block_same_in_two_snap) {
-                diffblocks->add_diff_block_no(cur_block.block_id);
+                DiffBlock* diff_block = diffblocks->add_block();
+                diff_block->set_blk_no(cur_block.block_id);
+                diff_block->set_blk_zero(cur_block.block_zero);
+                diff_block->set_blk_url(cur_block.block_url);
             }
         }
 
@@ -616,7 +618,10 @@ StatusCode SnapshotMds::read_snapshot(const ReadReq* req, ReadAck* ack) {
         }
         ReadBlock* rblock = ack->add_read_blocks();
         rblock->set_blk_no(cur_block.block_id);
-        rblock->set_blk_object(cur_block.block_url);
+        rblock->set_blk_zero(cur_block.block_zero);
+        rblock->set_blk_url(cur_block.block_url);
+        LOG_INFO << "read blk_no:" << cur_block.block_id << " blk_zero:" << cur_block.block_zero
+                 << " blk_url:" << cur_block.block_url;
     }
     ack->mutable_header()->set_status(StatusCode::sOk);
     LOG_INFO << "read snapshot" << " vname:" << vol_name << " sname:" << snap_name
