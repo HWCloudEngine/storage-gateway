@@ -59,8 +59,7 @@ StatusCode BackupProxy::create_backup(const CreateBackupReq* req,
 
     do {
         if (!m_vol_attr.is_backup_allowable(backup_type)) {
-            LOG_ERROR << "create backup vname:" << vol_name << " bname:" << backup_name
-                      << " disallow";
+            LOG_ERROR << "create backup vname:" << vol_name << " bname:" << backup_name << " disallow";
             ret = StatusCode::sBackupCreateDenied;
             break;
         }
@@ -113,7 +112,6 @@ StatusCode BackupProxy::list_backup(const ListBackupReq* req,
             add_backup_name->copy(const_cast<char*>(backup.c_str()), backup.length());
         }
     }while(0);
-
     ack->set_status(ret);
     LOG_INFO << "list backup vname:" << vol_name << (!ret ? " ok" : " failed");
     return ret;
@@ -123,11 +121,12 @@ bool BackupProxy::is_backup_exist(const std::string& vol, const std::string& bna
     std::set<std::string> backup_set;    
     StatusCode ret = m_backup_inner_rpc_client->ListBackup(vol, backup_set);
     if (ret != StatusCode::sOk) {
-        LOG_ERROR << " list backup vo:" << vol << " failed";
+        LOG_ERROR << "list backup vol:" << vol << " failed";
         return false;
     }
     auto it = backup_set.find(bname);
     if (it == backup_set.end()) {
+        LOG_ERROR << "list backup vol:" << vol << " no exist";
         return false; 
     }
     return true;
@@ -140,7 +139,6 @@ StatusCode BackupProxy::get_backup(const GetBackupReq* req,
     string backup_name = req->backup_name();
     BackupStatus backup_status;
     LOG_INFO << "get backup vname:" << vol_name << " bname:" << backup_name;
-
     do {
         ret = m_backup_inner_rpc_client->GetBackup(vol_name, backup_name, backup_status);
         if (ret != StatusCode::sOk) {
@@ -148,7 +146,6 @@ StatusCode BackupProxy::get_backup(const GetBackupReq* req,
         }
         ack->set_backup_status(backup_status);
     }while(0);
-
     ack->set_status(ret);
     LOG_INFO << "get backup vname:" << vol_name << (!ret ? " ok" : " failed");
     return ret;

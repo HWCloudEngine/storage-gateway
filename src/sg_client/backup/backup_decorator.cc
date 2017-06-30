@@ -61,24 +61,20 @@ StatusCode BackupDecorator::read_snapshot(const ReadSnapshotReq* req,
 StatusCode BackupDecorator::create_transaction(const SnapReqHead& shead,
                                                const string& snap_name) {
     StatusCode ret = StatusCode::sOk;
-
     /*check snapshot status*/
     ret = m_snapshot_proxy->create_transaction(shead, snap_name);
     if (ret != StatusCode::sOk) {
         LOG_ERROR << "snapshot proxy create transaction failed ret:" << ret;
         return ret;
     }
-
     /*check snapshot correspondent backup creating
      *if backup not ok, delete the backup and snapshot
      */
     string backup_name = snap_to_backup_name(snap_name);
-    LOG_INFO << "create_transaction A sname:" << snap_name << " bname:" << backup_name;
+    LOG_INFO << "backup transaction begin sname:" << snap_name << " bname:" << backup_name;
     while (check_sync_on(backup_name)) {
         usleep(200);
     }
-
-    LOG_INFO << "create_transaction B sname:" << snap_name << " bname:" << backup_name;
     /*check bakcup status*/
     BackupStatus backup_status;
     ret = m_backup_inner_rpc_client->GetBackup(m_vol_name, backup_name, backup_status);
@@ -87,10 +83,9 @@ StatusCode BackupDecorator::create_transaction(const SnapReqHead& shead,
         ret = m_snapshot_proxy->update(shead, snap_name, UpdateEvent::DELETE_EVENT);
         /*delete backup*/
         ret = m_backup_inner_rpc_client->DeleteBackup(m_vol_name, backup_name);
-        LOG_INFO << "create transaction recycle fail backup";
+        LOG_INFO << "backup transaction recycle fail backup";
     }
-    
-    LOG_INFO << "create_transaction C sname:" << snap_name << " bname:" << backup_name;
+    LOG_INFO << "backup transaction end sname:" << snap_name << " bname:" << backup_name;
     return ret;
 }
 
@@ -105,12 +100,12 @@ StatusCode BackupDecorator::rollback_transaction(const SnapReqHead& shead,
 }
 
 void BackupDecorator::add_sync(const string& actor, const string& action) {
-    LOG_INFO << "Add sync actor:" << actor;
+    LOG_INFO << "add sync actor:" << actor;
     m_sync_table.insert({actor, action});
 }
 
 void BackupDecorator::del_sync(const string& actor) {
-    LOG_INFO << "Del sync actor:" << actor;
+    LOG_INFO << "del sync actor:" << actor;
     auto it = m_sync_table.find(actor);
     if (it == m_sync_table.end()) {
         return; 

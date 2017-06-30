@@ -125,15 +125,20 @@ class BackupInnerCtrlClient {
         assert(buf != nullptr);
         while (reader->Read(&ack) && !ack.blk_over()) {
             uint64_t blk_no = ack.blk_no();
-            string blk_obj = ack.blk_obj();
+            bool blk_zero = ack.blk_zero();
+            std::string blk_url = ack.blk_url();
             char* blk_data = (char*)ack.blk_data().c_str();
-
-            LOG_INFO << "restore blk_no:" << blk_no << " blk_oj:" << blk_obj
-                     << " blk_data_len:" << ack.blk_data().length();
-            if (!blk_obj.empty()) {
+            size_t blk_data_len = ack.blk_data().length();
+            LOG_INFO << "restore blk_no:" << blk_no << " blk_zero:" << blk_zero << " blk_url:" << blk_url
+                     << " blk_data_len:" << blk_data_len;
+            if (blk_data_len == 0  && !blk_url.empty()) {
                 /*(local)read from block store*/
-                int read_ret = block_store->read(blk_obj, buf, BACKUP_BLOCK_SIZE, 0);
-                assert(read_ret == BACKUP_BLOCK_SIZE);
+                if (!blk_zero) {
+                    int read_ret = block_store->read(blk_url, buf, BACKUP_BLOCK_SIZE, 0);
+                    assert(read_ret == BACKUP_BLOCK_SIZE);
+                } else {
+                    memset(buf, 0, BACKUP_BLOCK_SIZE);
+                }
                 blk_data = buf;
             }
             if (blk_data) {
