@@ -36,9 +36,10 @@ typedef journal_event_type journal_event_type_t;
 #pragma pack()
 
 typedef uint64_t block_t;
-
-/*index db store path (disk layout)*/
-#define DB_DIR  "/var/tmp/"
+/*meta data store in rocksdb*/
+#define META_DIR  "/var/storage_gateway/meta/"
+/*data store in file system*/
+#define DATA_DIR  "/var/storage_gateway/data/"
 
 /**********************snapshot**********************/
 /*block operation way*/
@@ -48,10 +49,8 @@ enum cow_op
     COW_NO  = 1, /*noneed cow, direct overlap*/
 };
 typedef enum cow_op cow_op_t;
-
 /*mininum cow block size*/
 #define COW_BLOCK_SIZE (1*1024*1024UL)
-
 /************************backup**********************/
 /*backup block size*/
 #define BACKUP_BLOCK_SIZE (1*1024*1024UL)

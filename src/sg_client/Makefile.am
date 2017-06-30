@@ -8,15 +8,15 @@ sg_client_SOURCES=../common/crc32.c  \
                   ../common/xxhash.c \
                   ../common/utils.cc \
                   ../common/config_option.cc \
-                  ../common/volume_attr.cc   \
+                  ../common/atomic_ptr.cc    \
+                  ../common/env_posix.cc     \
+                  ../common/timer.cc         \
                   ../common/block_store.cc   \
                   ../common/ceph_s3_lease.cc \
                   ../common/ceph_s3_api.cc   \
                   ../common/journal_entry.cc \
-                  ../common/env_posix.cc     \
-                  ../common/timer.cc         \
-                  ../common/atomic_ptr.cc    \
                   ../rpc/clients/rpc_client.cc \
+                  ../common/volume_attr.cc   \
                   control/control_snapshot.cc  \
                   control/control_backup.cc    \
                   control/control_replicate.cc \
@@ -25,6 +25,7 @@ sg_client_SOURCES=../common/crc32.c  \
                   control/control_iscsi.cc   \
                   snapshot/snapshot_proxy.cc  \
                   snapshot/snapshot_rpccli.cc \
+                  backup/backup_rpccli.cc \
                   backup/backup_decorator.cc \
                   backup/backup_proxy.cc \
                   cache/bcache.cc        \
