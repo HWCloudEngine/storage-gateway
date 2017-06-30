@@ -27,16 +27,13 @@ BackupProxy::BackupProxy(VolumeAttr& vol_attr,
     /*todo read from config*/
     std::string meta_rpc_addr = rpc_address(g_option.meta_server_ip,
                                             g_option.meta_server_port);
-    m_backup_inner_rpc_client.reset(new BackupInnerCtrlClient(grpc::CreateChannel(
-                                    meta_rpc_addr,
+    m_backup_rpccli.reset(new BackupRpcCli(grpc::CreateChannel(meta_rpc_addr,
                                     grpc::InsecureChannelCredentials())));
-    m_block_store.reset(new CephBlockStore(g_option.ceph_cluster_name,
-                                           g_option.ceph_user_name,
-                                           g_option.ceph_pool_name));
+    m_block_store.reset(BlockStore::factory("fs"));
 }
 
 BackupProxy::~BackupProxy() {
-    m_backup_inner_rpc_client.reset();
+    m_backup_rpccli.reset();
     m_block_store.reset();
 }
 
@@ -59,8 +56,7 @@ StatusCode BackupProxy::create_backup(const CreateBackupReq* req,
 
     do {
         if (!m_vol_attr.is_backup_allowable(backup_type)) {
-            LOG_ERROR << "create backup vname:" << vol_name << " bname:" << backup_name
-                      << " disallow";
+            LOG_ERROR << "create backup vname:" << vol_name << " bname:" << backup_name << " disallow";
             ret = StatusCode::sBackupCreateDenied;
             break;
         }
@@ -81,8 +77,7 @@ StatusCode BackupProxy::create_backup(const CreateBackupReq* req,
             break;
         }
         //2.create backup
-        ret = m_backup_inner_rpc_client->CreateBackup(vol_name, vol_size,
-                                                      backup_name, backup_option);
+        ret = m_backup_rpccli->CreateBackup(vol_name, vol_size, backup_name, backup_option);
         if (ret != StatusCode::sOk) {
             LOG_ERROR << "create backup vname:" << vol_name << " bname:" << backup_name
                       << "create backup failed:" << ret;
@@ -104,7 +99,7 @@ StatusCode BackupProxy::list_backup(const ListBackupReq* req,
     set<string> backup_set;
     LOG_INFO << "list backup vname:" << vol_name;
     do {
-        ret = m_backup_inner_rpc_client->ListBackup(vol_name, backup_set);
+        ret = m_backup_rpccli->ListBackup(vol_name, backup_set);
         if (ret != StatusCode::sOk) {
             break;
         }
@@ -113,7 +108,6 @@ StatusCode BackupProxy::list_backup(const ListBackupReq* req,
             add_backup_name->copy(const_cast<char*>(backup.c_str()), backup.length());
         }
     }while(0);
-
     ack->set_status(ret);
     LOG_INFO << "list backup vname:" << vol_name << (!ret ? " ok" : " failed");
     return ret;
@@ -121,41 +115,38 @@ StatusCode BackupProxy::list_backup(const ListBackupReq* req,
 
 bool BackupProxy::is_backup_exist(const std::string& vol, const std::string& bname) {
     std::set<std::string> backup_set;    
-    StatusCode ret = m_backup_inner_rpc_client->ListBackup(vol, backup_set);
+    StatusCode ret = m_backup_rpccli->ListBackup(vol, backup_set);
     if (ret != StatusCode::sOk) {
-        LOG_ERROR << " list backup vo:" << vol << " failed";
+        LOG_ERROR << "list backup vol:" << vol << " failed";
         return false;
     }
     auto it = backup_set.find(bname);
     if (it == backup_set.end()) {
+        LOG_ERROR << "list backup vol:" << vol << " no exist";
         return false; 
     }
     return true;
 }
 
-StatusCode BackupProxy::get_backup(const GetBackupReq* req,
-                                   GetBackupAck* ack) {
+StatusCode BackupProxy::get_backup(const GetBackupReq* req, GetBackupAck* ack) {
     StatusCode ret = StatusCode::sOk;
     string vol_name = req->vol_name();
     string backup_name = req->backup_name();
     BackupStatus backup_status;
     LOG_INFO << "get backup vname:" << vol_name << " bname:" << backup_name;
-
     do {
-        ret = m_backup_inner_rpc_client->GetBackup(vol_name, backup_name, backup_status);
+        ret = m_backup_rpccli->GetBackup(vol_name, backup_name, backup_status);
         if (ret != StatusCode::sOk) {
             break;
         }
         ack->set_backup_status(backup_status);
     }while(0);
-
     ack->set_status(ret);
     LOG_INFO << "get backup vname:" << vol_name << (!ret ? " ok" : " failed");
     return ret;
 }
 
-StatusCode BackupProxy::delete_backup(const DeleteBackupReq* req,
-                                      DeleteBackupAck* ack) {
+StatusCode BackupProxy::delete_backup(const DeleteBackupReq* req, DeleteBackupAck* ack) {
     StatusCode ret = StatusCode::sOk;
     string vol_name = req->vol_name();
     string backup_name = req->backup_name();
@@ -165,15 +156,14 @@ StatusCode BackupProxy::delete_backup(const DeleteBackupReq* req,
                   << " failed not exist";
         return StatusCode::sBackupNotExist;
     }
-    ret = m_backup_inner_rpc_client->DeleteBackup(vol_name, backup_name);
+    ret = m_backup_rpccli->DeleteBackup(vol_name, backup_name);
     ack->set_status(ret);
     LOG_INFO << "delete backup vname:" << vol_name << " bname:" << backup_name
              << (!ret ? " ok" : " failed");
     return ret;
 }
 
-StatusCode BackupProxy::restore_backup(const RestoreBackupReq* req,
-                                       RestoreBackupAck* ack) {
+StatusCode BackupProxy::restore_backup(const RestoreBackupReq* req, RestoreBackupAck* ack) {
     StatusCode ret = StatusCode::sOk;
     string vol_name = req->vol_name();
     string backup_name = req->backup_name();
@@ -188,13 +178,9 @@ StatusCode BackupProxy::restore_backup(const RestoreBackupReq* req,
         return StatusCode::sBackupNotExist;
     }
 
-    ret = m_backup_inner_rpc_client->RestoreBackup(vol_name, 
-                                                   backup_name,
-                                                   backup_type,
-                                                   new_vol_name,
-                                                   new_vol_size,
-                                                   new_block_device,
-                                                   m_block_store.get());
+    ret = m_backup_rpccli->RestoreBackup(vol_name, backup_name, backup_type,
+                                         new_vol_name, new_vol_size,
+                                         new_block_device, m_block_store.get());
     ack->set_status(ret);
     LOG_INFO << "restore backup vname:" << vol_name << " bname:" << backup_name
              << (!ret ? " ok" : " failed");

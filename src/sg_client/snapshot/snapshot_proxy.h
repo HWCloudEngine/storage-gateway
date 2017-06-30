@@ -28,7 +28,6 @@
 #include "rpc/snapshot_control.grpc.pb.h"
 #include "rpc/snapshot_inner_control.pb.h"
 #include "rpc/snapshot_inner_control.grpc.pb.h"
-#include "rpc/clients/backup_inner_ctrl_client.h"
 #include "common/define.h"
 #include "common/blocking_queue.h"
 #include "common/block_store.h"
@@ -126,7 +125,6 @@ class SnapshotProxy : public ISnapshot, public ITransaction, public ISyncBarrier
     VolumeAttr& m_vol_attr;
     /*block device read write fd*/
     unique_ptr<AccessFile> m_block_file;
-    //AccessFile* m_block_file;
     /*entry queue to journal preprocessor*/
     BlockingQueue<shared_ptr<JournalEntry>>& m_entry_queue;
     /*sync between writer and proxy*/
@@ -134,8 +132,6 @@ class SnapshotProxy : public ISnapshot, public ITransaction, public ISyncBarrier
     condition_variable m_cmd_persist_cond;
     std::atomic_bool m_cmd_persist_ok{false};
     JournalMarker m_cmd_persist_mark;
-    /*backup inner rpc client*/
-    BackupInnerCtrlClient* m_backup_inner_rpc_client;
     /*sync table*/
     map<std::string, std::string> m_sync_table;
     /*current active snapshot*/
