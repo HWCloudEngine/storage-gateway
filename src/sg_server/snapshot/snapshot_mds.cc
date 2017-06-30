@@ -27,11 +27,9 @@ using huawei::proto::inner::RollBlock;
 SnapshotMds::SnapshotMds(const std::string& vol_name, const size_t& vol_size)
     : m_volume_name(vol_name),m_volume_size(vol_size) {
     m_latest_snapid = 0;
-    m_block_store = new CephBlockStore(g_option.ceph_cluster_name,
-                                       g_option.ceph_user_name,
-                                       g_option.ceph_pool_name);
+    m_block_store = BlockStore::factory("fs");
     assert(m_block_store != nullptr);
-    std::string db_path = DB_DIR + vol_name + "/snapshot";
+    std::string db_path = META_DIR + vol_name + "/snapshot";
     if (access(db_path.c_str(), F_OK)) {
         char cmd[256] = "";
         snprintf(cmd, sizeof(cmd), "mkdir -p %s", db_path.c_str());
@@ -530,11 +528,11 @@ StatusCode SnapshotMds::cow_update(const CowUpdateReq* req, CowUpdateAck* ack) {
 std::string SnapshotMds::spawn_block_url(const snap_id_t snap_id,
                                          const block_t  blk_id) {
     std::string block_url = m_volume_name;
-    block_url.append("@");
+    block_url.append("/");
     block_url.append(std::to_string(snap_id));
-    block_url.append("@");
+    block_url.append("/");
     block_url.append(std::to_string(blk_id));
-    block_url.append(".obj");
+    block_url.append(".snap.obj");
     return block_url; 
 }
 

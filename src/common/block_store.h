@@ -21,6 +21,9 @@ class BlockStore {
     }
     virtual ~BlockStore() {
     }
+    
+    static BlockStore* factory(const std::string& type);
+
     virtual int create(const std::string& object) = 0;
     virtual int remove(const std::string& object) = 0;
     virtual int write(const std::string& object, char* buf, size_t len, off_t off) = 0;
@@ -47,6 +50,20 @@ class CephBlockStore : public BlockStore {
     std::string m_pool_name;
     rados_t m_cluster_ctx;
     rados_ioctx_t m_io_ctx;
+};
+
+class FsBlockStore : public BlockStore {
+ public:
+     explicit FsBlockStore(const std::string& dir);
+     virtual ~FsBlockStore();
+     int create(const std::string& object) override;
+     int remove(const std::string& object) override;
+     int write(const std::string& object, char* buf, size_t len, off_t off) override;
+     int read(const std::string& object, char* buf, size_t len, off_t off) override;
+ private:
+     std::string create_absolute_dir(std::string obj_name);
+ private:
+     std::string m_dir;
 };
 
 #endif  // SRC_COMMON_BLOCK_STORE_H_

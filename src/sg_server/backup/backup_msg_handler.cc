@@ -47,15 +47,11 @@ StatusCode BackupMsgHandler::handle_remote_create_start(TransferRequest* req,
                              RpcIoStream* stream) {
     RemoteBackupStartReq start_req;
     RemoteBackupStartAck start_ack;
-
     start_req.ParseFromString(req->data());
-
     StatusCode ret = m_backup_mgr.handle_remote_create_start(&start_req,
                                                              &start_ack);
-
     std::string ack_buf;
     start_ack.SerializeToString(&ack_buf);
-
     TransferResponse res;
     res.set_type(req->type());
     res.set_data(ack_buf.c_str(), ack_buf.length());
@@ -67,14 +63,10 @@ StatusCode BackupMsgHandler::handle_remote_create_end(TransferRequest* req,
                                                       RpcIoStream* stream) {
     RemoteBackupEndReq end_req;
     RemoteBackupEndAck end_ack;
-
     end_req.ParseFromString(req->data());
-
     StatusCode ret = m_backup_mgr.handle_remote_create_end(&end_req, &end_ack);
-
     std::string ack_buf;
     end_ack.SerializeToString(&ack_buf);
-
     TransferResponse res;
     res.set_type(req->type());
     res.set_data(ack_buf.c_str(), ack_buf.length());
@@ -87,7 +79,6 @@ StatusCode BackupMsgHandler::handle_remote_create_upload(TransferRequest* req,
     UploadDataReq upload_req;
     UploadDataAck upload_ack;
     upload_req.ParseFromString(req->data());
-
     StatusCode ret = m_backup_mgr.handle_remote_create_upload(&upload_req,
                                                               &upload_ack);
     return ret;
@@ -97,14 +88,10 @@ StatusCode BackupMsgHandler::handle_remote_delete(TransferRequest* req,
                                                   RpcIoStream* stream) {
     RemoteBackupDeleteReq del_req;
     RemoteBackupDeleteAck del_ack;
-
     del_req.ParseFromString(req->data());
-
     StatusCode ret = m_backup_mgr.handle_remote_delete(&del_req, &del_ack);
-
     std::string ack_buf;
     del_ack.SerializeToString(&ack_buf);
-
     TransferResponse res;
     res.set_type(req->type());
     res.set_data(ack_buf.c_str(), ack_buf.length());
@@ -117,7 +104,6 @@ StatusCode BackupMsgHandler::handle_download(TransferRequest* req,
     DownloadDataReq down_req;
     DownloadDataAck down_ack;
     down_req.ParseFromString(req->data());
-
     StatusCode ret = m_backup_mgr.handle_download(&down_req, stream);
     return ret;
 }

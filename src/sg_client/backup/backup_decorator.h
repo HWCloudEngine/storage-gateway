@@ -11,10 +11,10 @@
 #ifndef SRC_SG_CLIENT_BACKUP_BACKUP_DECORATOR_H_
 #define SRC_SG_CLIENT_BACKUP_BACKUP_DECORATOR_H_
 #include "../snapshot/snapshot_proxy.h"
+#include "backup_rpccli.h"
 
 /*backup decorator decorate snapshot proxy about backup type snapshot*/
-class BackupDecorator : public ISnapshot,
-                        public ITransaction, public ISyncBarrier {
+class BackupDecorator : public ISnapshot, public ITransaction, public ISyncBarrier {
  public:
     BackupDecorator(std::string vol_name, shared_ptr<SnapshotProxy> snapshot_proxy);
     ~BackupDecorator();
@@ -27,12 +27,10 @@ class BackupDecorator : public ISnapshot,
     StatusCode query_snapshot(const QuerySnapshotReq* req, QuerySnapshotAck* ack) override;
     StatusCode diff_snapshot(const DiffSnapshotReq* req, DiffSnapshotAck* ack) override;
     StatusCode read_snapshot(const ReadSnapshotReq* req, ReadSnapshotAck* ack) override;
-
     /*transaction*/
     StatusCode create_transaction(const SnapReqHead& shead, const std::string& snap_name) override;
     StatusCode delete_transaction(const SnapReqHead& shead, const std::string& snap_name) override;
     StatusCode rollback_transaction(const SnapReqHead& shead, const std::string& snap_name) override;
-
     /*syncbarrier*/
     void add_sync(const std::string& actor, const std::string& action) override;
     void del_sync(const std::string& actor) override;
@@ -41,7 +39,7 @@ class BackupDecorator : public ISnapshot,
  private:
     std::string m_vol_name;
     shared_ptr<SnapshotProxy> m_snapshot_proxy;
-    shared_ptr<BackupInnerCtrlClient> m_backup_inner_rpc_client;
+    shared_ptr<BackupRpcCli>  m_backup_rpccli;
     map<std::string, std::string> m_sync_table;
 };
 

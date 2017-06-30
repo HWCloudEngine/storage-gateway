@@ -17,6 +17,7 @@
 #include "rpc/common.pb.h"
 #include "rpc/backup_control.pb.h"
 #include "rpc/backup_control.grpc.pb.h"
+#include "backup_rpccli.h"
 #include "backup_decorator.h"
 
 using huawei::proto::StatusCode;
@@ -50,7 +51,7 @@ class BackupProxy {
     /*volume basic*/
     VolumeAttr& m_vol_attr;
     shared_ptr<BackupDecorator> m_backup_decorator;
-    shared_ptr<BackupInnerCtrlClient> m_backup_inner_rpc_client;
+    shared_ptr<BackupRpcCli> m_backup_rpccli;
     shared_ptr<BlockStore> m_block_store;
 };
 

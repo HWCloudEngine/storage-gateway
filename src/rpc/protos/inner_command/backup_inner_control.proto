@@ -40,12 +40,13 @@ message RestoreBackupInReq {
 message RestoreBackupInAck {
     StatusCode status = 1;
     uint64 blk_no     = 2;
+    bool   blk_zero   = 3;
     /*local site restore return block store object name*/
-    string blk_obj    = 3;
+    string blk_url    = 4;
     /*remote site restore return block store object data*/
-    bytes  blk_data   = 4;
+    bytes  blk_data   = 5;
     /*no any blk any more*/
-    bool   blk_over = 5;
+    bool   blk_over   = 6;
 }
 
 message GetBackupInReq {
