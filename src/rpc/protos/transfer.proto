@@ -129,6 +129,7 @@ message DownloadDataReq {
 message DownloadDataAck {
     uint64 blk_no   = 1;
     bool   blk_zero = 2;
-    bytes  blk_data = 3;
-    bool   blk_over = 4; //no blk data any more
+    string blk_url  = 3;
+    bytes  blk_data = 4;
+    bool   blk_over = 5; //no blk data any more
 }

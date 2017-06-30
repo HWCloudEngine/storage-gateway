@@ -36,7 +36,6 @@ using huawei::proto::RepRole;
 
 SnapshotProxy::SnapshotProxy(VolumeAttr& vol_attr, BlockingQueue<shared_ptr<JournalEntry>>& entry_queue)
     :m_vol_attr(vol_attr), m_entry_queue(entry_queue) {
-    m_backup_inner_rpc_client = nullptr;
     m_snap_rpc_cli = nullptr;
     init();
     LOG_INFO << "create proxy vname:" << m_vol_attr.vol_name() << " ok";
@@ -56,9 +55,7 @@ bool SnapshotProxy::init() {
         return false;
     }
     /*snapshot block store*/
-    m_block_store = new CephBlockStore(g_option.ceph_cluster_name,
-                                       g_option.ceph_user_name,
-                                       g_option.ceph_pool_name);
+    m_block_store = BlockStore::factory("fs");
     if (m_block_store == nullptr) {
         LOG_ERROR << "create block store failed";
         return false;
