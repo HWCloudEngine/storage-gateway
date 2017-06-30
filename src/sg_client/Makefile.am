@@ -24,6 +24,7 @@ sg_client_SOURCES=../common/crc32.c  \
                   control/control_iscsi.cc   \
                   snapshot/snapshot_proxy.cc  \
                   snapshot/snapshot_rpccli.cc \
+                  backup/backup_rpccli.cc \
                   backup/backup_decorator.cc \
                   backup/backup_proxy.cc \
                   cache/bcache.cc        \

@@ -534,7 +534,7 @@ std::string SnapshotMds::spawn_block_url(const snap_id_t snap_id,
     block_url.append(std::to_string(snap_id));
     block_url.append("@");
     block_url.append(std::to_string(blk_id));
-    block_url.append(".obj");
+    block_url.append(".snap.obj");
     return block_url; 
 }
 
