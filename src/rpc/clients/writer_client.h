@@ -3,6 +3,8 @@
 #include <map>
 #include <grpc++/grpc++.h>
 #include "../writer.grpc.pb.h"
+#include "log/log.h"
+
 
 using grpc::Channel;
 using grpc::ClientContext;
@@ -21,15 +23,16 @@ using huawei::proto::UpdateProducerMarkerResponse;
 using huawei::proto::UpdateMultiProducerMarkersRequest;
 using huawei::proto::UpdateMultiProducerMarkersResponse;
 using huawei::proto::JournalElement;
+using huawei::proto::StatusCode;
+
 
 class WriterClient {
 public:
-    WriterClient(std::shared_ptr<Channel> channel)
-        : stub_(Writer::NewStub(channel)) {}
+    WriterClient(){}
 
     // Assambles the client's payload, sends it and presents the response back
     // from the server.
-    bool GetWriteableJournals(const std::string& uuid,
+    static StatusCode GetWriteableJournals(const std::string& uuid,
         const std::string& vol, const int limit,std::list<JournalElement>& list_) 
     {
         // Data we are sending to the server.
@@ -48,6 +51,7 @@ public:
         Status status = stub_->GetWriteableJournals(&context, request, &reply);
 
         // Act upon its status.
+        //TODO the result type should be StatusCode type
         RESULT result = reply.result();
         if (status.ok() && (result == DRS_OK)) 
         {
@@ -55,16 +59,16 @@ public:
             {
                 list_.push_back( reply.journals(i));
             }
-            return true;
+            return StatusCode::sOk;
         } 
         else 
         {
             LOG_ERROR << "rpc error code:" << status.error_code();
-            return false;
+            return StatusCode::sInternalError;
         }
     }
 
-    bool SealJournals(const std::string& uuid, const std::string& vol, const std::list<std::string>& list_)
+    static StatusCode SealJournals(const std::string& uuid, const std::string& vol, const std::list<std::string>& list_)
     {
           // Data we are sending to the server.
         SealJournalsRequest request;
@@ -89,16 +93,16 @@ public:
         RESULT result = reply.result();
         if (status.ok() && (result == DRS_OK)) 
         {
-            return true;
+            return StatusCode::sOk;
         } 
         else 
         {
             LOG_ERROR << "rpc error code:" << status.error_code();
-            return false;
+            return StatusCode::sInternalError;
         }
     }
 
-    bool update_producer_marker(const std::string& uuid,
+    static StatusCode update_producer_marker(const std::string& uuid,
             const std::string& vol, const JournalMarker& marker){
         UpdateProducerMarkerRequest request;
         request.set_uuid(uuid);
@@ -109,15 +113,15 @@ public:
         ClientContext context;
         Status status = stub_->UpdateProducerMarker(&context,request,&reply);
         if(status.ok() && reply.result() == DRS_OK){
-            return true;
+            return StatusCode::sOk;
         }
         else{
             LOG_ERROR << "rpc error code:" << status.error_code();
-            return false;
+            return StatusCode::sInternalError;
         }
     }
 
-    bool update_multi_producer_markers(const std::string& uuid,
+    static StatusCode update_multi_producer_markers(const std::string& uuid,
             const std::map<std::string,JournalMarker>& markers){
         UpdateMultiProducerMarkersRequest request;
         request.set_uuid(uuid);
@@ -129,15 +133,19 @@ public:
         ClientContext context;
         Status status = stub_->UpdateMultiProducerMarkers(&context,request,&reply);
         if(status.ok() && reply.result() == DRS_OK){
-            return true;
+            return StatusCode::sOk;
         }
         else{
             LOG_ERROR << "rpc error code:" << status.error_code();
-            return false;
+            return StatusCode::sInternalError;
         }
+    }
+    static void init(std::shared_ptr<Channel> channel){
+        stub_.reset(new Writer::Stub(channel));
     }
 
 private:
-    std::unique_ptr<Writer::Stub> stub_;
+    static std::unique_ptr<Writer::Stub> stub_;
 };
+
 #endif

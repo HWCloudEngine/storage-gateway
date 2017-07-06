@@ -17,10 +17,10 @@
 Volume::Volume(VolumeManager& vol_manager,
                const VolumeInfo& vol_info,
                shared_ptr<CephS3LeaseClient> lease_client,
-               shared_ptr<WriterClient> writer_rpc_client, int epoll_fd)
+               int epoll_fd)
               : vol_manager_(vol_manager), vol_attr_(vol_info),
                 lease_client_(lease_client),
-                writer_rpc_client_(writer_rpc_client), epoll_fd_(epoll_fd){
+                epoll_fd_(epoll_fd){
 }
 
 Volume::~Volume() {
@@ -48,7 +48,7 @@ bool Volume::init()
     }
     /*todo read from config*/
     if (!writer_->init(idproxy_, cacheproxy_, snapshotproxy_,
-                       lease_client_, writer_rpc_client_, epoll_fd_)) {
+                       lease_client_, epoll_fd_)) {
         LOG_ERROR << "init journal writer failed,vol_name:" << vol_attr_.vol_name();
         return false;
     }
