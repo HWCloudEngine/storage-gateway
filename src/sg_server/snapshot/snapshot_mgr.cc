@@ -15,6 +15,7 @@
 #include "snapshot_mgr.h"
 
 using huawei::proto::StatusCode;
+using std::shared_ptr;
 
 #define CMD_PREV(vol, op)            \
 do {                                 \

@@ -14,7 +14,6 @@
 #include "log/log.h"
 #include "common/volume_attr.h"
 #include "common/utils.h"
-#include "common/ceph_s3_api.h"
 #include "control/control_snapshot.h"
 #include "control/control_backup.h"
 #include "control/control_replicate.h"
@@ -88,14 +87,7 @@ bool VolumeManager::init()
         DR_ERROR_OCCURED();
     }
 
-    std::shared_ptr<KVApi> kvApi_ptr(new CephS3Api(
-                        g_option.ceph_s3_access_key.c_str(),
-                        g_option.ceph_s3_secret_key.c_str(),
-                        g_option.ceph_host.c_str(),
-                        g_option.ceph_s3_bucket.c_str()));
-
-    lease_client->init(kvApi_ptr,
-                       g_option.lease_renew_window,
+    lease_client->init(g_option.lease_renew_window,
                        g_option.lease_expire_window,
                        g_option.lease_validity_window) ;
 

@@ -10,7 +10,7 @@
 *************************************************/
 #include "journal_marker.h"
 #include "log/log.h"
-
+using std::string;
 
 MarkerHandler::MarkerHandler(VolumeAttr& vol_attr):
 vol_attr_(vol_attr),written_size_since_last_update(0LLU), producer_marker_hold_flag(false){

@@ -35,7 +35,7 @@
 #include "common/blocking_queue.h"
 #include "common/config_option.h"
 #include "common/journal_entry.h"
-#include "common/ceph_s3_lease.h"
+#include "common/lease_client.h"
 #include "common/volume_attr.h"
 #include "seq_generator.h"
 #include "cache/cache_proxy.h"

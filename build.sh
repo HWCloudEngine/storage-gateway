@@ -21,6 +21,7 @@ $PROTOC -I ${PROTO_PATH} \
         ${PROTO_PATH}/volume.proto \
         ${PROTO_PATH}/replicate.proto \
         ${PROTO_PATH}/transfer.proto \
+        ${PROTO_PATH}/lease.proto \
         ${PROTO_PATH}/journal/journal.proto \
         ${PROTO_PATH}/journal/message.proto \
         ${PROTO_PATH}/journal/writer.proto \
@@ -39,6 +40,7 @@ $PROTOC -I ${PROTO_PATH} \
         --grpc_out=$RPC_SOURCE_PATH \
         --plugin=protoc-gen-grpc=`which grpc_cpp_plugin` \
         ${PROTO_PATH}/transfer.proto \
+        ${PROTO_PATH}/lease.proto \
         ${PROTO_PATH}/journal/writer.proto \
         ${PROTO_PATH}/journal/consumer.proto \
         ${PROTO_PATH}/inner_command/snapshot_inner_control.proto \
@@ -71,13 +73,13 @@ chmod +x ${CUR_PATH}/configure
 if [ 2 -eq $# ] && [ x"-debug" = x$2 ]
 then
     ${CUR_PATH}/configure --prefix=${CUR_PATH} --disable-dependency-tracking \
-    CXXFLAGS='-g2 -O0 -w' CFLAGS='-g2 -O0 -w'
+    CXXFLAGS='-g2 -O0 -w -fprofile-arcs -ftest-coverage' CFLAGS='-g2 -O0 -w -fprofile-arcs -ftest-coverage'
 else
     ${CUR_PATH}/configure --prefix=${CUR_PATH} --disable-dependency-tracking
 fi
 
 make clean
-make -j 8
+make -j
 
 elif [ "$1"a = "clean"a ]
 then
@@ -99,6 +101,8 @@ find . -name Makefile | grep -v -E "agent|auto" | xargs rm -f
 find . -name Makefile.in | xargs rm -f
 find . -name .dirstamp | xargs rm -f
 find . -name .deps | xargs rm -rf
+find . -name *.gcno | xargs rm -rf
+find . -name *.gcda | xargs rm -rf
 else
 echo ${USAGE}
 fi

@@ -1,0 +1,17 @@
+syntax = "proto3";
+import "common.proto";
+package huawei.proto;
+
+service Lease {
+    rpc UpdateLease(UpdateLeaseReq) returns(UpdateLeaseAck){}
+}
+
+message UpdateLeaseReq {
+    string key = 1;
+    string value = 2;
+    map<string,string> metas = 3;
+}
+
+message UpdateLeaseAck {
+    StatusCode status = 1;
+}

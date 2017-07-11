@@ -19,6 +19,8 @@
 #include "log/log.h"
 #include "index_store.h"
 
+using namespace rocksdb;
+
 IndexStore* IndexStore::create(const std::string& type, const std::string& db_path) {
     if (type == "rocksdb") {
         return new RocksDbIndexStore(db_path);
@@ -69,6 +71,15 @@ int RocksDbIndexStore::db_del(const std::string& key) {
     Status s = m_db->Delete(WriteOptions(), key);
     assert(s.ok());
     return 0;
+}
+
+bool RocksDbIndexStore::db_key_not_exist(const std::string& key) {
+    std::string value;
+    Status s = m_db->Get(ReadOptions(), key, &value);
+    if(s.IsNotFound())
+        return true;
+    else
+        return false;
 }
 
 int RocksDbIndexStore::IteratorImpl::seek_to_first() {

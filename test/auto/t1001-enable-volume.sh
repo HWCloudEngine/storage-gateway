@@ -14,12 +14,18 @@ test_description='1001 test ()
 AUTO_HOME=${AUTO_HOME:-$(cd $(dirname $0)/..;pwd)}
 
 # set sg env
-#source ${AUTO_HOME}/sg_env.sh
+. ${AUTO_HOME}/sg_env.sh
 
 test_expect_success 'enable a test volume' '
-    cd ${AUTO_HOME} &&
-    ./sg_test.sh enable
+    if [ "$CLIENT_MODE"x = "iscsi"x ]; then
+        cd ${AUTO_HOME} &&
+        ./sg_test.sh enable &&
+        ./sg_test.sh initialize
+    else
+       cd ${AUTO_HOME} &&
+        ./sg_test.sh enable &&
+        ./sg_test.sh attach
+   fi
 '
-
 
 test_done

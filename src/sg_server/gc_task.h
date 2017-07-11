@@ -17,7 +17,7 @@
 #include <map>
 #include <set>
 #include <atomic>
-#include "common/ceph_s3_lease.h"
+#include "common/lease_server.h"
 #include "common/config_option.h"
 #include "journal_gc_manager.h"
 #include "journal_meta_manager.h"
