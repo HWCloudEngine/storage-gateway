@@ -58,7 +58,7 @@ int GCTask::init(std::shared_ptr<CephS3LeaseServer>& lease,
 
     lease_ = lease;
     lease_check_window_ = g_option.lease_expire_window;
-    GC_window_  = g_option.gc_window;
+    GC_window_  = g_option.journal_gc_window;
 
     tick_ = 1;
     GC_running_ = true;

@@ -22,8 +22,8 @@ BlockStore* BlockStore::factory(const std::string& type) {
                                   g_option.ceph_user_name,
                                   g_option.ceph_pool_name);
     }
-    if (type == "fs") {
-        return new FsBlockStore(DATA_DIR);
+    if (type == "local") {
+        return new FsBlockStore(g_option.local_data_path);
     }
     return nullptr;
 }

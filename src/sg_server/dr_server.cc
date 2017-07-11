@@ -48,7 +48,7 @@ int main(int argc, char** argv) {
     std::shared_ptr<KVApi> kvApi_ptr(new CephS3Api(
                         g_option.ceph_s3_access_key.c_str(),
                         g_option.ceph_s3_secret_key.c_str(),
-                        g_option.ceph_s3_host.c_str(),
+                        g_option.ceph_host.c_str(),
                         g_option.ceph_s3_bucket.c_str()));
 
     std::shared_ptr<CephS3Meta> meta(new CephS3Meta(kvApi_ptr));
@@ -56,9 +56,9 @@ int main(int argc, char** argv) {
     int gc_interval = g_option.lease_validity_window;
     lease_server->init(kvApi_ptr,gc_interval);
 
-    string type = g_option.global_journal_data_storage;
+    string type = g_option.global_storage_media;
     string mount_path = g_option.journal_mount_point;
-    if(type.compare("ceph_fs") != 0 || mount_path.empty()){        
+    if(type.compare("ceph") != 0 || mount_path.empty()){        
         LOG_FATAL << "config parse ceph_fs.mount_point error!";
         std::cerr << "config parse ceph_fs.mount_point error!" << std::endl;
         return -1;

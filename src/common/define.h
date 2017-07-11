@@ -36,10 +36,6 @@ typedef journal_event_type journal_event_type_t;
 #pragma pack()
 
 typedef uint64_t block_t;
-/*meta data store in rocksdb*/
-#define META_DIR  "/var/storage_gateway/meta/"
-/*data store in file system*/
-#define DATA_DIR  "/var/storage_gateway/data/"
 
 /**********************snapshot**********************/
 /*block operation way*/

@@ -55,7 +55,7 @@ bool SnapshotProxy::init() {
         return false;
     }
     /*snapshot block store*/
-    m_block_store = BlockStore::factory("fs");
+    m_block_store = BlockStore::factory("local");
     if (m_block_store == nullptr) {
         LOG_ERROR << "create block store failed";
         return false;

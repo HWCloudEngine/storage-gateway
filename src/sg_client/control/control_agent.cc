@@ -47,7 +47,7 @@ bool AgentControl::init()
         return false;
     }
     //create agent conf file if not exist
-    std::ofstream fc(g_option.agent_dev_conf,std::ios::app);
+    std::ofstream fc(g_option.local_agent_dev_conf,std::ios::app);
     fc.close();
     LOG_INFO << " agent init OK";
     return true;
@@ -154,7 +154,7 @@ bool AgentControl::detach_volume(const std::string& vol_name,
 
 bool AgentControl::persist_device(const std::string& vol_name, const std::string& device)
 {
-    std::ofstream f(g_option.agent_dev_conf, std::ios::app);
+    std::ofstream f(g_option.local_agent_dev_conf, std::ios::app);
     if(!f.is_open())
     {
         LOG_INFO <<" open agent dev conf file failed";
@@ -168,7 +168,7 @@ bool AgentControl::persist_device(const std::string& vol_name, const std::string
 
 bool AgentControl::delete_device(std::string device)
 {
-    std::ifstream fin(g_option.agent_dev_conf);
+    std::ifstream fin(g_option.local_agent_dev_conf);
     if(!fin.is_open())
     {
         LOG_INFO <<" open agent dev conf file failed";
@@ -183,7 +183,7 @@ bool AgentControl::delete_device(std::string device)
         return true;
     }
     s.erase(pos,device.size()+1);
-    std::ofstream fout(g_option.agent_dev_conf);
+    std::ofstream fout(g_option.local_agent_dev_conf);
     if(!fout.is_open())
     {
         LOG_INFO <<" open agent dev conf file failed";
@@ -195,7 +195,7 @@ bool AgentControl::delete_device(std::string device)
 
 bool AgentControl::agent_device_recover()
 {
-    std::ifstream f(g_option.agent_dev_conf);
+    std::ifstream f(g_option.local_agent_dev_conf);
     if(!f.is_open())
     {
         LOG_INFO <<" open agent dev conf file failed";
