@@ -17,6 +17,7 @@
 #include "log/log.h"
 #include "ceph_s3_meta.h"
 #include "common/ceph_s3_api.h"
+#include "common/db_meta_api.h"
 #include "common/config_option.h"
 #include "common/rpc_server.h"
 #include "gc_task.h"
@@ -45,22 +46,35 @@ int main(int argc, char** argv) {
     DRLog::log_init(file);
     DRLog::set_log_level(SG_DEBUG);
 
-    std::shared_ptr<KVApi> kvApi_ptr(new CephS3Api(
+    std::shared_ptr<KVApi> kvApi_ptr;
+    if(g_option.global_journal_meta_storage.compare("ceph_s3") == 0) {
+        kvApi_ptr.reset(new CephS3Api(
                         g_option.ceph_s3_access_key.c_str(),
                         g_option.ceph_s3_secret_key.c_str(),
                         g_option.ceph_s3_host.c_str(),
                         g_option.ceph_s3_bucket.c_str()));
+    }
+    else {
+        string db_path = g_option.journal_meta_db_path + "meta_db";
+        if (access(db_path.c_str(), F_OK)) {
+            char cmd[256] = "";
+            snprintf(cmd, sizeof(cmd), "mkdir -p %s", db_path.c_str());
+            int ret = system(cmd);
+            SG_ASSERT(ret != -1);
+        }
+        IndexStore* index_store = IndexStore::create("rocksdb", db_path);
+        kvApi_ptr.reset(new DBMetaApi(index_store));
+    }
 
     std::shared_ptr<CephS3Meta> meta(new CephS3Meta(kvApi_ptr));
     std::shared_ptr<CephS3LeaseServer> lease_server(new CephS3LeaseServer);
     int gc_interval = g_option.lease_validity_window;
     lease_server->init(kvApi_ptr,gc_interval);
 
-    string type = g_option.global_journal_data_storage;
     string mount_path = g_option.journal_mount_point;
-    if(type.compare("ceph_fs") != 0 || mount_path.empty()){        
-        LOG_FATAL << "config parse ceph_fs.mount_point error!";
-        std::cerr << "config parse ceph_fs.mount_point error!" << std::endl;
+    if(mount_path.empty()){        
+        LOG_FATAL << "config parse journal.mount_point error!";
+        std::cerr << "config parse journal.mount_point error!" << std::endl;
         return -1;
     }
 

@@ -28,7 +28,6 @@ ConfigureOptions::ConfigureOptions() {
 
     global_max_volume_count = config_parser.get_default("global.max_volume_count",128);
     global_journal_meta_storage = config_parser.get_default("global.journal_meta_storage", std::string("ceph_s3"));
-    global_journal_data_storage = config_parser.get_default("global.journal_data_storage", std::string("ceph_fs"));
     global_client_mode = config_parser.get_default("global.client_mode",0);
 
     ceph_s3_access_key = config_parser.get_default("ceph_s3.access_key", std::string(""));
@@ -58,6 +57,8 @@ ConfigureOptions::ConfigureOptions() {
                 "journal_writer.producer_marker_update_interval",5000);
     journal_producer_written_size_threshold = config_parser.get_default( \
                 "journal_writer.producer_written_size_threshold",4*1024*1024);
+    journal_meta_db_path = config_parser.get_default(
+                "index_db.journal_db_path",std::string("/var/storage-gateway/journals/"));
 
     replicate_local_ip = config_parser.get_default("replicate.local_ip", std::string("127.0.0.1"));
     replicate_remote_ip  = config_parser.get_default("replicate.remote_ip", std::string("127.0.0.1"));

@@ -29,7 +29,6 @@ class ConfigureOptions {
     /*global*/
     int global_max_volume_count;
     std::string global_journal_meta_storage;
-    std::string global_journal_data_storage;
     /* 0:tgt,1:agent */
     int global_client_mode;
     /*ceph s3*/
@@ -54,6 +53,7 @@ class ConfigureOptions {
     int journal_process_thread_num;
     int journal_producer_marker_update_interval;
     int journal_producer_written_size_threshold;
+    std::string journal_meta_db_path;
     /*sg server*/
     std::string meta_server_ip;
     int    meta_server_port;

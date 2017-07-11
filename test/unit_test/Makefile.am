@@ -1,4 +1,4 @@
-check_PROGRAMS = sg_server_ut sg_client_ut
+check_PROGRAMS = sg_server_ut sg_client_ut common_ut
 TESTS = $(check_PROGRAMS)
 
 AM_LDFLAGS = -L/usr/local/lib
@@ -32,4 +32,7 @@ sg_server_ut_SOURCES = \
 
 sg_client_ut_SOURCES = \
     sg_client/journal_writer_test.cc
-        
+
+common_ut_SOURCES = \
+    ../../src/common/db_meta_api.cc \
+    common/db_meta_api_test.cc
