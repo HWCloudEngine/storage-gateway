@@ -15,6 +15,7 @@
 #include <sys/stat.h>
 #include <assert.h>
 #include "common/config_option.h"
+#include "common/config_option.h"
 #include "snapshot_type.h"
 #include "snapshot_mds.h"
 
@@ -27,9 +28,11 @@ using huawei::proto::inner::RollBlock;
 SnapshotMds::SnapshotMds(const std::string& vol_name, const size_t& vol_size)
     : m_volume_name(vol_name),m_volume_size(vol_size) {
     m_latest_snapid = 0;
-    m_block_store = BlockStore::factory("fs");
-    assert(m_block_store != nullptr);
-    std::string db_path = META_DIR + vol_name + "/snapshot";
+    m_block_store = BlockStore::factory("local");
+    if (!m_block_store) {
+        LOG_ERROR << "snap mds block store create failed";
+    }
+    std::string db_path = g_option.local_meta_path + "/" + vol_name + "/snapshot";
     if (access(db_path.c_str(), F_OK)) {
         char cmd[256] = "";
         snprintf(cmd, sizeof(cmd), "mkdir -p %s", db_path.c_str());
@@ -37,7 +40,9 @@ SnapshotMds::SnapshotMds(const std::string& vol_name, const size_t& vol_size)
         assert(ret != -1);
     }
     m_index_store = IndexStore::create("rocksdb", db_path);
-    assert(m_index_store != nullptr);
+    if (!m_index_store) {
+        LOG_ERROR << "snap mds index store create failed";
+    }
     m_index_store->db_open();
 }
 

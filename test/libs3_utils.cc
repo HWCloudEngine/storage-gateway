@@ -143,7 +143,7 @@ int main(int argc,char* argv[]){
 
     string access_key = g_option.ceph_s3_access_key;
     string secret_key = g_option.ceph_s3_secret_key;
-    string host = g_option.ceph_s3_host;
+    string host = g_option.ceph_host;
     string bucket_name = g_option.ceph_s3_bucket;
     CephS3Api s3_meta(access_key.c_str(),secret_key.c_str(),
         host.c_str(),bucket_name.c_str());

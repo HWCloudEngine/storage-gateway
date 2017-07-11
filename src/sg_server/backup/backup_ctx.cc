@@ -24,11 +24,11 @@ BackupCtx::BackupCtx(const std::string& vol_name, const size_t& vol_size) {
     m_vol_size = vol_size;
     m_latest_backup_id = BACKUP_INIT_UUID;
    
-    m_block_store = BlockStore::factory("fs");
+    m_block_store = BlockStore::factory("local");
     if (!m_block_store) {
         LOG_ERROR << "backup block store create failed"; 
     }
-    std::string db_path = META_DIR + vol_name + "/backup";
+    std::string db_path = g_option.local_meta_path + "/" + vol_name + "/backup";
     if (access(db_path.c_str(), F_OK)) {
         char cmd[256] = "";
         snprintf(cmd, sizeof(cmd), "mkdir -p %s", db_path.c_str());
@@ -40,8 +40,8 @@ BackupCtx::BackupCtx(const std::string& vol_name, const size_t& vol_size) {
         LOG_ERROR << "backup index store create failed"; 
     }
     m_index_store->db_open();
-    m_snap_client = new SnapshotCtrlClient(grpc::CreateChannel
-            ("127.0.0.1:1111", grpc::InsecureChannelCredentials()));
+    std::string rpc_addr = rpc_address(g_option.ctrl_server_ip, g_option.ctrl_server_port);
+    m_snap_client = new SnapshotCtrlClient(grpc::CreateChannel(rpc_addr, grpc::InsecureChannelCredentials()));
     if (!m_snap_client) {
         LOG_ERROR << "backup snap client create failed"; 
     }

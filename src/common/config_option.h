@@ -23,29 +23,27 @@ class ConfigureOptions {
     /*iscsi target*/
     std::string iscsi_target_prefix;
     std::string iscsi_target_config_dir;
-    /*ctrl server*/
-    std::string ctrl_server_ip;
-    int ctrl_server_port;
-    /*global*/
-    int global_max_volume_count;
-    std::string global_journal_meta_storage;
-    std::string global_journal_data_storage;
-    /* 0:tgt,1:agent */
+    /*general*/
     int global_client_mode;
-    /*ceph s3*/
-    std::string ceph_s3_access_key;
-    std::string ceph_s3_secret_key;
-    std::string ceph_s3_host;
-    std::string ceph_s3_bucket;
-    /*snapshot backup storage*/
-    std::string ceph_cluster_name;
-    std::string ceph_user_name;
-    std::string ceph_pool_name;
+    std::string global_storage_media;
     /*lease*/
     int lease_renew_window;
     int lease_expire_window;
     int lease_validity_window;
-    /*journal*/
+    /*ceph*/
+    std::string ceph_s3_access_key;
+    std::string ceph_s3_secret_key;
+    std::string ceph_s3_bucket;
+    std::string ceph_host;
+    std::string ceph_cluster_name;
+    std::string ceph_user_name;
+    std::string ceph_pool_name;
+    /*local*/
+    std::string local_agent_dev_conf;
+    std::string local_volumes_conf;
+    std::string local_meta_path;
+    std::string local_data_path;
+   /*journal*/
     int journal_interval;
     int journal_limit;
     int journal_max_size;
@@ -54,19 +52,19 @@ class ConfigureOptions {
     int journal_process_thread_num;
     int journal_producer_marker_update_interval;
     int journal_producer_written_size_threshold;
-    /*sg server*/
+    int journal_gc_window;
+
+    /*ctrl server*/
+    std::string io_server_ip;
+    int io_server_port;
+    std::string io_server_uds;
+    std::string ctrl_server_ip;
+    int ctrl_server_port;
     std::string meta_server_ip;
-    int    meta_server_port;
-    /*gc window*/
-    int gc_window;
-    /*replicate*/
+    int meta_server_port;
     std::string replicate_local_ip;
     std::string replicate_remote_ip;
-    int    replicate_port;
-    /*agent*/
-    std::string agent_dev_conf;
-    /*volumes*/
-    std::string volumes_conf;
+    int replicate_port;
 };
 
 #define g_option (ConfigureOptions::instance())

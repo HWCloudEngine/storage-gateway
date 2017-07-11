@@ -6,6 +6,8 @@
 #include "../rpc/clients/volume_ctrl_client.h"
 #include "../rpc/clients/snapshot_ctrl_client.h"
 #include "../rpc/clients/backup_ctrl_client.h"
+#include "common/config_option.h"
+#include "common/utils.h"
 
 using namespace std;
 
@@ -14,20 +16,21 @@ int main(int argc, char** argv)
     int ret = 0;
 
     DRLog::log_init("sg_tool.log");
-
+    
+    std::string rpc_addr = rpc_address(g_option.ctrl_server_ip, g_option.ctrl_server_port);
     VolumeCtrlClient* vol_client = new VolumeCtrlClient(grpc::CreateChannel(
-                "127.0.0.1:1111", 
+                rpc_addr, 
                 grpc::InsecureChannelCredentials()));
     BackupCtrlClient* backup_client = new BackupCtrlClient(grpc::CreateChannel(
-                "127.0.0.1:1111", 
+                rpc_addr, 
                 grpc::InsecureChannelCredentials()));
     SnapshotCtrlClient* snap_client = new SnapshotCtrlClient(grpc::CreateChannel(
-                "127.0.0.1:1111", 
+                rpc_addr, 
                 grpc::InsecureChannelCredentials()));
 
     string vol_name = "test_volume";
     size_t vol_size = 16777216UL;
-    string blk_device = "/dev/sde";
+    string blk_device = "/dev/sdb";
     
     /*"volume", "snapshot", "backup"*/
     char* object = argv[1];

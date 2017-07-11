@@ -76,7 +76,7 @@ bool VolumeManager::init()
 {
     lease_client.reset(new CephS3LeaseClient());
     producer_marker_update_interval = g_option.journal_producer_marker_update_interval;
-    max_ep_events_num = g_option.global_max_volume_count;
+    max_ep_events_num = 100;
     ep_events = new epoll_event_t[max_ep_events_num];
     if(ep_events == nullptr){
         LOG_ERROR << "allocate epoll events failed!";
@@ -91,7 +91,7 @@ bool VolumeManager::init()
     std::shared_ptr<KVApi> kvApi_ptr(new CephS3Api(
                         g_option.ceph_s3_access_key.c_str(),
                         g_option.ceph_s3_secret_key.c_str(),
-                        g_option.ceph_s3_host.c_str(),
+                        g_option.ceph_host.c_str(),
                         g_option.ceph_s3_bucket.c_str()));
 
     lease_client->init(kvApi_ptr,
@@ -140,7 +140,7 @@ bool VolumeManager::init()
 void VolumeManager::init_volumes()
 {
     LOG_INFO << "init volumes";
-    std::ifstream f(g_option.volumes_conf);
+    std::ifstream f(g_option.local_volumes_conf);
     if(!f.is_open())
     {
         return;
@@ -263,7 +263,7 @@ shared_ptr<Volume> VolumeManager::add_volume(const VolumeInfo& volume_info, bool
 bool VolumeManager::persist_volume(const std::string& vol_name)
 {
     LOG_INFO << "persist volume:" << vol_name << " to conf file";
-    std::ifstream fin(g_option.volumes_conf);
+    std::ifstream fin(g_option.local_volumes_conf);
     if(!fin.is_open())
     {
         LOG_INFO << " open volumes conf file failed";
@@ -277,7 +277,7 @@ bool VolumeManager::persist_volume(const std::string& vol_name)
         LOG_INFO << vol_name <<" already persist in volumes.conf file";
         return true;
     }
-    std::ofstream fout(g_option.volumes_conf, std::ios::app);
+    std::ofstream fout(g_option.local_volumes_conf, std::ios::app);
     if(!fout.is_open())
     {
         LOG_INFO <<" open volumes conf file failed";
@@ -504,7 +504,7 @@ bool VolumeManager::del_volume(const string& vol)
 bool VolumeManager::remove_volume(const std::string &vol_name)
 {
     LOG_INFO << "remove volume:" << vol_name << " from conf file";
-    std::ifstream fin(g_option.volumes_conf);
+    std::ifstream fin(g_option.local_volumes_conf);
     if(!fin.is_open())
     {
         LOG_INFO <<" open volumes conf file failed";
@@ -519,7 +519,7 @@ bool VolumeManager::remove_volume(const std::string &vol_name)
         return true;
     }
     s.erase(pos, vol_name.size()+1);
-    std::ofstream fout(g_option.volumes_conf);
+    std::ofstream fout(g_option.local_volumes_conf);
     if(!fout.is_open())
     {
         LOG_INFO <<" open volumes conf file failed";

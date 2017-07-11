@@ -29,7 +29,7 @@ BackupProxy::BackupProxy(VolumeAttr& vol_attr,
                                             g_option.meta_server_port);
     m_backup_rpccli.reset(new BackupRpcCli(grpc::CreateChannel(meta_rpc_addr,
                                     grpc::InsecureChannelCredentials())));
-    m_block_store.reset(BlockStore::factory("fs"));
+    m_block_store.reset(BlockStore::factory("local"));
 }
 
 BackupProxy::~BackupProxy() {

@@ -9,6 +9,7 @@ LDADD=$(top_srcdir)/src/rpc/librpc.la \
       -lboost_system -lboost_log_setup -lboost_log
 
 debug_client_SOURCES=debug_client.cc \
+                     ../src/common/config_option.cc \
                      ../src/common/utils.cc
 
 libs3_utils_SOURCES=libs3_utils.cc \
