@@ -88,11 +88,17 @@ bool VolumeManager::init()
         DR_ERROR_OCCURED();
     }
 
-    std::shared_ptr<KVApi> kvApi_ptr(new CephS3Api(
+    std::shared_ptr<KVApi> kvApi_ptr;
+    if(g_option.global_storage_media.compare("ceph") == 0) {
+        kvApi_ptr.reset(new CephS3Api(
                         g_option.ceph_s3_access_key.c_str(),
                         g_option.ceph_s3_secret_key.c_str(),
                         g_option.ceph_host.c_str(),
                         g_option.ceph_s3_bucket.c_str()));
+    }
+    else {
+        DR_ERROR_OCCURED();
+    }
 
     lease_client->init(kvApi_ptr,
                        g_option.lease_renew_window,

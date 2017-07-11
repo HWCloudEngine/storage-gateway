@@ -16,7 +16,6 @@
 #include <mutex>
 #include <condition_variable>
 #include "common/locks.h"
-#include "common/libs3.h" // require ceph-libs3
 #include "common/config_option.h"
 #include "journal_meta_manager.h"
 #include "journal_gc_manager.h"

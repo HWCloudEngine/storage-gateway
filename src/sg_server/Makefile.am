@@ -32,6 +32,7 @@ sg_server_SOURCES=dr_server.cc \
                   ../common/block_store.cc \
                   ../common/index_store.cc \
                   ../common/volume_attr.cc \
+                  ../common/db_meta_api.cc \
                   backup/backup_type.cc \
                   backup/backup_ctx.cc  \
                   backup/backup_task.cc \

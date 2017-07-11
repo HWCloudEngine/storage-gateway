@@ -121,7 +121,7 @@ StatusCode CephS3LeaseServer::init(std::shared_ptr<KVApi>& kv_ptr, int gc_interv
 void CephS3LeaseServer::gc_task() {
     while (true) {
         std::list<std::string> leases;
-        StatusCode result = kv_ptr_->list_objects(NULL, NULL, -1, &leases);
+        StatusCode result = kv_ptr_->list_objects(prefix_.c_str(), NULL, -1, &leases);
         if (result == sOk) {
             for (auto lease : leases) {
                 std::map<std::string, std::string> metadata;
