@@ -46,6 +46,7 @@ bool JournalWriter::init(shared_ptr<IDGenerator> idproxy,
     cacheproxy_ = cacheproxy;
     snapshot_proxy_ = snapshotproxy;
     running_flag = true;
+    vol_check_flag = true;
     lease_client_ = lease_client;
     cur_journal_size = 0;
     JournalElement e;
@@ -72,7 +73,7 @@ void JournalWriter::work() {
     uint64_t write_size = 0;
 
     while (running_flag) {
-        if(!write_journal_preprocess()){
+        if(vol_check_flag && !write_journal_preprocess()){
             continue;
         }
         if (!write_queue_.pop(entry)) {
@@ -305,6 +306,7 @@ bool JournalWriter::write_journal_preprocess(){
             SG_ASSERT(0 == res);
             SG_ASSERT(true == write_journal_header());
             marker_handler.update_cached_marker(cur_lease_journal.second.journal(), cur_journal_size);
+            vol_check_flag = false;
             return true;
         }
     }
@@ -317,6 +319,7 @@ void JournalWriter::write_journal_response(shared_ptr<JournalEntry> entry, bool 
         std::shared_ptr<SnapshotMessage> msg
             = std::dynamic_pointer_cast<SnapshotMessage>(entry->get_message());
         if (msg->snap_scene() == huawei::proto::FOR_REPLICATION_FAILOVER) {
+            vol_check_flag = true;
             LOG_INFO << "snapshot for failover was insert, check volume["
                 << vol_attr_.vol_name() << "] writable?";
             // TODO:connection should reject write io or BlockingQueue provides clear api

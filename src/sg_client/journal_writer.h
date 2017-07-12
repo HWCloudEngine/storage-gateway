@@ -104,6 +104,7 @@ class JournalWriter :private boost::noncopyable {
     uint64_t cur_journal_size;
     VolumeAttr& vol_attr_;
     bool running_flag;
+    bool vol_check_flag;
     MarkerHandler marker_handler;
 };
 #endif  // SRC_SG_CLIENT_JOURNAL_WRITER_H_
