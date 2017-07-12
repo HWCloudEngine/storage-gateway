@@ -16,7 +16,8 @@ librpc_la_SOURCES=common.pb.cc   \
                   volume_control.pb.cc volume_control.grpc.pb.cc  \
                   volume_inner_control.pb.cc volume_inner_control.grpc.pb.cc  \
                   backup_control.pb.cc backup_control.grpc.pb.cc  \
-                  backup_inner_control.pb.cc backup_inner_control.grpc.pb.cc 
+                  backup_inner_control.pb.cc backup_inner_control.grpc.pb.cc \
+                  lease.pb.cc lease.grpc.pb.cc
 
 AM_CPPFLAGS=-std=c++11
 DEFS+=-D_GNU_SOURCE

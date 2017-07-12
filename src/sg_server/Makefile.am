@@ -10,6 +10,7 @@ sg_server_SOURCES=dr_server.cc \
                   gc_task.cc \
                   ceph_s3_meta.cc \
                   volume_inner_control.cc \
+                  lease_rpc_service.cc \
                   replicate/rep_scheduler.cc \
                   replicate/task_handler.cc \
                   replicate/rep_inner_ctrl.cc \
@@ -25,13 +26,14 @@ sg_server_SOURCES=dr_server.cc \
                   ../common/xxhash.c \
                   ../common/config_option.cc \
                   ../common/journal_entry.cc \
-                  ../common/ceph_s3_lease.cc \
+                  ../common/lease_server.cc \
                   ../common/ceph_s3_api.cc \
                   ../common/utils.cc       \
                   ../common/env_posix.cc   \
                   ../common/block_store.cc \
                   ../common/index_store.cc \
                   ../common/volume_attr.cc \
+                  ../common/db_meta_api.cc \
                   backup/backup_type.cc \
                   backup/backup_ctx.cc  \
                   backup/backup_task.cc \

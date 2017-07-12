@@ -16,6 +16,7 @@
 #include <grpc++/grpc++.h>
 #include "log/log.h"
 #include "writer_client.h"
+#include "lease_rpc_client.h"
 #include "common/config_option.h"
 #include "common/utils.h"
 
@@ -93,6 +94,12 @@ public:
             const std::string&, const JournalMarker&)> update_producer_marker;
     Decorator<StatusCode(const std::string&,
             const std::map<std::string,JournalMarker>&)> update_multi_producer_markers;
+
+    //lease rpc client
+    Decorator<StatusCode(const std::string&,
+                         const std::string&,
+                         std::map<std::string,std::string>&)> update_lease;
+
 };
 
 #define g_rpc_client (RpcClient::instance())

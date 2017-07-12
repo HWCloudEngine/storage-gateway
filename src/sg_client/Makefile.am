@@ -12,8 +12,7 @@ sg_client_SOURCES=../common/crc32.c  \
                   ../common/env_posix.cc     \
                   ../common/timer.cc         \
                   ../common/block_store.cc   \
-                  ../common/ceph_s3_lease.cc \
-                  ../common/ceph_s3_api.cc   \
+                  ../common/lease_client.cc \
                   ../common/journal_entry.cc \
                   ../rpc/clients/rpc_client.cc \
                   ../common/volume_attr.cc   \

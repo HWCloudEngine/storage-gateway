@@ -15,7 +15,7 @@
 #include <string>
 
 #include "epoll_event.h"
-#include "common/ceph_s3_lease.h"
+#include "common/lease_client.h"
 #include "common/volume_attr.h"
 #include "common/config_option.h"
 #include "rpc/clients/rpc_client.h"

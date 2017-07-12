@@ -15,8 +15,6 @@
 #include "rocksdb/db.h"
 #include "rocksdb/options.h"
 
-using namespace rocksdb;
-
 /*store snapshot meta data*/
 class IndexStore {
  public:
@@ -28,6 +26,7 @@ class IndexStore {
     virtual int db_put(const std::string& key, const std::string& value) = 0;
     virtual std::string db_get(const std::string& key) = 0;
     virtual int db_del(const std::string& key) = 0;
+    virtual bool db_key_not_exist(const std::string& key) = 0;
 
     /*iterator interface*/
     class IteratorInf {
@@ -73,6 +72,7 @@ class RocksDbIndexStore : public IndexStore {
     int db_put(const std::string& key, const std::string& value) override;
     std::string db_get(const std::string& key) override;
     int db_del(const std::string& key) override;
+    bool db_key_not_exist(const std::string& key) override;
 
     class IteratorImpl : public IndexStore::IteratorInf {
      public:

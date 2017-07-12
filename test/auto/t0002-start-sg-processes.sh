@@ -18,7 +18,8 @@ AUTO_HOME=${AUTO_HOME:-$(cd $(dirname $0)/..;pwd)}
 
 test_expect_success 'start sg services' '
     cd ${AUTO_HOME} &&
-    ./sg_test.sh start
+    ./sg_test.sh start &&
+    sleep 10
 '
 
 test_done

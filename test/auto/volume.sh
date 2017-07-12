@@ -23,7 +23,7 @@ cd sg_control
 case $1 in
     'enable')
         sg_print "enable volume ${TEST_VOLUME_ID}"
-        res=$(python control.py volume -v ${TEST_VOLUME_ID} -d ${TEST_VOLUME_PATH} -s ${TEST_VOLUME_SIZE} -a enable)
+        res=$(sg-control volume -v ${TEST_VOLUME_ID} -d ${TEST_VOLUME_PATH} -s ${TEST_VOLUME_SIZE} -a enable)
         sg_print "$res"
         if ! is_substr "result:0" "$res" ; then
            sg_print "enable volume failed!"
@@ -32,7 +32,7 @@ case $1 in
         ;;
     'disable')
         sg_print "disable volume ${TEST_VOLUME_ID}"
-        res=$(python control.py volume -v ${TEST_VOLUME_ID} -a disable)
+        res=$(sg-control volume -v ${TEST_VOLUME_ID} -a disable)
         sg_print "$res"
         if ! is_substr "result:0" "$res" ; then
            sg_print "disable volume failed!"
@@ -42,7 +42,7 @@ case $1 in
     'attach')
         # todo: get device path
         sg_print "attach volume ${TEST_VOLUME_ID} $TEST_VOLUME_PATH"
-        res=$(python control.py volume -v ${TEST_VOLUME_ID} -d ${TEST_VOLUME_PATH} -a attach)
+        res=$(sg-control volume -v ${TEST_VOLUME_ID} -d ${TEST_VOLUME_PATH} -a attach)
         sg_print "$res"
         if ! is_substr "result:0" "$res" ; then
            sg_print "attach volume failed!"
@@ -51,7 +51,7 @@ case $1 in
         ;;
     'detach')
         sg_print "detach volume ${TEST_VOLUME_ID}"
-        res=$(python control.py volume -v ${TEST_VOLUME_ID} -a detach)
+        res=$(sg-control volume -v ${TEST_VOLUME_ID} -a detach)
         sg_print "$res"
         if ! is_substr "result:0" "$res" ; then
            sg_print "detach volume failed!"
@@ -60,7 +60,7 @@ case $1 in
         ;;
     'initialize')
         sg_print "initialize volume ${TEST_VOLUME_ID}"
-        res=$(python control.py volume -v ${TEST_VOLUME_ID} -m ${CLIENT_MODE} -a initialize)
+        res=$(sg-control volume -v ${TEST_VOLUME_ID} -m ${CLIENT_MODE} -a initialize)
         sg_print "$res"
         if ! is_substr "result:0" "$res" ; then
            sg_print "initialize volume failed!"
@@ -69,7 +69,7 @@ case $1 in
         ;;
     'terminate')
         sg_print "terminate volume ${TEST_VOLUME_ID}"
-        res=$(python control.py volume -v ${TEST_VOLUME_ID} -a terminate)
+        res=$(sg-control volume -v ${TEST_VOLUME_ID} -a terminate)
         sg_print "$res"
         if ! is_substr "result:0" "$res" ; then
            sg_print "terminate volume failed!"
