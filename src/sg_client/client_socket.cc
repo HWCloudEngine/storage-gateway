@@ -192,14 +192,14 @@ void ClientSocket::handle_flush_req(const io_request_t* req) {
 void ClientSocket::handle_delete_req(const io_request_t* req) {
     assert(req->type == DEL_VOLUME);
     del_vol_req_t* del_req = reinterpret_cast<del_vol_req_t*>(recv_buf_);
-
+    std::string vol_name(del_req->volume_name);
     /*send reply to tgt*/
     io_reply_t reply;
     memset(&reply, 0, sizeof(reply));
     reply.magic = MESSAGE_MAGIC;
-    boost::asio::write(*raw_socket_, boost::asio::buffer(&reply, sizeof(io_reply_t)));
-    std::string vol_name(del_req->volume_name);
+    reply.handle = req->handle;
     LOG_INFO << "delete volume :" << vol_name;
+    boost::asio::write(*raw_socket_, boost::asio::buffer(&reply, sizeof(io_reply_t)));
     LOG_INFO << "delete volume :" << vol_name << " ok";
 }
 

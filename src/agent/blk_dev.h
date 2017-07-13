@@ -7,6 +7,7 @@
 #include <linux/blkdev.h>
 #include <linux/sched.h>
 #include <linux/wait.h>
+#include <linux/completion.h>
 #include <scsi/scsi_device.h>
 #include "transport.h"
 
@@ -35,14 +36,16 @@ struct pbdev
     struct transport*     network;
     
     uint64_t              seq_id;
+
     wait_queue_head_t     send_wq;
-    struct list_head      send_queue;
     struct bio_list       send_bio_list;
     struct task_struct*   send_thread;
     wait_queue_head_t     recv_wq;
-    struct list_head      recv_queue;
     struct bio_list       recv_bio_list;
     struct task_struct*   recv_thread;
+    
+    /*add and delete volume synchronize*/
+    struct completion cmd_sync_event;
 };
 
 int blk_dev_protect(const char* dev_path, const char* vol_name);
@@ -53,7 +56,7 @@ struct pbdev_mgr
     char* sg_host;
     int   sg_port;
     pid_t sg_pid;
-    spinlock_t       dev_lock;
+    spinlock_t dev_lock;
     struct list_head dev_list;
 };
 
@@ -62,9 +65,5 @@ extern struct pbdev_mgr g_dev_mgr;
 
 int  pbdev_mgr_init(struct pbdev_mgr* dev_mgr);
 void pbdev_mgr_fini(struct pbdev_mgr* dev_mgr);
-int pbdev_mgr_add(struct pbdev_mgr* dev_mgr, struct pbdev* dev);
-int pbdev_mgr_del(struct pbdev_mgr* dev_mgr, const char* dev);
-struct pbdev* pbdev_mgr_get_by_path(struct pbdev_mgr* dev_mgr, const char* blk_path);
-struct pbdev* pbdev_mgr_get_by_queue(struct pbdev_mgr* dev_mgr, struct request_queue* q);
 
 #endif
