@@ -16,7 +16,7 @@
 #include <string>
 #include <grpc++/grpc++.h>
 #include "rpc/common.pb.h"
-#include "rpc/clients/volume_inner_ctrl_client.h"
+#include "rpc/clients/rpc_client.h"
 #include "rpc/volume_control.pb.h"
 #include "rpc/volume_control.grpc.pb.h"
 #include "log/log.h"
@@ -35,7 +35,6 @@ class VolumeManager;
 class VolumeControlImpl:public control::VolumeControl::Service {
 public:
     VolumeControlImpl(const std::string& host, const std::string& port,
-                      std::shared_ptr<VolInnerCtrlClient> vol_inner_client,
                       VolumeManager& vol_manager);
     ~VolumeControlImpl();
     Status ListDevices(ServerContext* context,
@@ -64,7 +63,6 @@ public:
 
 private:
     bool execute_cmd(const std::string& command, std::string& result);
-    std::shared_ptr<VolInnerCtrlClient> vol_inner_client_;
     ISCSIControl* iscsi_control_ptr{nullptr};
     AgentControl* agent_control_ptr{nullptr};
 

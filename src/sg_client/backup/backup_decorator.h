@@ -11,7 +11,7 @@
 #ifndef SRC_SG_CLIENT_BACKUP_BACKUP_DECORATOR_H_
 #define SRC_SG_CLIENT_BACKUP_BACKUP_DECORATOR_H_
 #include "../snapshot/snapshot_proxy.h"
-#include "backup_rpccli.h"
+#include "rpc/clients/rpc_client.h"
 
 /*backup decorator decorate snapshot proxy about backup type snapshot*/
 class BackupDecorator : public ISnapshot, public ITransaction, public ISyncBarrier {
@@ -39,7 +39,6 @@ class BackupDecorator : public ISnapshot, public ITransaction, public ISyncBarri
  private:
     std::string m_vol_name;
     shared_ptr<SnapshotProxy> m_snapshot_proxy;
-    shared_ptr<BackupRpcCli>  m_backup_rpccli;
     map<std::string, std::string> m_sync_table;
 };
 

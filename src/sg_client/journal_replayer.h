@@ -16,7 +16,7 @@
 #include "common/volume_attr.h"
 #include "common/config_option.h"
 #include "common/env_posix.h"
-#include "rpc/clients/replayer_client.h"
+#include "rpc/clients/rpc_client.h"
 #include "rpc/common.pb.h"
 #include "rpc/message.pb.h"
 #include "seq_generator.h"
@@ -77,7 +77,6 @@ class JournalReplayer {
     std::mutex journal_marker_mutex_;
     JournalMarker journal_marker_;
     bool update_;
-    std::shared_ptr<ReplayerClient> rpc_client_ptr_;
     /*replay thread*/
     std::atomic_bool  running_;
     std::unique_ptr<boost::thread> replay_thread_ptr_;

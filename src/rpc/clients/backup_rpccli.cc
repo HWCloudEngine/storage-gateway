@@ -11,8 +11,7 @@
 #include "log/log.h"
 #include "backup_rpccli.h"
 
-BackupRpcCli::BackupRpcCli(std::shared_ptr<Channel> channel) 
-    : m_stub(BackupInnerControl::NewStub(channel)) {
+BackupRpcCli::BackupRpcCli() {
 }
 
 BackupRpcCli::~BackupRpcCli() {
@@ -119,3 +118,8 @@ StatusCode BackupRpcCli::RestoreBackup(const std::string& vol_name, const std::s
     }
     return status.ok() ? StatusCode::sOk : StatusCode::sInternalError;
 }
+
+void BackupRpcCli::init(std::shared_ptr<Channel> channel){
+    m_stub.reset(new BackupInnerControl::Stub(channel));
+}
+

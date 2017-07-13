@@ -28,6 +28,7 @@ using huawei::proto::inner::FailoverReplicationInnerReq;
 using huawei::proto::inner::ReverseReplicationInnerReq;
 using huawei::proto::inner::DeleteReplicationInnerReq;
 using huawei::proto::inner::ReplicationInnerCommonRes;
+using huawei::proto::inner::ReplicateInnerControl;
 using huawei::proto::inner::ReportCheckpointReq;
 using huawei::proto::inner::ReportCheckpointRes;
 using huawei::proto::JournalMarker;
@@ -35,11 +36,10 @@ using huawei::proto::StatusCode;
 using huawei::proto::sInternalError;
 class RepInnerCtrlClient{
 public:
-    explicit RepInnerCtrlClient(std::shared_ptr<grpc::Channel> channel):
-        stub_(huawei::proto::inner::ReplicateInnerControl::NewStub(channel)){
+    explicit RepInnerCtrlClient(){
     }
     ~RepInnerCtrlClient(){};
-    StatusCode create_replication(const string& op_id,const string& rep_id,
+    static StatusCode create_replication(const string& op_id,const string& rep_id,
         const string& local_vol, const std::list<string>& peer_vols,
         const RepRole& role){
         CreateReplicationInnerReq req;
@@ -60,7 +60,7 @@ public:
             return sInternalError;
         }
     }
-    StatusCode enable_replication(const string& op_id,const string& vol_id,
+    static StatusCode enable_replication(const string& op_id,const string& vol_id,
         const RepRole& role,const JournalMarker& marker,const string& snap_id){
         EnableReplicationInnerReq req;
         req.set_operate_id(op_id);
@@ -79,7 +79,7 @@ public:
             return sInternalError;
         }
     }
-    StatusCode disable_replication(const string& op_id,const string& vol_id,
+    static StatusCode disable_replication(const string& op_id,const string& vol_id,
         const RepRole& role,const JournalMarker& marker,const string& snap_id){
         DisableReplicationInnerReq req;
         req.set_operate_id(op_id);
@@ -98,7 +98,7 @@ public:
             return sInternalError;
         }
     }
-    StatusCode failover_replication(const string& op_id,const string& vol_id,
+    static StatusCode failover_replication(const string& op_id,const string& vol_id,
         const RepRole& role,const JournalMarker& marker,const bool& need_sync,
         const string& snap_id){
         FailoverReplicationInnerReq req;
@@ -120,7 +120,7 @@ public:
             return sInternalError;
         }
     }
-    StatusCode reverse_replication(const string& op_id,const string& vol_id,
+    static StatusCode reverse_replication(const string& op_id,const string& vol_id,
         const RepRole& role){
         ReverseReplicationInnerReq req;
         req.set_operate_id(op_id);
@@ -137,7 +137,7 @@ public:
             return sInternalError;
         }
     }
-    StatusCode delete_replication(const string& op_id,const string& vol_id,
+    static StatusCode delete_replication(const string& op_id,const string& vol_id,
         const RepRole& role){
         DeleteReplicationInnerReq req;
         req.set_operate_id(op_id);
@@ -154,7 +154,7 @@ public:
             return sInternalError;
         }
     }
-    StatusCode report_checkpoint(const string& op_id,const string& vol_id,
+    static StatusCode report_checkpoint(const string& op_id,const string& vol_id,
         const RepRole& role, bool& is_discard){
         ReportCheckpointReq req;
         req.set_operate_id(op_id);
@@ -174,7 +174,11 @@ public:
             return sInternalError;
         }
     }
+    static void init(std::shared_ptr<grpc::Channel> channel){
+        stub_.reset(new ReplicateInnerControl::Stub(channel));
+    }
+
 private:
-    std::unique_ptr<huawei::proto::inner::ReplicateInnerControl::Stub> stub_;
+    static std::unique_ptr<ReplicateInnerControl::Stub> stub_;
 };
 #endif

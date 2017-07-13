@@ -41,57 +41,54 @@ class SnapRpcCli {
     SnapRpcCli& operator=(const SnapRpcCli& other) = delete;
     ~SnapRpcCli();
 
-    StatusCode do_init_sync(const std::string& vol_name, std::string& latest_snap);
-    StatusCode do_create(const SnapReqHead& shead,
+    static StatusCode do_init_sync(const std::string& vol_name, std::string& latest_snap);
+    static StatusCode do_create(const SnapReqHead& shead,
                          const std::string& vol_name,
                          const std::string& snap_name);
-    StatusCode do_delete(const SnapReqHead& shead,
+    static StatusCode do_delete(const SnapReqHead& shead,
                          const std::string& vol_name,
                          const std::string& snap_name);
-    StatusCode do_rollback(const SnapReqHead& shead,
+    static StatusCode do_rollback(const SnapReqHead& shead,
                            const std::string& vol_name, 
                            const std::string& snap_name,
                            std::vector<RollBlock>& blocks);
-    StatusCode do_update(const SnapReqHead& shead,
+    static StatusCode do_update(const SnapReqHead& shead,
                          const std::string& vol_name,
                          const std::string& snap_ame,
                          const UpdateEvent& snap_event,
                          std::string& latest_snap);
-    StatusCode do_list(const std::string& vol_name,
+    static StatusCode do_list(const std::string& vol_name,
                        std::set<std::string>& snap_set);
-    StatusCode do_query(const std::string& vol_name,
+    static StatusCode do_query(const std::string& vol_name,
                         const std::string snap_name,
                         SnapStatus& snap_status);
-    StatusCode do_diff(const SnapReqHead& shead,
+    static StatusCode do_diff(const SnapReqHead& shead,
                        const std::string& vol_name,
                        const std::string& first_snap,
                        const std::string& last_snap,
                        std::vector<DiffBlocks>& blocks);
-    StatusCode do_read(const SnapReqHead& shead,
+    static StatusCode do_read(const SnapReqHead& shead,
                        const std::string& vol_name,
                        const std::string& snap_name, const off_t off,
                        const size_t len,
                        std::vector<ReadBlock> blocks);
-    StatusCode do_cow_check(const std::string& vol_name,
+    static StatusCode do_cow_check(const std::string& vol_name,
                             const std::string& snap_name,
                             const uint64_t block_no,
                             cow_op_t& cow_op,
                             std::string& blk_url);
-    StatusCode do_cow_update(const std::string& vol_name,
+    static StatusCode do_cow_update(const std::string& vol_name,
                              const std::string& snap_name,
                              const uint64_t    block_no,
                              const bool        block_zero,
                              const std::string block_url);
- 
- private:
-    void build_channel();
-    void build_stub();
+    
+    static void init(std::shared_ptr<Channel> channel);
 
  private:
-    std::shared_ptr<Channel> channel_;
-    std::unique_ptr<SnapshotInnerControl::Stub> stub_;
-    ClientContext ctx_;
-    Status status_;
+    static std::shared_ptr<Channel> channel_;
+    static std::unique_ptr<SnapshotInnerControl::Stub> stub_;
+    static Status status_;
 };
 
 #endif  // SRC_SG_CLIENT_SNAPSHOT_SNAPSHOT_RPCCLI_H_

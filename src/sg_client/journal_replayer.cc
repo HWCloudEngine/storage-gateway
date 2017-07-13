@@ -52,9 +52,7 @@ bool JournalReplayer::init(std::shared_ptr<IDGenerator> id_maker_ptr,
     backup_decorator_ptr_.reset(new BackupDecorator(vol_attr_.vol_name(), snapshot_proxy_ptr));
     rep_proxy_ptr_  = rep_proxy_ptr;
     std::string meta_rpc_addr = rpc_address(g_option.meta_server_ip, g_option.meta_server_port);
-    rpc_client_ptr_.reset(new ReplayerClient(grpc::CreateChannel(meta_rpc_addr,
-                            grpc::InsecureChannelCredentials())));
-    cache_recover_ptr_.reset(new CacheRecovery(vol_attr_.vol_name(), rpc_client_ptr_,
+    cache_recover_ptr_.reset(new CacheRecovery(vol_attr_.vol_name(),
                                 id_maker_ptr_, cache_proxy_ptr_));
     cache_recover_ptr_->start();
     // block until recover finish
@@ -101,7 +99,7 @@ void JournalReplayer::update_marker_loop() {
     while (running_) {
         boost::this_thread::sleep_for(boost::chrono::seconds(update_interval));
         if (update_) {
-            rpc_client_ptr_->UpdateConsumerMarker(journal_marker_, vol_attr_.vol_name());
+            g_rpc_client.UpdateConsumerMarker(journal_marker_, vol_attr_.vol_name());
             LOG_INFO << "update marker succeed";
             update_ = false;
         }
@@ -141,7 +139,7 @@ void JournalReplayer::replica_replay() {
 
     /*in memory consumer mark empty*/
     if (journal_marker_.cur_journal().empty()) {
-        bool ret = rpc_client_ptr_->GetJournalMarker(vol_attr_.vol_name(),
+        bool ret = g_rpc_client.GetJournalMarker(vol_attr_.vol_name(),
                                                      journal_marker_);
         if (!ret || journal_marker_.cur_journal().empty()) {
             LOG_ERROR << "get journal replay consumer marker failed";
@@ -152,7 +150,7 @@ void JournalReplayer::replica_replay() {
     /*get replayer journal file list */
     constexpr int limit = 10;
     list<JournalElement> journal_list;
-    bool ret = rpc_client_ptr_->GetJournalList(vol_attr_.vol_name(), journal_marker_,
+    bool ret = g_rpc_client.GetJournalList(vol_attr_.vol_name(), journal_marker_,
                                                limit, journal_list);
     if (!ret || journal_list.empty()) {
         //LOG_ERROR << "get journal list failed ret:" << ret << " size:" << journal_list.size();

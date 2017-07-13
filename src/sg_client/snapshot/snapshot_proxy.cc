@@ -36,7 +36,6 @@ using huawei::proto::RepRole;
 
 SnapshotProxy::SnapshotProxy(VolumeAttr& vol_attr, BlockingQueue<shared_ptr<JournalEntry>>& entry_queue)
     :m_vol_attr(vol_attr), m_entry_queue(entry_queue) {
-    m_snap_rpc_cli = nullptr;
     init();
     LOG_INFO << "create proxy vname:" << m_vol_attr.vol_name() << " ok";
 }
@@ -63,13 +62,8 @@ bool SnapshotProxy::init() {
     m_sync_table.clear();
     m_active_snapshot.clear();
     m_exist_snapshot = false;
-    m_snap_rpc_cli = new SnapRpcCli();
-    if (m_snap_rpc_cli == nullptr) {
-        LOG_ERROR << "snap rpc client failed";
-        return false;
-    }
     /*sync with dr server*/
-    m_snap_rpc_cli->do_init_sync(m_vol_attr.vol_name(), m_active_snapshot);
+    g_rpc_client.do_init_sync(m_vol_attr.vol_name(), m_active_snapshot);
     if (!m_active_snapshot.empty()) {
         m_exist_snapshot = true;
     }
@@ -82,9 +76,6 @@ bool SnapshotProxy::fini() {
     m_exist_snapshot = false;
     if (m_block_store) {
         delete m_block_store;
-    }
-    if (m_snap_rpc_cli) {
-        delete m_snap_rpc_cli;
     }
     return true;
 }
@@ -159,7 +150,7 @@ StatusCode SnapshotProxy::create_snapshot(const CreateSnapshotReq* req,
                  << " pos:" << m_cmd_persist_mark.pos();
     }
     /*rpc with dr_server */
-    ret_code = m_snap_rpc_cli->do_create(req->header(), m_vol_attr.vol_name(), sname);
+    ret_code = g_rpc_client.do_create(req->header(), m_vol_attr.vol_name(), sname);
     LOG_INFO << "create_snapshot vname:" << vname << " sname:" << sname
              << (!ret_code ? " ok" : " failed, rpc error");
     /*sync end*/
@@ -173,7 +164,7 @@ StatusCode SnapshotProxy::list_snapshot(const ListSnapshotReq* req,
     string vname = req->vol_name();
     LOG_INFO << "list_snapshot vname:" << vname;
     std::set<std::string> snaps; 
-    auto ret = m_snap_rpc_cli->do_list(vname, snaps);
+    auto ret = g_rpc_client.do_list(vname, snaps);
     for (auto snap : snaps) {
        ack->add_snap_name(snap);
     }
@@ -188,7 +179,7 @@ StatusCode SnapshotProxy::query_snapshot(const QuerySnapshotReq* req,
     string sname = req->snap_name();
     LOG_INFO << "query_snapshot vname:" << vname << " sname:" << sname;
     SnapStatus snap_status;    
-    auto ret = m_snap_rpc_cli->do_query(vname, sname, snap_status);
+    auto ret = g_rpc_client.do_query(vname, sname, snap_status);
     ack->set_snap_status(snap_status);
     LOG_INFO << "query_snapshot vname:" << vname << " sname:" << sname << " ret:" << ret;
     return ret;
@@ -211,7 +202,7 @@ StatusCode SnapshotProxy::delete_snapshot(const DeleteSnapshotReq* req,
         cmd_persist_wait();
     }
     /*rpc with dr_server*/
-    auto ret = m_snap_rpc_cli->do_delete(req->header(), m_vol_attr.vol_name(), sname);
+    auto ret = g_rpc_client.do_delete(req->header(), m_vol_attr.vol_name(), sname);
     LOG_INFO << "delete_snapshot vname:" << vname << " sname:" << sname
              << (!ret ? " ok" : " failed, rpc error");
     /*sync end*/
@@ -278,7 +269,7 @@ StatusCode SnapshotProxy::rollback_transaction(const SnapReqHead& shead,
         return ret;
     }
     std::vector<RollBlock> blocks;
-    ret = m_snap_rpc_cli->do_rollback(shead, m_vol_attr.vol_name(), snap_name, blocks);
+    ret = g_rpc_client.do_rollback(shead, m_vol_attr.vol_name(), snap_name, blocks);
     for (auto block : blocks) {
         LOG_INFO << "do rollback blk_no:" << block.blk_no() << " blk_zero:" << block.blk_zero()
                  << " blk_url:" << block.blk_url();
@@ -351,7 +342,7 @@ bool SnapshotProxy::check_exist_snapshot()const {
 StatusCode SnapshotProxy::update(const SnapReqHead& shead, const std::string& sname,
                                  const UpdateEvent& sevent) {
     LOG_INFO << "do_update snap_name:" << sname << " event:" << sevent;
-    auto ret = m_snap_rpc_cli->do_update(shead, m_vol_attr.vol_name(), sname,
+    auto ret = g_rpc_client.do_update(shead, m_vol_attr.vol_name(), sname,
                                          sevent, m_active_snapshot);
     if (m_active_snapshot.empty()) {
         m_exist_snapshot = false;
@@ -399,7 +390,7 @@ StatusCode SnapshotProxy::cow_op(const off_t& off, const size_t& size,
                  << " blk_no:" << cow_block.blk_no;
         cow_op_t op_code;
         std::string block_url;
-        auto ret = m_snap_rpc_cli->do_cow_check(m_vol_attr.vol_name(),m_active_snapshot,
+        auto ret = g_rpc_client.do_cow_check(m_vol_attr.vol_name(),m_active_snapshot,
                                                 cow_block.blk_no,  op_code, block_url);
         assert(ret.ok());
         /*io direct overlap*/
@@ -438,7 +429,7 @@ StatusCode SnapshotProxy::cow_op(const off_t& off, const size_t& size,
         assert(write_ret == cow_len);
         LOG_INFO << "do cow write to block device";
         /*io cow update cow meta to dr server*/
-        ret = m_snap_rpc_cli->do_cow_update(m_vol_attr.vol_name(), m_active_snapshot,
+        ret = g_rpc_client.do_cow_update(m_vol_attr.vol_name(), m_active_snapshot,
                                             cow_block.blk_no, block_zero, block_url);
     }
 
@@ -455,7 +446,7 @@ StatusCode SnapshotProxy::diff_snapshot(const DiffSnapshotReq* req,
     LOG_INFO << "diff_snapshot vname:" << vname << " first_snap:" << first_snap
              << " last_snap:"  << last_snap;
     std::vector<DiffBlocks> blocks; 
-    auto ret = m_snap_rpc_cli->do_diff(req->header(), vname, first_snap, last_snap, blocks);
+    auto ret = g_rpc_client.do_diff(req->header(), vname, first_snap, last_snap, blocks);
     for (auto block : blocks) {
         DiffBlocks* diff_blocks = ack->add_diff_blocks();
         diff_blocks->CopyFrom(block);
@@ -474,7 +465,7 @@ StatusCode SnapshotProxy::read_snapshot(const ReadSnapshotReq* req,
     LOG_INFO << "read_snapshot vname:" << vname << " sname:" << sname
              << " off:" << off << " len:" << len;
     std::vector<ReadBlock> blocks;
-    auto ret = m_snap_rpc_cli->do_read(req->header(), vname, sname, off, len, blocks);
+    auto ret = g_rpc_client.do_read(req->header(), vname, sname, off, len, blocks);
     assert(ret.ok());
  
     char* read_buf = (char*)malloc(len);
@@ -548,7 +539,7 @@ StatusCode SnapshotProxy::read_snapshot(const ReadSnapshotReq* req,
 
     /*----------second read---------------*/
     blocks.clear();
-    ret = m_snap_rpc_cli->do_read(req->header(), vname, sname, off, len, blocks);
+    ret = g_rpc_client.do_read(req->header(), vname, sname, off, len, blocks);
     assert(ret.ok());
     for (auto block : blocks) {
         uint64_t block_no = block.blk_no();
