@@ -15,9 +15,6 @@ BackupDecorator::BackupDecorator(string vol_name,
                                  shared_ptr<SnapshotProxy> snapshot_proxy) {
     m_vol_name = vol_name;
     m_snapshot_proxy = snapshot_proxy;
-    m_backup_rpccli.reset(new BackupRpcCli(grpc::CreateChannel(
-                                    "127.0.0.1:50051", 
-                                    grpc::InsecureChannelCredentials())));
 }
 
 BackupDecorator::~BackupDecorator() {
@@ -77,12 +74,12 @@ StatusCode BackupDecorator::create_transaction(const SnapReqHead& shead,
     }
     /*check bakcup status*/
     BackupStatus backup_status;
-    ret = m_backup_rpccli->GetBackup(m_vol_name, backup_name, backup_status);
+    ret = g_rpc_client.GetBackup(m_vol_name, backup_name, backup_status);
     if (ret != StatusCode::sOk) {
         /*delete snapshot*/ 
         ret = m_snapshot_proxy->update(shead, snap_name, UpdateEvent::DELETE_EVENT);
         /*delete backup*/
-        ret = m_backup_rpccli->DeleteBackup(m_vol_name, backup_name);
+        ret = g_rpc_client.DeleteBackup(m_vol_name, backup_name);
         LOG_INFO << "backup transaction recycle fail backup";
     }
     LOG_INFO << "backup transaction end sname:" << snap_name << " bname:" << backup_name;

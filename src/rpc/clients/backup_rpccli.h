@@ -52,28 +52,29 @@ using huawei::proto::inner::RestoreBackupInAck;
 class BackupRpcCli {
 
  public:
-    explicit BackupRpcCli(std::shared_ptr<Channel> channel);
+    BackupRpcCli();
     BackupRpcCli(const BackupRpcCli& other) = delete;
     BackupRpcCli& operator=(const BackupRpcCli& other) = delete;
     ~BackupRpcCli();
 
-    StatusCode CreateBackup(const std::string& vol_name, const size_t& vol_size,
+    static StatusCode CreateBackup(const std::string& vol_name, const size_t& vol_size,
                             const std::string& backup_name,
                             const BackupOption& backup_option);
-    StatusCode ListBackup(const std::string& vol_name, std::set<std::string>& backup_set);
-    StatusCode GetBackup(const std::string& vol_name, const std::string& backup_name,
+    static StatusCode ListBackup(const std::string& vol_name, std::set<std::string>& backup_set);
+    static StatusCode GetBackup(const std::string& vol_name, const std::string& backup_name,
                          BackupStatus& backup_status);
-    StatusCode DeleteBackup(const std::string& vol_name, const std::string& backup_name);
-    StatusCode RestoreBackup(const std::string& vol_name,
+    static StatusCode DeleteBackup(const std::string& vol_name, const std::string& backup_name);
+    static StatusCode RestoreBackup(const std::string& vol_name,
                              const std::string& backup_name,
                              const BackupType& backup_type,
                              const std::string& new_vol_name,
                              const size_t& new_vol_size,
                              const std::string& new_block_device,
                              BlockStore* block_store);
+    static void init(std::shared_ptr<Channel> channel);
 
  private:
-    std::unique_ptr<BackupInnerControl::Stub> m_stub;
+    static std::unique_ptr<BackupInnerControl::Stub> m_stub;
 };
 
 #endif  // SRC_SG_CLIENT_BACKUP_BACKUP_RPCCLI_H_

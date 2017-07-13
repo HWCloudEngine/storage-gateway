@@ -24,16 +24,6 @@ using huawei::proto::sVolumeAlreadyExist;
 
 ReplicateCtrl::ReplicateCtrl(std::map<string, std::shared_ptr<Volume>>& volumes)
              : volumes_(volumes) {
-    
-   std::string meta_rpc_addr = rpc_address(g_option.meta_server_ip, 
-                                           g_option.meta_server_port);
-
-   rep_ctrl_client_.reset(new RepInnerCtrlClient(grpc::CreateChannel(
-                meta_rpc_addr,
-                grpc::InsecureChannelCredentials())));
-   vol_ctrl_client_.reset(new VolInnerCtrlClient(grpc::CreateChannel(
-                meta_rpc_addr,
-                grpc::InsecureChannelCredentials())));
 }
 
 ReplicateCtrl::~ReplicateCtrl() {
@@ -61,7 +51,7 @@ std::shared_ptr<JournalWriter> ReplicateCtrl::get_journal_writer(
 
 void ReplicateCtrl::update_volume_attr(const string& volume) {
     VolumeInfo volume_info;
-    StatusCode ret = vol_ctrl_client_->get_volume(volume, volume_info);
+    StatusCode ret = g_rpc_client.get_volume(volume, volume_info);
     if (ret == StatusCode::sOk)
     {
         auto it = volumes_.find(volume);
@@ -132,15 +122,15 @@ StatusCode ReplicateCtrl::do_replicate_operation(const string& vol,
         // 5. do replicate operation, update replication meta
         switch(op){
             case ReplicateOperation::REPLICATION_ENABLE:
-                res = rep_ctrl_client_->enable_replication(op_id,
+                res = g_rpc_client.enable_replication(op_id,
                     vol,role,marker,snap_name);
                 break;
             case ReplicateOperation::REPLICATION_DISABLE:
-                res = rep_ctrl_client_->disable_replication(op_id,
+                res = g_rpc_client.disable_replication(op_id,
                     vol,role,marker,snap_name);
                 break;
             case ReplicateOperation::REPLICATION_FAILOVER:
-                res = rep_ctrl_client_->failover_replication(op_id,
+                res = g_rpc_client.failover_replication(op_id,
                     vol,role,marker,true,snap_name);
                 break;
             default:
@@ -177,7 +167,7 @@ Status ReplicateCtrl::CreateReplication(ServerContext* context,
         LOG_INFO << "\t" << request->peer_volumes(i);
     }
 
-    StatusCode res = rep_ctrl_client_->create_replication(operate_id,
+    StatusCode res = g_rpc_client.create_replication(operate_id,
         rep_id,local_vol,peer_vols,role);
     if(res){
         LOG_ERROR << "create replication failed,vol_id=" << local_vol;
@@ -211,7 +201,7 @@ Status ReplicateCtrl::EnableReplication(ServerContext* context,
         // update replication meta directly on secondary role
         JournalMarker marker; // not use
         string snap_name; // not use
-        res = rep_ctrl_client_->enable_replication(operate_id,
+        res = g_rpc_client.enable_replication(operate_id,
             local_vol,role,marker,snap_name);
         if(res){
             LOG_ERROR << "enable replication failed,vol_id=" << local_vol;
@@ -245,7 +235,7 @@ Status ReplicateCtrl::DisableReplication(ServerContext* context,
         // update replication meta directly on secondary role
         JournalMarker marker;
         string snap_name; // not use for secondary
-        res = rep_ctrl_client_->disable_replication(operate_id,
+        res = g_rpc_client.disable_replication(operate_id,
             local_vol,role,marker,snap_name);
         if(res){
             LOG_ERROR << "disable replication failed,vol_id=" << local_vol;
@@ -305,7 +295,7 @@ Status ReplicateCtrl::FailoverReplication(ServerContext* context,
             }
         }
         // update replication meta directly on secondary role
-        res = rep_ctrl_client_->failover_replication(operate_id,
+        res = g_rpc_client.failover_replication(operate_id,
             local_vol,role,marker,need_sync,snap_id);
         if(res){
             LOG_ERROR << "failover replication failed,vol_id=" << local_vol;
@@ -329,7 +319,7 @@ Status ReplicateCtrl::ReverseReplication(ServerContext* context,
         << "operation uuid:" << operate_id << "\n"
         << "role:" << role;
 
-    StatusCode res = rep_ctrl_client_->reverse_replication(operate_id,
+    StatusCode res = g_rpc_client.reverse_replication(operate_id,
         local_vol,role);
     if(res){
         LOG_ERROR << "reverse replication failed,vol_id=" << local_vol;
@@ -352,7 +342,7 @@ Status ReplicateCtrl::DeleteReplication(ServerContext* context,
         << "operation uuid:" << operate_id << "\n"
         << "role:" << role;
 
-    StatusCode res = rep_ctrl_client_->delete_replication(operate_id,
+    StatusCode res = g_rpc_client.delete_replication(operate_id,
         local_vol,role);
     if(res){
         LOG_ERROR << "delete replication failed,vol_id=" << local_vol;

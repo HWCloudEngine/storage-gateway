@@ -27,7 +27,7 @@
 #include "log/log.h"
 #include "common/blocking_queue.h"
 #include "rpc/consumer.pb.h"
-#include "rpc/clients/replayer_client.h"
+#include "rpc/clients/rpc_client.h"
 #include "../nedmalloc.h"
 #include "../seq_generator.h"
 #include "../message.h"
@@ -93,7 +93,7 @@ class ProcessWorker: public IWorker {
 class SrcWorker: public IWorker {
  public:
     SrcWorker() = default;
-    SrcWorker(std::string vol, shared_ptr<ReplayerClient> rpc_cli);
+    SrcWorker(std::string vol);
     virtual ~SrcWorker() = default;
 
     void start() override;
@@ -107,7 +107,6 @@ class SrcWorker: public IWorker {
 
  private:
     std::string m_volume;
-    shared_ptr<ReplayerClient> m_grpc_client;
     JournalMarker  m_latest_marker;
 };
 
@@ -116,7 +115,6 @@ class CacheRecovery {
  public:
     CacheRecovery() = default;
     CacheRecovery(std::string volume,
-                  shared_ptr<ReplayerClient> rpc_cli,
                   shared_ptr<IDGenerator> id_maker,
                   shared_ptr<CacheProxy> cache_proxy);
     ~CacheRecovery() = default;
@@ -128,7 +126,6 @@ class CacheRecovery {
 
  private:
     std::string  m_volume;
-    shared_ptr<ReplayerClient> m_grpc_client;
     shared_ptr<IDGenerator> m_id_generator;
     shared_ptr<CacheProxy>  m_cache_proxy;
 

@@ -12,9 +12,7 @@
 #define REPLICATE_PROXY_H_
 #include "common/config_option.h"
 #include "snapshot/snapshot_proxy.h"
-#include "../rpc/clients/volume_inner_ctrl_client.h"
-#include "../rpc/clients/replicate_inner_ctrl_client.h"
-#include "../rpc/clients/volume_inner_ctrl_client.h"
+#include "../rpc/clients/rpc_client.h"
 #include "common/locks.h"
 using huawei::proto::RepRole;
 using huawei::proto::SnapScene;
@@ -43,7 +41,6 @@ class ReplicateProxy {
     string vol_name_;
     size_t vol_size_;
     std::shared_ptr<SnapshotProxy> snapshot_proxy_;
-    std::unique_ptr<RepInnerCtrlClient> rep_inner_client_;
     SharedMutex map_mtx_;
     std::map<std::string,std::string> sync_map_;
 };

@@ -40,23 +40,9 @@ using huawei::proto::inner::RollBlock;
 using huawei::proto::inner::UpdateEvent;
 
 SnapRpcCli::SnapRpcCli() {
-    build_channel();
-    build_stub();
 }
 
 SnapRpcCli::~SnapRpcCli() {
-    stub_.reset();
-    channel_.reset();
-}
-
-void SnapRpcCli::build_channel() {
-    std::string meta_rpc_addr = rpc_address(g_option.meta_server_ip,
-                                            g_option.meta_server_port);
-    channel_ = grpc::CreateChannel(meta_rpc_addr, grpc::InsecureChannelCredentials());
-}
-
-void SnapRpcCli::build_stub() {
-    stub_ = SnapshotInnerControl::NewStub(channel_);
 }
 
 #define rpc_call(op, req, ack) do {             \
@@ -74,8 +60,6 @@ void SnapRpcCli::build_stub() {
             break;                              \
         }                                       \
         LOG_INFO << "retry rpc connection:" << try_times;  \
-        build_channel();                        \
-        build_stub();                           \
         sleep(max_try_interval);                \
         try_times++;                            \
     }                                           \
@@ -284,3 +268,9 @@ StatusCode SnapRpcCli::do_read(const SnapReqHead& shead, const std::string& vol_
              << " ret:" << ack.header().status();
     return ack.header().status();
 }
+
+void SnapRpcCli::init(std::shared_ptr<Channel> channel){
+    channel_ = channel;
+    stub_.reset(new SnapshotInnerControl::Stub(channel_));
+}
+

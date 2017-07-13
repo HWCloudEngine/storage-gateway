@@ -209,8 +209,9 @@ bool JournalWriter::get_writeable_journals(const std::string& uuid,
     } else {
         tmp = limit - journal_queue.size();
     }
-    if (g_rpc_client.GetWriteableJournals(uuid, vol_attr_.vol_name(),
-                                          tmp, journals)) {
+    StatusCode ret = g_rpc_client.GetWriteableJournals(uuid, vol_attr_.vol_name(),
+                                          tmp, journals);
+    if (ret != StatusCode::sOk) {
         LOG_ERROR << "get journal file failed";
         return false;
     }
@@ -240,7 +241,8 @@ bool JournalWriter::seal_journals(const std::string& uuid) {
     }
 
     if (!journals.empty()) {
-        if (g_rpc_client.SealJournals(uuid, vol_attr_.vol_name(), journals)) {
+        StatusCode ret = g_rpc_client.SealJournals(uuid, vol_attr_.vol_name(), journals);
+        if (ret != StatusCode::sOk) {
             LOG_ERROR << "SealJournals failed";
             for (auto k : backup) {
                 seal_queue.push(k);
