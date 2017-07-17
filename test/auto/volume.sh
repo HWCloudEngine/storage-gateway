@@ -5,9 +5,9 @@ source ./sg_env.sh
 . ${SG_SCRIPTS_HOME}/sg_functions.sh
  
 usage="usage: $0 [action:enable|disable|attach|detach|initialize|terminate] [volume id] "
-TEST_VOLUME_PATH="/dev/sdc"
+TEST_VOLUME_PATH="/dev/sdb"
 #1G
-TEST_VOLUME_SIZE=17179869184
+TEST_VOLUME_SIZE=16777216
 if [ $# -lt 2 ]
 then 
 sg_print $usage

@@ -20,9 +20,9 @@ case $1 in
         ;;
     'stop')
         sg_print "stop sg process"
-        ssh ${LOCAL_HOST} "cd ${SG_SCRIPTS_HOME}; ./sg_services.sh stop < /dev/null > /dev/null 2>&1"
+        ssh ${LOCAL_HOST} "cd ${SG_SCRIPTS_HOME}; ./sg_services.sh stop ${PRIMARY_VOLUME} /dev/null 2>&1"
         res1=$?
-        ssh ${REMOTE_HOST} "cd ${SG_SCRIPTS_HOME}; ./sg_services.sh stop < /dev/null > /dev/null 2>&1"
+        ssh ${REMOTE_HOST} "cd ${SG_SCRIPTS_HOME}; ./sg_services.sh stop ${SECONDARY_VOLUME} /dev/null 2>&1"
         res2=$?
         ;;
     'clean')

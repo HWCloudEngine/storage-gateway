@@ -31,11 +31,15 @@ class VolumeCtrl(object):
                 mode = common_pb2.ISCSI_MODE
             res = self.InitializeConnection(args.vol_id, mode)
         elif args.action == 'terminate':
-            res = self.TerminateConnection(args.vol_id)
+            if args.mode.upper() == 'AGENT':
+                mode = common_pb2.AGENT_MODE
+            else:
+                mode = common_pb2.ISCSI_MODE
+            res = self.TerminateConnection(args.vol_id, mode, args.device_path)
         elif args.action == 'attach':
             res = self.AttachVolume(args.vol_id,args.device_path)
         elif args.action == 'detach':
-            res = self.AttachVolume(args.vol_id)
+            res = self.DetachVolume(args.vol_id)
         else:
             res = 1
         return res
