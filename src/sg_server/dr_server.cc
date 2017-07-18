@@ -75,7 +75,8 @@ int main(int argc, char** argv) {
     string mount_path = g_option.journal_mount_point;
 
     // init meta server
-    string ip1 = g_option.meta_server_ip;
+    //string ip1 = g_option.meta_server_ip;
+    string ip1 = "0.0.0.0";
     int port1 = g_option.meta_server_port;
     RpcServer metaServer(ip1,port1,grpc::InsecureServerCredentials());
     WriterServiceImpl writerSer(meta);
