@@ -102,8 +102,8 @@ void ProcessWorker::process_file(const JournalElement& file) {
     m_id_generator->del_file(path);
 }
 
-SrcWorker::SrcWorker(std::string vol, shared_ptr<ReplayerClient> rpc_cli)
-        : m_volume(vol), m_grpc_client(rpc_cli) {
+SrcWorker::SrcWorker(std::string vol)
+        : m_volume(vol){
 }
 
 void SrcWorker::start() {
@@ -134,8 +134,8 @@ void SrcWorker::broadcast_consumer_exit() {
 }
 
 void SrcWorker::loop() {
-    bool ret = m_grpc_client->GetJournalMarker(m_volume, m_latest_marker);
-    if (!ret) {
+    StatusCode ret = g_rpc_client.GetJournalMarker(m_volume, m_latest_marker);
+    if (ret != StatusCode::sOk) {
         LOG_ERROR << "src worker get journal marker failed";
         broadcast_consumer_exit();
         return;
@@ -145,9 +145,9 @@ void SrcWorker::loop() {
         /*get journal file list from drserver*/
         const int limit = 10;
         list<JournalElement> journal_list;
-        ret = m_grpc_client->GetJournalList(m_volume, m_latest_marker, limit,
+        ret = g_rpc_client.GetJournalList(m_volume, m_latest_marker, limit,
                                             journal_list);
-        if (!ret || journal_list.empty()) {
+        if (ret != StatusCode::sOk || journal_list.empty()) {
             LOG_ERROR << "src worker get journal list failed";
             m_run = false;
             broadcast_consumer_exit();
@@ -185,10 +185,9 @@ void SrcWorker::enqueue(void* item) {
 }
 
 CacheRecovery::CacheRecovery(std::string volume,
-                             shared_ptr<ReplayerClient> rpc_cli,
                              shared_ptr<IDGenerator> id_maker,
                              shared_ptr<CacheProxy> cache_proxy)
-    : m_volume(volume), m_grpc_client(rpc_cli), m_id_generator(id_maker),
+    : m_volume(volume),m_id_generator(id_maker),
     m_cache_proxy(cache_proxy) {
 }
 
@@ -200,7 +199,7 @@ void CacheRecovery::start() {
         new (&m_processor[i]) ProcessWorker(m_id_generator, m_cache_proxy);
         m_processor[i].start();
     }
-    m_src_worker = new SrcWorker(m_volume, m_grpc_client);
+    m_src_worker = new SrcWorker(m_volume);
     for (int i = 0; i < m_processor_num; i++) {
         m_src_worker->register_consumer(&m_processor[i]);
         m_processor[i].register_producer(m_src_worker);

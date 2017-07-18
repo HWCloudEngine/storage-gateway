@@ -15,6 +15,8 @@ sg_client_SOURCES=../common/crc32.c  \
                   ../common/lease_client.cc \
                   ../common/journal_entry.cc \
                   ../rpc/clients/rpc_client.cc \
+                  ../rpc/clients/backup_rpccli.cc \
+                  ../rpc/clients/snapshot_rpccli.cc \
                   ../common/volume_attr.cc   \
                   control/control_snapshot.cc  \
                   control/control_backup.cc    \
@@ -23,8 +25,6 @@ sg_client_SOURCES=../common/crc32.c  \
                   control/control_agent.cc   \
                   control/control_iscsi.cc   \
                   snapshot/snapshot_proxy.cc  \
-                  snapshot/snapshot_rpccli.cc \
-                  backup/backup_rpccli.cc \
                   backup/backup_decorator.cc \
                   backup/backup_proxy.cc \
                   cache/bcache.cc        \

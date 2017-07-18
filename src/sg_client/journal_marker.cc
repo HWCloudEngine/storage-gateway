@@ -10,7 +10,7 @@
 *************************************************/
 #include "journal_marker.h"
 #include "log/log.h"
-using std::string;
+
 
 MarkerHandler::MarkerHandler(VolumeAttr& vol_attr):
 vol_attr_(vol_attr),written_size_since_last_update(0LLU), producer_marker_hold_flag(false){
@@ -58,8 +58,9 @@ JournalMarker MarkerHandler::get_cur_producer_marker() {
 }
 
 int MarkerHandler::update_producer_marker(const JournalMarker& marker) {
-    if (g_rpc_client.update_producer_marker(
-            lease_client_->get_lease(), vol_attr_.vol_name(), marker)) {
+    StatusCode ret = g_rpc_client.update_producer_marker(
+            lease_client_->get_lease(), vol_attr_.vol_name(), marker);
+    if (ret != StatusCode::sOk) {
         LOG_ERROR << "update volume[" << vol_attr_.vol_name() << "] producer marker failed!";
         return -1;
     }

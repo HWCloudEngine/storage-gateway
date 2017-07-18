@@ -105,7 +105,6 @@ class VolumeManager {
 
     std::string host_;
     std::string port_;
-    std::shared_ptr<VolInnerCtrlClient> vol_inner_client_;
 
     bool running_;
 

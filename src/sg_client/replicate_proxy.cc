@@ -12,10 +12,6 @@ ReplicateProxy::ReplicateProxy(const string& vol_name,
             vol_size_(vol_size),
             snapshot_proxy_(snapshot_proxy) {
 
-    std::string rpc_addr = rpc_address(g_option.meta_server_ip,
-                                       g_option.meta_server_port);
-    rep_inner_client_.reset(new RepInnerCtrlClient(grpc::CreateChannel(
-                rpc_addr, grpc::InsecureChannelCredentials())));
 }
 
 ReplicateProxy::~ReplicateProxy() {
@@ -49,7 +45,7 @@ StatusCode ReplicateProxy::create_transaction(const SnapReqHead& shead,
     // report sg_server that replayer got a replicate snap;
     // sg_server will validate this snapshot
     bool is_discard;
-    ret_code = rep_inner_client_->report_checkpoint(shead.checkpoint_uuid(),
+    ret_code = g_rpc_client.report_checkpoint(shead.checkpoint_uuid(),
         vol_name_,role,is_discard);
     if(ret_code != StatusCode::sOk){
         LOG_ERROR << "report replicate checkpoint failed, volume:" << vol_name_

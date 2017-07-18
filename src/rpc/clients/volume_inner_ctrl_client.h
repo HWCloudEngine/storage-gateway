@@ -27,6 +27,7 @@ using huawei::proto::inner::DeleteVolumeReq;
 using huawei::proto::inner::DeleteVolumeRes;
 using huawei::proto::inner::UpdateVolumePathReq;
 using huawei::proto::inner::UpdateVolumePathRes;
+using huawei::proto::inner::VolumeInnerControl;
 using huawei::proto::VolumeInfo;
 using huawei::proto::VolumeMeta;
 using huawei::proto::VolumeStatus;
@@ -34,11 +35,10 @@ using huawei::proto::StatusCode;
 using huawei::proto::sInternalError;
 class VolInnerCtrlClient{
 public:
-    explicit VolInnerCtrlClient(std::shared_ptr<grpc::Channel> channel):
-        stub_(huawei::proto::inner::VolumeInnerControl::NewStub(channel)){
+    explicit VolInnerCtrlClient(){
     }
     ~VolInnerCtrlClient(){}
-    StatusCode create_volume(const std::string& vol,const std::string& path,
+    static StatusCode create_volume(const std::string& vol,const std::string& path,
             const uint64_t& size, const VolumeStatus& s){
         ClientContext context;
         CreateVolumeReq request;
@@ -56,7 +56,7 @@ public:
             return sInternalError;
         }
     }
-    StatusCode update_volume_status(const std::string& vol,
+    static StatusCode update_volume_status(const std::string& vol,
             const VolumeStatus& s){
         ClientContext context;
         UpdateVolumeStatusReq request;
@@ -72,7 +72,7 @@ public:
             return sInternalError;
         }
     }
-    StatusCode get_volume(const std::string& vol,VolumeInfo& info){
+    static StatusCode get_volume(const std::string& vol,VolumeInfo& info){
         ClientContext context;
         GetVolumeReq request;
         GetVolumeRes response;
@@ -89,7 +89,7 @@ public:
         }
     }
 
-    StatusCode list_volume(std::list<VolumeInfo>& list){
+    static StatusCode list_volume(std::list<VolumeInfo>& list){
         ClientContext context;
         ListVolumeReq request;
         ListVolumeRes response;
@@ -105,7 +105,7 @@ public:
         }
         return response.status();
     }
-    StatusCode delete_volume(const std::string& vol){
+    static StatusCode delete_volume(const std::string& vol){
         ClientContext context;
         DeleteVolumeReq request;
         DeleteVolumeRes response;
@@ -119,7 +119,7 @@ public:
             return sInternalError;
         }
     }
-    StatusCode update_volume_path(const std::string& vol,
+    static StatusCode update_volume_path(const std::string& vol,
                                   const std::string& path){
         ClientContext context;
         UpdateVolumePathReq request;
@@ -135,7 +135,11 @@ public:
             return sInternalError;
         }
     }
+    static void init(std::shared_ptr<grpc::Channel> channel){
+        stub_.reset(new VolumeInnerControl::Stub(channel));
+    }
+
 private:
-    std::unique_ptr<huawei::proto::inner::VolumeInnerControl::Stub> stub_;
+    static std::unique_ptr<VolumeInnerControl::Stub> stub_;
 };
 #endif

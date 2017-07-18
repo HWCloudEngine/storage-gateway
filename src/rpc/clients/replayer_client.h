@@ -32,13 +32,10 @@ using huawei::proto::JournalElement;
 
 class ReplayerClient {
 public:
-    ReplayerClient(std::shared_ptr<Channel> channel) :
-            stub_(Consumer::NewStub(channel)),
-            lease_uuid("lease-uuid"),
-            consumer_type(REPLAYER){
+    ReplayerClient(){
     }
 
-    bool GetJournalMarker(const std::string& vol_id, JournalMarker& marker_) {
+    static StatusCode GetJournalMarker(const std::string& vol_id, JournalMarker& marker_) {
         GetJournalMarkerRequest request;
         request.set_vol_id(vol_id);
         request.set_uuid(lease_uuid);
@@ -50,12 +47,12 @@ public:
         RESULT result = reply.result();
         if (status.ok() && (result == DRS_OK)) {
             marker_.CopyFrom(reply.marker());
-            return true;
+            return StatusCode::sOk;
         } else {
-            return false;
+            return StatusCode::sInternalError;
         }
     }
-    bool GetJournalList(const std::string& vol_id, const JournalMarker& marker,
+    static StatusCode GetJournalList(const std::string& vol_id, const JournalMarker& marker,
             int limit, std::list<JournalElement>& journal_list_) {
         GetJournalListRequest request;
         request.set_limit(limit);
@@ -63,7 +60,7 @@ public:
         request.set_uuid(lease_uuid);
         request.set_type(consumer_type);
         if (!marker.IsInitialized())
-            return false;
+            return StatusCode::sInternalError;
         (request.mutable_marker())->CopyFrom(marker);
 
         GetJournalListResponse reply;
@@ -75,19 +72,19 @@ public:
             for (int i = 0; i < reply.journals_size(); i++) {
                 journal_list_.push_back(reply.journals(i));
             }
-            return true;
+            return StatusCode::sOk;
         } else {
-            return false;
+            return StatusCode::sInternalError;
         }
     }
-    bool UpdateConsumerMarker(const JournalMarker& marker,
+    static StatusCode UpdateConsumerMarker(const JournalMarker& marker,
             const std::string& vol_id) {
         UpdateConsumerMarkerRequest request;
         request.set_uuid(lease_uuid);
         request.set_vol_id(vol_id);
         request.set_type(consumer_type);
         if (!marker.IsInitialized())
-            return false;
+            return StatusCode::sInternalError;
         (request.mutable_marker())->CopyFrom(marker);
 
         UpdateConsumerMarkerResponse reply;
@@ -96,15 +93,21 @@ public:
         Status status = stub_->UpdateConsumerMarker(&context, request, &reply);
         RESULT result = reply.result();
         if (status.ok() && (result == DRS_OK)) {
-            return true;
+            return StatusCode::sOk;
         } else {
-            return false;
+            return StatusCode::sInternalError;
         }
     }
+    static void init(std::shared_ptr<Channel> channel){
+        stub_.reset(new Consumer::Stub(channel));
+        consumer_type = REPLAYER;
+        lease_uuid = "lease-uuid";
+    }
+
 private:
-    std::unique_ptr<Consumer::Stub> stub_;
-    CONSUMER_TYPE consumer_type;
-    std::string lease_uuid;
+    static std::unique_ptr<Consumer::Stub> stub_;
+    static CONSUMER_TYPE consumer_type;
+    static std::string lease_uuid;
 };
 
 #endif /* RPC_REPLAYER_CLIENT_HPP_ */

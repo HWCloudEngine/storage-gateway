@@ -14,10 +14,9 @@
 #include <map>
 #include <memory>
 #include <boost/uuid/uuid_generators.hpp>
-#include "rpc/clients/replicate_inner_ctrl_client.h"
+#include "rpc/clients/rpc_client.h"
 #include "rpc/replicate_control.grpc.pb.h"
 #include "sg_client/volume.h"
-#include "rpc/clients/volume_inner_ctrl_client.h"
 
 using grpc::ServerContext;
 using grpc::Status;
@@ -61,8 +60,6 @@ class ReplicateCtrl:public huawei::proto::control::ReplicateControl::Service {
     explicit ReplicateCtrl(std::map<string, std::shared_ptr<Volume>>& volumes);
     ~ReplicateCtrl();
  private:
-    std::unique_ptr<RepInnerCtrlClient> rep_ctrl_client_;
-    std::unique_ptr<VolInnerCtrlClient> vol_ctrl_client_;
     std::map<string, std::shared_ptr<Volume>>& volumes_;
     boost::uuids::random_generator uuid_generator_;
 };

@@ -112,9 +112,7 @@ bool VolumeManager::init()
     ctrl_rpc_server->register_service(rep_ctrl);
 
     std::string meta_rpc_addr = rpc_address(g_option.meta_server_ip, g_option.meta_server_port);
-    vol_inner_client_.reset(new VolInnerCtrlClient(grpc::CreateChannel(meta_rpc_addr,
-                    grpc::InsecureChannelCredentials())));
-    vol_ctrl = new VolumeControlImpl(host_, port_,vol_inner_client_, *this);
+    vol_ctrl = new VolumeControlImpl(host_, port_, *this);
     ctrl_rpc_server->register_service(vol_ctrl);
 
     init_volumes();
@@ -146,7 +144,7 @@ void VolumeManager::init_volumes()
             continue;
         }
         VolumeInfo volume_info;
-        StatusCode ret = vol_inner_client_->get_volume(vol_name, volume_info);
+        StatusCode ret = g_rpc_client.get_volume(vol_name, volume_info);
         if (ret != StatusCode::sOk)
         {
             LOG_INFO <<"get volume info from sg server failed"<<vol_name;
@@ -298,7 +296,7 @@ void VolumeManager::read_req_body_cbt(raw_socket_t client_sock,
     LOG_INFO << "add volume:" << vol_name << " dev_path:" << dev_path;
     
     VolumeInfo volume_info;
-    StatusCode ret = vol_inner_client_->get_volume(vol_name, volume_info);
+    StatusCode ret = g_rpc_client.get_volume(vol_name, volume_info);
     if(ret != StatusCode::sOk){
         send_reply(client_sock, req_head_buffer, req_body_buffer, false);
         return;

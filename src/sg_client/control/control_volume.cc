@@ -33,10 +33,8 @@ using huawei::proto::ClientMode;
 // start class VolumeControlImpl
 VolumeControlImpl::VolumeControlImpl(const std::string& host,
                                      const std::string& port,
-                                     std::shared_ptr<VolInnerCtrlClient> vol_inner_client,
                                      VolumeManager& vol_manager) :
         host_(host), port_(port),
-        vol_inner_client_(vol_inner_client),
         vol_manager_(vol_manager)
 {
     iscsi_control_ptr = new ISCSIControl(host_, port_);
@@ -121,7 +119,7 @@ Status VolumeControlImpl::GetVolume(ServerContext* context,
     std::string volume_id = req->volume_id();
     VolumeInfo volume;
     LOG_INFO << "get sg vol:" << volume_id;
-    StatusCode ret = vol_inner_client_->get_volume(volume_id, volume);
+    StatusCode ret = g_rpc_client.get_volume(volume_id, volume);
     if (ret == StatusCode::sOk)
     {
         res->mutable_volume()->CopyFrom(volume);
@@ -135,7 +133,7 @@ Status VolumeControlImpl::ListVolumes(ServerContext* context,
                                       control::ListVolumesRes* res)
 {
     std::list<VolumeInfo> volumes;
-    StatusCode ret = vol_inner_client_->list_volume(volumes);
+    StatusCode ret = g_rpc_client.list_volume(volumes);
     if (ret == StatusCode::sOk)
     {
         for (auto volume : volumes)
@@ -157,10 +155,10 @@ Status VolumeControlImpl::EnableSG(ServerContext* context,
     LOG_INFO << "enable sg vol:" << vol_name << " device:" << dev_name;
 
     VolumeInfo volume;
-    StatusCode ret = vol_inner_client_->get_volume(vol_name, volume);
+    StatusCode ret = g_rpc_client.get_volume(vol_name, volume);
     if(ret != StatusCode::sOk)
     {
-        StatusCode ret = vol_inner_client_->create_volume(
+        StatusCode ret = g_rpc_client.create_volume(
                 vol_name, dev_name, dev_size, VOL_AVAILABLE);
         if(ret != StatusCode::sOk)
         {
@@ -169,7 +167,7 @@ Status VolumeControlImpl::EnableSG(ServerContext* context,
         }
         else
         {
-            StatusCode ret = vol_inner_client_->get_volume(vol_name, volume);
+            StatusCode ret = g_rpc_client.get_volume(vol_name, volume);
             if (ret != StatusCode::sOk)
             {
                 LOG_ERROR << "enable sg vol:" << vol_name << " failed";
@@ -185,7 +183,7 @@ Status VolumeControlImpl::EnableSG(ServerContext* context,
     {
         if(dev_name != volume.path())
         {
-            StatusCode ret = vol_inner_client_->update_volume_path(vol_name,
+            StatusCode ret = g_rpc_client.update_volume_path(vol_name,
                                                                    dev_name);
             if(ret != StatusCode::sOk)
             {
@@ -194,7 +192,7 @@ Status VolumeControlImpl::EnableSG(ServerContext* context,
                 return Status::OK;
             }
         }
-        StatusCode ret = vol_inner_client_->get_volume(vol_name, volume);
+        StatusCode ret = g_rpc_client.get_volume(vol_name, volume);
         if (ret != StatusCode::sOk)
         {
             LOG_ERROR << "enable sg vol:" << vol_name << " failed";
@@ -216,7 +214,7 @@ Status VolumeControlImpl::DisableSG(ServerContext* context,
     std::string vol_name = req->volume_id();
     LOG_INFO << "disable sg vol:" << vol_name;
     VolumeInfo volume;
-    StatusCode ret = vol_inner_client_->get_volume(vol_name, volume);
+    StatusCode ret = g_rpc_client.get_volume(vol_name, volume);
     if (ret != StatusCode::sOk)
     {
         LOG_INFO << "vol:" << vol_name << "is not enabled";
@@ -224,7 +222,7 @@ Status VolumeControlImpl::DisableSG(ServerContext* context,
     }
     else
     {
-        StatusCode ret = vol_inner_client_->delete_volume(vol_name);
+        StatusCode ret = g_rpc_client.delete_volume(vol_name);
         if(ret == StatusCode::sOk)
         {
             LOG_INFO << "disable sg volume:" << vol_name << " succeed";
@@ -248,7 +246,7 @@ Status VolumeControlImpl::InitializeConnection(ServerContext* context,
     ClientMode client_mode = req->mode();
     LOG_INFO << "initialize connection vol:" << vol_name << ", mode" << client_mode;
     VolumeInfo volume;
-    StatusCode ret = vol_inner_client_->get_volume(vol_name, volume);
+    StatusCode ret = g_rpc_client.get_volume(vol_name, volume);
     if(ret != StatusCode::sOk)
     {
         LOG_ERROR << "initialize connection vol:" << vol_name << " failed";
@@ -296,7 +294,7 @@ Status VolumeControlImpl::TerminateConnection(ServerContext* context,
     std::string device = req->device();
     LOG_INFO << "terminate connection vol:" << vol_name << ", mode:" << client_mode;
     VolumeInfo volume;
-    StatusCode ret = vol_inner_client_->get_volume(vol_name, volume);
+    StatusCode ret = g_rpc_client.get_volume(vol_name, volume);
     if(ret != StatusCode::sOk)
     {
         LOG_ERROR << "terminate connection vol:" << vol_name << " failed";
@@ -323,7 +321,7 @@ Status VolumeControlImpl::TerminateConnection(ServerContext* context,
         {
             if(device != volume.path())
             {
-                StatusCode ret = vol_inner_client_->update_volume_path(vol_name,
+                StatusCode ret = g_rpc_client.update_volume_path(vol_name,
                                                                        device);
                 if(ret != StatusCode::sOk)
                 {
@@ -332,7 +330,7 @@ Status VolumeControlImpl::TerminateConnection(ServerContext* context,
                     return Status::OK;
                 }
             }
-            StatusCode ret = vol_inner_client_->get_volume(vol_name, volume);
+            StatusCode ret = g_rpc_client.get_volume(vol_name, volume);
             if (ret != StatusCode::sOk)
             {
                 LOG_ERROR << "terminate connection vol:" << vol_name << " failed";
@@ -355,7 +353,7 @@ Status VolumeControlImpl::AttachVolume(ServerContext* context,
     std::string device = req->device();
     LOG_INFO << "attach vol:" << vol_name;
     VolumeInfo volume;
-    StatusCode ret = vol_inner_client_->get_volume(vol_name, volume);
+    StatusCode ret = g_rpc_client.get_volume(vol_name, volume);
     if(ret != StatusCode::sOk)
     {
         LOG_ERROR << "attach vol:" << vol_name << " failed";
@@ -365,7 +363,7 @@ Status VolumeControlImpl::AttachVolume(ServerContext* context,
     {
         if(device != volume.path())
         {
-            StatusCode ret = vol_inner_client_->update_volume_path(vol_name, device);
+            StatusCode ret = g_rpc_client.update_volume_path(vol_name, device);
             if(ret != StatusCode::sOk)
             {
                 LOG_ERROR << "attach vol:" << vol_name << " failed";
@@ -373,7 +371,7 @@ Status VolumeControlImpl::AttachVolume(ServerContext* context,
                 return Status::OK;
             }
         }
-        StatusCode ret = vol_inner_client_->get_volume(vol_name, volume);
+        StatusCode ret = g_rpc_client.get_volume(vol_name, volume);
         if(ret != StatusCode::sOk)
         {
             LOG_ERROR << "attach vol:" << vol_name << " failed";
@@ -400,7 +398,7 @@ Status VolumeControlImpl::DetachVolume(ServerContext* context,
     std::string vol_name = req->volume_id();
     LOG_INFO << "attach vol:" << vol_name;
     VolumeInfo volume;
-    StatusCode ret = vol_inner_client_->get_volume(vol_name, volume);
+    StatusCode ret = g_rpc_client.get_volume(vol_name, volume);
     if(ret != StatusCode::sOk)
     {
         LOG_ERROR << "detach vol:" << vol_name << " failed";

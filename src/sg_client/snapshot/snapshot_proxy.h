@@ -28,6 +28,7 @@
 #include "rpc/snapshot_control.grpc.pb.h"
 #include "rpc/snapshot_inner_control.pb.h"
 #include "rpc/snapshot_inner_control.grpc.pb.h"
+#include "rpc/clients/rpc_client.h"
 #include "common/define.h"
 #include "common/blocking_queue.h"
 #include "common/block_store.h"
@@ -37,7 +38,6 @@
 #include "snapshot.h"
 #include "syncbarrier.h"
 #include "transaction.h"
-#include "snapshot_rpccli.h"
 #include "common/journal_entry.h"
 
 using grpc::Channel;
@@ -140,8 +140,6 @@ class SnapshotProxy : public ISnapshot, public ITransaction, public ISyncBarrier
     atomic_bool m_exist_snapshot{false};
     /*snapshot block store*/
     BlockStore* m_block_store;
-    /*snapshot rpc client*/
-    SnapRpcCli* m_snap_rpc_cli;
 };
 
 #endif  // SRC_SG_CLIENT_SNAPSHOT_SNAPSHOT_PROXY_H_

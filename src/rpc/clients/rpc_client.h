@@ -17,10 +17,13 @@
 #include "log/log.h"
 #include "writer_client.h"
 #include "lease_rpc_client.h"
+#include "replayer_client.h"
+#include "replicate_inner_ctrl_client.h"
+#include "volume_inner_ctrl_client.h"
+#include "backup_rpccli.h"
+#include "snapshot_rpccli.h"
 #include "common/config_option.h"
 #include "common/utils.h"
-
-using namespace std::placeholders;
 
 void rpc_init();
 
@@ -86,6 +89,7 @@ public:
     void register_func();
     
 public:
+    //writer_client
     Decorator<StatusCode(const std::string&,
         const std::string&, const int,std::list<JournalElement>&)> GetWriteableJournals;
     Decorator<StatusCode(const std::string&,
@@ -100,6 +104,63 @@ public:
                          const std::string&,
                          std::map<std::string,std::string>&)> update_lease;
 
+    //replayer_client
+    Decorator<StatusCode(const std::string&,JournalMarker&)> GetJournalMarker;
+    Decorator<StatusCode(const std::string&,const JournalMarker&,
+        int,std::list<JournalElement>&)> GetJournalList;
+    Decorator<StatusCode(const JournalMarker&,const std::string&)> UpdateConsumerMarker;
+
+    //replicate_inner_ctrl_client
+    Decorator<StatusCode(const string&,const string&,const string&,
+        const std::list<string>&,const RepRole&)> create_replication;
+    Decorator<StatusCode(const string&,const string&,const RepRole&,
+        const JournalMarker&,const string&)> enable_replication;
+    Decorator<StatusCode(const string&,const string&,const RepRole&,
+        const JournalMarker&,const string&)> disable_replication;
+    Decorator<StatusCode(const string&,const string&,const RepRole&,
+        const JournalMarker&,const bool&,const string&)> failover_replication;
+    Decorator<StatusCode(const string&,const string&,const RepRole&)> reverse_replication;
+    Decorator<StatusCode(const string&,const string&,const RepRole&)> delete_replication;
+    Decorator<StatusCode(const string&,const string&,const RepRole&, bool&)> report_checkpoint;
+
+    //volume_inner_ctrl_client
+    Decorator<StatusCode(const std::string&,const std::string&,
+        const uint64_t&, const VolumeStatus&)> create_volume;
+    Decorator<StatusCode(const std::string&,const VolumeStatus&)> update_volume_status;
+    Decorator<StatusCode(const std::string&,VolumeInfo&)> get_volume;
+    Decorator<StatusCode(std::list<VolumeInfo>&)> list_volume;
+    Decorator<StatusCode(const std::string&)> delete_volume;
+    Decorator<StatusCode(const std::string&,const std::string&)> update_volume_path;
+
+    //backup rpc client
+    Decorator<StatusCode(const std::string&, const size_t&,const std::string&,
+         const BackupOption&)> CreateBackup;
+    Decorator<StatusCode(const std::string&, std::set<std::string>&)> ListBackup;
+    Decorator<StatusCode(const std::string&, const std::string&,
+         BackupStatus&)> GetBackup;
+    Decorator<StatusCode(const std::string&, const std::string&)> DeleteBackup;
+    Decorator<StatusCode(const std::string&,const std::string&, const BackupType&,
+         const std::string&,const size_t&,const std::string&,BlockStore*)> RestoreBackup;
+
+    //snapshot rpc client
+    Decorator<StatusCode(const std::string&, std::string&)> do_init_sync;
+    Decorator<StatusCode(const SnapReqHead&,const std::string&,
+                         const std::string&)> do_create;
+    Decorator<StatusCode(const SnapReqHead&,const std::string&,const std::string&)> do_delete;
+    Decorator<StatusCode(const SnapReqHead&,const std::string&, const std::string&,
+                         std::vector<RollBlock>&)> do_rollback;
+    Decorator<StatusCode(const SnapReqHead&, const std::string&,const std::string&,
+                         const UpdateEvent&,std::string&)> do_update;
+    Decorator<StatusCode(const std::string&,std::set<std::string>&)> do_list;
+    Decorator<StatusCode(const std::string&,const std::string,SnapStatus&)> do_query;
+    Decorator<StatusCode(const SnapReqHead&,const std::string&,const std::string&,
+                         const std::string&,std::vector<DiffBlocks>&)> do_diff;
+    Decorator<StatusCode(const SnapReqHead&,const std::string&,const std::string&, const off_t,
+                         const size_t,std::vector<ReadBlock>)> do_read;
+    Decorator<StatusCode(const std::string&,const std::string&,const uint64_t,
+                         cow_op_t&,std::string&)> do_cow_check;
+    Decorator<StatusCode(const std::string&,const std::string&,const uint64_t,
+                         const bool,const std::string)> do_cow_update;
 };
 
 #define g_rpc_client (RpcClient::instance())
