@@ -34,7 +34,7 @@ class CephBlockStore : public BlockStore {
  public:
     CephBlockStore(const std::string& cluster, const std::string& user,
                    const std::string& pool);
-    virtual ~CephBlockStore();
+    ~CephBlockStore();
 
     int init();
     void fini();
@@ -55,7 +55,7 @@ class CephBlockStore : public BlockStore {
 class FsBlockStore : public BlockStore {
  public:
      explicit FsBlockStore(const std::string& dir);
-     virtual ~FsBlockStore();
+     ~FsBlockStore();
      int create(const std::string& object) override;
      int remove(const std::string& object) override;
      int write(const std::string& object, char* buf, size_t len, off_t off) override;
