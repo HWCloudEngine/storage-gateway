@@ -156,7 +156,7 @@ public:
     Decorator<StatusCode(const SnapReqHead&,const std::string&,const std::string&,
                          const std::string&,std::vector<DiffBlocks>&)> do_diff;
     Decorator<StatusCode(const SnapReqHead&,const std::string&,const std::string&, const off_t,
-                         const size_t,std::vector<ReadBlock>)> do_read;
+                         const size_t,std::vector<ReadBlock>&)> do_read;
     Decorator<StatusCode(const std::string&,const std::string&,const uint64_t,
                          cow_op_t&,std::string&)> do_cow_check;
     Decorator<StatusCode(const std::string&,const std::string&,const uint64_t,

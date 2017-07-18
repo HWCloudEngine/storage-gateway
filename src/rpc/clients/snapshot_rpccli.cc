@@ -247,7 +247,7 @@ StatusCode SnapRpcCli::do_diff(const SnapReqHead& shead,
 StatusCode SnapRpcCli::do_read(const SnapReqHead& shead, const std::string& vol_name,
                                const std::string& snap_name, const off_t off,
                                const size_t len,
-                               std::vector<ReadBlock> blocks) {
+                               std::vector<ReadBlock>& blocks) {
 
     LOG_INFO << "do read snapshot vname:" << vol_name << " sname:" << snap_name
              << " off:" << off << " len:" << len;

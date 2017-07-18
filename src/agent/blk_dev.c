@@ -7,6 +7,7 @@
 #include <linux/pid.h>
 #include <linux/version.h>
 #include <linux/vmalloc.h>
+#include <linux/jiffies.h>
 #include <asm/barrier.h>
 #include <scsi/scsi_host.h>
 #include <scsi/scsi_cmnd.h>
@@ -535,8 +536,8 @@ static int recv_work(void* data)
     while(!kthread_should_stop()){
         bio = net_recv_bio(dev);
         if(bio == NULL){
-            msleep(20);
-            continue;
+            LOG_ERR("net recv bio error");
+            break;
         }
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3,14,0))
         bio_endio(bio, 0); 
@@ -755,8 +756,11 @@ int blk_dev_protect(const char* dev_path, const char* vol_name)
     }
     LOG_INFO("wait add vol bio");
     submit_cmd_bio(dev, add_vol_bio);
-    wait_for_completion(&dev->cmd_sync_event);
-    LOG_INFO("wait add vol bio ok");
+    if(!wait_for_completion_timeout(&dev->cmd_sync_event, msecs_to_jiffies(200))){
+        LOG_ERR("wait add vol bio timeout");
+    } else {
+        LOG_INFO("wait add vol bio ok");
+    }
     free_cmd_bio(add_vol_bio);
     /*add mgr*/
     ret = pbdev_mgr_add(&g_dev_mgr, dev);
@@ -795,8 +799,11 @@ int blk_dev_unprotect(const char* dev_path)
     }
     LOG_INFO("wait del vol bio");
     submit_cmd_bio(dev, del_vol_bio);
-    wait_for_completion(&dev->cmd_sync_event);
-    LOG_INFO("wait del vol bio ok");
+    if(!wait_for_completion_timeout(&dev->cmd_sync_event, msecs_to_jiffies(200))){
+        LOG_ERR("wait del vol bio timeout");
+    } else {
+        LOG_INFO("wait del vol bio ok");
+    }
     free_cmd_bio(del_vol_bio);
     pbdev_mgr_del(&g_dev_mgr, dev_path);
     if(dev){

@@ -71,7 +71,7 @@ class SnapRpcCli {
                        const std::string& vol_name,
                        const std::string& snap_name, const off_t off,
                        const size_t len,
-                       std::vector<ReadBlock> blocks);
+                       std::vector<ReadBlock>& blocks);
     static StatusCode do_cow_check(const std::string& vol_name,
                             const std::string& snap_name,
                             const uint64_t block_no,
