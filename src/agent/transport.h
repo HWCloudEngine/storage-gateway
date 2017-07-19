@@ -2,6 +2,7 @@
 #define TRANSPORT_H
 
 #include <linux/net.h>
+#include <linux/atmioc.h>
 
 struct transport
 {
@@ -15,6 +16,7 @@ struct transport
     int port;
     
     struct socket* sock;
+    atomic_t       isok;
 };
 
 int tp_create(struct transport* net, const char* host, int port);

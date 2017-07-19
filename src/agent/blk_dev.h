@@ -39,9 +39,10 @@ struct pbdev
 
     wait_queue_head_t     send_wq;
     struct bio_list       send_bio_list;
-    struct task_struct*   send_thread;
     wait_queue_head_t     recv_wq;
     struct bio_list       recv_bio_list;
+    spinlock_t            tasks_lock;
+    struct task_struct*   send_thread;
     struct task_struct*   recv_thread;
     
     /*add and delete volume synchronize*/

@@ -157,9 +157,9 @@ static bool cbt_check(struct pbdev* dev, sector_t start, sector_t nr_sects)
 }
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4,4,0))
-void hook_make_request_fn(struct request_queue* q, struct bio* bio)
+void tracer_make_request_fn(struct request_queue* q, struct bio* bio)
 #else
-blk_qc_t hook_make_request_fn(struct request_queue* q, struct bio* bio)
+blk_qc_t tracer_make_request_fn(struct request_queue* q, struct bio* bio)
 #endif
 {
     int pass = 0;
@@ -173,6 +173,21 @@ blk_qc_t hook_make_request_fn(struct request_queue* q, struct bio* bio)
         return BLK_QC_T_NONE;
 #endif
     }
+    
+    /*network exception first exhaust bio then passthrough*/
+    if(atomic_read(&dev->network->isok) == 0){
+        while(!bio_list_empty(&dev->send_bio_list)){
+            msleep(10);     
+        }
+        dev->blk_bio_fn(q, bio);
+        LOG_INFO("network exception bio passthrough");
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,4,0))
+        return;
+#else
+        return BLK_QC_T_NONE;
+#endif
+    }
+
     /* sg client bio */
     spin_lock_irq(&g_dev_mgr.dev_lock);
     pass = ((cur_tgid == g_dev_mgr.sg_pid) ? 1 : 0);
@@ -226,7 +241,7 @@ blk_qc_t hook_make_request_fn(struct request_queue* q, struct bio* bio)
 #endif
 }
 
-static int install_hook(struct pbdev* dev, make_request_fn* new_make_request_fn)
+static int install_tracer(struct pbdev* dev, make_request_fn* new_make_request_fn)
 {
     int ret = 0;
     struct super_block* sb = dev->blk_device->bd_super;
@@ -259,7 +274,7 @@ static int install_hook(struct pbdev* dev, make_request_fn* new_make_request_fn)
     return ret;
 }
 
-static int uninstall_hook(struct pbdev* dev)
+static int uninstall_tracer(struct pbdev* dev)
 {
     int ret = 0;
     struct super_block* sb = dev->blk_device->bd_super;
@@ -498,12 +513,23 @@ static struct bio* net_recv_bio(struct pbdev* dev)
 
 static int send_work(void* data)
 {
+    int ret = 0;
     struct pbdev* dev = (struct pbdev*)data;
     struct bio* bio = NULL;
+    unsigned long flags;
+    spin_lock_irqsave(&dev->tasks_lock, flags);
+    dev->send_thread = current;
+    spin_unlock_irqrestore(&dev->tasks_lock, flags);
+
     while(!kthread_should_stop() || !bio_list_empty(&dev->send_bio_list))
     {
         wait_event_interruptible(dev->send_wq, kthread_should_stop() || 
                                  !bio_list_empty(&dev->send_bio_list));
+        if(signal_pending(current)){
+            ret = kernel_dequeue_signal(NULL);
+            LOG_INFO("0 got signal %d now", ret);
+            break;
+        }
         while(!bio_list_empty(&dev->send_bio_list))
         {
             spin_lock_irq(&dev->lock);
@@ -515,16 +541,45 @@ static int send_work(void* data)
             }
             if(bio->bi_flags == ADD_VOLUME){
                 LOG_INFO("send add vol cmd");
-                net_send_cmd(dev, bio);
-                LOG_INFO("send add vol cmd ok");
+                ret = net_send_cmd(dev, bio);
+                if(ret) {
+                    LOG_INFO("send add vol cmd fail");
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,14,0))
+                    bio_endio(bio, 0); 
+#else
+                    bio->bi_error = 0;
+                    bio_endio(bio); 
+#endif
+                }
             } else if(bio->bi_flags == DEL_VOLUME) {
                 LOG_INFO("send del vol cmd");
-                net_send_cmd(dev, bio);
-                LOG_INFO("send del vol cmd ok");
+                ret = net_send_cmd(dev, bio);
+                if(ret) {
+                    LOG_INFO("send del vol cmd fail");
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,14,0))
+                    bio_endio(bio, 0); 
+#else
+                    bio->bi_error = 0;
+                    bio_endio(bio); 
+#endif
+                }
             } else {
-                net_send_bio(dev, bio); 
+                ret = net_send_bio(dev, bio); 
+                if(ret) {
+                    LOG_ERR("send bio failure passthrough bio");
+                    dev->blk_bio_fn(dev->blk_queue, bio);
+                    LOG_ERR("send bio failure passthrough bio ok");
+                }
             }
         }
+    }
+
+    spin_lock_irqsave(&dev->tasks_lock, flags);
+    dev->send_thread = NULL;
+    spin_unlock_irqrestore(&dev->tasks_lock, flags);
+    if(signal_pending(current)){
+        ret = kernel_dequeue_signal(NULL);
+        LOG_INFO("1 got signal %d now", ret);
     }
     return 0;
 }
@@ -533,6 +588,11 @@ static int recv_work(void* data)
 {
     struct pbdev* dev = (struct pbdev*)data;
     struct bio* bio = NULL;
+    unsigned long flags;
+    spin_lock_irqsave(&dev->tasks_lock, flags);
+    dev->recv_thread = current;
+    spin_unlock_irqrestore(&dev->tasks_lock, flags);
+
     while(!kthread_should_stop()){
         bio = net_recv_bio(dev);
         if(bio == NULL){
@@ -548,6 +608,14 @@ static int recv_work(void* data)
         if(bio->bi_flags == DEL_VOLUME){
             break;
         }
+    }
+
+    spin_lock_irqsave(&dev->tasks_lock, flags);
+    dev->recv_thread = NULL;
+    spin_unlock_irqrestore(&dev->tasks_lock, flags);
+    if(signal_pending(current)){
+        int ret = kernel_dequeue_signal(NULL);
+        LOG_INFO("2 got signal %d now", ret);
     }
     return 0;
 }
@@ -569,15 +637,20 @@ static void pbdev_free(struct pbdev* dev)
 static int pbdev_deinit(struct pbdev* dev)
 {
     if(dev){
-        uninstall_hook(dev); 
+        unsigned long flags;
+        uninstall_tracer(dev); 
+        spin_lock_irqsave(&dev->tasks_lock, flags);
         if(dev->send_thread){
-            kthread_stop(dev->send_thread);
+            force_sig(SIGKILL, dev->send_thread);
+            //kthread_stop(dev->send_thread);
             LOG_INFO("send thread stop ok");
         }
         if(dev->recv_thread){
-            kthread_stop(dev->recv_thread);   
+            force_sig(SIGKILL, dev->recv_thread);
+            //kthread_stop(dev->recv_thread);   
             LOG_INFO("recv thread stop ok");
         }
+        spin_unlock_irqrestore(&dev->tasks_lock, flags);
         if(dev->network){
             tp_close(dev->network);
             kfree(dev->network);
@@ -656,6 +729,7 @@ static int pbdev_init(struct pbdev* dev, const char* dev_path, const char* vol_n
     bio_list_init(&dev->recv_bio_list);
     init_waitqueue_head(&dev->send_wq);
     init_waitqueue_head(&dev->recv_wq);
+    spin_lock_init(&dev->tasks_lock);
     dev->send_thread = kthread_run(send_work, dev, "send_thread");
     dev->recv_thread = kthread_run(recv_work, dev, "recv_thread");
     if(IS_ERR(dev->send_thread) || IS_ERR(dev->recv_thread)){
@@ -663,14 +737,14 @@ static int pbdev_init(struct pbdev* dev, const char* dev_path, const char* vol_n
         LOG_ERR("create thread failed:%d", ret);
         goto err;
     }
-    LOG_INFO("install dev:%s hook",dev_path);
-    /*install hook*/
-    ret = install_hook(dev, &hook_make_request_fn);
+    LOG_INFO("install dev:%s tracer",dev_path);
+    /*install tracer*/
+    ret = install_tracer(dev, &tracer_make_request_fn);
     if(ret){
-        LOG_ERR("install dev:%s hook failed:%d", dev_path, ret);
+        LOG_ERR("install dev:%s tracer failed:%d", dev_path, ret);
         goto err;
     }
-    LOG_INFO("install dev:%s hook ok",dev_path);
+    LOG_INFO("install dev:%s tracer ok",dev_path);
     LOG_INFO("bdev init dev:%s ok", dev_path);
     return ret;
 err:
