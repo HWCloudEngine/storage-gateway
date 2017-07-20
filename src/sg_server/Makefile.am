@@ -53,5 +53,5 @@ LIBS=-lpthread -ldl \
      -lboost_system -lboost_log_setup -lboost_log -lboost_date_time -lboost_thread \
      -lprotobuf -lgrpc -lgrpc++ \
      -ls3 -lrados \
-     -lrocksdb -lz -lsnappy -lbz2
+     -lrocksdb -lz -lsnappy -lbz2 -lzstd
 SUBDIRS=../rpc 
