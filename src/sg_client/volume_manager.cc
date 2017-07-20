@@ -130,7 +130,7 @@ bool VolumeManager::init()
 void VolumeManager::init_volumes()
 {
     LOG_INFO << "init volumes";
-    std::ifstream f(g_option.local_volumes_conf);
+    std::ifstream f(g_option.local_volumes_conf, std::ios::app);
     if(!f.is_open())
     {
         return;
