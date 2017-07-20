@@ -614,7 +614,12 @@ static int recv_work(void* data)
     dev->recv_thread = NULL;
     spin_unlock_irqrestore(&dev->tasks_lock, flags);
     if(signal_pending(current)){
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,4,0))
+        siginfo_t info;
+        int ret = dequeue_signal_lock(current, &current->blocked, &info);
+#else
         int ret = kernel_dequeue_signal(NULL);
+#endif
         LOG_INFO("2 got signal %d now", ret);
     }
     return 0;
