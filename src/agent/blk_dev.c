@@ -526,7 +526,12 @@ static int send_work(void* data)
         wait_event_interruptible(dev->send_wq, kthread_should_stop() || 
                                  !bio_list_empty(&dev->send_bio_list));
         if(signal_pending(current)){
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,4,0))
+            siginfo_t info;
+            ret = dequeue_signal_lock(current, &current->blocked, &info);
+#else
             ret = kernel_dequeue_signal(NULL);
+#endif
             LOG_INFO("0 got signal %d now", ret);
             break;
         }
@@ -578,7 +583,12 @@ static int send_work(void* data)
     dev->send_thread = NULL;
     spin_unlock_irqrestore(&dev->tasks_lock, flags);
     if(signal_pending(current)){
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,4,0))
+        siginfo_t info;
+        ret = dequeue_signal_lock(current, &current->blocked, &info);
+#else
         ret = kernel_dequeue_signal(NULL);
+#endif
         LOG_INFO("1 got signal %d now", ret);
     }
     return 0;
@@ -614,7 +624,12 @@ static int recv_work(void* data)
     dev->recv_thread = NULL;
     spin_unlock_irqrestore(&dev->tasks_lock, flags);
     if(signal_pending(current)){
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,4,0))
+        siginfo_t info;
+        int ret = dequeue_signal_lock(current, &current->blocked, &info);
+#else
         int ret = kernel_dequeue_signal(NULL);
+#endif
         LOG_INFO("2 got signal %d now", ret);
     }
     return 0;
