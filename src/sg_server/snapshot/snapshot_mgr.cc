@@ -43,7 +43,7 @@ do {                                 \
     } else {                            \
         log_msg += " failed";           \
         LOG_INFO << log_msg;            \
-        return grpc::Status::CANCELLED; \
+        return grpc::Status::OK;        \
     }                                   \
 }while(0)
 

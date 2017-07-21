@@ -56,9 +56,8 @@ Status SnapshotControlImpl::CreateSnapshot(ServerContext* context,
     /*dispatch to volume*/
     StatusCode ret = vol_snap_proxy->create_snapshot(req, ack);
     if (ret != StatusCode::sOk) {
-        LOG_ERROR << "RPC CreateSnapshot vname:" << vname
-                  << " failed" << " err:" << ret;
-        return Status::CANCELLED;
+        LOG_ERROR << "RPC CreateSnapshot vname:" << vname << " failed" << " err:" << ret;
+        return Status::OK;
     }
     LOG_INFO << "RPC CreateSnapshot vname:" << vname << " ok";
     return Status::OK;
@@ -74,9 +73,8 @@ Status SnapshotControlImpl::ListSnapshot(ServerContext* context,
     /*dispatch to volume*/
     StatusCode ret = vol_snap_proxy->list_snapshot(req, ack);
     if (ret != StatusCode::sOk) {
-        LOG_ERROR << "RPC ListSnapshot vname:" << vname
-                  << " failed" << " err:" << ret;
-        return Status::CANCELLED;
+        LOG_ERROR << "RPC ListSnapshot vname:" << vname << " failed" << " err:" << ret;
+        return Status::OK;
     }
 
     LOG_INFO << "RPC ListSnapshot vname:" << vname << " ok";
@@ -93,9 +91,8 @@ Status SnapshotControlImpl::QuerySnapshot(ServerContext* context,
     /*dispatch to volume*/
     StatusCode ret = vol_snap_proxy->query_snapshot(req, ack);
     if (ret != StatusCode::sOk) {
-        LOG_ERROR << "RPC QuerySnapshot vname:" << vname
-                  << " failed" << " err:" << ret;
-        return Status::CANCELLED;
+        LOG_ERROR << "RPC QuerySnapshot vname:" << vname << " failed" << " err:" << ret;
+        return Status::OK;
     }
 
     LOG_INFO << "RPC QuerySnapshot vname:" << vname << " ok";
@@ -107,17 +104,14 @@ Status SnapshotControlImpl::DeleteSnapshot(ServerContext* context,
                                            DeleteSnapshotAck* ack) {
     string vname = req->vol_name();
     LOG_INFO << "RPC DeleteSnapshot" << " vname:" << vname;
-
     shared_ptr<SnapshotProxy> vol_snap_proxy = get_vol_snap_proxy(vname);
     assert(vol_snap_proxy != nullptr);
     /*dispatch to volume*/
     StatusCode ret = vol_snap_proxy->delete_snapshot(req, ack);
     if (ret != StatusCode::sOk) {
-        LOG_ERROR << "RPC DeleteSnapshot vname:" << vname
-                  << " failed" << " err:" << ret;
-        return Status::CANCELLED;
+        LOG_ERROR << "RPC DeleteSnapshot vname:" << vname << " failed" << " err:" << ret;
+        return Status::OK;
     }
-
     LOG_INFO << "RPC DeleteSnapshot" << " vname:" << vname << " ok";
     return Status::OK;
 }
@@ -132,11 +126,9 @@ Status SnapshotControlImpl::RollbackSnapshot(ServerContext* context,
     /*dispatch to volume*/
     StatusCode ret = vol_snap_proxy->rollback_snapshot(req, ack);
     if (ret != StatusCode::sOk) {
-        LOG_ERROR << "RPC RollbackSnapshot vname:"
-                 << vname << " failed" << " err:" << ret;
-        return Status::CANCELLED;
+        LOG_ERROR << "RPC RollbackSnapshot vname:" << vname << " failed" << " err:" << ret;
+        return Status::OK;
     }
-
     LOG_INFO << "RPC RollbackSnapshot" << " vname:" << vname << " ok";
     return Status::OK;
 }
@@ -151,9 +143,8 @@ Status SnapshotControlImpl::DiffSnapshot(ServerContext* context,
     /*dispatch to volume*/
     StatusCode ret = vol_snap_proxy->diff_snapshot(req, ack);
     if (ret != StatusCode::sOk) {
-        LOG_ERROR << "RPC DiffSnapshot vname:" << vname
-                  << " failed" << " err:" << ret;
-        return Status::CANCELLED;
+        LOG_ERROR << "RPC DiffSnapshot vname:" << vname << " failed" << " err:" << ret;
+        return Status::OK;
     }
 
     LOG_INFO << "RPC DiffSnapshot vname:" << vname << " ok";
@@ -170,9 +161,8 @@ Status SnapshotControlImpl::ReadSnapshot(ServerContext* context,
     /*dispatch to volume*/
     StatusCode ret = vol_snap_proxy->read_snapshot(req, ack);
     if (ret != StatusCode::sOk) {
-        LOG_ERROR << "RPC ReadSnapshot vname:" << vname
-                  << " failed" << " err:" << ret;
-        return Status::CANCELLED;
+        LOG_ERROR << "RPC ReadSnapshot vname:" << vname << " failed" << " err:" << ret;
+        return Status::OK;
     }
     LOG_INFO << "RPC ReadSnapshot vname:" << vname
              << "data size:" << ack->data().size()
@@ -216,19 +206,19 @@ Status SnapshotControlImpl::CreateVolumeFromSnap(ServerContext* context,
     if (!is_bdev_available(new_blk_device)) {
         LOG_ERROR << "RPC CreateVolumeFromSnap vname:" << vname << "failed new blk not ready";
         ack->mutable_header()->set_status(StatusCode::sSnapCreateVolumeBusy);
-        return Status::CANCELLED;
+        return Status::OK;
     }
 
     if (!is_snapshot_available(vname, sname)) {
         LOG_ERROR << "RPC CreateVolumeFromSnap vname:" << vname << "failed snapshot not ready";
         ack->mutable_header()->set_status(StatusCode::sSnapCreateVolumeBusy);
-        return Status::CANCELLED;
+        return Status::OK;
     }
 
     if (m_pending_queue->full()) {
         LOG_ERROR << "RPC CreateVolumeFromSnap vname:" << vname << "queue full failed";
         ack->mutable_header()->set_status(StatusCode::sSnapCreateVolumeBusy);
-        return Status::CANCELLED;
+        return Status::OK;
     }
     struct BgJob* job = new BgJob(new_volume, new_blk_device, vname, sname);
     job->status = BG_INIT;

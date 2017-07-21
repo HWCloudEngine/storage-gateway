@@ -36,11 +36,9 @@ Status BackupControlImpl::CreateBackup(ServerContext* context,
     /*create backup*/
     StatusCode ret = vol_backup_proxy->create_backup(req, ack);
     if (ret != StatusCode::sOk){
-        LOG_ERROR << "RPC CreateBackup vname:" << vname 
-                  << " failed" << " err:" << ret;
-        return Status::CANCELLED;
+        LOG_ERROR << "RPC CreateBackup vname:" << vname  << " failed" << " err:" << ret;
+        return Status::OK;
     }
-
     LOG_INFO << "RPC CreateBackup vname:" << vname << " ok";
     return Status::OK;
 }
@@ -55,11 +53,9 @@ Status BackupControlImpl::GetBackup(ServerContext* context,
     string backup_name = req->backup_name();
     StatusCode ret = vol_backup_proxy->get_backup(req, ack);
     if (ret != StatusCode::sOk) {
-        LOG_ERROR << "RPC QueryBackup vname:" << vname 
-                  << " failed" << " err:" << ret;
-        return Status::CANCELLED;
+        LOG_ERROR << "RPC QueryBackup vname:" << vname << " failed" << " err:" << ret;
+        return Status::OK;
     }
-
     LOG_INFO << "RPC QueryBackup vname:" << vname << " ok";
     return Status::OK;
 }
@@ -69,16 +65,13 @@ Status BackupControlImpl::DeleteBackup(ServerContext* context,
                                        DeleteBackupAck* ack) {
     string vname = req->vol_name();
     LOG_INFO << "RPC DeleteBackup" << " vname:" << vname;
-
     shared_ptr<BackupProxy> vol_backup_proxy = get_vol_backup_proxy(vname);
     assert(vol_backup_proxy != nullptr);
     StatusCode ret = vol_backup_proxy->delete_backup(req, ack);
     if (ret != StatusCode::sOk) {
-        LOG_ERROR << "RPC DeleteBackup vname:" << vname
-                  << " failed" << " err:" << ret;
-        return Status::CANCELLED;
+        LOG_ERROR << "RPC DeleteBackup vname:" << vname << " failed" << " err:" << ret;
+        return Status::OK;
     }
-
     LOG_INFO << "RPC DeleteBackup" << " vname:" << vname << " ok";
     return Status::OK;
 }
@@ -89,7 +82,6 @@ Status BackupControlImpl::RestoreBackup(ServerContext* context,
     string vname = req->vol_name();
     size_t vsize = req->vol_size();
     LOG_INFO << "RPC RestoreBackup" << " vname:" << vname;
-
     shared_ptr<BackupProxy> vol_backup_proxy = get_vol_backup_proxy(vname);
     if (vol_backup_proxy == nullptr) {
         VolumeAttr vol_attr(vname, vsize);
@@ -98,9 +90,8 @@ Status BackupControlImpl::RestoreBackup(ServerContext* context,
     assert(vol_backup_proxy != nullptr);
     StatusCode ret = vol_backup_proxy->restore_backup(req, ack);
     if (ret != StatusCode::sOk) {
-        LOG_ERROR << "RPC RestoreBackup vname:" << vname
-                  << " failed" << " err:" << ret;
-        return Status::CANCELLED;
+        LOG_ERROR << "RPC RestoreBackup vname:" << vname << " failed" << " err:" << ret;
+        return Status::OK;
     }
 
     LOG_INFO << "RPC RestoreBackup" << " vname:" << vname << " ok";
@@ -112,15 +103,13 @@ Status BackupControlImpl::ListBackup(ServerContext* context,
                                      ListBackupAck* ack) {
     string vname = req->vol_name();
     LOG_INFO << "RPC ListBackup" << " vname:" << vname;
-
     shared_ptr<BackupProxy> vol_backup_proxy = get_vol_backup_proxy(vname);
     assert(vol_backup_proxy != nullptr);
     /*dispatch to volume*/
     StatusCode ret = vol_backup_proxy->list_backup(req, ack);
     if (ret != StatusCode::sOk) {
-        LOG_ERROR << "RPC ListBackup vname:" << vname
-                  << " failed" << " err:" << ret;
-        return Status::CANCELLED;
+        LOG_ERROR << "RPC ListBackup vname:" << vname << " failed" << " err:" << ret;
+        return Status::OK;
     }
 
     LOG_INFO << "RPC ListBackup" << " vname:" << vname << " ok";
