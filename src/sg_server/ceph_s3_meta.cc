@@ -123,14 +123,12 @@ RESULT CephS3Meta::create_journal_file(const string& name) {
     // create file
     FILE* file = fopen(name.c_str(), "ab+");
     if(nullptr != file){ // TODO:create sparse file
-#if 0
 //        fseek(file,max_journal_size_-1,SEEK_SET);
 //        fputc('\0',file);
         char buf[1024] = {'\0'};
         for(int i=0;i<max_journal_size_/1024; i++){
             fwrite(buf,1,sizeof(buf),file);
         }
-#endif
         fclose(file);
         return DRS_OK;
     }

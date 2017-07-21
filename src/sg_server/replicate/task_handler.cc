@@ -144,6 +144,7 @@ int TaskHandler::do_transfer(std::shared_ptr<TransferTask> task,
         TransferRequest* req = task->get_next_package();
         if(req == nullptr){
             LOG_ERROR << "get next package failed:" << task->get_id();
+            task->set_status(T_ERROR);
             error_flag = true;
             break;
         }
