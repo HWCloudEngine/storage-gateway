@@ -16,6 +16,7 @@
 #include "common/journal_entry.h"
 #include "common/define.h"
 #include "common/crc32.h"
+#include "common/config_option.h"
 using huawei::proto::StatusCode;
 using huawei::proto::transfer::MessageType;
 using huawei::proto::transfer::EncodeType;
@@ -176,6 +177,8 @@ int JournalTask::reset(){
     end = false;
     cur_off = start_off;
     is.seekg(cur_off);
+    // TODO: remove this line if file created with padding filled
+    ctx->set_end_off(g_option.journal_max_size);
     return 0;
 }
 

@@ -130,7 +130,7 @@ RESULT CephS3Meta::create_journal_file(const string& name) {
         for(int i=0;i<max_journal_size_/1024; i++){
             fwrite(buf,1,sizeof(buf),file);
         }
-#endif
+#endif       
         fclose(file);
         return DRS_OK;
     }
