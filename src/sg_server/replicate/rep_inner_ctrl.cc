@@ -68,7 +68,7 @@ Status RepInnerCtrl::CreateReplication(ServerContext* context,
     record->set_time(time(nullptr));
     record->set_snap_id(snap_id);
     record->mutable_marker()->CopyFrom(marker);
-    res = meta_->create_volume(meta);// TODO: replace with update_volume_meta api
+    res = meta_->update_volume_meta(meta);// TODO: replace with update_volume_meta api
     if(DRS_OK != res){
         LOG_ERROR << "create replication failed!";
         response->set_status(sReplicationMetaPersistError);

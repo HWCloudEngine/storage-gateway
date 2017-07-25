@@ -176,6 +176,9 @@ bool RepVolume::need_replicate(){
             // unregister consumer when disabled/failedover
             GCTask::instance().unregister_consumer(vol_id_,REPLICATOR);
         }
+        else{
+            return true;
+        }
     }
 
     return false;

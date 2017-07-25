@@ -80,19 +80,21 @@ StatusCode DBMetaApi::list_objects(const char*prefix, const char*marker,
         std::set<string> set;
         size_t off = strlen(prefix);
         while(it->valid() && (maxkeys <= 0 || cnt <= maxkeys)){
-            if(nullptr != prefix && 0 != it->key().find(prefix)){
+            if(0 != it->key().find(prefix)){
                 break;
             }
             size_t pos = it->key().find_first_of(delimiter,off);
             if(pos == string::npos){
-                it->next();
-                continue;
+                set.insert(it->key());
             }
-            set.insert(it->key().substr(0,pos+1));
+            else{
+                set.insert(it->key().substr(0,pos+1));
+            }
             it->next();
             cnt++;
         }
-        LOG_DEBUG << "list with prefix:" << prefix << ",delimiter:" << delimiter;
+        LOG_DEBUG << "list with prefix:" << prefix << ",delimiter:" 
+            << delimiter << ",objects count:" << cnt;
         for (auto it2=set.begin(); it2!=set.end(); ++it2){
             list->push_back(*it2);
             LOG_DEBUG << " " << *it2;

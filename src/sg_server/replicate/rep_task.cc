@@ -159,6 +159,7 @@ TransferRequest* JournalTask::get_next_package(){
     else{
         LOG_ERROR << "read file[" << path << "] failed,required length["
             << size << "],offset[" << cur_off << "].";
+        LOG_ERROR << "read fail:" << is.fail() << ",bad:" << is.bad();
         return nullptr;
     }
 
@@ -176,8 +177,12 @@ TransferRequest* JournalTask::get_next_package(){
 int JournalTask::reset(){
     end = false;
     cur_off = start_off;
+    // reopen journal file
+    is.close();
+    is.open(path,std::fstream::in | std::ifstream::binary);
+    SG_ASSERT(true == is.is_open());
     is.seekg(cur_off);
-    // TODO: remove this line if file created with padding filled
+    SG_ASSERT(is.fail()==0 && is.bad()==0);
     ctx->set_end_off(g_option.journal_max_size);
     return 0;
 }
