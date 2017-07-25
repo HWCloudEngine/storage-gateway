@@ -183,8 +183,10 @@ Status VolumeControlImpl::EnableSG(ServerContext* context,
     {
         if(dev_name != volume.path())
         {
-            StatusCode ret = g_rpc_client.update_volume_path(vol_name,
-                                                                   dev_name);
+            UpdateVolumeReq vol_req;
+            vol_req.set_vol_id(vol_name);
+            vol_req.set_path(dev_name);
+            StatusCode ret = g_rpc_client.update_volume(vol_req);
             if(ret != StatusCode::sOk)
             {
                 LOG_ERROR << "enable sg vol:" << vol_name << " failed";
@@ -321,8 +323,10 @@ Status VolumeControlImpl::TerminateConnection(ServerContext* context,
         {
             if(device != volume.path())
             {
-                StatusCode ret = g_rpc_client.update_volume_path(vol_name,
-                                                                       device);
+                UpdateVolumeReq vol_req;
+                vol_req.set_vol_id(vol_name);
+                vol_req.set_path(device);
+                StatusCode ret = g_rpc_client.update_volume(vol_req);
                 if(ret != StatusCode::sOk)
                 {
                     LOG_ERROR << "terminate connection vol:" << vol_name << " failed";
@@ -363,7 +367,10 @@ Status VolumeControlImpl::AttachVolume(ServerContext* context,
     {
         if(device != volume.path())
         {
-            StatusCode ret = g_rpc_client.update_volume_path(vol_name, device);
+            UpdateVolumeReq vol_req;
+            vol_req.set_vol_id(vol_name);
+            vol_req.set_path(device);
+            StatusCode ret = g_rpc_client.update_volume(vol_req);
             if(ret != StatusCode::sOk)
             {
                 LOG_ERROR << "attach vol:" << vol_name << " failed";

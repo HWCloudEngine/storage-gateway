@@ -73,11 +73,10 @@ void RpcClient::register_func()
 
     //volume_inner_ctrl_client
     create_volume = make_decorator(&VolInnerCtrlClient::create_volume);
-    update_volume_status = make_decorator(&VolInnerCtrlClient::update_volume_status);
     get_volume = make_decorator(&VolInnerCtrlClient::get_volume);
     list_volume = make_decorator(&VolInnerCtrlClient::list_volume);
     delete_volume = make_decorator(&VolInnerCtrlClient::delete_volume);
-    update_volume_path = make_decorator(&VolInnerCtrlClient::update_volume_path);
+    update_volume = make_decorator(&VolInnerCtrlClient::update_volume);
 
     //backup rpc client
     CreateBackup = make_decorator(&BackupRpcCli::CreateBackup);

@@ -82,6 +82,7 @@ message TerminateConnectionRes {
 message AttachVolumeReq {
     string volume_id = 1;
     string device = 2;
+    string attached_host = 3;
 }
 
 message AttachVolumeRes {

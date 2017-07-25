@@ -124,6 +124,8 @@ def run():
                                dest='device_path')
     parser_volume.add_argument('-m', '--client_mode', help='client mode',
                                dest='mode', choices = ('agent', 'iscsi'))
+    parser_volume.add_argument('--host', help='attached hostname or ip',
+                               dest='attached_host')
     parser_volume.set_defaults(func=volume)
 
     # backup control args

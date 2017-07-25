@@ -126,11 +126,10 @@ public:
     //volume_inner_ctrl_client
     Decorator<StatusCode(const std::string&,const std::string&,
         const uint64_t&, const VolumeStatus&)> create_volume;
-    Decorator<StatusCode(const std::string&,const VolumeStatus&)> update_volume_status;
     Decorator<StatusCode(const std::string&,VolumeInfo&)> get_volume;
     Decorator<StatusCode(std::list<VolumeInfo>&)> list_volume;
     Decorator<StatusCode(const std::string&)> delete_volume;
-    Decorator<StatusCode(const std::string&,const std::string&)> update_volume_path;
+    Decorator<StatusCode(const UpdateVolumeReq&)> update_volume;
 
     //backup rpc client
     Decorator<StatusCode(const std::string&, const size_t&,const std::string&,

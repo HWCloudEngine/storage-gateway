@@ -10,11 +10,10 @@ package huawei.proto.inner;
 service VolumeInnerControl {
     /*volume operations*/
     rpc CreateVolume(CreateVolumeReq) returns(CreateVolumeRes) {}
-    rpc UpdateVolumeStatus(UpdateVolumeStatusReq) returns(UpdateVolumeStatusRes) {}
+    rpc UpdateVolume(UpdateVolumeReq) returns(UpdateVolumeRes) {}
     rpc GetVolume(GetVolumeReq) returns(GetVolumeRes) {}
     rpc ListVolume(ListVolumeReq) returns(ListVolumeRes) {}
     rpc DeleteVolume(DeleteVolumeReq) returns(DeleteVolumeRes) {}
-    rpc UpdateVolumePath(UpdateVolumePathReq) returns(UpdateVolumePathRes) {}
 }
 message CreateVolumeReq{
     string vol_id = 1;
@@ -25,11 +24,13 @@ message CreateVolumeReq{
 message CreateVolumeRes{
     StatusCode status = 1;
 }
-message UpdateVolumeStatusReq{
+message UpdateVolumeReq{
     string vol_id = 1;
     VolumeStatus status = 2;
+    string path = 3;
+    string attached_host = 4;
 }
-message UpdateVolumeStatusRes{
+message UpdateVolumeRes{
     StatusCode status = 1;
 }
 message GetVolumeReq{
@@ -49,14 +50,5 @@ message DeleteVolumeReq{
     string vol_id = 1;
 }
 message DeleteVolumeRes{
-    StatusCode status = 1;
-}
-
-message UpdateVolumePathReq{
-    string vol_id = 1;
-    string path = 2;
-}
-
-message UpdateVolumePathRes{
     StatusCode status = 1;
 }

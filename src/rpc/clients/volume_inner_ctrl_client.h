@@ -17,16 +17,14 @@
 using grpc::ClientContext;
 using huawei::proto::inner::CreateVolumeReq;
 using huawei::proto::inner::CreateVolumeRes;
-using huawei::proto::inner::UpdateVolumeStatusReq;
-using huawei::proto::inner::UpdateVolumeStatusRes;
+using huawei::proto::inner::UpdateVolumeReq;
+using huawei::proto::inner::UpdateVolumeRes;
 using huawei::proto::inner::GetVolumeReq;
 using huawei::proto::inner::GetVolumeRes;
 using huawei::proto::inner::ListVolumeReq;
 using huawei::proto::inner::ListVolumeRes;
 using huawei::proto::inner::DeleteVolumeReq;
 using huawei::proto::inner::DeleteVolumeRes;
-using huawei::proto::inner::UpdateVolumePathReq;
-using huawei::proto::inner::UpdateVolumePathRes;
 using huawei::proto::inner::VolumeInnerControl;
 using huawei::proto::VolumeInfo;
 using huawei::proto::VolumeMeta;
@@ -56,22 +54,7 @@ public:
             return sInternalError;
         }
     }
-    static StatusCode update_volume_status(const std::string& vol,
-            const VolumeStatus& s){
-        ClientContext context;
-        UpdateVolumeStatusReq request;
-        UpdateVolumeStatusRes response;
-        request.set_status(s);
-        request.set_vol_id(vol);
-        grpc::Status status = stub_->UpdateVolumeStatus(&context,request,&response);
-        if(status.ok())
-            return response.status();
-        else{
-            LOG_ERROR << "create volume failed:" 
-                << status.error_message() << ",code:" << status.error_code();
-            return sInternalError;
-        }
-    }
+
     static StatusCode get_volume(const std::string& vol,VolumeInfo& info){
         ClientContext context;
         GetVolumeReq request;
@@ -119,14 +102,11 @@ public:
             return sInternalError;
         }
     }
-    static StatusCode update_volume_path(const std::string& vol,
-                                  const std::string& path){
+
+    static StatusCode update_volume(const UpdateVolumeReq& request){
         ClientContext context;
-        UpdateVolumePathReq request;
-        UpdateVolumePathRes response;
-        request.set_path(path);
-        request.set_vol_id(vol);
-        grpc::Status status = stub_->UpdateVolumePath(&context,request,&response);
+        UpdateVolumeRes response;
+        grpc::Status status = stub_->UpdateVolume(&context,request,&response);
         if(status.ok())
             return response.status();
         else{
@@ -135,6 +115,7 @@ public:
             return sInternalError;
         }
     }
+
     static void init(std::shared_ptr<grpc::Channel> channel){
         stub_.reset(new VolumeInnerControl::Stub(channel));
     }

@@ -16,32 +16,27 @@
 using ::grpc::ServerContext;
 using huawei::proto::inner::CreateVolumeReq;
 using huawei::proto::inner::CreateVolumeRes;
-using huawei::proto::inner::UpdateVolumeStatusReq;
-using huawei::proto::inner::UpdateVolumeStatusRes;
+using huawei::proto::inner::UpdateVolumeReq;
+using huawei::proto::inner::UpdateVolumeRes;
 using huawei::proto::inner::GetVolumeReq;
 using huawei::proto::inner::GetVolumeRes;
 using huawei::proto::inner::ListVolumeReq;
 using huawei::proto::inner::ListVolumeRes;
 using huawei::proto::inner::DeleteVolumeReq;
 using huawei::proto::inner::DeleteVolumeRes;
-using huawei::proto::inner::UpdateVolumePathReq;
-using huawei::proto::inner::UpdateVolumePathRes;
-
 
 class VolInnerCtrl:public huawei::proto::inner::VolumeInnerControl::Service{
 public:
     ::grpc::Status CreateVolume(ServerContext* context,
             const CreateVolumeReq* request, CreateVolumeRes* response);
-    ::grpc::Status UpdateVolumeStatus(ServerContext* context,
-            const UpdateVolumeStatusReq* request, UpdateVolumeStatusRes* response);
+    ::grpc::Status UpdateVolume(ServerContext* context,
+            const UpdateVolumeReq* request, UpdateVolumeRes* response);
     ::grpc::Status GetVolume(ServerContext* context,
             const GetVolumeReq* request, GetVolumeRes* response);
     ::grpc::Status ListVolume(ServerContext* context,
             const ListVolumeReq* request, ListVolumeRes* response);
     ::grpc::Status DeleteVolume(ServerContext* context,
         const DeleteVolumeReq* request, DeleteVolumeRes* response);
-    ::grpc::Status UpdateVolumePath(ServerContext* context,
-            const UpdateVolumePathReq* request, UpdateVolumePathRes* response);
     void init();
 public:
     VolInnerCtrl(std::shared_ptr<VolumeMetaManager> v_meta,

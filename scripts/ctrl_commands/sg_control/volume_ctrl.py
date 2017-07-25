@@ -37,7 +37,9 @@ class VolumeCtrl(object):
                 mode = common_pb2.ISCSI_MODE
             res = self.TerminateConnection(args.vol_id, mode, args.device_path)
         elif args.action == 'attach':
-            res = self.AttachVolume(args.vol_id,args.device_path)
+            res = self.AttachVolume(args.vol_id,
+                                    args.device_path,
+                                    args.attached_host)
         elif args.action == 'detach':
             res = self.DetachVolume(args.vol_id)
         else:
@@ -94,10 +96,11 @@ class VolumeCtrl(object):
         print ('terminate connectionn result:%s' % res.status)
         return res
 
-    def AttachVolume(self, vol_id, device):
+    def AttachVolume(self, vol_id, device, host):
         res = self.stub.AttachVolume(
             volume_control_pb2.AttachVolumeReq(volume_id=vol_id,
-                                               device=device))
+                                               device=device,
+                                               attached_host=host))
         print ('attach volume result:%s' % res.status)
         return res
 

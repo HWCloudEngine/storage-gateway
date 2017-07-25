@@ -19,10 +19,11 @@ message VolumeInfo{
     string path = 2;
     VolumeStatus vol_status = 3;
     uint64 size = 4;
-    bool rep_enable = 5;
-    string rep_uuid = 6;
-    repeated string peer_volumes = 7;
-    RepRole role = 8;
-    RepStatus rep_status = 9;
+    string attached_host = 5;
+    bool rep_enable = 6;
+    string rep_uuid = 7;
+    repeated string peer_volumes = 8;
+    RepRole role = 9;
+    RepStatus rep_status = 10;
 }
 
