@@ -15,10 +15,11 @@
 #include <map>
 #include "common/block_store.h"
 #include "common/index_store.h"
+#include "common/observe.h"
 #include "rpc/clients/snapshot_ctrl_client.h"
 #include "backup_type.h"
 
-class BackupCtx {
+class BackupCtx : public Observee {
  public:
     BackupCtx() = default;
     explicit BackupCtx(const std::string& vol_name, const size_t& vol_size);
@@ -64,9 +65,11 @@ class BackupCtx {
 
     backupid_t spawn_backup_id();
 
+    /*volume status update callback*/
+    void update(int event, void* arg) override;
     /*debug*/
     void trace();
-
+    
  private:
     /*volume basic*/
     std::string m_vol_name;
@@ -78,7 +81,10 @@ class BackupCtx {
     IndexStore* m_index_store;
     /*block store for backup data*/
     BlockStore* m_block_store;
+
     /*snapshot client for reading incremental data and metadata */
+    std::string         m_snap_client_ip;
+    short               m_snap_client_port;
     SnapshotCtrlClient* m_snap_client;
 };
 

@@ -1,3 +1,9 @@
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <netinet/in.h>
 #include <fstream>
 #include "utils.h"
 
@@ -99,3 +105,21 @@ bool mem_is_zero(const char* data, size_t len) {
     return true;
 }
 #endif
+
+bool network_reachable(const char* ip_addr, short port) {
+    struct sockaddr_in server_addr;
+    int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (sock < 0) {
+        return false;
+    }
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = inet_addr(ip_addr);
+    server_addr.sin_port = htons(port);
+    int ret = connect(sock, (struct sockaddr*)&server_addr, sizeof(server_addr));
+    if (ret < 0) {
+        return false;
+    }
+    close(sock);
+    return true;
+}

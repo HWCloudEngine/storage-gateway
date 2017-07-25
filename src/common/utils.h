@@ -21,4 +21,6 @@ void save_file(const std::string& fname, const char* buf, const size_t& len);
 
 bool mem_is_zero(const char* data, size_t len);
 
+bool network_reachable(const char* ip_addr, short port); 
+
 #endif  // SRC_COMMON_UTILS_H_
