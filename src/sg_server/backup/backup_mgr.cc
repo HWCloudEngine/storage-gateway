@@ -13,6 +13,7 @@
 #include <dirent.h>
 #include "log/log.h"
 #include "backup_mgr.h"
+#include "../volume_inner_control.h"
 
 using huawei::proto::StatusCode;
 
@@ -223,4 +224,15 @@ StatusCode BackupMgr::handle_download(const DownloadDataReq* req,
     CMD_PREV(vname, "download");
     CMD_DO(vname, do_remote_download, req, stream);
     CMD_POST_1(vname, "download", ret);
+}
+
+void BackupMgr::update(int event, void* args) {
+    if (event != DELETE_VOLUME) {
+        LOG_ERROR << "update event:" << event << " not support";
+        return;
+    }
+    const char* vol = reinterpret_cast<const char*>(args);
+    if (vol) {
+        del_volume(std::string(vol));
+    }
 }

@@ -28,7 +28,8 @@ sg_server_ut_SOURCES = \
     ../../src/sg_server/volume_inner_control.cc \
     ../../src/sg_server/consumer_service.cc \
     ../../src/sg_server/gc_task.cc \
-    ../../src/common/config_option.cc
+    ../../src/common/config_option.cc \
+    ../../src/common/observe.cc
 
 sg_client_ut_SOURCES = \
     sg_client/journal_writer_test.cc

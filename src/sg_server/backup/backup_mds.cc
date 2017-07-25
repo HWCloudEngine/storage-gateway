@@ -27,12 +27,14 @@ using huawei::proto::transfer::MessageType;
 
 BackupMds::BackupMds(const std::string& vol_name, const size_t& vol_size) {
     m_ctx.reset(new BackupCtx(vol_name, vol_size));
+    /*backup ctx subscribe volume change*/
     m_task_schedule_run.store(true);
     m_thread_pool.reset(new ThreadPool(5));
     m_thread_pool->submit(bind(&BackupMds::do_task_schedule, this));
 }
 
 BackupMds::~BackupMds() {
+    /*backup ctx unsubscribe volume change*/
     m_ctx.reset();
     m_task_schedule_list.clear();
     m_task_schedule_run.store(false);
