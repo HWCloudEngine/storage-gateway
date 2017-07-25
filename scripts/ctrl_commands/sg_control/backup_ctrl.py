@@ -29,7 +29,8 @@ class BackupCtrl(object):
                 'backup_id': args.backup_id,
                 'new_vol_id': args.new_vol_id,
                 'new_vol_size': args.new_vol_size,
-                'new_device': args.new_device
+                'new_device': args.new_device,
+                'backup_type': args.backup_type
             }
             res = self.DeleteBackup(**kwargs)
         elif args.action == 'delete':
@@ -77,13 +78,18 @@ class BackupCtrl(object):
         print "delete backup result: %s" % res.status
         return res
 
-    def RestoreBackup(self, backup_id, vol_id, vol_size, new_vol_id,
-                      new_vol_size, new_device):
+    def RestoreBackup(self, backup_id, backup_type, vol_id, vol_size,
+                      new_vol_id, new_vol_size, new_device):
+        if backup_type is None or backup_type == 'local':
+            backup_type = backup_pb2.BACKUP_LOCAL
+        else:
+            backup_type = backup_pb2.BACKUP_REMOTE
         res = self.stub.RestoreBackup(
             backup_control_pb2.RestoreBackupReq(
                 vol_name=vol_id,
                 vol_size=vol_size,
                 backup_name=backup_id,
+                backup_type=backup_type,
                 new_vol_name=new_vol_id,
                 new_vol_size=new_vol_size,
                 new_block_device=new_device))
