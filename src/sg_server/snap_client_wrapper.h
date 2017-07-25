@@ -14,7 +14,12 @@
 #include "rpc/clients/snapshot_ctrl_client.h"
 #include "log/log.h"
 #include "common/config_option.h"
-class SnapClientWrapper{
+#include "common/observe.h"
+#include "common/utils.h"
+#include "volume_inner_control.h"
+using huawei::proto::VolumeInfo;
+
+class SnapClientWrapper : public Observee {
     std::shared_ptr<SnapshotCtrlClient> snap_ctrl_client;
 public:
     static SnapClientWrapper& instance(){
@@ -53,19 +58,35 @@ public:
         return false;
     }
 
-    bool snapshot_is_empty(const string& vol,const string& snap){
-        return false;
+    void update(int event, void* args) {
+        if (event != UPDATE_VOLUME) {
+            LOG_ERROR << "update event:" << event << " not support";
+            return;
+        }
+        VolumeInfo* vol = reinterpret_cast<VolumeInfo*>(args);
+        if (vol == nullptr) {
+            LOG_ERROR << "update null ptr";
+            return;
+        }
+        std::string m_snap_client_ip = vol->attached_host();
+        short m_snap_client_port = g_option.ctrl_server_port;
+        if (!network_reachable(m_snap_client_ip.c_str(), m_snap_client_port)) {
+            LOG_ERROR << "update ip:" << m_snap_client_ip << " port:" << m_snap_client_port << " unreachable";
+            return;
+        }
+        std::string rpc_addr = rpc_address(m_snap_client_ip, m_snap_client_port);
+        snap_ctrl_client.reset(new SnapshotCtrlClient(grpc::CreateChannel(rpc_addr, grpc::InsecureChannelCredentials())));
     }
-
 
 private:
     SnapClientWrapper(){
-        std::string host = g_option.ctrl_server_ip;
-        host += ":" + std::to_string(g_option.ctrl_server_port);
-        snap_ctrl_client.reset(new SnapshotCtrlClient(
-                grpc::CreateChannel(host, 
-                    grpc::InsecureChannelCredentials())));
+        std::string rpc_addr = rpc_address(g_option.ctrl_server_ip, g_option.ctrl_server_port);
+        snap_ctrl_client.reset(new SnapshotCtrlClient(grpc::CreateChannel(rpc_addr, grpc::InsecureChannelCredentials())));
+        g_vol_ctrl->add_observee(reinterpret_cast<Observee*>(this));
     }
-    ~SnapClientWrapper(){}
+    ~SnapClientWrapper(){
+        g_vol_ctrl->del_observee(reinterpret_cast<Observee*>(this));
+    }
 };
+
 #endif

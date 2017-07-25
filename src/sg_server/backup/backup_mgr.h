@@ -55,7 +55,7 @@ using huawei::proto::transfer::DownloadDataReq;
 using huawei::proto::transfer::DownloadDataAck;
 
 /*work on storage gateway server, all snapshot api gateway */
-class BackupMgr final: public BackupInnerControl::Service {
+class BackupMgr final: public BackupInnerControl::Service , public Observee {
  public:
     BackupMgr() {
     }
@@ -88,6 +88,8 @@ class BackupMgr final: public BackupInnerControl::Service {
                                     RemoteBackupDeleteAck* ack);
     StatusCode handle_download(const DownloadDataReq* req,
                ServerReaderWriter<TransferResponse, TransferRequest>* stream);
+    
+    void update(int event, void* args) override;
 
  private:
     /*each volume has a snapshot mds*/

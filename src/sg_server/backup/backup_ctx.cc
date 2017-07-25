@@ -17,13 +17,15 @@
 #include "common/config_option.h"
 #include "log/log.h"
 #include "rpc/snapshot.pb.h"
+#include "rpc/volume.pb.h"
+#include "../volume_inner_control.h"
 #include "backup_ctx.h"
+using huawei::proto::VolumeInfo;
 
 BackupCtx::BackupCtx(const std::string& vol_name, const size_t& vol_size) {
     m_vol_name = vol_name;
     m_vol_size = vol_size;
     m_latest_backup_id = BACKUP_INIT_UUID;
-   
     m_block_store = BlockStore::factory("local");
     if (!m_block_store) {
         LOG_ERROR << "backup block store create failed"; 
@@ -39,15 +41,22 @@ BackupCtx::BackupCtx(const std::string& vol_name, const size_t& vol_size) {
     if (!m_index_store) {
         LOG_ERROR << "backup index store create failed"; 
     }
-    m_index_store->db_open();
-    std::string rpc_addr = rpc_address(g_option.ctrl_server_ip, g_option.ctrl_server_port);
-    m_snap_client = new SnapshotCtrlClient(grpc::CreateChannel(rpc_addr, grpc::InsecureChannelCredentials()));
-    if (!m_snap_client) {
-        LOG_ERROR << "backup snap client create failed"; 
+    int ret = m_index_store->db_open();
+    assert(ret == 0);
+    m_snap_client_ip = g_option.ctrl_server_ip;
+    m_snap_client_port = g_option.ctrl_server_port;
+    if (network_reachable(m_snap_client_ip.c_str(), m_snap_client_port)) {
+        std::string rpc_addr = rpc_address(m_snap_client_ip, g_option.ctrl_server_port);
+        m_snap_client = new SnapshotCtrlClient(grpc::CreateChannel(rpc_addr, grpc::InsecureChannelCredentials()));
+        assert(m_snap_client != nullptr);
+    } else {
+        LOG_ERROR << "backup snap client network unreachable ip:" << m_snap_client_ip << " port:" << m_snap_client_port; 
     }
+    g_vol_ctrl->add_observee(reinterpret_cast<Observee*>(this));
 }
 
 BackupCtx::~BackupCtx() {
+    g_vol_ctrl->del_observee(reinterpret_cast<Observee*>(this));
     if (m_snap_client) {
         delete m_snap_client;
     }
@@ -348,6 +357,33 @@ backupid_t BackupCtx::spawn_backup_id() {
     backupid_t backup_id = m_latest_backup_id;
     m_latest_backup_id++;
     return backup_id;
+}
+
+void BackupCtx::update(int event, void* arg) {
+    if (event != UPDATE_VOLUME) {
+        LOG_ERROR << "update event:" << event << " only updae volume support";
+        return; 
+    }
+    VolumeInfo* vol = reinterpret_cast<VolumeInfo*>(arg);
+    if (vol == nullptr) {
+        LOG_ERROR << "update null ptr";
+        return;
+    }
+    if (vol->attached_host().compare(m_snap_client_ip) == 0) {
+        LOG_ERROR << "update ip no change";
+        return;
+    }
+    if (m_snap_client) {
+        delete m_snap_client;
+    }
+    m_snap_client_ip = vol->attached_host();
+    if (!network_reachable(m_snap_client_ip.c_str(), m_snap_client_port)) {
+        LOG_ERROR << "update ip:" << m_snap_client_ip << " port:" << m_snap_client_port << " unreachable";
+        return;
+    }
+    std::string rpc_addr = rpc_address(m_snap_client_ip, m_snap_client_port);
+    m_snap_client = new SnapshotCtrlClient(grpc::CreateChannel(rpc_addr, grpc::InsecureChannelCredentials()));
+    assert(m_snap_client != nullptr);
 }
 
 void BackupCtx::trace() {

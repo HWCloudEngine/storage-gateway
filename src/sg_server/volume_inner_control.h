@@ -10,6 +10,7 @@
 ***********************************************/
 #ifndef VOLUME_INNER_CONTROL_H_
 #define VOLUME_INNER_CONTROL_H_
+#include "common/observe.h"
 #include "rpc/volume_inner_control.grpc.pb.h"
 #include "volume_meta_manager.h"
 #include "journal_meta_manager.h"
@@ -25,7 +26,14 @@ using huawei::proto::inner::ListVolumeRes;
 using huawei::proto::inner::DeleteVolumeReq;
 using huawei::proto::inner::DeleteVolumeRes;
 
-class VolInnerCtrl:public huawei::proto::inner::VolumeInnerControl::Service{
+enum VolumeEvent {
+    UNKNOWN        = 0,
+    CREATE_VOLUME  = 1,
+    UPDATE_VOLUME  = 2,
+    DELETE_VOLUME  = 3,
+};
+
+class VolInnerCtrl: public huawei::proto::inner::VolumeInnerControl::Service, public Observer {
 public:
     ::grpc::Status CreateVolume(ServerContext* context,
             const CreateVolumeReq* request, CreateVolumeRes* response);
@@ -38,6 +46,10 @@ public:
     ::grpc::Status DeleteVolume(ServerContext* context,
         const DeleteVolumeReq* request, DeleteVolumeRes* response);
     void init();
+    
+    /*volume status update notify all subscribers*/
+    void notify(int event, void* args) override;
+
 public:
     VolInnerCtrl(std::shared_ptr<VolumeMetaManager> v_meta,
             std::shared_ptr<JournalMetaManager> j_meta):
@@ -50,4 +62,7 @@ private:
     std::shared_ptr<VolumeMetaManager> vmeta_;
     std::shared_ptr<JournalMetaManager> jmeta_;
 };
+
+extern VolInnerCtrl* g_vol_ctrl;
+
 #endif

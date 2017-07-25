@@ -81,7 +81,8 @@ int main(int argc, char** argv) {
     RpcServer metaServer(ip1,port1,grpc::InsecureServerCredentials());
     WriterServiceImpl writerSer(meta);
     ConsumerServiceImpl consumerSer(meta);
-    VolInnerCtrl volInnerCtrl( meta /*VolumeMetaManager*/, meta /*JournalMetaManager*/);
+    VolInnerCtrl volInnerCtrl(meta /*VolumeMetaManager*/, meta /*JournalMetaManager*/);
+    g_vol_ctrl = &volInnerCtrl;
     SnapshotMgr snapMgr;
     BackupMgr backupMgr;
     LeaseRpcSrv leaseSrv(kvApi_ptr);

@@ -62,32 +62,19 @@ class BackupMds {
     virtual ~BackupMds();
 
     /*backup rpc operation*/
-    StatusCode create_backup(const CreateBackupInReq* req,
-                             CreateBackupInAck* ack);
-    StatusCode delete_backup(const DeleteBackupInReq* req,
-                             DeleteBackupInAck* ack);
-    StatusCode restore_backup(const RestoreBackupInReq* req,
-            ServerWriter<RestoreBackupInAck>* writer);
+    StatusCode create_backup(const CreateBackupInReq* req, CreateBackupInAck* ack);
+    StatusCode delete_backup(const DeleteBackupInReq* req, DeleteBackupInAck* ack);
+    StatusCode restore_backup(const RestoreBackupInReq* req, ServerWriter<RestoreBackupInAck>* writer);
     StatusCode list_backup(const ListBackupInReq* req, ListBackupInAck* ack);
     StatusCode get_backup(const GetBackupInReq* req, GetBackupInAck* ack);
-
     /*hanlde remote backup*/
-    StatusCode do_remote_create_start(const RemoteBackupStartReq* req,
-                                      RemoteBackupStartAck* ack);
-
-    StatusCode do_remote_create_end(const RemoteBackupEndReq* req,
-                                    RemoteBackupEndAck* ack);
-
+    StatusCode do_remote_create_start(const RemoteBackupStartReq* req, RemoteBackupStartAck* ack);
+    StatusCode do_remote_create_end(const RemoteBackupEndReq* req, RemoteBackupEndAck* ack);
     StatusCode do_remote_create_upload(UploadDataReq* req, UploadDataAck* ack);
-
-    StatusCode do_remote_delete(const RemoteBackupDeleteReq* req,
-                                RemoteBackupDeleteAck* ack);
-
-    StatusCode do_remote_download(const DownloadDataReq* req,
-            ServerReaderWriter<TransferResponse, TransferRequest>* stream);
+    StatusCode do_remote_delete(const RemoteBackupDeleteReq* req, RemoteBackupDeleteAck* ack);
+    StatusCode do_remote_download(const DownloadDataReq* req, ServerReaderWriter<TransferResponse, TransferRequest>* stream);
     /*crash recover*/
     int recover();
-
     /*track all backup task*/
     int do_task_schedule();
 
