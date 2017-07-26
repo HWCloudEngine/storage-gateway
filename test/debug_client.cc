@@ -40,7 +40,7 @@ int main(int argc, char** argv)
         int mode = atoi(argv[3]);
         if(strcmp(op, "enable") == 0){
             ret = vol_client->enable_sg(vol_name, vol_size, blk_device);
-            ret = vol_client->init_conn(mode, vol_name, blk_device);
+            ret = vol_client->init_conn(mode, vol_name, blk_device, "127.0.0.1");
             cout << "enable sg " << "vol_name:" << vol_name << " ret:" << ret << endl;
         } else if(strcmp(op, "disable") == 0){
             ret = vol_client->fini_conn(mode, vol_name, blk_device);

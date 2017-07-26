@@ -370,6 +370,7 @@ Status VolumeControlImpl::AttachVolume(ServerContext* context,
             UpdateVolumeReq vol_req;
             vol_req.set_vol_id(vol_name);
             vol_req.set_path(device);
+            vol_req.set_attached_host(req->attached_host());
             StatusCode ret = g_rpc_client.update_volume(vol_req);
             if(ret != StatusCode::sOk)
             {

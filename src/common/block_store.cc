@@ -122,10 +122,10 @@ std::string FsBlockStore::create_absolute_dir(std::string obj_name) {
     /*success return 0*/
     std::string abs_obj_dir = m_dir;
     if (-1 != obj_name.find("snap")) {
-        abs_obj_dir.append("snapshot/");
+        abs_obj_dir.append("/snapshot/");
     }
     if (-1 != obj_name.find("backup")) {
-        abs_obj_dir.append("backup/");
+        abs_obj_dir.append("/backup/");
     }
     size_t pos = obj_name.find_last_of("/");
     if (pos == -1) {

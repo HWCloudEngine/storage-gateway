@@ -14,7 +14,6 @@
 #include <grpc++/grpc++.h>
 #include "rpc/common.pb.h"
 #include "rpc/transfer.pb.h"
-#include "backup_mgr.h"
 using grpc::ServerContext;
 using grpc::ServerReaderWriter;
 using huawei::proto::transfer::TransferRequest;
@@ -24,25 +23,17 @@ using RpcIoStream = ServerReaderWriter<TransferResponse, TransferRequest>;
 
 class BackupMsgHandler {
  public:
-    explicit BackupMsgHandler(BackupMgr& backup_mgr);
+    explicit BackupMsgHandler();
     ~BackupMsgHandler();
 
     void dispatch(TransferRequest* req, RpcIoStream* stream);
 
  private:
-    StatusCode handle_remote_create_start(TransferRequest* req,
-                                          RpcIoStream* stream);
-    StatusCode handle_remote_create_end(TransferRequest* req,
-                                        RpcIoStream* stream);
-    StatusCode handle_remote_create_upload(TransferRequest* req,
-                                           RpcIoStream* stream);
-    StatusCode handle_remote_delete(TransferRequest* req,
-                                    RpcIoStream* stream);
-    StatusCode handle_download(TransferRequest* req,
-                               RpcIoStream* stream);
-
- private:
-    BackupMgr& m_backup_mgr;
+    StatusCode handle_remote_create_start(TransferRequest* req, RpcIoStream* stream);
+    StatusCode handle_remote_create_end(TransferRequest* req, RpcIoStream* stream);
+    StatusCode handle_remote_create_upload(TransferRequest* req, RpcIoStream* stream);
+    StatusCode handle_remote_delete(TransferRequest* req, RpcIoStream* stream);
+    StatusCode handle_download(TransferRequest* req, RpcIoStream* stream);
 };
 
 #endif  // SRC_SG_SERVER_BACKUP_BACKUP_MSG_HANDLER_H_

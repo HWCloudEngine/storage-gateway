@@ -11,6 +11,7 @@
 #ifndef SRC_SG_SERVER_SNAPSHOT_SNAPSHOT_MDS_H_
 #define SRC_SG_SERVER_SNAPSHOT_SNAPSHOT_MDS_H_
 #include <string>
+#include <vector>
 #include <mutex>
 #include <map>
 #include <grpc++/grpc++.h>
@@ -28,6 +29,7 @@ using huawei::proto::StatusCode;
 using huawei::proto::SnapStatus;
 using huawei::proto::SnapType;
 using huawei::proto::SnapReqHead;
+using huawei::proto::DiffBlocks;
 using huawei::proto::inner::CreateReq;
 using huawei::proto::inner::CreateAck;
 using huawei::proto::inner::ListReq;
@@ -75,6 +77,15 @@ class SnapshotMds {
     StatusCode cow_update(const CowUpdateReq* req, CowUpdateAck* ack);
     /*crash recover*/
     int recover();
+
+    StatusCode query_snapshot(const std::string& vol_name,
+                              const std::string& snap_name,
+                              SnapStatus& snap_status);
+    StatusCode diff_snapshot(const std::string& vol_name,
+                             const std::string& check_point, 
+                             const std::string& first_snap,
+                             const std::string& last_snap,
+                             std::vector<DiffBlocks>& blocks);
 
  private:
     /*common helper*/
