@@ -29,7 +29,6 @@ using huawei::proto::sVolumeMetaPersistError;
 using huawei::proto::sVolumeAlreadyExist;
 using huawei::proto::NO_SUCH_KEY;
 
-VolInnerCtrl* g_vol_ctrl = nullptr;
 VolInnerCtrl::VolInnerCtrl() {
 }
 
@@ -37,7 +36,7 @@ VolInnerCtrl::~VolInnerCtrl() {
 }
 
 void VolInnerCtrl::init(std::shared_ptr<VolumeMetaManager> v_meta,
-                          std::shared_ptr<JournalMetaManager> j_meta) {
+                        std::shared_ptr<JournalMetaManager> j_meta) {
     vmeta_ = v_meta;
     jmeta_ = j_meta;
 }
@@ -124,8 +123,6 @@ Status VolInnerCtrl::UpdateVolume(ServerContext* context,
         LOG_ERROR << "update volume[" << vol << "] status failed!";
     }
 
-    /*current only notify backup ctx to update */
-    notify((int)UPDATE_VOLUME, meta.mutable_info());
     return Status::OK;
 }
 
@@ -177,15 +174,9 @@ Status VolInnerCtrl::DeleteVolume(ServerContext* context,
         LOG_ERROR << "delete volume[" << vol << "] failed!";
         response->set_status(sInternalError);
     }
-    notify((int)DELETE_VOLUME, (void*)vol.c_str()); 
     return Status::OK;
 }
 
-void VolInnerCtrl::notify(int event, void* args) {
-    for (auto obs : obs_) {
-        obs->update(event, args); 
-    }
-}
 StatusCode VolInnerCtrl::get_volume(const std::string& vol,
                                         VolumeInfo& vol_info){
     VolumeMeta meta;

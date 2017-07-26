@@ -81,16 +81,13 @@ int main(int argc, char** argv) {
     RpcServer metaServer(ip1,port1,grpc::InsecureServerCredentials());
     WriterServiceImpl writerSer(meta);
     ConsumerServiceImpl consumerSer(meta);
-    g_volInnerCtrl.init( meta /*VolumeMetaManager*/, meta /*JournalMetaManager*/);
-    g_vol_ctrl = &g_volInnerCtrl;
-    SnapshotMgr snapMgr;
-    BackupMgr backupMgr;
+    VolInnerCtrl::instance().init( meta /*VolumeMetaManager*/, meta /*JournalMetaManager*/);
     LeaseRpcSrv leaseSrv(kvApi_ptr);
     metaServer.register_service(&writerSer);
     metaServer.register_service(&consumerSer);
-    metaServer.register_service(&g_volInnerCtrl);
-    metaServer.register_service(&snapMgr);
-    metaServer.register_service(&backupMgr);
+    metaServer.register_service(&VolInnerCtrl::instance());
+    metaServer.register_service(&SnapshotMgr::singleton());
+    metaServer.register_service(&BackupMgr::singleton());
     metaServer.register_service(&leaseSrv);
 
     // init net receiver
@@ -100,7 +97,7 @@ int main(int argc, char** argv) {
 
     RepMsgHandlers rep_msg_handler(meta/*JournalMetaManager*/,
                                    meta /*VolumeMetaManager*/,mount_path);
-    BackupMsgHandler backup_msg_handler(backupMgr);
+    BackupMsgHandler backup_msg_handler;
     NetReceiver netReceiver(rep_msg_handler, backup_msg_handler);
     repServer.register_service(&netReceiver);
     LOG_INFO << "net receiver server listening on " << ip2 << ":" << port2;
@@ -165,9 +162,9 @@ int main(int argc, char** argv) {
                 rep_scheduler.add_volume(vol);
 
             /*snapshot meta init*/
-            snapMgr.add_volume(vol_meta.info().vol_id(), vol_meta.info().size());
+            SnapshotMgr::singleton().add_volume(vol_meta.info().vol_id(), vol_meta.info().size());
             /*backup meata init*/
-            backupMgr.add_volume(vol_meta.info().vol_id(), vol_meta.info().size());
+            BackupMgr::singleton().add_volume(vol_meta.info().vol_id(), vol_meta.info().size());
         }
         GCTask::instance().set_volumes_initialized(true);
     }

@@ -24,7 +24,7 @@ protected:
     VolumeInnerCtrlTest():
         vol_meta_mgr(new MockVolumeMetaManager()),
         j_meta_mgr(new MockJournalMetaManager()){
-        g_volInnerCtrl.init(vol_meta_mgr,j_meta_mgr);
+            VolInnerCtrl::instance().init(vol_meta_mgr,j_meta_mgr);
     }
 
     ~VolumeInnerCtrlTest(){}
@@ -53,7 +53,7 @@ TEST_F(VolumeInnerCtrlTest,CreateVolumeTest){
     request.set_vol_id(volume);
     request.set_size(size);
     ::grpc::Status status =
-        g_volInnerCtrl.CreateVolume(&context,&request,&response);
+        VolInnerCtrl::instance().CreateVolume(&context,&request,&response);
     EXPECT_EQ(status.error_code(),grpc::StatusCode::OK);
     EXPECT_EQ(StatusCode::sOk,response.status());
 }

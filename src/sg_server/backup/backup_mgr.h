@@ -55,42 +55,33 @@ using huawei::proto::transfer::DownloadDataReq;
 using huawei::proto::transfer::DownloadDataAck;
 
 /*work on storage gateway server, all snapshot api gateway */
-class BackupMgr final: public BackupInnerControl::Service , public Observee {
- public:
-    BackupMgr() {
-    }
-    virtual ~BackupMgr() {
-    }
+class BackupMgr final: public BackupInnerControl::Service {
+ private:
+    BackupMgr();
+    ~BackupMgr();
 
  public:
+    static BackupMgr& singleton();
+
     /*call by sgserver when add and delete volume*/
     StatusCode add_volume(const std::string& vol_name, const size_t& vol_size);
     StatusCode del_volume(const std::string& vol_name);
-    /*rpc interface*/
-    grpc::Status Create(ServerContext* context, const CreateBackupInReq* req,
-                        CreateBackupInAck* ack);
-    grpc::Status List(ServerContext* context, const ListBackupInReq* req,
-                      ListBackupInAck* ack);
-    grpc::Status Get(ServerContext* context, const GetBackupInReq* req,
-                     GetBackupInAck* ack);
-    grpc::Status Delete(ServerContext* context, const DeleteBackupInReq* req,
-                        DeleteBackupInAck* ack);
+    /*grpc interface*/
+    grpc::Status Create(ServerContext* context, const CreateBackupInReq* req, CreateBackupInAck* ack);
+    grpc::Status List(ServerContext* context, const ListBackupInReq* req, ListBackupInAck* ack);
+    grpc::Status Get(ServerContext* context, const GetBackupInReq* req, GetBackupInAck* ack);
+    grpc::Status Delete(ServerContext* context, const DeleteBackupInReq* req, DeleteBackupInAck* ack);
     grpc::Status Restore(ServerContext* context, const RestoreBackupInReq* req,
                          ServerWriter<RestoreBackupInAck>* writer);
-    /*register as message handler to net receiver*/
-    StatusCode handle_remote_create_start(const RemoteBackupStartReq* req,
-                                          RemoteBackupStartAck* ack);
-    StatusCode handle_remote_create_end(const RemoteBackupEndReq* req,
-                                         RemoteBackupEndAck* ack);
-    StatusCode handle_remote_create_upload(UploadDataReq* req,
-                                           UploadDataAck* ack);
-    StatusCode handle_remote_delete(const RemoteBackupDeleteReq* req,
-                                    RemoteBackupDeleteAck* ack);
-    StatusCode handle_download(const DownloadDataReq* req,
-               ServerReaderWriter<TransferResponse, TransferRequest>* stream);
-    
-    void update(int event, void* args) override;
 
+    /*local interface*/
+    StatusCode handle_remote_create_start(const RemoteBackupStartReq* req, RemoteBackupStartAck* ack);
+    StatusCode handle_remote_create_end(const RemoteBackupEndReq* req, RemoteBackupEndAck* ack);
+    StatusCode handle_remote_create_upload(UploadDataReq* req, UploadDataAck* ack);
+    StatusCode handle_remote_delete(const RemoteBackupDeleteReq* req, RemoteBackupDeleteAck* ack);
+    StatusCode handle_download(const DownloadDataReq* req,
+                               ServerReaderWriter<TransferResponse, TransferRequest>* stream);
+    
  private:
     /*each volume has a snapshot mds*/
     mutex m_mutex;
