@@ -11,6 +11,7 @@
 #ifndef SRC_SG_SERVER_SNAPSHOT_SNAPSHOT_MGR_H_
 #define SRC_SG_SERVER_SNAPSHOT_SNAPSHOT_MGR_H_
 #include <string>
+#include <vector>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -47,45 +48,43 @@ using huawei::proto::inner::ReadReq;
 using huawei::proto::inner::ReadAck;
 using huawei::proto::inner::SyncReq;
 using huawei::proto::inner::SyncAck;
+using huawei::proto::SnapStatus;
+using huawei::proto::DiffBlocks;
 
 /*work on storage gateway server, all snapshot api gateway */
-class SnapshotMgr final: public SnapshotInnerControl::Service {
- public:
+class SnapshotMgr : public SnapshotInnerControl::Service {
+ private:
     SnapshotMgr();
     ~SnapshotMgr();
 
  public:
-    /*call by sgserver when add and delete volume*/
+    static SnapshotMgr& singleton();
+
+    /*call by volume ctrl service when add and delete volume*/
     StatusCode add_volume(const std::string& vol_name, const size_t& vol_size);
     StatusCode del_volume(const std::string& vol_name);
 
-    /*rpc interface*/
-    grpc::Status Sync(ServerContext* context, const SyncReq* req,
-                      SyncAck* ack) override;
-    grpc::Status Create(ServerContext* context, const CreateReq* req,
-                        CreateAck* ack) override;
-    grpc::Status List(ServerContext* context, const ListReq* req,
-                      ListAck* ack) override;
-    grpc::Status Query(ServerContext* context, const QueryReq* req,
-                       QueryAck* ack) override;
-    grpc::Status Delete(ServerContext* context, const DeleteReq* req,
-                        DeleteAck* ack) override;
-    grpc::Status Rollback(ServerContext* context, const RollbackReq* req,
-                          RollbackAck* ack) override;
-    grpc::Status Update(ServerContext* context, const UpdateReq* req,
-                        UpdateAck* ack) override;
-    grpc::Status CowOp(ServerContext* context, const CowReq* req,
-                       CowAck* ack) override;
-    grpc::Status CowUpdate(ServerContext* context, const CowUpdateReq* req,
-                           CowUpdateAck* ack) override;
-    grpc::Status Diff(ServerContext* context, const DiffReq* req,
-                      DiffAck* ack) override;
-    grpc::Status Read(ServerContext* context, const ReadReq* req,
-                      ReadAck* ack) override;
+    /*grpc interface*/
+    grpc::Status Sync(ServerContext* context, const SyncReq* req, SyncAck* ack) override;
+    grpc::Status Create(ServerContext* context, const CreateReq* req, CreateAck* ack) override;
+    grpc::Status List(ServerContext* context, const ListReq* req, ListAck* ack) override;
+    grpc::Status Query(ServerContext* context, const QueryReq* req, QueryAck* ack) override;
+    grpc::Status Delete(ServerContext* context, const DeleteReq* req, DeleteAck* ack) override;
+    grpc::Status Rollback(ServerContext* context, const RollbackReq* req, RollbackAck* ack) override;
+    grpc::Status Update(ServerContext* context, const UpdateReq* req, UpdateAck* ack) override;
+    grpc::Status CowOp(ServerContext* context, const CowReq* req, CowAck* ack) override;
+    grpc::Status CowUpdate(ServerContext* context, const CowUpdateReq* req, CowUpdateAck* ack) override;
+    grpc::Status Diff(ServerContext* context, const DiffReq* req, DiffAck* ack) override;
+    grpc::Status Read(ServerContext* context, const ReadReq* req, ReadAck* ack) override;
+
+    /*local interface*/
+    StatusCode Query(const std::string& vol_name, const std::string& snap_name, SnapStatus& snap_status);
+    StatusCode Diff(const std::string& vol_name, const std::string& check_point, 
+                    const std::string& first_snap, const std::string& last_snap,  std::vector<DiffBlocks>& blocks);
 
  private:
-    /*each volume has a snapshot mds*/
     std::mutex m_mutex;
+    /*each volume own a snapshot mds*/
     std::map<std::string, std::shared_ptr<SnapshotMds>> m_all_snapmds;
 };
 

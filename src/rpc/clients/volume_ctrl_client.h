@@ -89,7 +89,7 @@ class VolumeCtrlClient
     }
     
     StatusCode init_conn(int mode, const std::string& vol_id, 
-                         const std::string& blk_dev) {
+                         const std::string& blk_dev, const std::string& attach_host) {
         ClientContext context;
         InitializeConnectionReq req;
         InitializeConnectionRes res;
@@ -103,6 +103,7 @@ class VolumeCtrlClient
             AttachVolumeRes res;
             req.set_volume_id(vol_id);
             req.set_device(blk_dev);
+            req.set_attached_host(attach_host);
             status = stub_->AttachVolume(&context, req, &res);
             LOG_INFO << "xxxx 1";
         }

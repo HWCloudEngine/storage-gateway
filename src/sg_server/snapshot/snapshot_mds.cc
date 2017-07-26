@@ -206,21 +206,40 @@ StatusCode SnapshotMds::list_snapshot(const ListReq* req, ListAck* ack) {
 StatusCode SnapshotMds::query_snapshot(const QueryReq* req, QueryAck* ack) {
     std::string vol_name = req->vol_name();
     std::string snap_name = req->snap_name();
+    SnapStatus snap_status;
+    LOG_INFO << "query snapshot vname:" << vol_name << " snap:" << snap_name;
+    auto ret = query_snapshot(vol_name, snap_name, snap_status);
+    if (ret != StatusCode::sOk) {
+        ack->mutable_header()->set_status(ret);
+        LOG_ERROR << "query snapshot vname:" << vol_name << " snap:" << snap_name
+                  << " snap_status:" << ack->snap_status() << " failed";
+        ack->mutable_header()->set_status(ret);
+        return ret;
+    }
+    ack->set_snap_status(snap_status);
+    ack->mutable_header()->set_status(ret);
+    LOG_INFO << "query snapshot vname:" << vol_name << " snap:" << snap_name
+             << " snap_status:" << ack->snap_status() << " ok";
+    return ret;
+}
+
+StatusCode SnapshotMds::query_snapshot(const std::string& vol_name,
+                                       const std::string& snap_name,
+                                       SnapStatus& snap_status) {
     StatusCode ret = StatusCode::sOk;
     LOG_INFO << "query snapshot vname:" << vol_name << " snap:" << snap_name;
-    ack->set_snap_status(SnapStatus::SNAP_DELETED);
+    snap_status = SnapStatus::SNAP_DELETED;
     IndexStore::IndexIterator it = m_index_store->db_iterator();
     it->seek_to_first(snap_prefix);
     for (; it->valid()&&(-1 != it->key().find(snap_prefix)); it->next()) {
         snap_t cur_snap;
         cur_snap.decode(it->value());
         if (cur_snap.snap_name.compare(snap_name) == 0) {
-            ack->set_snap_status(cur_snap.snap_status);
+            snap_status = cur_snap.snap_status;
         }
     }
-    ack->mutable_header()->set_status(ret);
     LOG_INFO << "query snapshot vname:" << vol_name << " snap:" << snap_name
-             << " snap_status:" << ack->snap_status() << " ok";
+             << " snap_status:" << snap_status << " ok";
     return ret;
 }
 
@@ -545,9 +564,32 @@ StatusCode SnapshotMds::diff_snapshot(const DiffReq* req, DiffAck* ack) {
     std::string vname = req->vol_name();
     std::string first_snap = req->first_snap_name();
     std::string last_snap = req->last_snap_name();
-
     LOG_INFO << "diff snapshot vname:" << vname
              << " first_snap:" << first_snap << " last_snap:"  << last_snap;
+    std::vector<DiffBlocks> blocks;
+    auto ret = diff_snapshot(vname, "", first_snap, last_snap, blocks);
+    if (ret != StatusCode::sOk) {
+        LOG_INFO << "diff snapshot" << " vname:" << vname
+                 << " first_snap:" << first_snap << " last_snap:"  << last_snap
+                 << " failure";
+        ack->mutable_header()->set_status(ret);
+        return ret;
+    }
+    for (auto block : blocks) {
+        DiffBlocks* diffblocks = ack->add_diff_blocks();
+        diffblocks->CopyFrom(block); 
+    }
+    ack->mutable_header()->set_status(StatusCode::sOk);
+    LOG_INFO << "diff snapshot" << " vname:" << vname
+             << " first_snap:" << first_snap << " last_snap:"  << last_snap
+             << " ok";
+    return StatusCode::sOk;
+}
+
+StatusCode SnapshotMds::diff_snapshot(const std::string& vol_name, const std::string& check_point, 
+                                      const std::string& first_snap, const std::string& last_snap,
+                                      std::vector<DiffBlocks>& blocks) {
+    LOG_INFO << "diff snapshot vname:" << vol_name << " first_snap:" << first_snap << " last_snap:"  << last_snap;
     snap_id_t first_snapid = get_snap_id(first_snap);
     snap_id_t last_snapid  = get_snap_id(last_snap);
     assert(first_snapid != -1 && last_snapid != -1);
@@ -558,9 +600,9 @@ StatusCode SnapshotMds::diff_snapshot(const DiffReq* req, DiffAck* ack) {
         cur_pivot_block.snap_id = cur_snap_id;
         IndexStore::IndexIterator cur_it = m_index_store->db_iterator();
         cur_it->seek_to_first(cur_pivot_block.prefix());
-        DiffBlocks* diffblocks = ack->add_diff_blocks();
-        diffblocks->set_vol_name(vname);
-        diffblocks->set_snap_name(get_snap_name(cur_snap_id));
+        DiffBlocks diffblocks;
+        diffblocks.set_vol_name(vol_name);
+        diffblocks.set_snap_name(get_snap_name(cur_snap_id));
         for (; cur_it->valid() && (-1 != cur_it->key().find(cur_pivot_block.prefix())); cur_it->next()) {
             bool block_same_in_two_snap = false;
             cow_block_t cur_block;
@@ -582,17 +624,16 @@ StatusCode SnapshotMds::diff_snapshot(const DiffReq* req, DiffAck* ack) {
             }
             LOG_INFO << "cur_block_url:" << cur_block.block_url << " same:" << block_same_in_two_snap;
             if (!block_same_in_two_snap) {
-                DiffBlock* diff_block = diffblocks->add_block();
+                DiffBlock* diff_block = diffblocks.add_block();
                 diff_block->set_blk_no(cur_block.block_id);
                 diff_block->set_blk_zero(cur_block.block_zero);
                 diff_block->set_blk_url(cur_block.block_url);
             }
         }
-
+        blocks.push_back(diffblocks);
         cur_snap_id = next_snap_id;
     }
-    ack->mutable_header()->set_status(StatusCode::sOk);
-    LOG_INFO << "diff snapshot" << " vname:" << vname
+    LOG_INFO << "diff snapshot" << " vname:" << vol_name 
              << " first_snap:" << first_snap << " last_snap:"  << last_snap
              << " ok";
     return StatusCode::sOk;

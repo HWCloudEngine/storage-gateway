@@ -76,6 +76,17 @@ do {                                       \
     ret = it->second->op(req, ack);        \
 }while(0);
 
+BackupMgr::BackupMgr() {
+}
+
+BackupMgr::~BackupMgr() {
+}
+
+BackupMgr& BackupMgr::singleton() {
+    static BackupMgr mgr;
+    return mgr;
+}
+
 StatusCode BackupMgr::add_volume(const string& vol_name,
                                  const size_t& vol_size) {
     std::lock_guard<std::mutex> lock(m_mutex);
@@ -224,15 +235,4 @@ StatusCode BackupMgr::handle_download(const DownloadDataReq* req,
     CMD_PREV(vname, "download");
     CMD_DO(vname, do_remote_download, req, stream);
     CMD_POST_1(vname, "download", ret);
-}
-
-void BackupMgr::update(int event, void* args) {
-    if (event != DELETE_VOLUME) {
-        LOG_ERROR << "update event:" << event << " not support";
-        return;
-    }
-    const char* vol = reinterpret_cast<const char*>(args);
-    if (vol) {
-        del_volume(std::string(vol));
-    }
 }

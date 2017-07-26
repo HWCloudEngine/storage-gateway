@@ -355,34 +355,34 @@ Status VolumeControlImpl::AttachVolume(ServerContext* context,
 {
     std::string vol_name = req->volume_id();
     std::string device = req->device();
-    LOG_INFO << "attach vol:" << vol_name;
+    LOG_INFO << "attach vol:" << vol_name << " dev:" << device;
     VolumeInfo volume;
     StatusCode ret = g_rpc_client.get_volume(vol_name, volume);
     if(ret != StatusCode::sOk)
     {
-        LOG_ERROR << "attach vol:" << vol_name << " failed";
+        LOG_ERROR << "attach vol:" << vol_name << " dev:" << device << " failed";
         res->set_status(ret);
+        return Status::OK;
     }
     else
     {
-        if(device != volume.path())
-        {
-            UpdateVolumeReq vol_req;
-            vol_req.set_vol_id(vol_name);
-            vol_req.set_path(device);
-            StatusCode ret = g_rpc_client.update_volume(vol_req);
-            if(ret != StatusCode::sOk)
-            {
-                LOG_ERROR << "attach vol:" << vol_name << " failed";
-                res->set_status(ret);
-                return Status::OK;
-            }
-        }
-        StatusCode ret = g_rpc_client.get_volume(vol_name, volume);
+        UpdateVolumeReq vol_req;
+        vol_req.set_vol_id(vol_name);
+        vol_req.set_path(device);
+        vol_req.set_attached_host(req->attached_host());
+        StatusCode ret = g_rpc_client.update_volume(vol_req);
         if(ret != StatusCode::sOk)
         {
-            LOG_ERROR << "attach vol:" << vol_name << " failed";
+             LOG_ERROR << "attach vol:" << vol_name << " dev:" << device << " host:" << req->attached_host() << " failed";
+             res->set_status(ret);
+             return Status::OK;
+        }
+        ret = g_rpc_client.get_volume(vol_name, volume);
+        if(ret != StatusCode::sOk)
+        {
+            LOG_ERROR << "attach vol:" << vol_name << " dev:" << device << " failed";
             res->set_status(ret);
+            return Status::OK;
         }
         vol_manager_.add_volume(volume);
         if(agent_control_ptr->attach_volume(vol_name, device))
@@ -394,6 +394,7 @@ Status VolumeControlImpl::AttachVolume(ServerContext* context,
             res->set_status(StatusCode::sInternalError);
         }
     }
+    LOG_INFO << "attach vol:" << vol_name << " dev:" << device << " ok";
     return Status::OK;
 }
 

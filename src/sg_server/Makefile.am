@@ -43,7 +43,8 @@ sg_server_SOURCES=dr_server.cc \
                   backup/backup_msg_handler.cc  \
                   snapshot/snapshot_type.cc \
                   snapshot/snapshot_mds.cc \
-                  snapshot/snapshot_mgr.cc 
+                  snapshot/snapshot_mgr.cc \
+                  snapshot/snapshot_cli.cc 
 
 sg_server_LDADD=${top_srcdir}/src/rpc/librpc.la \
                  ${top_srcdir}/src/log/liblog.la 
