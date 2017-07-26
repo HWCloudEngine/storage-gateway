@@ -81,14 +81,14 @@ int main(int argc, char** argv) {
     RpcServer metaServer(ip1,port1,grpc::InsecureServerCredentials());
     WriterServiceImpl writerSer(meta);
     ConsumerServiceImpl consumerSer(meta);
-    VolInnerCtrl volInnerCtrl(meta /*VolumeMetaManager*/, meta /*JournalMetaManager*/);
-    g_vol_ctrl = &volInnerCtrl;
+    g_volInnerCtrl.init( meta /*VolumeMetaManager*/, meta /*JournalMetaManager*/);
+    g_vol_ctrl = &g_volInnerCtrl;
     SnapshotMgr snapMgr;
     BackupMgr backupMgr;
     LeaseRpcSrv leaseSrv(kvApi_ptr);
     metaServer.register_service(&writerSer);
     metaServer.register_service(&consumerSer);
-    metaServer.register_service(&volInnerCtrl);
+    metaServer.register_service(&g_volInnerCtrl);
     metaServer.register_service(&snapMgr);
     metaServer.register_service(&backupMgr);
     metaServer.register_service(&leaseSrv);
