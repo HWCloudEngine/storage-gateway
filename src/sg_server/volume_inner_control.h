@@ -25,6 +25,8 @@ using huawei::proto::inner::ListVolumeReq;
 using huawei::proto::inner::ListVolumeRes;
 using huawei::proto::inner::DeleteVolumeReq;
 using huawei::proto::inner::DeleteVolumeRes;
+using huawei::proto::VolumeInfo;
+using huawei::proto::StatusCode;
 
 enum VolumeEvent {
     UNKNOWN        = 0,
@@ -45,24 +47,29 @@ public:
             const ListVolumeReq* request, ListVolumeRes* response);
     ::grpc::Status DeleteVolume(ServerContext* context,
         const DeleteVolumeReq* request, DeleteVolumeRes* response);
-    void init();
-    
+
     /*volume status update notify all subscribers*/
     void notify(int event, void* args) override;
 
-public:
-    VolInnerCtrl(std::shared_ptr<VolumeMetaManager> v_meta,
-            std::shared_ptr<JournalMetaManager> j_meta):
-            vmeta_(v_meta),
-            jmeta_(j_meta){
-        init();
-    }
-    ~VolInnerCtrl(){}
+    StatusCode get_volume(const std::string& vol, VolumeInfo& vol_info);
+
+    void init(std::shared_ptr<VolumeMetaManager> v_meta,
+            std::shared_ptr<JournalMetaManager> j_meta);
+
+    static VolInnerCtrl& instance();
+
+    VolInnerCtrl(VolInnerCtrl&) = delete;
+
+    VolInnerCtrl& operator=(VolInnerCtrl const&) = delete;
+
 private:
+    VolInnerCtrl();
+    ~VolInnerCtrl();
+
     std::shared_ptr<VolumeMetaManager> vmeta_;
     std::shared_ptr<JournalMetaManager> jmeta_;
 };
 
+#define g_volInnerCtrl (VolInnerCtrl::instance())
 extern VolInnerCtrl* g_vol_ctrl;
-
 #endif

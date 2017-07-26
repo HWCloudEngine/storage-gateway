@@ -30,8 +30,21 @@ using huawei::proto::sVolumeAlreadyExist;
 using huawei::proto::NO_SUCH_KEY;
 
 VolInnerCtrl* g_vol_ctrl = nullptr;
+VolInnerCtrl::VolInnerCtrl() {
+}
 
-void VolInnerCtrl::init(){
+VolInnerCtrl::~VolInnerCtrl() {
+}
+
+void VolInnerCtrl::init(std::shared_ptr<VolumeMetaManager> v_meta,
+                          std::shared_ptr<JournalMetaManager> j_meta) {
+    vmeta_ = v_meta;
+    jmeta_ = j_meta;
+}
+
+VolInnerCtrl& VolInnerCtrl::instance() {
+    static VolInnerCtrl vol_ctrl;
+    return vol_ctrl;
 }
 
 Status VolInnerCtrl::CreateVolume(ServerContext* context,
@@ -119,19 +132,7 @@ Status VolInnerCtrl::UpdateVolume(ServerContext* context,
 Status VolInnerCtrl::GetVolume(ServerContext* context,
         const GetVolumeReq* request, GetVolumeRes* response){
     const string& vol = request->vol_id();
-    VolumeMeta meta;
-    RESULT res = vmeta_->read_volume_meta(vol,meta);
-    if(DRS_OK == res){
-        response->mutable_info()->CopyFrom(meta.info());
-        response->set_status(sOk);
-    }
-    else if(NO_SUCH_KEY == res){
-        response->set_status(sVolumeNotExist);
-    }
-    else{
-        LOG_ERROR << "get volume[" << vol << "] failed!";
-        response->set_status(sInternalError);
-    }
+    response->set_status(get_volume(vol,*(response->mutable_info())));
     return Status::OK;
 }
 
@@ -183,5 +184,21 @@ Status VolInnerCtrl::DeleteVolume(ServerContext* context,
 void VolInnerCtrl::notify(int event, void* args) {
     for (auto obs : obs_) {
         obs->update(event, args); 
+    }
+}
+StatusCode VolInnerCtrl::get_volume(const std::string& vol,
+                                        VolumeInfo& vol_info){
+    VolumeMeta meta;
+    RESULT res = vmeta_->read_volume_meta(vol,meta);
+    if(DRS_OK == res){
+        vol_info.CopyFrom(meta.info());
+        return sOk;
+    }
+    else if(NO_SUCH_KEY == res){
+        return sVolumeNotExist;
+    }
+    else{
+        LOG_ERROR << "get volume[" << vol << "] failed!";
+        return sInternalError;
     }
 }

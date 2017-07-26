@@ -24,13 +24,13 @@ protected:
     VolumeInnerCtrlTest():
         vol_meta_mgr(new MockVolumeMetaManager()),
         j_meta_mgr(new MockJournalMetaManager()){
+        g_volInnerCtrl.init(vol_meta_mgr,j_meta_mgr);
     }
 
     ~VolumeInnerCtrlTest(){}
 
     std::shared_ptr<VolumeMetaManager> vol_meta_mgr;
     std::shared_ptr<JournalMetaManager> j_meta_mgr;
-    VolInnerCtrl vol_inner_ctrl{vol_meta_mgr,j_meta_mgr};
 };
 
 TEST_F(VolumeInnerCtrlTest,CreateVolumeTest){
@@ -53,7 +53,7 @@ TEST_F(VolumeInnerCtrlTest,CreateVolumeTest){
     request.set_vol_id(volume);
     request.set_size(size);
     ::grpc::Status status =
-        vol_inner_ctrl.CreateVolume(&context,&request,&response);
+        g_volInnerCtrl.CreateVolume(&context,&request,&response);
     EXPECT_EQ(status.error_code(),grpc::StatusCode::OK);
     EXPECT_EQ(StatusCode::sOk,response.status());
 }
