@@ -102,7 +102,7 @@ case $1 in
         rm /var/storage_gateway/* -rf
         > /etc/storage-gateway/agent_dev.conf
         # delete bucket
-        ${SG_SOURCE_HOME}/test/libs3_utils delete
+        ${SG_SOURCE_HOME}/test/journal_meta_utils delete
         ;;
     *)
         sg_print "$0 $1 not support"

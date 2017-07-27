@@ -15,6 +15,7 @@
 #include "sg_server/sg_util.h"
 #include "sg_server/transfer/net_sender.h"
 #include "task_handler.h"
+#include "snapshot/snapshot_mgr.h"
 using huawei::proto::VolumeMeta;
 using huawei::proto::REPLICATOR;
 using huawei::proto::REP_PRIMARY;
@@ -97,7 +98,7 @@ std::shared_ptr<TransferTask> RepVolume::get_next_task(){
         auto record_it = vol_meta_.records().rbegin();
         const string& cur_snap = record_it->snap_id();
         SnapStatus snap_status;
-        StatusCode ret = SnapClientWrapper::instance().get_client()->QuerySnapshot(
+        StatusCode ret = SnapshotMgr::singleton().Query(
                     vol_id_,cur_snap,snap_status);
         if(ret != StatusCode::sOk){
             LOG_WARN << "query snapshot failed:" << ret << ",volume=" << vol_id_;
@@ -307,18 +308,23 @@ void RepVolume::resume_replicate(){
     auto last_record = vol_meta_.mutable_records()->rbegin();
 
     // delete conresponding snapshots
-    string pre_snap;
-    if(0 == get_last_shared_snap(pre_snap)){
-        StatusCode status = SnapClientWrapper::instance().get_client()
-            ->DeleteSnapshot(vol_id_,pre_snap);
-        if(status){
-            LOG_ERROR << "delete snapshot[" << pre_snap << "] failed!";
+    SnapshotCtrlClient* snap_cli = create_snapshot_rpc_client(vol_id_);
+    if(snap_cli != nullptr){
+        string pre_snap;
+        if(0 == get_last_shared_snap(pre_snap)){
+            StatusCode status = snap_cli->DeleteSnapshot(vol_id_,pre_snap);
+            if(status){
+                LOG_ERROR << "delete snapshot[" << pre_snap << "] failed!";
+            }
         }
+        StatusCode status = snap_cli->DeleteSnapshot(vol_id_,last_record->snap_id());
+        if(status){
+            LOG_ERROR << "delete snapshot[" << last_record->snap_id() << "] failed!";
+        }
+        destroy_snapshot_rpc_client(snap_cli);
     }
-    StatusCode status = SnapClientWrapper::instance().get_client()
-        ->DeleteSnapshot(vol_id_,last_record->snap_id());
-    if(status){
-        LOG_ERROR << "delete snapshot[" << last_record->snap_id() << "] failed!";
+    else {
+        LOG_ERROR << "get snapshot rpc client failed!";
     }
 
     // set remote producer marker& replicator consumer marker
@@ -373,7 +379,7 @@ int RepVolume::get_last_shared_snap(string& snap_id){
     }
 
     SnapStatus snap_status;
-    StatusCode ret = SnapClientWrapper::instance().get_client()->QuerySnapshot(
+    StatusCode ret = SnapshotMgr::singleton().Query(
                 vol_id_,record_it->snap_id(),snap_status);
     SG_ASSERT(ret == StatusCode::sOk);
     if(snap_status == huawei::proto::SNAP_CREATED){

@@ -11,6 +11,7 @@
 #include "rep_inner_ctrl.h"
 #include "log/log.h"
 #include "gc_task.h"
+#include "snapshot/snapshot_cli.h"
 #include <time.h> // time,time_t
 #include <chrono>
 #include <functional>
@@ -426,11 +427,17 @@ bool RepInnerCtrl::validate_replicate_operation(
 
 void RepInnerCtrl::delete_snapshots_for_replication(
         const string& vol_id){
+    SnapshotCtrlClient* snap_cli = create_snapshot_rpc_client(vol_id);
+    if(snap_cli == nullptr){
+        LOG_ERROR << "get snapshot rpc client failed!";
+        return;
+    }
     VolumeMeta meta;
     RESULT res = meta_->read_volume_meta(vol_id,meta);
     SG_ASSERT(DRS_OK == res);
     for(auto it=meta.records().begin(); it!=meta.records().end(); ++it){
         // delete all snapshots(include remote snapshot for failover) for replication
-        SnapClientWrapper::instance().get_client()->DeleteSnapshot(vol_id,it->snap_id());
+        snap_cli->DeleteSnapshot(vol_id,it->snap_id());
     }
+    destroy_snapshot_rpc_client(snap_cli);
 }

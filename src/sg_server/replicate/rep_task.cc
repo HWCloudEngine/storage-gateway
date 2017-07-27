@@ -11,7 +11,7 @@
 #include "rep_task.h"
 #include "log/log.h"
 #include "../sg_util.h"
-#include "../snap_client_wrapper.h"
+#include "snapshot/snapshot_cli.h"
 #include "rpc/message.pb.h"
 #include "common/journal_entry.h"
 #include "common/define.h"
@@ -127,7 +127,7 @@ int JournalTask::init(){
     return 0;
 }
 
-bool JournalTask::has_next_package(){
+bool JournalTask::has_next_package(){
     if(get_status() == T_CANCELED || get_status() == T_ERROR)
         return false;
     return (!end);
@@ -201,11 +201,13 @@ int DiffSnapTask::init(){
     max_journal_size = ctx->get_end_off();
 
     // init diff_blocks
-    StatusCode ret = SnapClientWrapper::instance().get_client()->DiffSnapshot(
+    snap_cli = create_snapshot_rpc_client(ctx->get_vol_id());
+    SG_ASSERT(snap_cli != nullptr);
+    StatusCode ret = snap_cli->DiffSnapshot(
             ctx->get_vol_id(),pre_snap,cur_snap,diff_blocks);
     SG_ASSERT(ret == StatusCode::sOk);
-    if(SnapClientWrapper::instance().diff_snapshot_is_empty(ctx->get_vol_id(),
-        cur_snap,pre_snap)){
+    if(diff_blocks.empty() 
+        || (diff_blocks.size() == 1 && diff_blocks[0].block_size() == 0)){
         LOG_INFO << "no data sync for diff snapshot,pre:" << cur_snap
             << ",pre:" << pre_snap;
         end = true;
@@ -219,7 +221,7 @@ int DiffSnapTask::init(){
     return 0;
 }
 
-bool DiffSnapTask::has_next_package(){
+bool DiffSnapTask::has_next_package(){
     if(get_status() == T_CANCELED || get_status() == T_ERROR)
         return false;
     return (!end);
@@ -274,7 +276,7 @@ TransferRequest* DiffSnapTask::get_next_package(){
         uint64_t diff_block_no = diff_block.block(array_cursor).blk_no();
         off_t    diff_block_off = diff_block_no * COW_BLOCK_SIZE;
         size_t   diff_block_size = COW_BLOCK_SIZE;
-        StatusCode ret = SnapClientWrapper::instance().get_client()->ReadSnapshot(
+        StatusCode ret = snap_cli->ReadSnapshot(
             ctx->get_vol_id(),cur_snap,buffer,diff_block_size,diff_block_off);
         SG_ASSERT(ret == StatusCode::sOk);
 
@@ -375,10 +377,12 @@ int BaseSnapTask::init(){
         return -1;
     }
     max_journal_size = ctx->get_end_off();
+    snap_cli = create_snapshot_rpc_client(ctx->get_vol_id());
+    SG_ASSERT(snap_cli != nullptr);
     return 0;
 }
 
-bool BaseSnapTask::has_next_package(){
+bool BaseSnapTask::has_next_package(){
     if(get_status() == T_CANCELED || get_status() == T_ERROR)
         return false;
     return (!end);
@@ -428,7 +432,7 @@ TransferRequest* BaseSnapTask::get_next_package(){
     // read snapshot
     uint64_t len = vol_size - read_off > COW_BLOCK_SIZE ?
         COW_BLOCK_SIZE:(vol_size - read_off);
-    StatusCode ret = SnapClientWrapper::instance().get_client()->ReadSnapshot(
+    StatusCode ret = snap_cli->ReadSnapshot(
         ctx->get_vol_id(),base_snap,buffer,len,read_off);
     SG_ASSERT(ret == StatusCode::sOk);
 
