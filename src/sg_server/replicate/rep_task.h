@@ -15,7 +15,7 @@
 #include <vector>
 #include "rep_type.h"
 #include "sg_server/transfer/transfer_task.h"
-#include "../snap_client_wrapper.h"
+#include "snapshot/snapshot_cli.h"
 class RepContext:public TaskContext{
 protected:
     std::string vol_id;
@@ -152,6 +152,7 @@ private:
     uint64_t max_journal_size;
     char* buffer;
     uint64_t package_id;
+    SnapshotCtrlClient* snap_cli;
 
 public:
     DiffSnapTask(const std::string& _pre,
@@ -168,6 +169,9 @@ public:
     ~DiffSnapTask(){
         if(buffer){
             free(buffer);
+        }
+        if(snap_cli) {
+            destroy_snapshot_rpc_client(snap_cli);
         }
     }
 
@@ -200,6 +204,7 @@ private:
     uint64_t cur_off; // pair with j_counter, indicate whether there was space in journal
     int64_t sub_counter; // sub journal counter, start from 1
     uint64_t max_journal_size;
+    SnapshotCtrlClient* snap_cli;
 
 public:
     BaseSnapTask(const std::string& _base,
@@ -218,6 +223,9 @@ public:
     ~BaseSnapTask(){
         if(buffer){
             free(buffer);
+        }
+        if(snap_cli) {
+            destroy_snapshot_rpc_client(snap_cli);
         }
     }
 

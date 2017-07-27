@@ -112,7 +112,7 @@ int delete_key(KVApi& meta, const char* key){
 
 int delete_all_keys(KVApi& meta){
     std::list<std::string> list;
-    StatusCode res = meta.list_objects(NULL,NULL,0,&list,NULL);
+    StatusCode res = meta.list_objects("/",NULL,0,&list,NULL);
     if(StatusCode::sOk == res){
         std::cout << "delete objects:" << ":\n";
         std::for_each(list.begin(),list.end(),[&](std::string& key){
