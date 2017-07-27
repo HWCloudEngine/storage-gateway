@@ -1,8 +1,25 @@
 # storage-gateway  
 # installation  
-1. deploy ceph environment  
-`to be supplemented`  
-2. compile and install grpc, protobuf, gtest, gmock
+1. deploy environment(ceph or nfs)  
+1.1.0 prepare mount point  
+`mkdir -p /mnt/cephfs`  
+1.1.1 create cephfs  
+`ceph osd pool create cephfs_data 128`  
+`ceph osd pool create cephfs_metadata 128`  
+`ceph fs new cephfs cephfs_metadata cephfs_data`  
+1.1.2 mount cephfs on mount point, `admin_key` get from `/etc/ceph/ceph.client.admin.keyring`  
+`mount -t ceph ceph_fs_ip:ceph_fs_port:/ /mnt/cephfs -o name=admin,secret=admin_key`  
+1.1.3 create a S3 user and generate `access_key` and `secret_key` for later use  
+`radosgw-admin user create --uid={username} --display-name={display-name}` 
+1.2.0  nfs  
+` apt-get install nfs-kernel-server`  
+`chown nobody:nogroup /mnt/cephfs`  
+`sed -i "$ a /mnt/cephfs *(rw,no_root_squash,no_subtree_check)" /etc/exportfs`  
+`exportfs -a`  
+`service nfs-kernel-server start`  
+`apt-get install nfs-common`  
+`mount ip:/mnt/cephfs  mount point`  
+2. compile and install grpc, protobuf, gtest, gmock  
 `apt-get update`  
 `apt-get install build-essential autoconf libtool git unzip pkg-config`  
 `git clone -b $(curl -L http://grpc.io/release) https://github.com/grpc/grpc`  
@@ -14,8 +31,20 @@
 `make -j8`  
 `make install`  
 `cd ../../`  
-
 `apt-get install cmake -y`  
+`git clone https://github.com/google/googletest.git`  
+`cd googletest`  
+`git checkout release-1.8.0`  
+`cmake googlemock/`  
+`make & make install`  
+`cd ..`  
+`apt-get install libcurl4-nss-dev`  
+`git clone https://github.com/ceph/libs3.git`  
+`cd libs3`  
+`make`  
+`cp build/lib/libs3.so.trunk0 /lib64/libs3.so`  
+`cd ..`  
+`ldconfig`  
 `git clone https://github.com/google/googletest.git`  
 `cd googletest`  
 `git checkout release-1.8.0`  
@@ -32,71 +61,34 @@
 `apt-get install libbz2-dev`  
 `git clone https://github.com/facebook/rocksdb.git`  
 `cd rocksdb`  
-`make static_lib`  
+`PORTABLE=1 make static_lib`  
 `make install`  
 `git clone https://github.com/Hybrid-Cloud/storage-gateway.git`  
 `cd storage-gateway`  
-`./build.sh`  
-4. compile tgt source code  
+`./build.sh`    
+4. build linux agent  
+`cd storage-gateway/src/agent`  
+`make -j`  
+5. compile tgt source code  
 `apt-get install tgt xsltproc`  
-`apt-get install lttng-tools`  
-`apt-get install lttng-modules-dkms`  
-`apt-get install liblttng-ust-dev`  
 `git clone -b iohook https://github.com/Hybrid-Cloud/tgt.git`  
 `cd tgt`  
 `make -j8`  
 `make install`  
-5. prepare cephfs direcotry to store journal files  
-prepare mount point  
-`mkdir -p /mnt/cephfs`  
-create cephfs  
-`ceph osd pool create cephfs_data 128`  
-`ceph osd pool create cephfs_metadata 128`  
-`ceph fs new cephfs cephfs_metadata cephfs_data`  
-mount cephfs on mount point, `admin_key` get from `/etc/ceph/ceph.client.admin.keyring`  
-`mount -t ceph ceph_fs_ip:ceph_fs_port:/ /mnt/cephfs -o name=admin,secret=admin_key`  
-6. configure storage gateway ini file  
-create a S3 user and generate `access_key` and `secret_key` for later use  
-`radosgw-admin user create --uid={username} --display-name={display-name}`  
-create and edit /etc/storage-gateway/config.ini  
-`[journal_meta_storage]`  
-`type=ceph_s3`  
-`[ceph_s3]`  
-`secret_key=xxxxx`  
-`access_key=xxxxxx`  
-`host=ceph-node1:7480`  
-`bucket=journals_bucket`  
-`[journal_storage]`  
-`type=ceph_fs`  
-`[ceph_fs]`  
-`mount_point=/mnt/cephfs`  
-`[meta_server]`  
-`port=50051`  
-`ip=x.x.x.x`  
-`[volumes]`  
-`primary=xxx`  
-`secondary=xxx`  
-`[replicate]`  
-`local_ip=x.x.x.x`  
-`remote_ip=x.x.x.x`  
-`port=x.x.x.x`  
-7. start rpc server, which manage all journal files meta data  
+6. configure storage gateway  
+`cp storage_gateway/etc/config.ini /etc/storage_gateway/`  
+accord environment to modify configure field  
+7. start sg server
 `cd storage-gateway/src/sg_server`  
 `cp storage-gateway/lib/libs3.so /lib/libs3.so.trunk0`  
-`./rpc_server &`  
-8. start journal server  
-`cd storage-gateway/src/journal_writer`  
-`./journal_server &`  
-9. configure tgt target  
-create and edit /etc/tgt/targets.conf  
-`include /etc/tgt/config.d/*conf`  
-`<target iqn.2016.xxx.com.test>`  
-`bs-type hijacker`  
-`bsopts "host=journal_server_ip\;port=journal_server_port\;volume=volume_name\;device=block_device_path"`  
-`backing-store block_device_path`  
-`allow-in-use yes`  
-`</target>`  
-10. start iscsi target tgtd  
+`./sg_server &`  
+8. install agent driver[agent mode only]  
+`cd src/agent`  
+`insmod sg_agent.ko`  
+9. start sg client 
+`cd storage-gateway/src/sg_client`  
+`./sg_client &`   
+10. start iscsi target tgtd[isci mode only]  
 `service tgt start`  
 exceptions on linux kernel version later than 4.0, solution as follow:  
 `/etc/init.d/tgt` script no work, replace it with tgt scrpit provided with tgt.1.0.63  
@@ -112,4 +104,3 @@ iscsi initiator login
 `iscsiadm -m node -p target_host_ip --login`  
 iscsi initiator logout  
 `iscsiadm -m node -p target_host_op --logout`  
-
