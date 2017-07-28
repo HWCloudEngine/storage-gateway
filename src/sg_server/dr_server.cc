@@ -14,6 +14,7 @@
 #include <thread>
 #include <vector>
 #include <sys/types.h>
+#include <signal.h>
 #include "log/log.h"
 #include "ceph_s3_meta.h"
 #include "common/ceph_s3_api.h"
@@ -43,6 +44,7 @@
 #define MAX_TASK_COUNT_IN_QUEUE (128)
 
 int main(int argc, char** argv) {
+    signal(SIGSEGV, signal_handler);
     std::string file="sg_server.log";
     DRLog::log_init(file);
     DRLog::set_log_level(SG_DEBUG);
@@ -144,6 +146,9 @@ int main(int argc, char** argv) {
         std::cerr << "start meta server failed!" << std::endl;
         return -1;
     }
+    int xxx = 10/0;
+    int * pppp= (int*) -1;
+    std::cout << *pppp;
 
     // init gc thread
     GCTask::instance().init(lease_server,

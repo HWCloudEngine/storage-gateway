@@ -78,9 +78,9 @@ void DRLog::log_init(std::string file_name)
     boost::shared_ptr<logging::core> core = logging::core::get();
     boost::shared_ptr<sinks::text_file_backend> backend =
         boost::make_shared<sinks::text_file_backend>(
-            keywords::file_name =  file_name + ".%5N", // file name
+            keywords::file_name =  file_name + ".%Y-%m-%d_%H-%M-%S", // file name
             keywords::rotation_size = 5 * 1024 * 1024, // log file size
-            keywords::time_based_rotation = sinks::file::rotation_at_time_point(0, 0, 0)  // create new file at midnight
+            keywords::open_mode = std::ios_base::app | std::ios_base::out  // append if same log file
             );
 
     // TODO: The frontend can be synchronous_sink or asynchronous_sink
@@ -132,6 +132,17 @@ void print_backtrace(){
     }
 
     free(strings);
+}
+
+void signal_handler(int sig) {
+    LOG_FATAL << "CAUSE of ERROR signal:" << sig;
+    print_backtrace();
+    exit(1);
+}
+
+// Convert file path to only the filename
+std::string path_to_filename(std::string path) {
+   return path.substr(path.find_last_of("/\\")+1);
 }
 
 #if 0

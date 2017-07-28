@@ -129,7 +129,7 @@ void ReplicatorContext::recycle_task(std::shared_ptr<TransferTask>& t){
         LOG_ERROR << "new consumer marker ahead of the last one:"
             << temp_marker.cur_journal() << ":" << temp_marker.pos() << "<"
             << c_marker_.cur_journal() << ":" << c_marker_.pos();
-        DR_ERROR_OCCURED();
+        SG_ERROR_OCCURED();
     }
     return;
 }
