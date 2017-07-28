@@ -56,7 +56,7 @@ ConfigureOptions::ConfigureOptions() {
     io_server_port = config_parser.get_default("network.io_server_port", 9999);
     io_server_uds = config_parser.get_default("network.io_server.uds", std::string("/var/pipe"));
     ctrl_server_ip = config_parser.get_default("network.ctrl_server_ip", std::string("127.0.0.1"));
-    ctrl_server_port = config_parser.get_default("nework.ctrl_server_port", 1111);
+    ctrl_server_port = config_parser.get_default("network.ctrl_server_port", 1111);
     meta_server_ip = config_parser.get_default("network.meta_server_ip", std::string("127.0.0.1"));
     meta_server_port = config_parser.get_default("network.meta_server_port", 50051);
     replicate_local_ip = config_parser.get_default("network.replicate_local_ip", std::string("127.0.0.1"));

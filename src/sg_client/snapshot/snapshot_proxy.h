@@ -35,6 +35,7 @@
 #include "common/volume_attr.h"
 #include "common/env_posix.h"
 #include "common/define.h"
+#include "common/interval_set.h"
 #include "snapshot.h"
 #include "syncbarrier.h"
 #include "transaction.h"
@@ -119,6 +120,16 @@ class SnapshotProxy : public ISnapshot, public ITransaction, public ISyncBarrier
     /*common transaction mechanism*/
     StatusCode transaction(const SnapReqHead& shead, const std::string& sname,
                            const UpdateEvent& sevent);
+
+    size_t read_from_block_store(const off_t off, const size_t len,
+                                 const std::vector<ReadBlock>& blocks, char* buf);
+    size_t read_from_block_device(const off_t off, const size_t len,
+                                  const interval_set<uint64_t>& read_blkdev_area,
+                                  char* buf);
+    interval_set<uint64_t> cal_read_blkdev_area(const off_t off, const size_t len,
+                                                const std::vector<ReadBlock>& blocks);
+    void dedup_cow_block(const std::vector<ReadBlock>& prev_cow_blocks,
+                         std::vector<ReadBlock>& cur_cow_blocks);
 
  private:
     /*volume attr*/
