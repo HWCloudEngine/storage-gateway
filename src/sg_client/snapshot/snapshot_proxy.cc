@@ -19,7 +19,6 @@
 #include <algorithm>
 #include <chrono>
 #include <fstream>
-#include "common/interval_set.h"
 #include "common/utils.h"
 #include "common/config_option.h"
 #include "rpc/message.pb.h"
@@ -456,122 +455,130 @@ StatusCode SnapshotProxy::diff_snapshot(const DiffSnapshotReq* req,
     return StatusCode::sOk;
 }
 
+size_t SnapshotProxy::read_from_block_store(const off_t off, const size_t len,
+                                         const std::vector<ReadBlock>& blocks,
+                                         char* buf)
+{
+    size_t read_len = 0;
+    interval_set<uint64_t> read_area;
+    read_area.clear();
+    read_area.insert(off, len);
+    for (auto block : blocks) {
+        uint64_t block_no = block.blk_no();
+        bool block_zero = block.blk_zero();
+        string block_url = block.blk_url();
+        interval_set<uint64_t> cur_blk_area;
+        cur_blk_area.clear();
+        cur_blk_area.insert(block_no * COW_BLOCK_SIZE, COW_BLOCK_SIZE);
+        cur_blk_area.intersection_of(read_area);
+        if (!cur_blk_area.empty()) {
+            for (auto it = cur_blk_area.begin(); it != cur_blk_area.end(); it++) {
+                char*  rbuf = buf + it.get_start() - off;
+                size_t rlen = it.get_len();
+                off_t  roff = it.get_start() - (block_no * COW_BLOCK_SIZE);
+                if (!block_zero) {
+                    size_t ret = m_block_store->read(block_url, rbuf, rlen, roff);
+                    assert(ret == rlen);
+                } else {
+                    memset(rbuf, 0, rlen); 
+                }
+                read_len += rlen;
+                LOG_INFO << "read block store blk_no:" << block_no << " blk_url:" << block_url
+                         << " blk_zero:" << block_zero << " start:" << it.get_start()
+                         << " len:"  << it.get_len() << " roff:" << roff << " rlen:" << rlen;
+            }
+        }
+    }
+    return read_len;
+}
+
+size_t SnapshotProxy::read_from_block_device(const off_t off, const size_t len,
+                                             const interval_set<uint64_t>& read_blkdev_area,
+                                             char* buf)
+{ 
+    size_t read_len = 0;
+    if (!read_blkdev_area.empty()) {
+        for (auto it = read_blkdev_area.begin(); it != read_blkdev_area.end(); it++) {
+            off_t  r_off = it.get_start();
+            size_t r_len = it.get_len();
+            char*  r_buf = buf + r_off - off;
+            LOG_INFO << "read block device cur_off:" << r_off << " cur_len:" << r_len
+                     << " align_off:" << ALIGN_UP(r_off, 512) << " align_len:" << ALIGN_UP(r_len, 512);
+            size_t ret = m_block_file->read(r_buf, ALIGN_UP(r_len, 512), ALIGN_UP(r_off, 512));
+            assert(ret == r_len);
+            read_len += ret;
+        }
+    }
+    return read_len;
+}
+
+interval_set<uint64_t> SnapshotProxy::cal_read_blkdev_area(const off_t off, const size_t len,
+                                          const std::vector<ReadBlock>& blocks)
+{
+    interval_set<uint64_t> read_blkdev_area;
+    read_blkdev_area.clear();
+    read_blkdev_area.insert(off, len);
+    interval_set<uint64_t> read_blkstore_area;
+    read_blkstore_area.clear();
+    for (auto block : blocks) {
+        uint64_t block_no = block.blk_no();
+        read_blkstore_area.insert(block_no * COW_BLOCK_SIZE, COW_BLOCK_SIZE);
+    }
+
+    if (!read_blkstore_area.empty()) {
+        read_blkdev_area.subtract(read_blkstore_area);
+    }
+    return read_blkdev_area;
+}
+
+void SnapshotProxy::dedup_cow_block(const std::vector<ReadBlock>& prev_cow_blocks,
+                                    std::vector<ReadBlock>& cur_cow_blocks)
+{
+    std::set<uint64_t> prev_block_set;
+    for (auto block : prev_cow_blocks) {
+        prev_block_set.insert(block.blk_no()); 
+    }
+    for (auto cur_it = cur_cow_blocks.begin(); cur_it != cur_cow_blocks.end();) {
+        if (prev_block_set.find(cur_it->blk_no()) != prev_block_set.end()) {
+            cur_it = cur_cow_blocks.erase(cur_it);
+            continue;
+        }
+        cur_it++;
+    }
+}
+
 StatusCode SnapshotProxy::read_snapshot(const ReadSnapshotReq* req,
                                         ReadSnapshotAck* ack) {
     string vname = req->vol_name();
     string sname = req->snap_name();
     off_t  off   = req->off();
     size_t len   = req->len();
-    LOG_INFO << "read_snapshot vname:" << vname << " sname:" << sname
-             << " off:" << off << " len:" << len;
-    std::vector<ReadBlock> blocks;
-    auto ret = g_rpc_client.do_read(req->header(), vname, sname, off, len, blocks);
+    LOG_INFO << "read_snapshot vname:" << vname << " sname:" << sname << " off:" << off << " len:" << len;
+    /*first read*/
+    std::vector<ReadBlock> first_blocks;
+    auto ret = g_rpc_client.do_read(req->header(), vname, sname, off, len, first_blocks);
     assert(ret.ok());
- 
     char* read_buf = (char*)malloc(len);
     assert(read_buf != nullptr);
-    /*--------first read----------------------*/
-    interval_set<uint64_t> read_region;
-    read_region.clear();
-    read_region.insert(off, len);
-    /*region read from orginal block device*/
-    interval_set<uint64_t> read_device_region;
-    read_device_region.clear();
-    read_device_region.insert(off, len);
-    /*region read from cow object*/
-    interval_set<uint64_t> read_cowobj_region;
-    read_cowobj_region.clear();
-    /*cow block set in first read*/
-    set<uint64_t> cow_block_set0;
-    for (auto block : blocks) {
-        uint64_t block_no = block.blk_no();
-        bool block_zero = block.blk_zero();
-        string block_url = block.blk_url();
-        /*accumulate record which cow block */
-        cow_block_set0.insert(block_no);
-        /*accumulate record which read from cow object*/
-        read_cowobj_region.insert(block_no * COW_BLOCK_SIZE, COW_BLOCK_SIZE);
-        interval_set<uint64_t> block_region;
-        block_region.insert(block_no * COW_BLOCK_SIZE, COW_BLOCK_SIZE);
-        block_region.intersection_of(read_region);
-        /*block region read from cow object*/
-        if (!block_region.empty()) {
-            for (interval_set<uint64_t>::iterator it = block_region.begin();
-                 it != block_region.end(); it++) {
-                char*  rbuf = read_buf + it.get_start() - off;
-                size_t rlen = it.get_len();
-                off_t  roff = it.get_start() - (block_no * COW_BLOCK_SIZE);
-                size_t read_ret = 0;
-                if (!block_zero) {
-                    read_ret = m_block_store->read(block_url, rbuf, rlen, roff);
-                    assert(read_ret == rlen);
-                } else {
-                    memset(rbuf, 0, rlen); 
-                }
-                LOG_INFO << "read_snapshot first read cow object"
-                << " blk_no:" << block_no << " blk_ob:" << block_url
-                << " start:" << it.get_start() << " len:"  << it.get_len()
-                << " roff:" << roff << " rlen:" << rlen << " read_ret:" << read_ret;
-           }
-        }
+    size_t read_ret = 0; 
+    if (!first_blocks.empty()) {
+        LOG_INFO << "read block store first";
+        read_ret = read_from_block_store(off, len, first_blocks, read_buf);
     }
-    /*compute which read from block device*/
-    if (!read_cowobj_region.empty()) {
-        read_device_region.subtract(read_cowobj_region);
+    auto read_blkdev_area = cal_read_blkdev_area(off, len, first_blocks);
+    if (!read_blkdev_area.empty()) {
+        LOG_INFO << "read block device first";
+        read_ret = read_from_block_device(off, len, read_blkdev_area, read_buf);
     }
-    if (!read_device_region.empty()) {
-        for (interval_set<uint64_t>::iterator it = read_device_region.begin();
-             it != read_device_region.end(); it++) {
-            off_t  r_off = it.get_start();
-            size_t r_len = it.get_len();
-            char*  r_buf = read_buf + r_off - off;
-            LOG_INFO << "read_snapshot first read block device"
-                     << " cur_off:" << r_off
-                     << " cur_len:" << r_len
-                     << " align_off:" << ALIGN_UP(r_off, 512)
-                     << " align_len:" << ALIGN_UP(r_len, 512);
-            ssize_t read_ret = m_block_file->read(r_buf,
-                                                  ALIGN_UP(r_len, 512),
-                                                  ALIGN_UP(r_off, 512));
-            assert(read_ret == r_len);
-        }
-    }
-
-    /*----------second read---------------*/
-    blocks.clear();
-    ret = g_rpc_client.do_read(req->header(), vname, sname, off, len, blocks);
+    /*second read*/
+    std::vector<ReadBlock> second_blocks;
+    ret = g_rpc_client.do_read(req->header(), vname, sname, off, len, second_blocks);
     assert(ret.ok());
-    for (auto block : blocks) {
-        uint64_t block_no = block.blk_no();
-        bool block_zero = block.blk_zero();
-        string block_url = block.blk_url();
-        /*cow block has read during first second*/
-        if (cow_block_set0.find(block_no) != cow_block_set0.end()) {
-            continue;
-        }
-        /*when second read, some region in first read from block deivce should
-         *read from new snapshot cow object*/
-        interval_set<uint64_t> block_region;
-        block_region.insert(block_no * COW_BLOCK_SIZE, COW_BLOCK_SIZE);
-        block_region.intersection_of(read_device_region);
-        /*block region read from cow object*/
-        if (!block_region.empty()) {
-            for (interval_set<uint64_t>::iterator it = block_region.begin();
-                 it != block_region.end(); it++) {
-                char*  rbuf = read_buf + it.get_start() - off;
-                size_t rlen = it.get_len();
-                off_t  roff = it.get_start() - (block_no * COW_BLOCK_SIZE);
-                LOG_INFO << "read_snapshot second read cow object"
-                    << " blk_no:" << block_no
-                    << " blk_ob:" << block_url
-                    << " cow_off:"  << it.get_start()
-                    << " cow_len:"  << it.get_len();
-                if (!block_zero) {
-                    m_block_store->read(block_url, rbuf, rlen, roff);
-                } else {
-                    memset(rbuf, 0, rlen);
-                }
-            }
+    if (!second_blocks.empty()) {
+        dedup_cow_block(first_blocks, second_blocks);
+        if (!second_blocks.empty()) {
+            LOG_INFO << "read block store second";
+            read_ret = read_from_block_store(off, len, second_blocks, read_buf);
         }
     }
     ack->mutable_header()->set_status(StatusCode::sOk);
