@@ -16,6 +16,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/property_tree/exceptions.hpp>
 #include <boost/property_tree/ini_parser.hpp>
+#include "log/log.h"
 
 inline ConfigParser::ConfigParser(const char* file) {
     file_ = file;
@@ -23,7 +24,8 @@ inline ConfigParser::ConfigParser(const char* file) {
         boost::property_tree::ini_parser::read_ini(file, pt_);
     }
     catch(boost::property_tree::ini_parser::ini_parser_error &e){
-        std::cerr << e.what() << std::endl;
+        LOG_ERROR << "config parse error:" << e.what();
+        SG_ERROR_OCCURED();
     }
 }
 template<class Type>

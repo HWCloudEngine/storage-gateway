@@ -79,12 +79,12 @@ bool VolumeManager::init()
     ep_events = new epoll_event_t[max_ep_events_num];
     if(ep_events == nullptr){
         LOG_ERROR << "allocate epoll events failed!";
-        DR_ERROR_OCCURED();
+        SG_ERROR_OCCURED();
     }
     epoll_fd = epoll_create(512); // Since Linux 2.6.8, the size argument is ignored
     if(epoll_fd == -1){
         LOG_ERROR << "epoll create failed:" << errno;
-        DR_ERROR_OCCURED();
+        SG_ERROR_OCCURED();
     }
 
     lease_client->init(g_option.lease_renew_window,

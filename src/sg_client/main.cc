@@ -1,10 +1,12 @@
 #include <iostream>
 #include <string>
+#include <signal.h>
 #include "log/log.h"
 #include "server_socket.h"
 #include "common/config_option.h"
 
 int main(int argc, char* argv[]) {
+    signal(SIGSEGV, signal_handler);
     assert(argc == 1);
     //todo read from config file
     uint32_t io_service_pool_size = 1;

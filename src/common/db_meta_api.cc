@@ -136,7 +136,7 @@ int DBMetaApi::decode_meta_value(const string* in,string* out,
     }
     catch(const std::invalid_argument &e){
         LOG_ERROR << "invalid_argument len:" << in->substr(0,VALUE_LEN_BYTES);
-        DR_ERROR_OCCURED();
+        SG_ERROR_OCCURED();
     }
 
     if(len + VALUE_LEN_BYTES == in->length()){
