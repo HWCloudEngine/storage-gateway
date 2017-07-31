@@ -43,13 +43,13 @@ bool AgentControl::init()
     free(init_info.host);
     if(result != 0)
     {
-        LOG_INFO << " agent ctl init failed,errno:" <<errno;
+        LOG_INFO << "agent ctrl init failed errno:" <<errno;
         return false;
     }
     //create agent conf file if not exist
     std::ofstream fc(g_option.local_agent_dev_conf,std::ios::app);
     fc.close();
-    LOG_INFO << " agent init OK";
+    LOG_INFO << "agent mode init ok";
     return true;
 }
 

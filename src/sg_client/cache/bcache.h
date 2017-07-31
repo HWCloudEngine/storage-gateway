@@ -63,7 +63,6 @@ class Bcache {
 
     Bcache(const Bcache& other) = delete;
     Bcache(Bcache&& other) = delete;
-
     Bcache& operator=(const Bcache& other) = delete;
     Bcache& operator=(Bcache&& other) = delete;
     ~Bcache();

@@ -221,11 +221,11 @@ ssize_t JournalEntry::parse(unique_ptr<AccessFile>* file, size_t fsize, off_t of
     /*check crc */
     uint32_t initial = 0;
     uint32_t crc_value = crc32c(data, length, initial);
-
-    assert(crc_value == crc);
-
+    if (crc_value != crc) {
+        LOG_ERROR << "crc check failed crc_value:" << crc_value << " crc:" << crc;
+        return -1;
+    }
     free(data);
-
     //LOG_INFO << "parse type:" << type << " length:" << length 
     //         << " crc:" << crc << " crc_value:" << crc_value << " ok";
     return start;

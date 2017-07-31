@@ -35,10 +35,12 @@ ClientSocket::ClientSocket(VolumeManager& vol_manager,
     LOG_INFO << "network work thread create";
     recv_buf_ = nullptr;
     running_flag = false;
+    LOG_INFO << "network work thread create ok";
 }
 
 ClientSocket::~ClientSocket() {
     LOG_INFO << "netWork work thread destroy";
+    LOG_INFO << "netWork work thread destroy ok";
 }
 
 bool ClientSocket::init() {

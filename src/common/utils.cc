@@ -118,6 +118,7 @@ bool network_reachable(const char* ip_addr, short port) {
     server_addr.sin_port = htons(port);
     int ret = connect(sock, (struct sockaddr*)&server_addr, sizeof(server_addr));
     if (ret < 0) {
+        close(sock);
         return false;
     }
     close(sock);

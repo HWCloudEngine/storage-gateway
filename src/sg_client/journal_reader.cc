@@ -15,12 +15,14 @@
 JournalReader::JournalReader(BlockingQueue<io_request_t>& read_queue,
                              BlockingQueue<io_reply_t*>& reply_queue)
     :m_read_queue(read_queue), m_reply_queue(reply_queue), m_run(false) {
-    LOG_INFO << "ioreader work thread create";
+    LOG_INFO << "io reader work thread create";
     m_run = false;
+    LOG_INFO << "io reader work thread create ok";
 }
 
 JournalReader::~JournalReader() {
-    LOG_INFO << "ioreader work thread destory";
+    LOG_INFO << "io reader work thread destory";
+    LOG_INFO << "io reader work thread destory ok";
 }
 
 

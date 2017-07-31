@@ -24,17 +24,19 @@ JournalWriter::JournalWriter(BlockingQueue<shared_ptr<JournalEntry>>& write_queu
                              VolumeAttr& vol_attr)
     :thread_ptr(), write_queue_(write_queue), reply_queue_(reply_queue),
      vol_attr_(vol_attr), cur_journal_size(0) ,marker_handler(vol_attr){
-    LOG_INFO << "iowriter work thread create";
+    LOG_INFO << "io writer work thread create";
     cur_file_.reset();
     running_flag = false;
+    LOG_INFO << "io writer work thread create ok";
 }
 
 JournalWriter::~JournalWriter() {
-    LOG_INFO << "iowriter work thread destory";
+    LOG_INFO << "io writer work thread destory";
     cur_file_.reset();
     while (!seal_queue.empty()) {
         seal_journals(lease_client_->get_lease());
     }
+    LOG_INFO << "io writer work thread destory ok";
 }
 
 bool JournalWriter::init(shared_ptr<IDGenerator> idproxy,
