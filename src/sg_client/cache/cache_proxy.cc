@@ -15,19 +15,20 @@ using huawei::proto::WriteMessage;
 using huawei::proto::DiskPos;
 
 CacheProxy::CacheProxy(string blk_dev, shared_ptr<IDGenerator> id_maker) {
+    LOG_INFO << "cache proxy create";
     blkdev = blk_dev;
     idproc = id_maker;
     total_mem_size = 0;
     jcache = new Jcache(blk_dev);
     bcache = new Bcache(blk_dev);
-    LOG_INFO << "cacheProxy create";
+    LOG_INFO << "cache proxy create ok";
 }
 
 CacheProxy::~CacheProxy() {
-    LOG_INFO << "cacheProxy destroy";
+    LOG_INFO << "cache proxy destroy";
     delete bcache;
     delete jcache;
-    LOG_INFO << "cacheProxy destroy ok";
+    LOG_INFO << "cache proxy destroy ok";
 }
 
 /*journal write call*/

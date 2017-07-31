@@ -118,10 +118,12 @@ bool VolumeManager::init()
     init_volumes();
 
     if(!ctrl_rpc_server->run()){
-        LOG_FATAL << "start ctrl rpc server failed!";
+        LOG_FATAL << "start ctrl rpc server:" <<  g_option.ctrl_server_ip
+                  << " port:" << g_option.ctrl_server_port << " failed"; 
         return false;
     }
-    LOG_INFO << "start ctrl rpc server ok";
+    LOG_INFO << "start ctrl rpc server:" <<  g_option.ctrl_server_ip
+             << " port:" << g_option.ctrl_server_port << " ok"; 
 
     writer_thread.reset(new std::thread(&VolumeManager::writer_thread_work,this));
     return true;
@@ -129,10 +131,11 @@ bool VolumeManager::init()
 
 void VolumeManager::init_volumes()
 {
-    LOG_INFO << "init volumes";
+    LOG_INFO << "sys startup add exist volumes";
     std::ifstream f(g_option.local_volumes_conf, std::ios::app);
     if(!f.is_open())
     {
+        LOG_ERROR << "open file:" << g_option.local_volumes_conf << " failed";
         return;
     }
     std::string vol_name;
@@ -140,20 +143,20 @@ void VolumeManager::init_volumes()
     {
         if(vol_name.empty())
         {
-            LOG_INFO <<"persistent volume info is invalid,info:"<<vol_name;
+            LOG_ERROR << "persistent volume info is invalid,info:" << vol_name;
             continue;
         }
         VolumeInfo volume_info;
         StatusCode ret = g_rpc_client.get_volume(vol_name, volume_info);
         if (ret != StatusCode::sOk)
         {
-            LOG_INFO <<"get volume info from sg server failed"<<vol_name;
+            LOG_ERROR << "get volume info from sg server failed" << vol_name;
             continue;
         }
         add_volume(volume_info, true);
     }
     f.close();
-    LOG_INFO << "init volumes ok";
+    LOG_INFO << "sys startup add exist volumes ok";
 }
 
 void VolumeManager::periodic_task()
@@ -232,7 +235,6 @@ shared_ptr<Volume> VolumeManager::add_volume(const VolumeInfo& volume_info, bool
     if (iter == volumes.end())
     {
         /*create volume*/
-        LOG_INFO << "create volume obj:" << vol_name;
         vol = make_shared<Volume>(*this, volume_info, lease_client, epoll_fd);
         vol->init();
         volumes.insert({vol_name, vol});

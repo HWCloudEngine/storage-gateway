@@ -35,13 +35,15 @@ using huawei::proto::RepRole;
 
 SnapshotProxy::SnapshotProxy(VolumeAttr& vol_attr, BlockingQueue<shared_ptr<JournalEntry>>& entry_queue)
     :m_vol_attr(vol_attr), m_entry_queue(entry_queue) {
+    LOG_INFO << "create snapshot proxy vname:" << m_vol_attr.vol_name(); 
     init();
-    LOG_INFO << "create proxy vname:" << m_vol_attr.vol_name() << " ok";
+    LOG_INFO << "create snapshot proxy vname:" << m_vol_attr.vol_name() << " ok";
 }
 
 SnapshotProxy::~SnapshotProxy() {
+    LOG_INFO << "delete snapshot proxy vname:" << m_vol_attr.vol_name(); 
     fini();
-    LOG_INFO << "delete proxy vname:" << m_vol_attr.vol_name() << " ok";
+    LOG_INFO << "delete snapshot proxy vname:" << m_vol_attr.vol_name() << " ok";
 }
 
 bool SnapshotProxy::init() {

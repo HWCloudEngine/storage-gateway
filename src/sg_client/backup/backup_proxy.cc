@@ -24,14 +24,18 @@ using huawei::proto::BackupType;
 BackupProxy::BackupProxy(VolumeAttr& vol_attr,
                          shared_ptr<BackupDecorator> backup_decorator)
     :m_vol_attr(vol_attr), m_backup_decorator(backup_decorator) {
+    LOG_INFO << "create backup proxy vname:" << m_vol_attr.vol_name(); 
     /*todo read from config*/
     std::string meta_rpc_addr = rpc_address(g_option.meta_server_ip,
                                             g_option.meta_server_port);
     m_block_store.reset(BlockStore::factory("local"));
+    LOG_INFO << "create backup proxy vname:" << m_vol_attr.vol_name() << " ok"; 
 }
 
 BackupProxy::~BackupProxy() {
+    LOG_INFO << "create backup proxy vname:" << m_vol_attr.vol_name(); 
     m_block_store.reset();
+    LOG_INFO << "create backup proxy vname:" << m_vol_attr.vol_name() << " ok"; 
 }
 
 StatusCode BackupProxy::create_backup(const CreateBackupReq* req,

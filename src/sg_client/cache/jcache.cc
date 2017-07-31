@@ -47,12 +47,14 @@ ostream& operator<<(ostream& cout, const Jkey& key) {
 }
 
 Jcache::Jcache(string blk_dev) {
-    m_blkdev = blk_dev;
     LOG_INFO << "jcache create";
+    m_blkdev = blk_dev;
+    LOG_INFO << "jcache create ok";
 }
 
 Jcache::~Jcache() {
     LOG_INFO << "jcache destroy";
+    LOG_INFO << "jcache destroy ok";
 }
 
 bool Jcache::add(Jkey key, shared_ptr<CEntry> value) {

@@ -33,13 +33,15 @@ using huawei::proto::RepStatus;
 using huawei::proto::RepRole;
 
 JournalReplayer::JournalReplayer(VolumeAttr& vol_attr) :vol_attr_(vol_attr) {
-    LOG_INFO << "ioreplayer work thread create";
+    LOG_INFO << "io replayer work thread create";
     running_ = false;
     update_ = false;
+    LOG_INFO << "io replayer work thread create ok";
 }
 
 JournalReplayer::~JournalReplayer() {
-    LOG_INFO << "ioreplayer work thread destroy";
+    LOG_INFO << "io replayer work thread destroy";
+    LOG_INFO << "io replayer work thread destroy ok";
 }
 
 bool JournalReplayer::init(std::shared_ptr<IDGenerator> id_maker_ptr,

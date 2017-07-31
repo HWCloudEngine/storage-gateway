@@ -43,8 +43,7 @@ BackupCtx::BackupCtx(const std::string& vol_name, const size_t& vol_size) {
     }
     int ret = m_index_store->db_open();
     assert(ret == 0);
-    m_snap_client = create_snapshot_rpc_client(vol_name);
-    assert(m_snap_client != nullptr);
+    m_snap_client = nullptr;
 }
 
 BackupCtx::~BackupCtx() {
@@ -81,7 +80,11 @@ BlockStore* BackupCtx::block_store()const {
     return m_block_store;
 }
 
-SnapshotCtrlClient* BackupCtx::snap_client()const {
+SnapshotCtrlClient* BackupCtx::snap_client() {
+    if (m_snap_client == nullptr) {
+        m_snap_client = create_snapshot_rpc_client(m_vol_name);
+        assert(m_snap_client != nullptr);
+    }
     return m_snap_client;
 }
 
