@@ -22,9 +22,8 @@
 static constexpr size_t kSectorSize = 512;
 static constexpr size_t kPageSize = 4096;
 
-PosixStreamAccessFile::PosixStreamAccessFile(const std::string& fname,
-                                             FILE* file) 
-    : fname_(fname),file_(file) {
+PosixStreamAccessFile::PosixStreamAccessFile(const std::string& fname, FILE* file) 
+    : fname_(fname), file_(file) {
     fd_ = fileno(file_);
 }
 
@@ -38,16 +37,15 @@ ssize_t PosixStreamAccessFile::read(char* buf, const size_t& len) {
     size_t ret = fread(buf, 1, len, file_); 
     if (ret != len) {
         if (feof(file_)) {
-            LOG_INFO << "feof fname:" << fname_ << "len:" << len << "ret:" << ret;
+            LOG_ERROR << "fname:" << fname_ << " len:" << len << "ret:" << ret << " eof";
         } else {
-            LOG_ERROR << "error fname:" << fname_ << "len:" << len << "ret:" << ret;
+            LOG_ERROR << "fname:" << fname_ << " len:" << len << "ret:" << ret << " failed";
         }
     }
     return ret;
 }
 
-ssize_t PosixStreamAccessFile::read(char* buf, const size_t& size,
-                                    const off_t& off) {
+ssize_t PosixStreamAccessFile::read(char* buf, const size_t& size, const off_t& off) {
     int ret = fseek(file_, off, SEEK_SET);
     if (ret == -1) {
         LOG_ERROR << "fseek off:" << off << " failed";
@@ -56,13 +54,15 @@ ssize_t PosixStreamAccessFile::read(char* buf, const size_t& size,
     return read(buf, size);
 }
 
-ssize_t PosixStreamAccessFile::readv(const struct iovec* iov, int iovcnt,
-                                     const off_t& off) {
+ssize_t PosixStreamAccessFile::readv(const struct iovec* iov, int iovcnt, const off_t& off) {
     off_t  read_off = off;
     size_t read_bytes = 0;
     for (int i = 0 ; i < iovcnt; i++) {
         ssize_t ret = read((char*)iov[i].iov_base, iov[i].iov_len, read_off);
-        assert(ret == iov[i].iov_len);
+        if (ret != iov[i].iov_len) {
+            LOG_ERROR << "readv failed ret:" << ret << " len:" << iov[i].iov_len;
+            break;
+        }
         read_off += ret;
         read_bytes += ret;
     }
@@ -87,16 +87,15 @@ ssize_t PosixStreamAccessFile::write(char* buf, size_t size, off_t off) {
     return write(buf, size);
 }
 
-ssize_t PosixStreamAccessFile::writev(const struct iovec* iov, int iovcnt,
-                                      const off_t& off) {
+ssize_t PosixStreamAccessFile::writev(const struct iovec* iov, int iovcnt, const off_t& off) {
     int ret = fseek(file_, off, SEEK_SET);
     ssize_t write_bytes = 0;
     for (int i = 0; i < iovcnt; i++) {
         ssize_t write_ret = write(reinterpret_cast<char*>(iov[i].iov_base),
                                   iov[i].iov_len);
         if (write_ret != iov[i].iov_len) {
-            LOG_ERROR << "error fname:" << fname_ << "len:" << iov[i].iov_len 
-                      << "ret:" << write_ret;
+            LOG_ERROR << "writev fname:" << fname_ << "len:" << iov[i].iov_len 
+                      << "ret:" << write_ret << " failed";
             break; 
         }
         write_bytes += write_ret;

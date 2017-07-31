@@ -12,6 +12,8 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include "log/log.h"
+#include "common/config_option.h"
+#include "common/env_posix.h"
 #include "snapshot_mgr.h"
 
 using huawei::proto::StatusCode;
@@ -77,16 +79,38 @@ StatusCode SnapshotMgr::add_volume(const std::string& vol_name, const size_t& vo
         LOG_INFO << "add volume:" << vol_name << "failed, already exist";
         return StatusCode::sVolumeAlreadyExist;
     }
+    std::string vol_snap_meta_path = g_option.local_meta_path;
+    vol_snap_meta_path.append("/");
+    vol_snap_meta_path.append(vol_name);
+    vol_snap_meta_path.append("/snapshot");
+    if (!Env::instance()->file_exists(vol_snap_meta_path)) {
+        LOG_ERROR << "add volume vol_snap_meta_path:" << vol_snap_meta_path << " failed no exist";
+        return StatusCode::sOk;
+    }
     std::shared_ptr<SnapshotMds> snap_mds;
     snap_mds.reset(new SnapshotMds(vol_name, vol_size));
     m_all_snapmds.insert({vol_name, snap_mds});
     snap_mds->recover();
+    LOG_INFO << "add volume:" << vol_name << " ok";
     return StatusCode::sOk;
 }
 
 StatusCode SnapshotMgr::del_volume(const std::string& vol_name) {
     std::lock_guard<std::mutex> lock(m_mutex);
     m_all_snapmds.erase(vol_name);
+    std::string vol_snap_meta_path = g_option.local_meta_path;
+    vol_snap_meta_path.append("/");
+    vol_snap_meta_path.append(vol_name);
+    vol_snap_meta_path.append("/snapshot");
+    if (!Env::instance()->file_exists(vol_snap_meta_path)) {
+        LOG_ERROR << "del volume vol_snap_meta_path:" << vol_snap_meta_path << " failed no exist";
+        return StatusCode::sOk;
+    }
+    if(Env::instance()->delete_dir(vol_snap_meta_path)) {
+        LOG_ERROR << "del volume vol_snap_meta_path:" << vol_snap_meta_path << " failed delete dir failed";
+        return StatusCode::sOk;
+    }
+    LOG_INFO << "del volume:" << vol_name << " ok";
     return StatusCode::sOk;
 }
 

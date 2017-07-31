@@ -35,7 +35,7 @@ class BackupCtx {
     IndexStore* index_store()const;
     BlockStore* block_store()const;
 
-    SnapshotCtrlClient* snap_client()const;
+    SnapshotCtrlClient* snap_client();
 
     bool is_backup_exist(const std::string& cur_backup);
     bool is_incr_backup_allowable();
@@ -80,8 +80,6 @@ class BackupCtx {
     BlockStore* m_block_store;
 
     /*snapshot client for reading incremental data and metadata */
-    std::string         m_snap_client_ip;
-    short               m_snap_client_port;
     SnapshotCtrlClient* m_snap_client;
 };
 

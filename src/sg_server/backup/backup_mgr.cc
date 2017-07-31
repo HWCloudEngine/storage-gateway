@@ -12,6 +12,8 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include "log/log.h"
+#include "common/config_option.h"
+#include "common/env_posix.h"
 #include "backup_mgr.h"
 #include "../volume_inner_control.h"
 
@@ -92,21 +94,41 @@ StatusCode BackupMgr::add_volume(const string& vol_name,
     std::lock_guard<std::mutex> lock(m_mutex);
     auto it = m_all_backupmds.find(vol_name);
     if (it != m_all_backupmds.end()) {
-        LOG_INFO << "add volume:" << vol_name << "failed, already exist";
+        LOG_INFO << "add volume:" << vol_name << " failed already exist";
         return StatusCode::sVolumeAlreadyExist;
     }
-
+    std::string vol_backup_meta_path = g_option.local_meta_path;
+    vol_backup_meta_path.append("/");
+    vol_backup_meta_path.append(vol_name);
+    vol_backup_meta_path.append("/backup");
+    if (!Env::instance()->file_exists(vol_backup_meta_path)) {
+        LOG_ERROR << "add volume vol_backup_meta_path:" << vol_backup_meta_path << " failed no exist";
+        return StatusCode::sOk;
+    }
     shared_ptr<BackupMds> backup_mds;
     backup_mds.reset(new BackupMds(vol_name, vol_size));
     m_all_backupmds.insert({vol_name, backup_mds});
     backup_mds->recover();
-
+    LOG_INFO << "add volume:" << vol_name << " recover ok";
     return StatusCode::sOk;
 }
 
 StatusCode BackupMgr::del_volume(const string& vol_name) {
     std::lock_guard<std::mutex> lock(m_mutex);
     m_all_backupmds.erase(vol_name);
+    std::string vol_backup_meta_path = g_option.local_meta_path;
+    vol_backup_meta_path.append("/");
+    vol_backup_meta_path.append(vol_name);
+    vol_backup_meta_path.append("/backup");
+    if (!Env::instance()->file_exists(vol_backup_meta_path)) {
+        LOG_ERROR << "del volume vol_backup_meta_path:" << vol_backup_meta_path << " failed no exist";
+        return StatusCode::sOk;
+    }
+    if(Env::instance()->delete_dir(vol_backup_meta_path)) {
+        LOG_ERROR << "del volume vol_backup_meta_path:" << vol_backup_meta_path << " failed delete dir failed";
+        return StatusCode::sOk;
+    }
+    LOG_INFO << "del volume:" << vol_name << " ok";
     return StatusCode::sOk;
 }
 
