@@ -277,31 +277,35 @@ static int install_tracer(struct pbdev* dev, make_request_fn* new_make_request_f
 static int uninstall_tracer(struct pbdev* dev)
 {
     int ret = 0;
-    struct super_block* sb = dev->blk_device->bd_super;
-    if(sb){
-        LOG_INFO("freezing block device");
-        sb = freeze_bdev(dev->blk_device);
-        if(!sb){
-            LOG_ERR("freeze bdev failed");
-            return -EFAULT;
+    if(dev && dev->blk_device){
+        struct super_block* sb = dev->blk_device->bd_super;
+        if(sb){
+            LOG_INFO("freezing block device");
+            sb = freeze_bdev(dev->blk_device);
+            if(!sb){
+                LOG_ERR("freeze bdev failed");
+                return -EFAULT;
+            }
+            if(IS_ERR(sb)){
+                ret = PTR_ERR(sb);
+                LOG_ERR("free bdev failed:%d", ret);
+                return ret;
+            }
+            LOG_INFO("freezing block device ok");
         }
-        if(IS_ERR(sb)){
-            ret = PTR_ERR(sb);
-            LOG_ERR("free bdev failed:%d", ret);
-            return ret;
+        smp_wmb(); 
+        if(dev->blk_device->bd_disk){
+            dev->blk_device->bd_disk->queue->make_request_fn = dev->blk_bio_fn;
         }
-        LOG_INFO("freezing block device ok");
-    }
-    smp_wmb(); 
-    dev->blk_device->bd_disk->queue->make_request_fn = dev->blk_bio_fn;
-    smp_wmb(); 
-    if(sb){
-        LOG_INFO("thrawing block device");
-        ret = thaw_bdev(dev->blk_device, sb);
-        if(ret){
-            LOG_ERR("thaw bdev failed:%d", ret); 
+        smp_wmb(); 
+        if(sb){
+            LOG_INFO("thrawing block device");
+            ret = thaw_bdev(dev->blk_device, sb);
+            if(ret){
+                LOG_ERR("thaw bdev failed:%d", ret); 
+            }
+            LOG_INFO("thrawing block device ok");
         }
-        LOG_INFO("thrawing block device ok");
     }
     return ret;
 }
@@ -670,7 +674,9 @@ static int pbdev_deinit(struct pbdev* dev)
             tp_close(dev->network);
             kfree(dev->network);
         }
-        cbt_free(dev);
+        if(dev->cbt_bitmap){
+            cbt_free(dev);
+        }
         if(dev->blk_path){
             kfree(dev->blk_path);    
         }
@@ -678,7 +684,12 @@ static int pbdev_deinit(struct pbdev* dev)
             kfree(dev->vol_name);
         }
         if(dev->blk_device){
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,4,0))
             blkdev_put(dev->blk_device, FMODE_READ|FMODE_WRITE);
+#else
+            /*linux kernel 4.0 may occur deadlock between sgclient and system-udevd*/
+            //blkdev_put(dev->blk_device, FMODE_READ|FMODE_WRITE);
+#endif
         }
         return 0;
     }
