@@ -193,7 +193,7 @@ int JournalWriter::close_current_journal_file() {
 bool JournalWriter::write_journal_header() {
     journal_file_header_t journal_header;
     ssize_t ret = cur_file_->write(reinterpret_cast<char*>(&journal_header),
-                                   sizeof(journal_file_header_t));
+                                   sizeof(journal_file_header_t), 0);
     assert(ret == sizeof(journal_file_header_t));
     cur_journal_size += sizeof(journal_file_header_t);
     return true;
