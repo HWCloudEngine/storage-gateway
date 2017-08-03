@@ -80,18 +80,17 @@ bool JournalReplayer::init(std::shared_ptr<IDGenerator> id_maker_ptr,
 bool JournalReplayer::deinit() {
     running_ = false;
     if (replay_thread_ptr_) {
-        LOG_INFO << "replay thread exit";
+        LOG_INFO << "replay work thread exit";
         replay_thread_ptr_->interrupt();
         replay_thread_ptr_->join();
-        LOG_INFO << "replay thread ok";
+        LOG_INFO << "replay work thread exit ok";
     }
     if (update_thread_ptr_) {
-        LOG_INFO << "marker update thread exit";
+        LOG_INFO << "replay marker update thread exit";
         update_thread_ptr_->interrupt();
         update_thread_ptr_->join();
-        LOG_INFO << "marker update  thread ok";
+        LOG_INFO << "replay marker update thread exit ok";
     }
-
     return true;
 }
 

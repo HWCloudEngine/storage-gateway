@@ -68,8 +68,9 @@ bool VolumeControlImpl::execute_cmd(const std::string& command,
 bool VolumeControlImpl::recover_targets()
 {
     bool ret = iscsi_control_ptr->recover_targets();
-    if(ret == false)
+    if(ret == false){
         return false;
+    }
     ret = agent_control_ptr->recover_targets();
     return ret;
 }
@@ -153,7 +154,11 @@ Status VolumeControlImpl::EnableSG(ServerContext* context,
     string dev_name = req->device();
     size_t dev_size = req->size();
     LOG_INFO << "enable sg vol:" << vol_name << " device:" << dev_name;
-
+    if(!Env::instance()->file_exists(dev_name)){
+        LOG_INFO << "enable sg vol:" << vol_name << " device:" << dev_name << " failed no exist";
+        res->set_status(StatusCode::sInternalError);
+        return Status::OK;
+    }
     VolumeInfo volume;
     StatusCode ret = g_rpc_client.get_volume(vol_name, volume);
     if(ret != StatusCode::sOk)
@@ -356,6 +361,11 @@ Status VolumeControlImpl::AttachVolume(ServerContext* context,
     std::string vol_name = req->volume_id();
     std::string device = req->device();
     LOG_INFO << "attach vol:" << vol_name << " dev:" << device;
+    if(!Env::instance()->file_exists(device)){
+        LOG_INFO << "attach vol:" << vol_name << " dev:" << device << " failed no exist";
+        res->set_status(StatusCode::sInternalError);
+        return Status::OK;
+    }
     VolumeInfo volume;
     StatusCode ret = g_rpc_client.get_volume(vol_name, volume);
     if(ret != StatusCode::sOk)
@@ -404,7 +414,7 @@ Status VolumeControlImpl::DetachVolume(ServerContext* context,
                                        control::DetachVolumeRes* res)
 {
     std::string vol_name = req->volume_id();
-    LOG_INFO << "attach vol:" << vol_name;
+    LOG_INFO << "detach vol:" << vol_name;
     VolumeInfo volume;
     StatusCode ret = g_rpc_client.get_volume(vol_name, volume);
     if(ret != StatusCode::sOk)
@@ -424,6 +434,7 @@ Status VolumeControlImpl::DetachVolume(ServerContext* context,
             res->set_status(StatusCode::sInternalError);
         }
     }
+    LOG_INFO << "detach vol:" << vol_name << " ok";
     return Status::OK;
 }
 //end class VolumeControlImpl

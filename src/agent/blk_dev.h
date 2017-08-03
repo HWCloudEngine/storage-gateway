@@ -41,7 +41,8 @@ struct pbdev
     struct bio_list       send_bio_list;
     wait_queue_head_t     recv_wq;
     struct bio_list       recv_bio_list;
-    spinlock_t            tasks_lock;
+    spinlock_t            send_thread_lock;
+    spinlock_t            recv_thread_lock;
     struct task_struct*   send_thread;
     struct task_struct*   recv_thread;
     

@@ -25,7 +25,6 @@ static int pbdev_mgr_add(struct pbdev_mgr* dev_mgr, struct pbdev* dev)
         spin_lock_irq(&dev_mgr->dev_lock);
         list_add_tail(&dev->link, &dev_mgr->dev_list);
         spin_unlock_irq(&dev_mgr->dev_lock);
-
     }
     return 0;
 }
@@ -41,11 +40,11 @@ static int pbdev_mgr_del(struct pbdev_mgr* dev_mgr, const char* blk_path)
             return 0;
         }
         list_for_each_entry_safe(bdev, tmp, &dev_mgr->dev_list, link) {
-            if(strcmp(bdev->blk_path, blk_path) == 0){
+            if(bdev && bdev->blk_path && strcmp(bdev->blk_path, blk_path) == 0){
                 list_del_init(&bdev->link); 
                 spin_unlock_irq(&dev_mgr->dev_lock);
                 return 0;
-            } 
+            }
         }
         spin_unlock_irq(&dev_mgr->dev_lock);
     }
@@ -97,29 +96,31 @@ static struct pbdev* pbdev_mgr_get_by_queue(struct pbdev_mgr* dev_mgr, struct re
 
 static int cbt_alloc(struct pbdev* dev)
 {
-    struct gendisk* bd_disk = dev->blk_device->bd_disk;
-    if (bd_disk) {
-        /*512*/
-        size_t cbt_bitmap_bits = 0;
-        dev->granularity_shit  = 9;
-        dev->granularity = (2 << dev->granularity_shit);
-        cbt_bitmap_bits = (bd_disk->part0.nr_sects << 9) >> dev->granularity_shit;
-        dev->cbt_bitmap_size = BITS_TO_LONGS(cbt_bitmap_bits) * sizeof(unsigned long);
-        dev->cbt_bitmap = vmalloc(dev->cbt_bitmap_size);
-        if (!dev->cbt_bitmap) {
-            LOG_ERR("allocate cbt bitmap faild"); 
-            return -ENOMEM;
+    if(dev && dev->blk_device){
+        struct gendisk* bd_disk = dev->blk_device->bd_disk;
+        if (bd_disk) {
+            /*512*/
+            size_t cbt_bitmap_bits = 0;
+            dev->granularity_shit  = 9;
+            dev->granularity = (2 << dev->granularity_shit);
+            cbt_bitmap_bits = (bd_disk->part0.nr_sects << 9) >> dev->granularity_shit;
+            dev->cbt_bitmap_size = BITS_TO_LONGS(cbt_bitmap_bits) * sizeof(unsigned long);
+            dev->cbt_bitmap = vmalloc(dev->cbt_bitmap_size);
+            if (!dev->cbt_bitmap) {
+                LOG_ERR("allocate cbt bitmap faild"); 
+                return -ENOMEM;
+            }
+            //bitmap_zero(dev->cbt_bitmap, cbt_bitmap_bits);
+            LOG_INFO("%s: start:%lu nr:%lu", bd_disk->disk_name,
+                    bd_disk->part0.start_sect, bd_disk->part0.nr_sects);
         }
-        //bitmap_zero(dev->cbt_bitmap, cbt_bitmap_bits);
-        LOG_INFO("%s: start:%lu nr:%lu", bd_disk->disk_name,
-                bd_disk->part0.start_sect, bd_disk->part0.nr_sects);
     }
     return 0;
 }
 
 static void cbt_free(struct pbdev* dev)
 {
-    if(dev->cbt_bitmap){
+    if(dev && dev->cbt_bitmap){
         vfree(dev->cbt_bitmap);
     }
 }
@@ -521,9 +522,9 @@ static int send_work(void* data)
     struct pbdev* dev = (struct pbdev*)data;
     struct bio* bio = NULL;
     unsigned long flags;
-    spin_lock_irqsave(&dev->tasks_lock, flags);
+    spin_lock_irqsave(&dev->send_thread_lock, flags);
     dev->send_thread = current;
-    spin_unlock_irqrestore(&dev->tasks_lock, flags);
+    spin_unlock_irqrestore(&dev->send_thread_lock, flags);
 
     while(!kthread_should_stop() || !bio_list_empty(&dev->send_bio_list))
     {
@@ -583,9 +584,9 @@ static int send_work(void* data)
         }
     }
 
-    spin_lock_irqsave(&dev->tasks_lock, flags);
+    spin_lock_irqsave(&dev->send_thread_lock, flags);
     dev->send_thread = NULL;
-    spin_unlock_irqrestore(&dev->tasks_lock, flags);
+    spin_unlock_irqrestore(&dev->send_thread_lock, flags);
     if(signal_pending(current)){
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4,4,0))
         siginfo_t info;
@@ -603,9 +604,9 @@ static int recv_work(void* data)
     struct pbdev* dev = (struct pbdev*)data;
     struct bio* bio = NULL;
     unsigned long flags;
-    spin_lock_irqsave(&dev->tasks_lock, flags);
+    spin_lock_irqsave(&dev->recv_thread_lock, flags);
     dev->recv_thread = current;
-    spin_unlock_irqrestore(&dev->tasks_lock, flags);
+    spin_unlock_irqrestore(&dev->recv_thread_lock, flags);
 
     while(!kthread_should_stop()){
         bio = net_recv_bio(dev);
@@ -624,9 +625,9 @@ static int recv_work(void* data)
         }
     }
 
-    spin_lock_irqsave(&dev->tasks_lock, flags);
+    spin_lock_irqsave(&dev->recv_thread_lock, flags);
     dev->recv_thread = NULL;
-    spin_unlock_irqrestore(&dev->tasks_lock, flags);
+    spin_unlock_irqrestore(&dev->recv_thread_lock, flags);
     if(signal_pending(current)){
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4,4,0))
         siginfo_t info;
@@ -658,18 +659,21 @@ static int pbdev_deinit(struct pbdev* dev)
     if(dev){
         unsigned long flags;
         uninstall_tracer(dev); 
-        spin_lock_irqsave(&dev->tasks_lock, flags);
+        spin_lock_irqsave(&dev->send_thread_lock, flags);
         if(dev->send_thread){
             force_sig(SIGKILL, dev->send_thread);
             //kthread_stop(dev->send_thread);
             LOG_INFO("send thread stop ok");
         }
+        spin_unlock_irqrestore(&dev->send_thread_lock, flags);
+
+        spin_lock_irqsave(&dev->recv_thread_lock, flags);
         if(dev->recv_thread){
             force_sig(SIGKILL, dev->recv_thread);
             //kthread_stop(dev->recv_thread);   
             LOG_INFO("recv thread stop ok");
         }
-        spin_unlock_irqrestore(&dev->tasks_lock, flags);
+        spin_unlock_irqrestore(&dev->recv_thread_lock, flags);
         if(dev->network){
             tp_close(dev->network);
             kfree(dev->network);
@@ -755,7 +759,8 @@ static int pbdev_init(struct pbdev* dev, const char* dev_path, const char* vol_n
     bio_list_init(&dev->recv_bio_list);
     init_waitqueue_head(&dev->send_wq);
     init_waitqueue_head(&dev->recv_wq);
-    spin_lock_init(&dev->tasks_lock);
+    spin_lock_init(&dev->send_thread_lock);
+    spin_lock_init(&dev->recv_thread_lock);
     dev->send_thread = kthread_run(send_work, dev, "send_thread");
     dev->recv_thread = kthread_run(recv_work, dev, "recv_thread");
     if(IS_ERR(dev->send_thread) || IS_ERR(dev->recv_thread)){
@@ -790,7 +795,11 @@ static bool block_device_exist(const char* dev_path)
 #else
     bdev = lookup_bdev(dev_path, 0);
 #endif
-    return (bdev != NULL) ?  true : false;
+    if(IS_ERR(bdev)){
+        LOG_ERR("%s not exist", dev_path);
+        return false;
+    }
+    return true;
 }
 
 int pbdev_mgr_init(struct pbdev_mgr* dev_mgr)

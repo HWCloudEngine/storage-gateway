@@ -33,9 +33,9 @@ BackupProxy::BackupProxy(VolumeAttr& vol_attr,
 }
 
 BackupProxy::~BackupProxy() {
-    LOG_INFO << "create backup proxy vname:" << m_vol_attr.vol_name(); 
+    LOG_INFO << "delete backup proxy vname:" << m_vol_attr.vol_name(); 
     m_block_store.reset();
-    LOG_INFO << "create backup proxy vname:" << m_vol_attr.vol_name() << " ok"; 
+    LOG_INFO << "delete backup proxy vname:" << m_vol_attr.vol_name() << " ok"; 
 }
 
 StatusCode BackupProxy::create_backup(const CreateBackupReq* req,

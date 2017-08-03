@@ -150,10 +150,12 @@ void VolumeManager::init_volumes()
         StatusCode ret = g_rpc_client.get_volume(vol_name, volume_info);
         if (ret != StatusCode::sOk)
         {
-            LOG_ERROR << "get volume info from sg server failed" << vol_name;
+            LOG_ERROR << "get volume info from sg server failed " << vol_name;
             continue;
         }
-        add_volume(volume_info, true);
+        if(Env::instance()->file_exists(volume_info.path())){
+            add_volume(volume_info, true);
+        }
     }
     f.close();
     LOG_INFO << "sys startup add exist volumes ok";
@@ -479,14 +481,12 @@ bool VolumeManager::del_volume(const string& vol)
     std::unique_lock<std::mutex> lk(mtx);
     auto it = volumes.find(vol);
     if(it == volumes.end()){
-        LOG_ERROR << "del volume vol:" << vol << "not exist";
+        LOG_ERROR << "delete volume:" << vol << "not exist";
         return false;
     }
-    
     LOG_INFO << "stop volume:" << vol;
     it->second->stop();
     LOG_INFO << "stop volume:" << vol << " ok";
-
     volumes.erase(vol);
     remove_volume(vol);
     LOG_INFO << "delete volume:" << vol << " ok";

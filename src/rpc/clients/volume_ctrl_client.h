@@ -96,8 +96,13 @@ class VolumeCtrlClient
         req.set_volume_id(vol_id);
         req.set_mode((enum ClientMode)mode);
         Status status = stub_->InitializeConnection(&context, req, &res);
+        return StatusCode::sOk;
+    }
+
+    StatusCode attach_volume(int mode, const std::string& vol_id, 
+                             const std::string& blk_dev, const std::string& attach_host) {
+        Status status;
         if ((enum ClientMode)mode == ClientMode::AGENT_MODE) {
-            LOG_INFO << "xxxx 0";
             ClientContext context;
             AttachVolumeReq req;
             AttachVolumeRes res;
@@ -105,13 +110,22 @@ class VolumeCtrlClient
             req.set_device(blk_dev);
             req.set_attached_host(attach_host);
             status = stub_->AttachVolume(&context, req, &res);
-            LOG_INFO << "xxxx 1";
         }
         return StatusCode::sOk;
     }
 
-    StatusCode fini_conn(int mode, const std::string& vol_id,
-                         const std::string& blk_dev) {
+    StatusCode fini_conn(int mode, const std::string& vol_id, const std::string& blk_dev) {
+        ClientContext context;
+        TerminateConnectionReq req;
+        TerminateConnectionRes res;
+        req.set_volume_id(vol_id);
+        req.set_mode((enum ClientMode)mode);
+        req.set_device(blk_dev);
+        auto status = stub_->TerminateConnection(&context, req, &res);
+        return StatusCode::sOk;
+    }
+
+    StatusCode detach_volume(int mode, const std::string& vol_id, const std::string& blk_dev) {
         Status status;
         if ((enum ClientMode)mode == ClientMode::AGENT_MODE) {
             ClientContext context;
@@ -119,14 +133,7 @@ class VolumeCtrlClient
             DetachVolumeRes res;
             req.set_volume_id(vol_id);
             status = stub_->DetachVolume(&context, req, &res);
-        } 
-        ClientContext context;
-        TerminateConnectionReq req;
-        TerminateConnectionRes res;
-        req.set_volume_id(vol_id);
-        req.set_mode((enum ClientMode)mode);
-        req.set_device(blk_dev);
-        status = stub_->TerminateConnection(&context, req, &res);
+        }
         return StatusCode::sOk;
     }
 
@@ -139,7 +146,7 @@ class VolumeCtrlClient
         if (!status.ok()) {
             return sInternalError;
         }
-        return res.status();
+        return StatusCode::sOk;
     }
 
     StatusCode get_volume(const std::string& volume_id, VolumeInfo& volume) {

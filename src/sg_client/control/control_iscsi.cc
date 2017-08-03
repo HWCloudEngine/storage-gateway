@@ -323,7 +323,6 @@ bool ISCSIControl::recover_targets()
         bool ret = recover_target(pde->d_name);
         LOG_INFO << "recover tgt volume:" << pde->d_name << " ret:" << ret;
     }
-
     closedir(pdir);
     return true;
 }

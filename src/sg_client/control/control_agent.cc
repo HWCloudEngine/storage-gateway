@@ -67,8 +67,7 @@ bool AgentControl::agent_add_device(std::string vol_name, std::string device,
 {
     if(device.empty() || vol_name.empty())
     {
-        LOG_INFO << "agent add device failed,dev_path:" << device
-                 << "vol_name:" << vol_name;
+        LOG_INFO << "agent add dev_path:" << device << "vol_name:" << vol_name << " failed";
         return false;
     }
     auto it = agent_vols.find(vol_name);
@@ -85,7 +84,7 @@ bool AgentControl::agent_add_device(std::string vol_name, std::string device,
     free(info.vol_name);
     if(result != 0)
     {
-        LOG_INFO << "agent add device failed,errno:" << errno;
+        LOG_ERROR << "agent add device:" << device << " failed:" << errno;
         return false;
     }
     agent_vols.insert({vol_name, device});
@@ -100,7 +99,7 @@ bool AgentControl::agent_del_device(std::string device)
 {
     if(device.empty())
     {
-        LOG_INFO << "agent del device failed,device is null";
+        LOG_ERROR << "agent del device failed device is null";
         return false;
     }
 
@@ -110,7 +109,7 @@ bool AgentControl::agent_del_device(std::string device)
     free(info.dev_path);
     if(result != 0)
     {
-        LOG_INFO << "agent del device failed,errno:%d" << errno;
+        LOG_ERROR << "agent del device:" << device << " failed:" << errno;
         return false;
     }
     return true;
@@ -119,20 +118,21 @@ bool AgentControl::agent_del_device(std::string device)
 bool AgentControl::attach_volume(const std::string& vol_name,
                                  const std::string& device)
 {
-    LOG_INFO << "attach vol:" << vol_name << "device:" << device;
+    LOG_INFO << "attach vol:" << vol_name << " device:" << device;
 
     if(agent_add_device(vol_name, device, false))
     {
+        LOG_INFO << "attach vol:" << vol_name << " device:" << device << " ok";
         return true;
     }
-    LOG_ERROR << "attach vol:" << vol_name << "device:" << device << " failed";
+    LOG_ERROR << "attach vol:" << vol_name << " device:" << device << " failed";
     return false;
 }
 
 bool AgentControl::detach_volume(const std::string& vol_name,
                                  const std::string& device)
 {
-    LOG_INFO << "detach volume:" << vol_name;
+    LOG_INFO << "detach volume:" << vol_name << " device:" << device;
     auto it = agent_vols.find(vol_name);
     if(it == agent_vols.end())
     {
@@ -144,10 +144,11 @@ bool AgentControl::detach_volume(const std::string& vol_name,
         std::string tmp = vol_name + ":" + device;
         if(delete_device(tmp))
         {
-            LOG_INFO << "Delete agent device :" << tmp;
+            LOG_INFO << "delete agent device :" << tmp;
             agent_vols.erase(vol_name);
             return true;
         }
+        LOG_INFO << "detach volume:" << vol_name << " device:" << device << " ok";
     }
     return false;
 }
