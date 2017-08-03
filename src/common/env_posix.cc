@@ -72,7 +72,8 @@ ssize_t PosixStreamAccessFile::readv(const struct iovec* iov, int iovcnt, const 
 ssize_t PosixStreamAccessFile::write(char* buf, size_t size) {
     size_t ret = fwrite(buf, 1, size, file_); 
     if (ret != size) {
-        LOG_ERROR << "error fname:" << fname_ << "len:" << size << "ret:" << ret;
+        LOG_ERROR << "fwrite fname:" << fname_ << "len:" << size << "ret:" << ret
+                  << " errno:" << errno << " failed";
     }
     flush();
     return ret;
@@ -241,7 +242,7 @@ Env* Env::instance() {
 bool PosixEnv::create_access_file(const std::string& fname, bool direct,
                                   unique_ptr<AccessFile>* ofile) {
     if (!direct) {
-        FILE* f = fopen(fname.c_str(), "ab+");
+        FILE* f = fopen(fname.c_str(), "rb+");
         if (f != nullptr) {
             ofile->reset(new PosixStreamAccessFile(fname, f));
             return true;

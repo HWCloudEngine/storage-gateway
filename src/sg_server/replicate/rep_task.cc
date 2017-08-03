@@ -151,10 +151,8 @@ TransferRequest* JournalTask::get_next_package(){
 
     }
     else if(is.eof()){
-        size = is.gcount();
-        // TODO: remove this line if file created with padding filled
-        ctx->set_end_off(cur_off + size);
         LOG_WARN << "journal file[" << path << "] end at:" << cur_off + size;
+        SG_ERROR_OCCURED();
     }
     else{
         LOG_ERROR << "read file[" << path << "] failed,required length["
@@ -183,7 +181,6 @@ int JournalTask::reset(){
     SG_ASSERT(true == is.is_open());
     is.seekg(cur_off);
     SG_ASSERT(is.fail()==0 && is.bad()==0);
-    ctx->set_end_off(g_option.journal_max_size);
     return 0;
 }
 

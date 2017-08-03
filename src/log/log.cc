@@ -20,6 +20,7 @@
 //#include  <boost/log/sources/record_ostream.hpp>
 #include <boost/log/support/date_time.hpp>
 #include <boost/log/sinks/sync_frontend.hpp>
+#include <grpc/support/log.h>
 #include "log.h"
 #define BT_BUF_SIZE 128
 namespace logging = boost::log;
@@ -50,6 +51,25 @@ std::ostream& operator<< (std::ostream& strm, severity_level level)
         strm << static_cast< int >(level);
 
     return strm;
+}
+
+// gprc default log
+void grpc_log_fun(gpr_log_func_args *args) {
+    const char* display_file;
+    const char* final_slash = strrchr(args->file, '/');
+    if (final_slash == NULL)
+        display_file = args->file;
+    else
+        display_file = final_slash + 1;
+
+    severity_level level = (args->severity == GPR_LOG_SEVERITY_ERROR) ?
+        SG_ERR : SG_DEBUG;
+
+    BOOST_LOG_SEV( DRLog::slg, level)
+        << boost::log::add_value("Line", args->line)
+        << boost::log::add_value("File", display_file)
+        << "@grpc:"
+        << args->message;
 }
 
 BOOST_LOG_ATTRIBUTE_KEYWORD(severity, "Severity", severity_level)
@@ -102,6 +122,8 @@ void DRLog::log_init(std::string file_name)
     // Add attributes
     logging::add_common_attributes();
     logging::core::get()->add_global_attribute("Scope", attrs::named_scope());
+    // config grpc log
+    gpr_set_log_function(grpc_log_fun);
 }
 
 void DRLog::set_log_level(severity_level_t level)
