@@ -865,11 +865,12 @@ int blk_dev_protect(const char* dev_path, const char* vol_name)
     }
     LOG_INFO("wait add vol bio");
     submit_cmd_bio(dev, add_vol_bio);
-    if(!wait_for_completion_timeout(&dev->cmd_sync_event, msecs_to_jiffies(200))){
-        LOG_ERR("wait add vol bio timeout");
-    } else {
-        LOG_INFO("wait add vol bio ok");
-    }
+    wait_for_completion(&dev->cmd_sync_event);
+    //if(!wait_for_completion_timeout(&dev->cmd_sync_event, msecs_to_jiffies(200))){
+    //    LOG_ERR("wait add vol bio timeout");
+    //} else {
+    //    LOG_INFO("wait add vol bio ok");
+    //}
     free_cmd_bio(add_vol_bio);
     /*add mgr*/
     ret = pbdev_mgr_add(&g_dev_mgr, dev);
