@@ -28,6 +28,7 @@ message EnableSGReq {
     string volume_id = 1;
     uint64 size = 2;
     string device = 3;
+    string attached_host = 4;
 }
 
 message EnableSGRes {
@@ -73,6 +74,7 @@ message TerminateConnectionReq {
     string volume_id = 1;
     ClientMode mode = 2;
     string device = 3;
+    string attached_host = 4;
 }
 
 message TerminateConnectionRes {

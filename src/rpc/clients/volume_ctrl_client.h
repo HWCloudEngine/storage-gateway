@@ -74,13 +74,14 @@ class VolumeCtrlClient
     }
 
     StatusCode enable_sg(const std::string& volume_id, size_t size,
-                         const std::string& device) {
+                         const std::string& device, const std::string& attached_host="127.0.0.1") {
         ClientContext context;
         EnableSGReq req;
         EnableSGRes res;
         req.set_volume_id(volume_id);
         req.set_size(size);
         req.set_device(device);
+        req.set_attached_host(attached_host);
         Status status = stub_->EnableSG(&context, req, &res);
         if (!status.ok()) {
             return sInternalError;

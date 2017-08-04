@@ -52,6 +52,7 @@ Status VolInnerCtrl::CreateVolume(ServerContext* context,
     const string& path = request->path();
     const uint64_t size = request->size();
     const VolumeStatus& status = request->status();
+    const string& attached_host = request->attached_host();
     VolumeMeta meta;
     RESULT res = vmeta_->read_volume_meta(vol,meta);
     if(DRS_OK == res){
@@ -65,12 +66,14 @@ Status VolInnerCtrl::CreateVolume(ServerContext* context,
     info->set_size(size);
     info->set_vol_status(status);
     info->set_rep_enable(false);
+    info->set_attached_host(attached_host);
     res = vmeta_->create_volume(meta);
     if(DRS_OK == res){
         LOG_INFO << "create volume[" << vol << "] meta:\n"
             << "path=" << path << "\n"
             << "size=" << size << "\n"
-            << "status=" << status;
+            << "status=" << status << "\n"
+            << "attached_host=" << attached_host;
         // add volume to GC
         GCTask::instance().add_volume(vol);
         ReplayerContext* c = new ReplayerContext(vol,jmeta_);

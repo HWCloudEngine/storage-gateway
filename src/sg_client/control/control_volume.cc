@@ -153,6 +153,7 @@ Status VolumeControlImpl::EnableSG(ServerContext* context,
     string vol_name = req->volume_id();
     string dev_name = req->device();
     size_t dev_size = req->size();
+    string attached_host = req->attached_host();
     LOG_INFO << "enable sg vol:" << vol_name << " device:" << dev_name;
     if(!Env::instance()->file_exists(dev_name)){
         LOG_INFO << "enable sg vol:" << vol_name << " device:" << dev_name << " failed no exist";
@@ -164,7 +165,7 @@ Status VolumeControlImpl::EnableSG(ServerContext* context,
     if(ret != StatusCode::sOk)
     {
         StatusCode ret = g_rpc_client.create_volume(
-                vol_name, dev_name, dev_size, VOL_AVAILABLE);
+                vol_name, dev_name, dev_size, VOL_AVAILABLE, attached_host);
         if(ret != StatusCode::sOk)
         {
             LOG_ERROR << "enable sg vol:" << vol_name << " device:" << dev_name << " failed";
@@ -299,6 +300,7 @@ Status VolumeControlImpl::TerminateConnection(ServerContext* context,
     std::string vol_name = req->volume_id();
     ClientMode client_mode = req->mode();
     std::string device = req->device();
+    std::string attached_host = req->attached_host();
     LOG_INFO << "terminate connection vol:" << vol_name << ", mode:" << client_mode;
     VolumeInfo volume;
     StatusCode ret = g_rpc_client.get_volume(vol_name, volume);
@@ -331,6 +333,7 @@ Status VolumeControlImpl::TerminateConnection(ServerContext* context,
                 UpdateVolumeReq vol_req;
                 vol_req.set_vol_id(vol_name);
                 vol_req.set_path(device);
+                vol_req.set_attached_host(attached_host);
                 StatusCode ret = g_rpc_client.update_volume(vol_req);
                 if(ret != StatusCode::sOk)
                 {

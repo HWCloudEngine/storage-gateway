@@ -60,11 +60,12 @@ class VolumeCtrl(object):
         print ('devices: %s' % res.devices)
         return res
 
-    def EnableSG(self, vol_id, vol_size, device):
+    def EnableSG(self, vol_id, vol_size, device, attached_host="127.0.0.1"):
         res = self.stub.EnableSG(volume_control_pb2.EnableSGReq(
             volume_id=vol_id,
             size=vol_size,
-            device=device))
+            device=device,
+            attached_host=attached_host))
         print ('enable SG result:%s' % res.status)
         return res
 
@@ -88,11 +89,12 @@ class VolumeCtrl(object):
         print ('initialize connection result:%s' % res.status)
         return res
 
-    def TerminateConnection(self, vol_id, mode, device):
+    def TerminateConnection(self, vol_id, mode, device, attached_host="127.0.0.1"):
         res = self.stub.TerminateConnection(
             volume_control_pb2.TerminateConnectionReq(volume_id=vol_id,
                                                       mode=mode,
-                                                      device=device))
+                                                      device=device,
+                                                      attached_host=attached_host))
         print ('terminate connectionn result:%s' % res.status)
         return res
 

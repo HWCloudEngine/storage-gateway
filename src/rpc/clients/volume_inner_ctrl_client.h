@@ -37,7 +37,7 @@ public:
     }
     ~VolInnerCtrlClient(){}
     static StatusCode create_volume(const std::string& vol,const std::string& path,
-            const uint64_t& size, const VolumeStatus& s){
+            const uint64_t& size, const VolumeStatus& s, const std::string& attached_host="127.0.0.1"){
         ClientContext context;
         CreateVolumeReq request;
         CreateVolumeRes response;
@@ -45,6 +45,7 @@ public:
         request.set_path(path);
         request.set_size(size);
         request.set_status(s);
+        request.set_attached_host(attached_host);
         grpc::Status status = stub_->CreateVolume(&context,request,&response);
         if(status.ok())
             return response.status();

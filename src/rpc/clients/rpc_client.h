@@ -125,7 +125,7 @@ public:
 
     //volume_inner_ctrl_client
     Decorator<StatusCode(const std::string&,const std::string&,
-        const uint64_t&, const VolumeStatus&)> create_volume;
+        const uint64_t&, const VolumeStatus&, const std::string& attached_host)> create_volume;
     Decorator<StatusCode(const std::string&,VolumeInfo&)> get_volume;
     Decorator<StatusCode(std::list<VolumeInfo>&)> list_volume;
     Decorator<StatusCode(const std::string&)> delete_volume;

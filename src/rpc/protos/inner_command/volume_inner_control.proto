@@ -20,6 +20,7 @@ message CreateVolumeReq{
     string path = 2;
     VolumeStatus status = 3;
     uint64 size = 4;
+    string attached_host = 5;
 }
 message CreateVolumeRes{
     StatusCode status = 1;
