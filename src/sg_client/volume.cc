@@ -36,6 +36,18 @@ bool Volume::init() {
     reader_.reset(new JournalReader(read_queue_, reply_queue_));
     writer_.reset(new JournalWriter(write_queue_, reply_queue_, vol_attr_));
     replayer_.reset(new JournalReplayer(vol_attr_));
+    if (!pre_processor_->init()) {
+        LOG_ERROR << "init pre_processor failed,vol_name:"<< vol_attr_.vol_name();
+    }
+    if (!writer_->init(idproxy_, cacheproxy_, snapshotproxy_, lease_client_, epoll_fd_)) {
+        LOG_ERROR << "init journal writer failed,vol_name:" << vol_attr_.vol_name();
+    }
+    if (!reader_->init(cacheproxy_)) {
+        LOG_ERROR << "init journal writer failed,vol_name:" << vol_attr_.vol_name();
+    }
+    if (!replayer_->init(idproxy_, cacheproxy_, snapshotproxy_, rep_proxy_)) {
+        LOG_ERROR << "init journal replayer failed,vol_name:" << vol_attr_.vol_name();
+    }
     LOG_INFO << "volume:" << vol_attr_.vol_name() << " init ok";
 }
 
@@ -82,18 +94,6 @@ void Volume::start() {
     /*start network receive*/
     LOG_INFO << "volume:" << vol_attr_.vol_name() << " start";
     client_socket_->start();
-    if (!pre_processor_->init()) {
-        LOG_ERROR << "init pre_processor failed,vol_name:"<< vol_attr_.vol_name();
-    }
-    if (!writer_->init(idproxy_, cacheproxy_, snapshotproxy_, lease_client_, epoll_fd_)) {
-        LOG_ERROR << "init journal writer failed,vol_name:" << vol_attr_.vol_name();
-    }
-    if (!reader_->init(cacheproxy_)) {
-        LOG_ERROR << "init journal writer failed,vol_name:" << vol_attr_.vol_name();
-    }
-    if (!replayer_->init(idproxy_, cacheproxy_, snapshotproxy_, rep_proxy_)) {
-        LOG_ERROR << "init journal replayer failed,vol_name:" << vol_attr_.vol_name();
-    }
     LOG_INFO << "volume:" << vol_attr_.vol_name() << " start ok";
 }
 

@@ -397,7 +397,6 @@ Status VolumeControlImpl::AttachVolume(ServerContext* context,
             res->set_status(ret);
             return Status::OK;
         }
-        vol_manager_.add_volume(volume);
         if(agent_control_ptr->attach_volume(vol_name, device))
         {
             res->set_status(StatusCode::sOk);
