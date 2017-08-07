@@ -299,7 +299,7 @@ void SnapshotControlImpl::bg_work() {
         job->status = BG_DOING;
         gettimeofday(&(job->start_ts), NULL);
         unique_ptr<AccessFile> block_file;
-        Env::instance()->create_access_file(job->new_blk_device, true, &block_file);
+        Env::instance()->create_access_file(job->new_blk_device, false, true, &block_file);
         size_t bdev_size = Env::instance()->file_size(job->new_blk_device);
         off_t  bdev_off = 0;
         size_t bdev_slice = COW_BLOCK_SIZE;

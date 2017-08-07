@@ -48,8 +48,7 @@ SnapshotProxy::~SnapshotProxy() {
 
 bool SnapshotProxy::init() {
     /*open block device */
-    Env::instance()->create_access_file(m_vol_attr.blk_device(), true,
-                                        &m_block_file);
+    Env::instance()->create_access_file(m_vol_attr.blk_device(), false, true, &m_block_file);
     if (m_block_file.get() == nullptr) {
         LOG_ERROR << "create block device:" << m_vol_attr.blk_device() << " failed";
         return false;
@@ -421,7 +420,7 @@ StatusCode SnapshotProxy::cow_op(const off_t& off, const size_t& size,
             assert(ret == 0);
         }
         free(block_buf);
-        LOG_INFO << "do cow write to ceph rados block_zero:" << block_zero;
+        LOG_INFO << "do cow write to block store url:" << block_url << " zero:" << block_zero;
         /*io cow write new data to block device*/
         char* cow_buf = buf + cow_block.off - off;
         off_t cow_off = cow_block.off;
@@ -431,7 +430,7 @@ StatusCode SnapshotProxy::cow_op(const off_t& off, const size_t& size,
         LOG_INFO << "do cow write to block device";
         /*io cow update cow meta to dr server*/
         ret = g_rpc_client.do_cow_update(m_vol_attr.vol_name(), m_active_snapshot,
-                                            cow_block.blk_no, block_zero, block_url);
+                                         cow_block.blk_no, block_zero, block_url);
     }
 
     LOG_INFO << "cow op snap_name:" << m_active_snapshot << " off:" << off

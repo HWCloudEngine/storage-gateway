@@ -24,8 +24,8 @@ using huawei::proto::SnapshotMessage;
 JournalEntry::JournalEntry() {
 }
 
-JournalEntry::JournalEntry(uint64_t& io_handle, uint64_t& seq, 
-                    journal_event_type_t& type, std::shared_ptr<Message>&  message) {
+JournalEntry::JournalEntry(uint64_t& io_handle, uint64_t& seq,
+        journal_event_type_t& type, std::shared_ptr<Message>&  message) {
     this->handle.push_back(io_handle);
     this->sequence = seq;
     this->type = type;
@@ -170,24 +170,22 @@ ssize_t JournalEntry::parse(unique_ptr<AccessFile>* file, size_t fsize, off_t of
     iov[1].iov_len  = sizeof(length);
     size_t read_ret = (*file)->readv(iov, 2, start);
     if (read_ret != (sizeof(type) + sizeof(length))) {
-        LOG_ERROR << "parse type and length failed";
+        LOG_ERROR << "parse type and length failed read_ret:" << read_ret;
         return -1;
     }
     if (type != IO_WRITE && type != SNAPSHOT_CREATE && type != SNAPSHOT_DELETE &&
        type != SNAPSHOT_ROLLBACK) {
-        LOG_ERROR << "parse type failed";
+        LOG_ERROR << "parse type failed type:" << type;
         return -1; 
     }
     if ((off + length) > fsize) {
-        LOG_ERROR << "parse length over region failed";
+        LOG_ERROR << "parse length over region failed ";
         return -1;
     }
     start += read_ret;
-
     /*for store serialize data*/
     char* data = (char*)malloc(length);
     assert(data != nullptr);
-
     /*read data and crc*/
     struct iovec iov1[2];
     iov1[0].iov_base = data;
@@ -197,10 +195,10 @@ ssize_t JournalEntry::parse(unique_ptr<AccessFile>* file, size_t fsize, off_t of
     read_ret = (*file)->readv(iov1, 2, start);
     if (read_ret != (length + sizeof(crc))) {
         LOG_ERROR << "parse data and crc failed";
+        if (data) free(data);
         return -1;
     }
     start += read_ret;
-
     /*message parse*/
     switch (type) {
     case IO_WRITE:
@@ -215,9 +213,7 @@ ssize_t JournalEntry::parse(unique_ptr<AccessFile>* file, size_t fsize, off_t of
         assert(0);
         break;
     }
-
     message->ParseFromArray(data, length);
-
     /*check crc */
     uint32_t initial = 0;
     uint32_t crc_value = crc32c(data, length, initial);
@@ -225,7 +221,7 @@ ssize_t JournalEntry::parse(unique_ptr<AccessFile>* file, size_t fsize, off_t of
         LOG_ERROR << "crc check failed crc_value:" << crc_value << " crc:" << crc;
         return -1;
     }
-    free(data);
+    if(data) free(data);
     //LOG_INFO << "parse type:" << type << " length:" << length 
     //         << " crc:" << crc << " crc_value:" << crc_value << " ok";
     return start;

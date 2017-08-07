@@ -80,8 +80,8 @@ class Env {
     virtual ~Env() {}
     static Env* instance();
     static Env* env;
-    virtual bool create_access_file(const std::string& fname, bool direct,
-                                    unique_ptr<AccessFile>* ofile) = 0;
+    virtual bool create_access_file(const std::string& fname, bool create,
+                                    bool direct, unique_ptr<AccessFile>* ofile) = 0;
     virtual bool create_dir(const std::string& dname) = 0;
     virtual bool delete_dir(const std::string& dname) = 0;
     virtual bool get_dirent(const std::string& dname,
@@ -100,8 +100,8 @@ class PosixEnv : public Env {
      ~PosixEnv() {}
 
  public:
-    bool create_access_file(const std::string& fname, bool direct,
-                            unique_ptr<AccessFile>* ofile) override;
+    bool create_access_file(const std::string& fname, bool create,
+                            bool direct, unique_ptr<AccessFile>* ofile) override;
     bool create_dir(const std::string& dname) override;
     bool delete_dir(const std::string& dname) override;
     bool get_dirent(const std::string& dname,

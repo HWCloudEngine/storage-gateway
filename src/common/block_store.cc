@@ -153,7 +153,7 @@ int FsBlockStore::write(const std::string& object, char* buf, size_t len, off_t 
         std::string file_name = object.substr(pos+1);
         std::string obj_path = obj_dir + "/" + file_name;
         unique_ptr<AccessFile> pfile;
-        Env::instance()->create_access_file(obj_path, false, &pfile);
+        Env::instance()->create_access_file(obj_path, true, false, &pfile);
         size_t wret = pfile->write(buf, len, off); 
         assert(wret == len);
         LOG_INFO << "write obj_path:" << obj_dir << " file:" << file_name << " obj_path:" << obj_path << " ok";
@@ -169,7 +169,7 @@ int FsBlockStore::read(const std::string& object, char* buf, size_t len, off_t o
         std::string file_name = object.substr(pos+1);
         std::string obj_path = obj_dir + "/" + file_name;
         unique_ptr<AccessFile> pfile;
-        Env::instance()->create_access_file(obj_path, false, &pfile);
+        Env::instance()->create_access_file(obj_path, true, false, &pfile);
         size_t rret = pfile->read(buf, len, off); 
         assert(rret == len);
         LOG_INFO << "read obj_path:" << obj_dir << " file:" << file_name << " obj_path:" << obj_path << " ok";

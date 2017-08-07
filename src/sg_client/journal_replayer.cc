@@ -62,7 +62,7 @@ bool JournalReplayer::init(std::shared_ptr<IDGenerator> id_maker_ptr,
     cache_recover_ptr_.reset();
     update_ = false;
 
-    Env::instance()->create_access_file(vol_attr_.blk_device(), true, &blk_file_);
+    Env::instance()->create_access_file(vol_attr_.blk_device(), false, true, &blk_file_);
 
     // start replay volume
     running_ = true;
@@ -112,7 +112,7 @@ bool JournalReplayer::replay_each_journal(const std::string& journal,
                                           const off_t& end_pos) {
     bool retval = true;
     unique_ptr<AccessFile> file;
-    Env::instance()->create_access_file(journal, false, &file);
+    Env::instance()->create_access_file(journal, false, false, &file);
     size_t file_size = Env::instance()->file_size(journal);
 
     off_t start = start_pos;
@@ -342,7 +342,7 @@ bool JournalReplayer::process_file(shared_ptr<CEntry> entry) {
     off_t file_off = entry->get_journal_off();
 
     unique_ptr<AccessFile> file;
-    Env::instance()->create_access_file(file_name, false, &file);
+    Env::instance()->create_access_file(file_name, false, false, &file);
     if (file.get() == nullptr) {
         LOG_ERROR << " create access file:" << file_name << " failed";
         return false;

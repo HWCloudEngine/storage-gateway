@@ -84,10 +84,10 @@ static struct pbdev* pbdev_mgr_get_by_queue(struct pbdev_mgr* dev_mgr, struct re
             return NULL;
         }
         list_for_each_entry_safe(bdev, tmp, &dev_mgr->dev_list, link) {
-            if(bdev && bdev->blk_queue == q){
+            if(bdev && bdev->blk_queue && bdev->blk_queue == q){
                 spin_unlock_irq(&dev_mgr->dev_lock);
                 return bdev;
-            } 
+            }
         }
         spin_unlock_irq(&dev_mgr->dev_lock);
     }
@@ -165,6 +165,15 @@ blk_qc_t tracer_make_request_fn(struct request_queue* q, struct bio* bio)
 {
     int pass = 0;
     pid_t cur_tgid = current->tgid;
+    if(!q || !bio){
+        LOG_ERR("queue or bio is null");
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,4,0))
+        return;
+#else
+        return BLK_QC_T_NONE;
+#endif
+    }
+    LOG_INFO("backing device info:%s ", q->backing_dev_info.name);
     struct pbdev* dev = pbdev_mgr_get_by_queue(&g_dev_mgr, q);
     if(dev == NULL){
         LOG_ERR("get dev by queue failed");
@@ -245,32 +254,36 @@ blk_qc_t tracer_make_request_fn(struct request_queue* q, struct bio* bio)
 static int install_tracer(struct pbdev* dev, make_request_fn* new_make_request_fn)
 {
     int ret = 0;
-    struct super_block* sb = dev->blk_device->bd_super;
-    if(sb){
-        LOG_INFO("freezing block device");
-        sb = freeze_bdev(dev->blk_device);
-        if(!sb){
-            LOG_ERR("freeze bdev failed");
-            return -EFAULT;
+    if(dev && dev->blk_device){
+        struct super_block* sb = dev->blk_device->bd_super;
+        if(sb){
+            LOG_INFO("freezing block device");
+            sb = freeze_bdev(dev->blk_device);
+            if(!sb){
+                LOG_ERR("freeze bdev failed");
+                return -EFAULT;
+            }
+            if(IS_ERR(sb)){
+                ret = PTR_ERR(sb);
+                LOG_ERR("freeze bdev failed:%d", ret);
+                return ret;
+            }
+            LOG_INFO("freezing block device ok");
         }
-        if(IS_ERR(sb)){
-            ret = PTR_ERR(sb);
-            LOG_ERR("freeze bdev failed:%d", ret);
-            return ret;
+        smp_wmb(); 
+        if(dev->blk_device->bd_disk && dev->blk_device->bd_disk->queue){
+            dev->blk_device->bd_disk->queue->make_request_fn = new_make_request_fn;
         }
-        LOG_INFO("freezing block device ok");
-    }
-    smp_wmb(); 
-    dev->blk_device->bd_disk->queue->make_request_fn = new_make_request_fn;
-    smp_wmb(); 
-    if(sb){
-        LOG_INFO("thrawing block device");
-        ret = thaw_bdev(dev->blk_device, sb);
-        if(ret){
-            LOG_ERR("thaw bdev failed:%d", ret); 
-            return ret;
+        smp_wmb(); 
+        if(sb){
+            LOG_INFO("thrawing block device");
+            ret = thaw_bdev(dev->blk_device, sb);
+            if(ret){
+                LOG_ERR("thaw bdev failed:%d", ret); 
+                return ret;
+            }
+            LOG_INFO("thrawing block device ok");
         }
-        LOG_INFO("thrawing block device ok");
     }
     return ret;
 }
@@ -295,7 +308,7 @@ static int uninstall_tracer(struct pbdev* dev)
             LOG_INFO("freezing block device ok");
         }
         smp_wmb(); 
-        if(dev->blk_device->bd_disk){
+        if(dev->blk_device->bd_disk && dev->blk_device->bd_disk->queue){
             dev->blk_device->bd_disk->queue->make_request_fn = dev->blk_bio_fn;
         }
         smp_wmb(); 

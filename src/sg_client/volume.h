@@ -38,18 +38,16 @@ class VolumeManager;
 
 class Volume {
  public:
-    explicit Volume(VolumeManager& vol_manager,
-                    const VolumeInfo& vol_info,
-                    shared_ptr<CephS3LeaseClient> lease_client,
-                    int epoll_fd);
+    explicit Volume(VolumeManager& vol_manager, const VolumeInfo& vol_info,
+                    shared_ptr<CephS3LeaseClient> lease_client, int epoll_fd);
     Volume(const Volume& other) = delete;
     Volume& operator=(const Volume& other) = delete;
     virtual ~Volume();
 
     bool init();
+    void fini();
     bool init_socket(raw_socket_t client_sock);
     bool deinit_socket();
-    void fini();
     void start();
     void stop();
 
@@ -70,8 +68,6 @@ class Volume {
     mutable raw_socket_t raw_socket_;
     // epoll fd to sync producer marker
     int epoll_fd_;
-    /*memory pool for receive io hook data from raw socket*/
-    nedalloc::nedpool* buffer_pool_;
     /*queues*/
     BlockingQueue<shared_ptr<JournalEntry>> entry_queue_;
     BlockingQueue<io_reply_t*> reply_queue_;

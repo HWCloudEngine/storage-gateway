@@ -37,9 +37,9 @@ ssize_t PosixStreamAccessFile::read(char* buf, const size_t& len) {
     size_t ret = fread(buf, 1, len, file_); 
     if (ret != len) {
         if (feof(file_)) {
-            LOG_ERROR << "fname:" << fname_ << " len:" << len << "ret:" << ret << " eof";
+            LOG_ERROR << "fname:" << fname_ << " len:" << len << " ret:" << ret << " eof";
         } else {
-            LOG_ERROR << "fname:" << fname_ << " len:" << len << "ret:" << ret << " failed";
+            LOG_ERROR << "fname:" << fname_ << " len:" << len << " ret:" << ret << " failed errno:" << errno;
         }
     }
     return ret;
@@ -48,7 +48,7 @@ ssize_t PosixStreamAccessFile::read(char* buf, const size_t& len) {
 ssize_t PosixStreamAccessFile::read(char* buf, const size_t& size, const off_t& off) {
     int ret = fseek(file_, off, SEEK_SET);
     if (ret == -1) {
-        LOG_ERROR << "fseek off:" << off << " failed";
+        LOG_ERROR << "fseek off:" << off << " failed errno:" << errno;
         return ret;
     }
     return read(buf, size);
@@ -60,7 +60,7 @@ ssize_t PosixStreamAccessFile::readv(const struct iovec* iov, int iovcnt, const 
     for (int i = 0 ; i < iovcnt; i++) {
         ssize_t ret = read((char*)iov[i].iov_base, iov[i].iov_len, read_off);
         if (ret != iov[i].iov_len) {
-            LOG_ERROR << "readv failed ret:" << ret << " len:" << iov[i].iov_len;
+            LOG_ERROR << "readv failed ret:" << ret << " len:" << iov[i].iov_len ;
             break;
         }
         read_off += ret;
@@ -82,7 +82,7 @@ ssize_t PosixStreamAccessFile::write(char* buf, size_t size) {
 ssize_t PosixStreamAccessFile::write(char* buf, size_t size, off_t off) {
     int ret = fseek(file_, off, SEEK_SET);
     if (ret == -1) {
-        LOG_ERROR << "fseek off:" << off << " failed";
+        LOG_ERROR << "fseek off:" << off << " failed errno:" << errno;
         return ret;
     }
     return write(buf, size);
@@ -92,12 +92,11 @@ ssize_t PosixStreamAccessFile::writev(const struct iovec* iov, int iovcnt, const
     int ret = fseek(file_, off, SEEK_SET);
     ssize_t write_bytes = 0;
     for (int i = 0; i < iovcnt; i++) {
-        ssize_t write_ret = write(reinterpret_cast<char*>(iov[i].iov_base),
-                                  iov[i].iov_len);
+        ssize_t write_ret = write(reinterpret_cast<char*>(iov[i].iov_base), iov[i].iov_len);
         if (write_ret != iov[i].iov_len) {
             LOG_ERROR << "writev fname:" << fname_ << "len:" << iov[i].iov_len 
-                      << "ret:" << write_ret << " failed";
-            break; 
+                      << "ret:" << write_ret << " failed errno:" << errno;
+            break;
         }
         write_bytes += write_ret;
     }
@@ -108,8 +107,7 @@ int PosixStreamAccessFile::flush() {
     return fflush(file_);
 }
 
-int PosixStreamAccessFile::fadvise(const off_t& off, const size_t& len,
-                                   int advice) {
+int PosixStreamAccessFile::fadvise(const off_t& off, const size_t& len, int advice) {
     return posix_fadvise(fd_, off, len, advice);
 }
 
@@ -127,19 +125,15 @@ ssize_t PosixDirectAccessFile::read(char* buf, const size_t& len) {
     return ::read(fd_, buf, len);
 }
 
-ssize_t PosixDirectAccessFile::read(char* buf, const size_t& size,
-                                    const off_t& off) {
+ssize_t PosixDirectAccessFile::read(char* buf, const size_t& size, const off_t& off) {
     assert(sector_align(size) && sector_align(off));
-
     char* align_buf = nullptr;
     if (!page_align(buf)) {
         align_buf = reinterpret_cast<char*>(malloc_align(size));
     }
-
     char* read_buf = page_align(buf) ? buf : align_buf;
     off_t read_off = off;
     size_t bytes_read = 0;
-
     while (bytes_read < size) {
         ssize_t ret = pread(fd_, read_buf, (size - bytes_read), read_off);
         if (ret <= 0) {
@@ -159,8 +153,7 @@ ssize_t PosixDirectAccessFile::read(char* buf, const size_t& size,
     return bytes_read;
 }
 
-ssize_t PosixDirectAccessFile::readv(const struct iovec* iov, int iovcnt,
-                                     const off_t& off) {
+ssize_t PosixDirectAccessFile::readv(const struct iovec* iov, int iovcnt, const off_t& off) {
     return ::preadv(fd_, iov, iovcnt, off);
 }
 
@@ -170,17 +163,14 @@ ssize_t PosixDirectAccessFile::write(char* buf, size_t size) {
 
 ssize_t PosixDirectAccessFile::write(char* buf, size_t size, off_t off) {
     assert(sector_align(size) && sector_align(off));
-
     char* align_buf = nullptr;
     if (!page_align(buf)) {
         align_buf = reinterpret_cast<char*>(malloc_align(size));
         memcpy(align_buf, buf, size);
     }
-
     char* write_buf = page_align(buf) ? buf : align_buf;
     off_t write_off = off;
     size_t bytes_write = 0;
-
     while (bytes_write < size) {
         ssize_t ret = ::pwrite(fd_, write_buf, (size - bytes_write), write_off);
         if (ret <= 0) {
@@ -192,7 +182,6 @@ ssize_t PosixDirectAccessFile::write(char* buf, size_t size, off_t off) {
         write_off += ret;
         bytes_write += ret;
     }
-
     if (align_buf) {
         free(align_buf);
     }
@@ -239,10 +228,11 @@ Env* Env::instance() {
     return env;
 }
 
-bool PosixEnv::create_access_file(const std::string& fname, bool direct,
-                                  unique_ptr<AccessFile>* ofile) {
+bool PosixEnv::create_access_file(const std::string& fname, bool create,
+                                  bool direct, unique_ptr<AccessFile>* ofile) {
     if (!direct) {
-        FILE* f = fopen(fname.c_str(), "rb+");
+        const char* mode = create ? "ab+" : "rb+";
+        FILE* f = fopen(fname.c_str(), mode);
         if (f != nullptr) {
             ofile->reset(new PosixStreamAccessFile(fname, f));
             return true;
@@ -250,15 +240,19 @@ bool PosixEnv::create_access_file(const std::string& fname, bool direct,
         LOG_ERROR << "fopen fname:" << fname << " failed:" << errno;
         return false;
     }
-    int fd = open(fname.c_str(), O_RDWR | O_DIRECT);
+    int flag = O_RDWR | O_DIRECT;
+    if (create) {
+        flag |= O_CREAT;
+    }
+    int fd = open(fname.c_str(), flag);
     if (fd == -1) {
         LOG_ERROR << "open fname:" << fname << " failed:" << errno;
         return false;
     }
-    LOG_INFO << "open fname:" << fname << " ok";
     if (ofile) {
         ofile->reset(new PosixDirectAccessFile(fname, fd));
     }
+    LOG_INFO << "open fname:" << fname << " ok";
     return true;
 }
 

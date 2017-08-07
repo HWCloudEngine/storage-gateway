@@ -80,7 +80,7 @@ StatusCode BackupRpcCli::RestoreBackup(const std::string& vol_name, const std::s
     req.set_backup_type(backup_type);
     unique_ptr<ClientReader<RestoreBackupInAck>> reader(m_stub->Restore(&context, req));
     unique_ptr<AccessFile> blk_file;
-    Env::instance()->create_access_file(new_block_device, true, &blk_file);
+    Env::instance()->create_access_file(new_block_device, false, true, &blk_file);
     if (blk_file.get() == nullptr) {
         LOG_ERROR << "restore open file failed";
         return StatusCode::sInternalError;

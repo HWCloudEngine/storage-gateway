@@ -78,7 +78,7 @@ void ProcessWorker::process_file(const JournalElement& file) {
     m_id_generator->add_file(path);
     
     unique_ptr<AccessFile> access_file;
-    bool ret = Env::instance()->create_access_file(path, false, &access_file);
+    bool ret = Env::instance()->create_access_file(path, false, false, &access_file);
     if (!ret) {
         LOG_ERROR << "create access file:" << path << " failed";
         return;

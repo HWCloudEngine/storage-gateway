@@ -173,7 +173,7 @@ int JournalWriter::open_current_journal() {
         return -1;
     }
     std::string tmp = g_option.journal_mount_point + cur_lease_journal.second.path();
-    Env::instance()->create_access_file(tmp, false, &cur_file_);
+    Env::instance()->create_access_file(tmp, false, false, &cur_file_);
     idproxy_->add_file(tmp);
     return 0;
 }

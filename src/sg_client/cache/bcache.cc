@@ -89,7 +89,7 @@ bool BkeyOffsetCompare(const Bkey& a, const Bkey& b) {
 Bcache::Bcache(string bdev) {
     LOG_INFO << "bcache create";
     m_blkdev = bdev;
-    Env::instance()->create_access_file(m_blkdev, true, &m_blkfile);
+    Env::instance()->create_access_file(m_blkdev, false, true, &m_blkfile);
     LOG_INFO << "bcache create ok";
 }
 
@@ -284,7 +284,7 @@ int Bcache::_cache_hit_read(off_t off, size_t len, char* buf,
             off_t  journal_off  = v->get_journal_off();
             journal_entry = std::make_shared<JournalEntry>();
             unique_ptr<AccessFile> access_file;
-            Env::instance()->create_access_file(journal_file, false, &access_file);
+            Env::instance()->create_access_file(journal_file, false, false, &access_file);
             size_t file_size = Env::instance()->file_size(journal_file);
             journal_entry->parse(&access_file, file_size, journal_off);
             LOG_DEBUG << "hit read from journal ok ";
