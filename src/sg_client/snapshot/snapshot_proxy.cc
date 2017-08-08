@@ -341,15 +341,15 @@ bool SnapshotProxy::check_exist_snapshot()const {
 
 StatusCode SnapshotProxy::update(const SnapReqHead& shead, const std::string& sname,
                                  const UpdateEvent& sevent) {
-    LOG_INFO << "do_update snap_name:" << sname << " event:" << sevent;
+    LOG_INFO << "update snap_name:" << sname << " event:" << sevent;
     auto ret = g_rpc_client.do_update(shead, m_vol_attr.vol_name(), sname,
-                                         sevent, m_active_snapshot);
+                                      sevent, m_active_snapshot);
     if (m_active_snapshot.empty()) {
         m_exist_snapshot = false;
     } else {
         m_exist_snapshot = true;
     }
-    LOG_INFO << "do_update snap_name:" << sname << " event:" << sevent << " ok";
+    LOG_INFO << "update snap_name:" << sname << " event:" << sevent << " ok";
     return StatusCode::sOk;
 }
 

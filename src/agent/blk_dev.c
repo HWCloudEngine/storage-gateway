@@ -173,7 +173,6 @@ blk_qc_t tracer_make_request_fn(struct request_queue* q, struct bio* bio)
         return BLK_QC_T_NONE;
 #endif
     }
-    LOG_INFO("backing device info:%s ", q->backing_dev_info.name);
     struct pbdev* dev = pbdev_mgr_get_by_queue(&g_dev_mgr, q);
     if(dev == NULL){
         LOG_ERR("get dev by queue failed");
