@@ -14,14 +14,20 @@
 #include "../volume_inner_control.h"
 #include "snapshot_cli.h"
 
-SnapshotCtrlClient* create_snapshot_rpc_client(const std::string& vol_name) {
+std::string get_volume_attach_host(const std::string& vol_name) {
     VolumeInfo vol;
     auto ret = VolInnerCtrl::instance().get_volume(vol_name, vol);
     if (ret != StatusCode::sOk) {
-        LOG_ERROR << "get volume:" << vol_name << " failed";
-        return nullptr;
+        LOG_ERROR << "get vol attach host vol:" << vol_name << " failed";
+        return "";
     }
-    std::string client_ip = vol.attached_host();
+    std::string host = vol.attached_host();
+    LOG_INFO << "get vol attach host vol:" << vol_name << " host:" << host << " ok";
+    return host;
+}
+
+SnapshotCtrlClient* create_snapshot_rpc_client(const std::string& vol_name) {
+    std::string client_ip = get_volume_attach_host(vol_name);
     short client_port = g_option.ctrl_server_port;
     if (client_ip.empty()) {
         LOG_ERROR << "volume:" << vol_name << " client ip empty";
@@ -34,7 +40,7 @@ SnapshotCtrlClient* create_snapshot_rpc_client(const std::string& vol_name) {
     std::string rpc_addr = rpc_address(client_ip, client_port);
     SnapshotCtrlClient* snap_client = new SnapshotCtrlClient(grpc::CreateChannel(rpc_addr, grpc::InsecureChannelCredentials()));
     assert(snap_client != nullptr);
-    LOG_INFO << "volume:" << vol_name << " rpc client ip:" << client_ip << " snapshot rpc client create ok";
+    LOG_INFO << "volume:" << vol_name << " snapshot rpc client ip:" << client_ip << " ok";
     return snap_client;
 }
 

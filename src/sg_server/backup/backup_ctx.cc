@@ -81,14 +81,42 @@ BlockStore* BackupCtx::block_store()const {
 }
 
 SnapshotCtrlClient* BackupCtx::snap_client() {
-    while(m_snap_client == nullptr) {
-        m_snap_client = create_snapshot_rpc_client(m_vol_name);
-        if (m_snap_client == nullptr) {
-            LOG_ERROR << "create snapshot rpc client retry";
-            sleep(5);
-            continue;
+    constexpr int max_retry_time= 5;
+    int retry_time = 0;
+    while (retry_time < max_retry_time) {
+        if (m_snap_client_ip.empty() && !m_snap_client) {
+            m_snap_client = create_snapshot_rpc_client(m_vol_name);
+            if (m_snap_client == nullptr) {
+                LOG_ERROR << "create snapshot rpc client failed retry:" << retry_time;
+                sleep(5);
+                retry_time++;
+                continue;
+            }
+            m_snap_client_ip = get_volume_attach_host(m_vol_name);
+            LOG_ERROR << "0 create snapshot rpc client ok cur:" << m_snap_client_ip;
+            break;
         }
-        LOG_INFO << "create snapshot rpc client ok";
+        if (!m_snap_client_ip.empty() && m_snap_client) {
+            std::string cur_snapcli_ip = get_volume_attach_host(m_vol_name);
+            assert(!cur_snapcli_ip.empty());
+            if (m_snap_client_ip.compare(cur_snapcli_ip) != 0) {
+                destroy_snapshot_rpc_client(m_snap_client);
+                m_snap_client = create_snapshot_rpc_client(m_vol_name);
+                if (m_snap_client == nullptr) {
+                    LOG_ERROR << "create snapshot rpc client failed retry";
+                    sleep(5);
+                    retry_time++;
+                    continue;
+                } else { 
+                    m_snap_client_ip = get_volume_attach_host(m_vol_name);
+                    LOG_ERROR << "1 create snapshot rpc client ok cur:" << m_snap_client_ip;
+                    break;
+                }
+            } else {
+                LOG_ERROR << "2 create snapshot rpc client ok cur:" << m_snap_client_ip;
+                break;
+            }
+        }
     }
     return m_snap_client;
 }

@@ -13,6 +13,7 @@
 #include <string>
 #include "rpc/clients/snapshot_ctrl_client.h"
 
+std::string get_volume_attach_host(const std::string& vol_name);
 SnapshotCtrlClient* create_snapshot_rpc_client(const std::string& vol_name);
 void destroy_snapshot_rpc_client(SnapshotCtrlClient* cli);
 

@@ -80,6 +80,7 @@ class BackupCtx {
     BlockStore* m_block_store;
 
     /*snapshot client for reading incremental data and metadata */
+    std::string m_snap_client_ip;
     SnapshotCtrlClient* m_snap_client;
 };
 
