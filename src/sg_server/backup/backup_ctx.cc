@@ -93,7 +93,7 @@ SnapshotCtrlClient* BackupCtx::snap_client() {
                 continue;
             }
             m_snap_client_ip = get_volume_attach_host(m_vol_name);
-            LOG_ERROR << "0 create snapshot rpc client ok cur:" << m_snap_client_ip;
+            LOG_INFO << "0 create snapshot rpc client ok cur:" << m_snap_client_ip;
             break;
         }
         if (!m_snap_client_ip.empty() && m_snap_client) {
@@ -109,11 +109,11 @@ SnapshotCtrlClient* BackupCtx::snap_client() {
                     continue;
                 } else { 
                     m_snap_client_ip = get_volume_attach_host(m_vol_name);
-                    LOG_ERROR << "1 create snapshot rpc client ok cur:" << m_snap_client_ip;
+                    LOG_INFO << "1 create snapshot rpc client ok cur:" << m_snap_client_ip;
                     break;
                 }
             } else {
-                LOG_ERROR << "2 create snapshot rpc client ok cur:" << m_snap_client_ip;
+                LOG_INFO << "2 create snapshot rpc client ok cur:" << m_snap_client_ip;
                 break;
             }
         }
