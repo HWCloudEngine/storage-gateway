@@ -65,6 +65,7 @@ class ConfigureOptions {
     std::string replicate_local_ip;
     std::string replicate_remote_ip;
     int replicate_port;
+    int replicate_frame_size;
 };
 
 #define g_option (ConfigureOptions::instance())

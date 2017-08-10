@@ -26,7 +26,7 @@ using huawei::proto::transfer::ReplicateDataReq;
 using google::protobuf::Message;
 using huawei::proto::WriteMessage;
 using huawei::proto::DiskPos;
-#define JOURNAL_BLOCK_SIZE (512*1024L)
+
 // suppose that the serialized entry length was never longer than MAX_JOURNAL_ENTRY_LEN
 #define PREFIX_DATA_LEN 128
 #define MAX_JOURNAL_ENTRY_LEN (PREFIX_DATA_LEN + COW_BLOCK_SIZE)
@@ -119,7 +119,7 @@ int JournalTask::init(){
         << ctx->get_j_counter() << std::dec << " from "
         << start_off << " to " << ctx->get_end_off();
 
-    buffer = (char*)malloc(JOURNAL_BLOCK_SIZE);
+    buffer = (char*)malloc(g_option.replicate_frame_size);
     if(buffer == nullptr){
         LOG_ERROR << "alloc buffer for journal task failed!";
         return -1;
@@ -145,8 +145,8 @@ TransferRequest* JournalTask::get_next_package(){
         return req;
     }
 
-    size_t size = (ctx->get_end_off()-cur_off) > JOURNAL_BLOCK_SIZE ?
-        JOURNAL_BLOCK_SIZE:(ctx->get_end_off() - cur_off);
+    size_t size = (ctx->get_end_off()-cur_off) > g_option.replicate_frame_size ?
+        g_option.replicate_frame_size:(ctx->get_end_off() - cur_off);
     if(is.read(buffer,size)){
 
     }

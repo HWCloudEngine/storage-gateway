@@ -62,6 +62,7 @@ ConfigureOptions::ConfigureOptions() {
     replicate_local_ip = config_parser.get_default("network.replicate_local_ip", std::string("127.0.0.1"));
     replicate_remote_ip  = config_parser.get_default("network.replicate_remote_ip", std::string("127.0.0.1"));
     replicate_port = config_parser.get_default("network.replicate_port", 50061);
+    replicate_frame_size = config_parser.get_default("network.replicate_frame_size", 65536);
 }
 
 ConfigureOptions::~ConfigureOptions() {
