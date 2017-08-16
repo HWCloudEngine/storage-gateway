@@ -45,8 +45,9 @@
 
 int main(int argc, char** argv) {
     signal(SIGSEGV, signal_handler);
-    std::string file="sg_server.log";
-    DRLog::log_init(file);
+    std::string log_file = LOG_PATH;
+    log_file.append("/sg_server.log");
+    DRLog::log_init(log_file);
     DRLog::set_log_level(SG_DEBUG);
 
     std::shared_ptr<KVApi> kvApi_ptr;

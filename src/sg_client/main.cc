@@ -11,7 +11,9 @@ int main(int argc, char* argv[]) {
     //todo read from config file
     uint32_t io_service_pool_size = 1;
     std::remove(argv[3]);
-    DRLog::log_init("sg_client.log");
+    std::string log_file = LOG_PATH;
+    log_file.append("/sg_client.log");
+    DRLog::log_init(log_file);
     try {
         ServerSocket server(g_option.io_server_ip,
                             std::to_string(g_option.io_server_port),
