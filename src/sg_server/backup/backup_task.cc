@@ -221,9 +221,14 @@ RemoteCreateTask::RemoteCreateTask(const std::string& backup_name, std::shared_p
      : LocalCreateTask(backup_name, ctx) {
     ClientContext* rpc_ctx = new ClientContext;
     assert(rpc_ctx != nullptr);
-    m_remote_stream = NetSender::instance().create_stream(rpc_ctx);
-    if (m_remote_stream == nullptr) {
-        LOG_ERROR << "remote rpc stream failed";
+    while (true) {
+        m_remote_stream = NetSender::instance().create_stream(rpc_ctx);
+        if (m_remote_stream != nullptr) {
+            LOG_INFO << "remote rpc stream ok";
+            break;
+        }
+        LOG_INFO << "remote rpc stream failed";
+        sleep(5);
     }
 }
 
@@ -236,6 +241,7 @@ StatusCode RemoteCreateTask::do_full_backup() {
     /*notify start create backup meta on remote site*/
     ret_code = remote_create_start();
     if (ret_code) {
+        LOG_ERROR << "remote create start failed:" << ret_code;
         return ret_code;
     }
     LOG_INFO << "remote create upload";
@@ -286,6 +292,7 @@ StatusCode RemoteCreateTask::do_incr_backup() {
     /*notify start create backup meta on remote site*/
     ret_code = remote_create_start();
     if (ret_code) {
+        LOG_ERROR << "remote create start failed:" << ret_code;
         return ret_code;
     }
     /*todo modify as stream interface diff cur and prev snapshot*/
@@ -400,6 +407,7 @@ StatusCode RemoteCreateTask::remote_create_end() {
     TransferRequest transfer_req;
     transfer_req.set_type(MessageType::REMOTE_BACKUP_CREATE_END);
     transfer_req.set_data(end_req_buf.c_str(), end_req_buf.length());
+    LOG_INFO << "send remote create end req";
     if (!m_remote_stream->Write(transfer_req)) {
         LOG_ERROR << "send remote create end req failed";
         return StatusCode::sInternalError;
@@ -409,6 +417,7 @@ StatusCode RemoteCreateTask::remote_create_end() {
         LOG_ERROR << "recv remote create end res failed";
         return StatusCode::sInternalError;
     }
+    LOG_INFO << "send remote create end req ok";
     return StatusCode::sOk;
 }
 
@@ -526,8 +535,13 @@ RemoteDeleteTask::RemoteDeleteTask(const string& backup_name, shared_ptr<BackupC
     : LocalDeleteTask(backup_name, ctx) {
     ClientContext* rpc_ctx = new ClientContext;
     assert(rpc_ctx != nullptr);
-    m_remote_stream = NetSender::instance().create_stream(rpc_ctx);
-    if (m_remote_stream == nullptr) {
+    while (true) {
+        m_remote_stream = NetSender::instance().create_stream(rpc_ctx);
+        if (m_remote_stream != nullptr) {
+            LOG_INFO << "remote rpc stream ok";
+            break;
+        }
+        sleep(5);
         LOG_ERROR << "remote rpc stream failed";
     }
 }
