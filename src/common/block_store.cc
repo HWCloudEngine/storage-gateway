@@ -88,6 +88,7 @@ int CephBlockStore::create(const std::string& object) {
 }
 
 int CephBlockStore::remove(const std::string& object) {
+    LOG_INFO << "ceph store remove:" << object;
     return rados_remove(m_io_ctx, object.c_str());
 }
 
@@ -115,6 +116,16 @@ int FsBlockStore::create(const std::string& object) {
 }
 
 int FsBlockStore::remove(const std::string& object) {
+    std::string abs_obj_dir = m_dir;
+    if (-1 != object.find("snap")) {
+        abs_obj_dir.append("/snapshot/");
+    }
+    if (-1 != object.find("backup")) {
+        abs_obj_dir.append("/backup/");
+    }
+    abs_obj_dir.append(object);
+    LOG_INFO << "fs store remove:" << object << " abs_dir:" << abs_obj_dir;
+    unlink(abs_obj_dir.c_str());
     return 0;
 }
 

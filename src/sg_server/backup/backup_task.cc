@@ -507,7 +507,9 @@ void LocalDeleteTask::work() {
    /* no matter snapshot may deleted repeated, no matter */
     string cur_backup = m_backup_name;
     string backup_snap = backup_to_snap_name(cur_backup);
-    m_ctx->snap_client()->DeleteSnapshot(m_ctx->vol_name(), backup_snap);
+    if (m_ctx->snap_client()) {
+        m_ctx->snap_client()->DeleteSnapshot(m_ctx->vol_name(), backup_snap);
+    }
     BackupMode backup_mode = m_ctx->get_backup_mode(cur_backup);
     if (backup_mode == BackupMode::BACKUP_FULL) {
         /*can directly delete */
